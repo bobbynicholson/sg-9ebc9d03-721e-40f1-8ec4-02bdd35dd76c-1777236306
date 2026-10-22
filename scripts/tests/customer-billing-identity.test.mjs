@@ -6,17 +6,54 @@ const db = new PGlite();
 const id=n=>`00000000-0000-0000-0000-${String(n).padStart(12,'0')}`;
 const c=id(1), other=id(2), client=id(3), lead=id(4), quote=id(5), order=id(6), invoice=id(7);
 before(async()=>{
-  await db.exec(`CREATE TABLE clients(id uuid PRIMARY KEY,company_id uuid,client_name text,deleted_at timestamptz);
+  await db.exec(`CREATE TABLE clients(id uuid PRIMARY KEY,company_id uuid,client_name text,email text,deleted_at timestamptz);
     CREATE TABLE leads(id uuid PRIMARY KEY,company_id uuid,converted_to_client_id uuid,contact_name text,client_name text,company_name text,updated_at timestamptz,deleted_at timestamptz);
-    CREATE TABLE quotes(id uuid PRIMARY KEY,company_id uuid,client_id uuid,lead_id uuid,client_name text,contact_name text,updated_at timestamptz,deleted_at timestamptz);
+    CREATE TABLE quotes(id uuid PRIMARY KEY,company_id uuid,client_id uuid,lead_id uuid,client_name text,client_email text,contact_name text,updated_at timestamptz,deleted_at timestamptz);
     CREATE TABLE orders(id uuid PRIMARY KEY,company_id uuid,client_id uuid,quote_id uuid,client_name text,updated_at timestamptz,deleted_at timestamptz);
-    CREATE TABLE invoices(id uuid PRIMARY KEY,company_id uuid,client_id uuid,invoice_data jsonb,total_amount numeric DEFAULT 100,amount_paid numeric DEFAULT 50,status text DEFAULT 'partial',updated_at timestamptz,deleted_at timestamptz);`);
+    CREATE TABLE invoices(id uuid PRIMARY KEY,company_id uuid,client_id uuid,order_id uuid,invoice_data jsonb,total_amount numeric DEFAULT 100,amount_paid numeric DEFAULT 50,status text DEFAULT 'partial',updated_at timestamptz,deleted_at timestamptz);`);
   await db.exec(await readFile('supabase/migrations/20261022110000_customer_billing_identity.sql','utf8'));
 });
 beforeEach(async()=>{
+  await db.exec(await readFile('supabase/migrations/20261022123000_customer_identity_document_defaults.sql','utf8'));
   await db.exec('TRUNCATE clients,leads,quotes,orders,invoices');
   await db.query("INSERT INTO clients(id,company_id,client_name,company_name) VALUES($1,$2,'Sheri Lee Pan','Example Events (Pty) Ltd')",[client,c]);
   await db.query("INSERT INTO leads(id,company_id,contact_name,client_name,company_name,converted_to_client_id) VALUES($1,$2,'Sheri Lee Pan','Sheri Lee Pan','Example Events (Pty) Ltd',$3)",[lead,c,client]);
+});
+test('a quote deliberately billed to the person stays individual on conversion',async()=>{
+  await addQuote(); await db.exec('UPDATE quotes SET client_company_name=NULL');
+  await db.query("INSERT INTO orders(id,company_id,client_id,quote_id,client_name) VALUES($1,$2,$3,$4,'Sheri Lee Pan')",[order,c,client,quote]);
+  assert.equal((await one('orders')).client_company_name,null);
+  await db.query('INSERT INTO invoices(id,company_id,client_id,order_id) VALUES($1,$2,$3,$4)',[invoice,c,client,order]);
+  assert.equal((await one('invoices')).invoice_data.clientCompanyName,null);
+  assert.equal((await one('invoices')).invoice_data.clientName,'Sheri Lee Pan');
+});
+test('balance invoices inherit the booking company even without an application snapshot',async()=>{
+  await addQuote();await db.query("INSERT INTO orders(id,company_id,client_id,quote_id,client_name) VALUES($1,$2,$3,$4,'Sheri Lee Pan')",[order,c,client,quote]);
+  await db.query('INSERT INTO invoices(id,company_id,client_id,order_id) VALUES($1,$2,$3,$4)',[invoice,c,client,order]);
+  assert.equal((await one('invoices')).invoice_data.clientCompanyName,'Example Events (Pty) Ltd');
+});
+test('renaming the contact default preserves a subsidiary billing name on the order and invoice',async()=>{
+  await addQuote();await db.exec("UPDATE quotes SET client_company_name='Subsidiary Ltd'");
+  await db.query("INSERT INTO orders(id,company_id,client_id,quote_id,client_name) VALUES($1,$2,$3,$4,'Sheri Lee Pan')",[order,c,client,quote]);
+  await db.query('INSERT INTO invoices(id,company_id,client_id,order_id) VALUES($1,$2,$3,$4)',[invoice,c,client,order]);
+  await db.query("UPDATE clients SET company_name='Parent renamed Ltd' WHERE id=$1",[client]);
+  assert.equal((await one('orders')).client_company_name,'Subsidiary Ltd');
+  assert.equal((await one('invoices')).invoice_data.clientCompanyName,'Subsidiary Ltd');
+});
+test('a manual invoice keeps its explicit billing organisation on insert',async()=>{
+  await db.query('INSERT INTO invoices(id,company_id,client_id,invoice_data) VALUES($1,$2,$3,$4)',[invoice,c,client,JSON.stringify({clientCompanyName:'Manual subsidiary Ltd'})]);
+  assert.equal((await one('invoices')).invoice_data.clientCompanyName,'Manual subsidiary Ltd');
+  assert.equal((await one('invoices')).invoice_data.clientName,'Sheri Lee Pan');
+});
+test('a repeat customer enquiry links to the saved company by tenant and email before acceptance',async()=>{
+  await db.query("UPDATE clients SET email='Sheri@example.com' WHERE id=$1",[client]);
+  await db.query("INSERT INTO quotes(id,company_id,client_email,client_name) VALUES($1,$2,' sheri@example.com ','Sheri Lee Pan')",[quote,c]);
+  const q=await one('quotes');assert.equal(q.client_id,client);assert.equal(q.client_company_name,'Example Events (Pty) Ltd');
+});
+test('repeat-customer matching never links another tenant by email',async()=>{
+  await db.query("UPDATE clients SET email='sheri@example.com' WHERE id=$1",[client]);
+  await db.query("INSERT INTO quotes(id,company_id,client_email,client_name) VALUES($1,$2,'sheri@example.com','Sheri Lee Pan')",[quote,other]);
+  const q=await one('quotes');assert.equal(q.client_id,null);assert.equal(q.client_company_name,null);
 });
 after(()=>db.close());
 const one=async table=>(await db.query(`SELECT * FROM ${table} LIMIT 1`)).rows[0];

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { CustomerIdentityFields } from "@/components/admin/CustomerIdentityFields";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -728,6 +729,7 @@ const persistSave = async () => {
 
     const result: any = await orderService.updateOrder(editedOrder.id, {
       client_name: editedOrder.client_name,
+      client_company_name: editedOrder.client_company_name?.trim() || null,
       venue_address: editedOrder.venue_address,
       guest_count: editedOrder.guest_count,
       event_date: editedOrder.event_date,
@@ -1343,15 +1345,8 @@ return (
         </TabsList>
 
         <TabsContent value="details" className="space-y-4 mt-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Client Name</Label>
-              <Input
-                value={editedOrder.client_name}
-                onChange={(e) => setEditedOrder({ ...editedOrder, client_name: e.target.value })}
-                disabled={!editMode}
-              />
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <CustomerIdentityFields contactName={editedOrder.client_name || ""} companyName={editedOrder.client_company_name || ""} onContactNameChange={(client_name) => setEditedOrder({ ...editedOrder, client_name })} onCompanyNameChange={(client_company_name) => setEditedOrder({ ...editedOrder, client_company_name })} disabled={!editMode} idPrefix="order-customer" />
 
             <div className="space-y-2">
               <Label>Status</Label>

@@ -2,7 +2,7 @@ import { UserRole } from "@/types/app";
 import { notificationService } from "@/services/notificationService";
 
 const FIELD_LABELS: Record<string, string> = {
-  client_name: "client details", client_email: "client details", client_phone: "client details",
+  client_company_name: "billing company", client_name: "client details", client_email: "client details", client_phone: "client details",
   quote_name: "event details", event_date: "event details", event_time: "event details", setup_time: "event details",
   guest_count: "guest count", venue_address: "venue details", menu_items: "menu items", equipment_items: "equipment items",
   delivery_fee: "delivery fee", collection_fee: "collection fee", waiter_service_required: "waiter service",

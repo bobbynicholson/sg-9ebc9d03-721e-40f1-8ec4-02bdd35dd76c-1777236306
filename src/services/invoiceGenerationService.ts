@@ -1,6 +1,6 @@
 import { supabase as defaultSupabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { customerBillingIdentity } from "@/lib/customerIdentity";
+import { customerBillingIdentity, resolveInvoiceCompanyName, resolveInvoiceContactName } from "@/lib/customerIdentity";
 import { calculateInvoiceDueDate } from "@/lib/invoiceDateRules";
 import { reconcileCompanyInvoiceDueDates } from "@/services/invoiceDueDateService";
 import {
@@ -617,7 +617,7 @@ export async function generateInvoiceData(
       companyRegistration: companyData.registration_number || "",
       
       clientName,
-      clientCompanyName: orderData.client_company_name || client.company_name || null,
+      clientCompanyName: resolveInvoiceCompanyName({ order: orderData, client }),
       clientEmail: orderData.client_email || client.email,
       clientPhone: orderData.client_phone || client.phone,
       clientAddress,
@@ -1454,8 +1454,8 @@ async function renderInvoicePdfAttachment(
       due_date: invAny.due_date,
       status: invAny.status,
       client: {
-        name: order.client_name || client.client_name || fallbackData.clientName || "",
-        company_name: order.client_company_name || client.company_name || fallbackData.clientCompanyName || null,
+        name: resolveInvoiceContactName({ order, client, invoiceData: invAny.invoice_data || fallbackData }),
+        company_name: resolveInvoiceCompanyName({ order, client, invoiceData: invAny.invoice_data || fallbackData }),
         email: order.client_email || client.email || fallbackData.clientEmail || null,
         phone: order.client_phone || client.phone || fallbackData.clientPhone || null,
         address: clientAddress,

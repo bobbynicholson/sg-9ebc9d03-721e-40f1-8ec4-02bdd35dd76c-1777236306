@@ -29,11 +29,11 @@ type SheetMap = Record<string, { target: string; confidence: number; rationale: 
 const d = (target: string, confidence = 0.9) => ({ target, confidence, rationale: "" });
 
 describe("settleFieldClashes", () => {
-  it("keeps the company as client name and moves the person to first name", () => {
+  it("keeps the company and contact in their separate fields", () => {
     const sm: SheetMap = { Organisation: d("client_name", 1), "Contact name": d("client_name", 0.9), Email: d("email") };
     settleFieldClashes(sm, Object.keys(sm), "clients");
-    expect(sm.Organisation.target).toBe("client_name");
-    expect(sm["Contact name"].target).toBe("first_name");
+    expect(sm.Organisation.target).toBe("company_name");
+    expect(sm["Contact name"].target).toBe("client_name");
   });
 
   it("treats a Name column next to Surname as the first name", () => {
@@ -44,10 +44,10 @@ describe("settleFieldClashes", () => {
     expect(row.client_name).toBe("Ayanda Mthembu");
   });
 
-  it("leaves a company column on client name even with a surname column", () => {
+  it("keeps a company column separate even with a surname column", () => {
     const sm: SheetMap = { Company: d("client_name", 1), Surname: d("last_name", 1) };
     settleFieldClashes(sm, Object.keys(sm), "clients");
-    expect(sm.Company.target).toBe("client_name");
+    expect(sm.Company.target).toBe("company_name");
   });
 
   it("skips the less confident of two columns claiming one field", () => {

@@ -1,3 +1,4 @@
+import { resolveInvoiceCompanyName, resolveInvoiceContactName } from "@/lib/customerIdentity";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { emailService } from "@/services/emailService";
@@ -507,8 +508,8 @@ async function handler(
                 due_date: invAny.due_date,
                 status: invAny.status,
                 client: {
-                  name: order.client_name || client.client_name || stashed.clientName || "",
-                  company_name: order.client_company_name || client.company_name || stashed.clientCompanyName || null,
+                  name: resolveInvoiceContactName({ order, client, invoiceData: stashed }),
+                  company_name: resolveInvoiceCompanyName({ order, client, invoiceData: stashed }),
                   email: order.client_email || client.email || null,
                   phone: order.client_phone || client.phone || null,
                   address: clientAddress,

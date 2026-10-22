@@ -47,8 +47,9 @@ describe("syncInvoiceValuesFromOrder", () => {
     let invoicePatch: any;
     const client = {
       from: jest.fn((table: string) => {
+        let selected: string[] = [];
         const builder: any = {
-          select: () => builder,
+          select: (columns: string) => { selected = columns.split(",").map((column) => column.trim()); return builder; },
           eq: () => builder,
           is: () => builder,
           maybeSingle: async () => ({ data: table === "orders" ? order : invoice, error: null }),
@@ -95,8 +96,9 @@ describe("syncInvoiceValuesFromOrder", () => {
     let invoicePatch: any;
     const client = {
       from: jest.fn((table: string) => {
+        let selected: string[] = [];
         const builder: any = {
-          select: () => builder,
+          select: (columns: string) => { selected = columns.split(",").map((column) => column.trim()); return builder; },
           eq: () => builder,
           is: () => builder,
           maybeSingle: async () => ({ data: table === "orders" ? order : invoice, error: null }),
@@ -126,6 +128,7 @@ describe("syncInvoiceValuesFromOrder", () => {
       tax_amount: 180,
       total_amount: 1380,
       client_name: "Updated client",
+      client_company_name: "Corporate Events Ltd",
       client_email: "updated@example.com",
       client_phone: "0820000000",
       event_name: "Updated event",
@@ -143,12 +146,13 @@ describe("syncInvoiceValuesFromOrder", () => {
     let invoicePatch: any;
     const client = {
       from: jest.fn((table: string) => {
+        let selected: string[] = [];
         const builder: any = {
-          select: () => builder,
+          select: (columns: string) => { selected = columns.split(",").map((column) => column.trim()); return builder; },
           eq: () => builder,
           is: () => builder,
           maybeSingle: async () => ({
-            data: table === "orders" ? order : invoice,
+            data: Object.fromEntries(Object.entries(table === "orders" ? order : invoice).filter(([key]) => selected.includes(key))),
             error: null,
           }),
           update: (patch: any) => {
@@ -177,6 +181,7 @@ describe("syncInvoiceValuesFromOrder", () => {
         eventDate: "2027-02-07",
         eventTime: "13:00",
         clientName: "Updated client",
+        clientCompanyName: "Corporate Events Ltd",
         clientEmail: "updated@example.com",
         clientPhone: "0820000000",
         total: 1380,

@@ -57,7 +57,9 @@ const CLIENTS_TEMPLATE: TemplateDefinition = {
   sheetName: "Clients",
   columns: [
     { key: "client_name", header: "Client name *", required: true,
-      example: "Jane Smith", aliases: ["name", "full name", "customer", "customer name"] },
+      example: "Jane Smith", hint: "Contact person used in messages.", aliases: ["name", "full name", "customer", "customer name", "contact name"] },
+    { key: "company_name", header: "Company name", required: false,
+      example: "Example Events Ltd", hint: "Organisation billed on quotes and invoices.", aliases: ["company", "business name", "organisation", "organization"] },
     { key: "email", header: "Email *", required: true,
       example: "jane@example.co.za", aliases: ["e-mail", "email address"] },
     { key: "mobile_number", header: "Mobile", required: false,
@@ -511,8 +513,8 @@ export function templateCsv(def: TemplateDefinition, kind: "template" | "example
  * required" and nothing imported.
  */
 const CLIENT_EXPORT_ALIASES: Record<string, string> = {
-  company: "client_name", companyname: "client_name", businessname: "client_name",
-  displayname: "client_name", organisation: "client_name", organization: "client_name",
+  company: "company_name", companyname: "company_name", businessname: "company_name",
+  displayname: "company_name", organisation: "company_name", organization: "company_name",
   firstname: "first_name", givenname: "first_name", contactfirstname: "first_name",
   lastname: "last_name", surname: "last_name", familyname: "last_name", contactlastname: "last_name",
   billingaddress1: "billing_address_line1", addressline1: "billing_address_line1", address1: "billing_address_line1",
@@ -541,8 +543,8 @@ const CLIENT_HELPER_KEYS = [
 
 /**
  * Fold the import-only helper keys into real client fields: a name from
- * first + last name when there is no company/name column, and the
- * contact person, delivery details, website and fax into notes.
+ * first + last name into the contact, organisation into company_name,
+ * and delivery details, website and fax into notes.
  * Mutates and returns `mapped`; helper keys are removed.
  */
 export function composeImportedClient(mapped: Record<string, any>): Record<string, any> {
@@ -550,8 +552,10 @@ export function composeImportedClient(mapped: Record<string, any>): Record<strin
   const person = [text(mapped.first_name), text(mapped.last_name)].filter(Boolean).join(" ");
   const name = text(mapped.client_name);
   const notes: string[] = [];
-  if (!name && person) mapped.client_name = person;
-  else if (name && person && name.toLowerCase() !== person.toLowerCase()) notes.push(`Contact: ${person}`);
+  // Older saved column maps put the organisation in client_name.
+  // The separately supplied first/last names let us retain both.
+  if (!text(mapped.company_name) && name && person && name.toLowerCase() !== person.toLowerCase()) mapped.company_name = name;
+  mapped.client_name = person || name || (text(mapped.company_name) ? "Customer" : "");
   const delivery = [mapped.delivery_address_1, mapped.delivery_address_2, mapped.delivery_city,
     mapped.delivery_province, mapped.delivery_postal_code].map(text).filter(Boolean).join(", ");
   if (delivery) notes.push(`Delivery address: ${delivery}`);
@@ -566,7 +570,7 @@ export function composeImportedClient(mapped: Record<string, any>): Record<strin
 }
 
 const CLIENT_HELPER_DESCRIPTIONS: Record<(typeof CLIENT_HELPER_KEYS)[number], string> = {
-  first_name: "Contact first / given name (combined with last name when there is no company name)",
+  first_name: "Contact first / given name (combined with last name for messages)",
   last_name: "Contact last name / surname",
   delivery_address_1: "Delivery / shipping address line 1",
   delivery_address_2: "Delivery / shipping address line 2 or suburb",
@@ -600,7 +604,7 @@ export function aiTargetFieldsFor(type: TemplateType): Array<{ key: string; desc
   }));
   if (type === "clients") {
     fields.push(
-      { key: "client_name", description: "Use for a Company / business name column too (it becomes the client name)" },
+      { key: "company_name", description: "Company / business name for billing; keep the person in client_name or first_name and last_name" },
       ...CLIENT_HELPER_KEYS.map((key) => ({ key, description: CLIENT_HELPER_DESCRIPTIONS[key] })),
     );
   }
@@ -633,10 +637,8 @@ export function mappableFieldsFor(type: TemplateType): Array<{ key: string; labe
  * fill the same field. Mutates `sheetMap`.
  *
  * Special case: a company column and a person-name column both claiming
- * client_name. The company keeps client_name and the person moves to
- * first_name; composeImportedClient() then keeps the person as
- * "Contact: ..." in notes, or uses them as the client name on rows with
- * no company. Every other clash keeps the most confident column.
+ * client_name. Company-like headers move to company_name so both
+ * identities survive. Every other clash keeps the most confident column.
  */
 export function settleFieldClashes(
   sheetMap: Record<string, { target: string; confidence: number; rationale: string }>,
@@ -646,6 +648,9 @@ export function settleFieldClashes(
   const claimed = (key: string) => headers.filter((h) => sheetMap[h]?.target === key);
   const companyLike = /compan|organi[sz]ation|business|trading|account ?name|display ?name|firm|employer/i;
   if (schema === "clients") {
+    for (const h of claimed("client_name")) {
+      if (companyLike.test(h)) sheetMap[h] = { ...sheetMap[h], target: "company_name", rationale: "Organisation billed separately from the contact person" };
+    }
     // "Name" + "Surname": the name column is a first name. Left on
     // client_name, the client would be saved as just "Ayanda" with the
     // surname pushed into notes.

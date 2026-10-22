@@ -1,3 +1,4 @@
+import { customerBillingIdentity } from "@/lib/customerIdentity";
 import { supabase as browserSupabase } from "@/integrations/supabase/client";
 import crypto from "crypto";
 
@@ -78,6 +79,7 @@ export interface InvoiceData {
   invoiceDate: string;
   dueDate: string;
   clientName: string;
+  clientCompanyName?: string | null;
   clientEmail: string;
   items: Array<{
     description: string;
@@ -456,7 +458,7 @@ async function syncToXero(
   try {
     // 1. Create or get contact
     const contactResult = await createXeroContact(accessToken, tenantId, {
-      name: invoiceData.clientName,
+      name: customerBillingIdentity(invoiceData.clientName, invoiceData.clientCompanyName).name,
       email: invoiceData.clientEmail,
     });
 
@@ -580,7 +582,7 @@ async function syncToQuickBooks(
   try {
     // 1. Create or get customer
     const customerResult = await createQuickBooksCustomer(accessToken, realmId, {
-      name: invoiceData.clientName,
+      name: customerBillingIdentity(invoiceData.clientName, invoiceData.clientCompanyName).name,
       email: invoiceData.clientEmail,
     });
 

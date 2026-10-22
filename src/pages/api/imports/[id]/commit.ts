@@ -30,6 +30,7 @@
  * Tenant scoping: every insert sets company_id from the authenticated
  * session.
  */
+import { importedCustomerIdentity } from "@/lib/customerIdentity";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
@@ -458,8 +459,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         const payload: any = {
           company_id: companyId,
           region_id: targetRegionId,
-          client_name: mapped.client_name || mapped.company_name || "Imported client",
-          client_type: mapped.client_type || "individual",
+          ...importedCustomerIdentity(mapped.client_name, mapped.company_name),
+          client_type: mapped.client_type || (mapped.company_name ? "company" : "individual"),
           email: cleanEmail,
           // Three phone columns. mobile_number is the WhatsApp
           // target; landline_number shows on the contact card; phone

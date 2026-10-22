@@ -16,6 +16,9 @@
  * NOT NULL. We resolve / create a clients row before the insert.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { resolveDefaultRegionId } from "@/lib/defaultRegion";
+import { ClientTypeahead } from "@/components/admin/ClientTypeahead";
+import { quoteIntelligenceService } from "@/services/quoteIntelligenceService";
 import { CustomerIdentityFields } from "@/components/admin/CustomerIdentityFields";
 import { useEffect, useState } from "react";
 import {
@@ -97,31 +100,37 @@ export function ManualInvoiceDialog({ open, onOpenChange, onCreated }: Props) {
 
   const create = async () => {
     if (!user?.company_id) { toast({ title: "Not signed in", variant: "destructive" }); return; }
-    if (!clientName.trim()) { toast({ title: "Client name required", variant: "destructive" }); return; }
+    if (!clientName.trim()) { toast({ title: "Contact name required", variant: "destructive" }); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail.trim())) { toast({ title: "A valid contact email is required", variant: "destructive" }); return; }
     const validItems = items.filter((it) => it.item_name.trim() && Number(it.quantity) > 0);
     if (validItems.length === 0) { toast({ title: "Add at least one line item", variant: "destructive" }); return; }
     setSaving(true);
     try {
       // 1. Resolve or create the client row
       let clientId: string;
-      const { data: existing } = await (supabase as any)
+      const { data: existing, error: lookupError } = await (supabase as any)
         .from("clients")
         .select("id, company_name")
         .eq("company_id", user.company_id)
-        .ilike("client_name", clientName.trim())
+        .ilike("email", clientEmail.trim().replace(/([%_\\])/g, "\\$1"))
+        .is("deleted_at", null)
         .maybeSingle();
+      if (lookupError) throw lookupError;
       if (existing?.id) {
         clientId = existing.id;
       } else {
+        const regionId = await resolveDefaultRegionId(user.company_id);
+        if (!regionId) throw new Error("Set up a region before adding a new client.");
         const { data: newClient, error: ce } = await (supabase as any)
           .from("clients")
           .insert([{
             company_id: user.company_id,
+            region_id: regionId,
             client_name: clientName.trim(),
             company_name: clientCompanyName.trim() || null,
             client_type: clientCompanyName.trim() ? "company" : "individual",
             email: clientEmail.trim() || null,
-            phone: clientPhone.trim() || null,
+            phone: clientPhone.trim() || "",
           }])
           .select("id")
           .single();
@@ -167,7 +176,7 @@ export function ManualInvoiceDialog({ open, onOpenChange, onCreated }: Props) {
           notes: notes.trim() || null,
           invoice_data: {
             clientName: clientName.trim(),
-            clientCompanyName: clientCompanyName.trim() || existing?.company_name || null,
+            clientCompanyName: clientCompanyName.trim() || null,
             clientEmail: clientEmail.trim() || null,
             clientPhone: clientPhone.trim() || null,
             items: lineItemsForData,
@@ -211,7 +220,12 @@ export function ManualInvoiceDialog({ open, onOpenChange, onCreated }: Props) {
 
         <div className="space-y-4 py-2">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="md:col-span-2"><CustomerIdentityFields contactName={clientName} companyName={clientCompanyName} onContactNameChange={setClientName} onCompanyNameChange={setClientCompanyName} idPrefix="manual-invoice" /></div>
+            <div className="md:col-span-2"><CustomerIdentityFields contactName={clientName} companyName={clientCompanyName} onContactNameChange={setClientName} onCompanyNameChange={setClientCompanyName} idPrefix="manual-invoice" contactInput={<ClientTypeahead id="manual-invoice-contact-name" companyId={user?.company_id} value={clientName} onChange={setClientName} onPick={async (pick) => {
+              try {
+                const snapshot = await quoteIntelligenceService.getClientSnapshot(user.company_id, { client_id: pick.client_id, email: pick.email, name: pick.display_name });
+                if (snapshot) { setClientName(snapshot.full_name); setClientCompanyName(snapshot.company_name || ""); setClientEmail(snapshot.email || ""); setClientPhone(snapshot.phone || ""); }
+              } catch (error: any) { toast({ title: "Could not load contact", description: error?.message, variant: "destructive" }); }
+            }} />} /></div>
             <div>
               <Label>Client email</Label>
               <Input value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} type="email" placeholder="finance@acme.com" />

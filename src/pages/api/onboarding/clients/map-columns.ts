@@ -28,7 +28,7 @@ const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]
 export const CLIENT_IMPORT_FIELDS: Array<{ key: string; description: string }> = [
   { key: "name", description: "(required, unless a company name column exists) Contact person's first name, or their full name when there is no surname column" },
   { key: "surname", description: "Contact person's last name / family name" },
-  { key: "company_name", description: "Business / company / organisation name (becomes the client name; the person is kept as the contact)" },
+  { key: "company_name", description: "Business / company / organisation name for billing; keep the person in name and surname" },
   { key: "email", description: "(required) Client email address" },
   { key: "phone", description: "Main phone number (any type)" },
   { key: "mobile_number", description: "Mobile / cell phone number" },

@@ -838,8 +838,12 @@ function NewQuotePage() {
       }
 
       const l = lead as any;
+      const knownClient = await quoteIntelligenceService.getClientSnapshot(l.company_id, { client_id: l.converted_to_client_id, email: l.email || l.client_email })
+        .catch((error) => { console.warn("[new quote] saved client defaults unavailable", error); return null; });
+      if (cancelled) return;
+      if (knownClient?.client_id) { setClientId(knownClient.client_id); setClientSnapshot(knownClient); }
       setClientName(l.contact_name || l.client_name || "");
-      setClientCompanyName(l.company_name || "");
+      setClientCompanyName(l.company_name || knownClient?.company_name || "");
       setEmail(l.email || l.client_email || "");
       setPhone(l.phone || l.client_phone || "");
       if (l.event_date) setEventDate(l.event_date);

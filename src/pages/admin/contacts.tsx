@@ -703,7 +703,7 @@ function ClientsCRM() {
           existing.leadIds.push(l.id);
           if (!existing.phone && l.phone) existing.phone = l.phone;
           if (!existing.email && l.email) existing.email = l.email;
-          existing.companyName ||= l.company_name || null;
+          if (!existing.clientId) existing.companyName ||= l.company_name || null;
         } else {
           map.set(k, {
             key: k,
@@ -2438,7 +2438,7 @@ function ClientFormDialog({
     })();
     if (!editing?.clientId) {
       setForm({
-        client_name: "", company_name: "", email: "", phone: "", client_type: "individual",
+        client_name: editing?.name || "", company_name: editing?.companyName || "", email: editing?.email || "", phone: editing?.phone || "", client_type: editing?.companyName ? "company" : "individual",
         tax_number: "", billing_address_line1: "", billing_address_line2: "",
         billing_city: "", billing_postal_code: "", notes: "", tags: "",
         payment_terms: "", preferred_currency: "",

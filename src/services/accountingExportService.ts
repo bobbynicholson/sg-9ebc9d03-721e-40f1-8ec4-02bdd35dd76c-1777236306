@@ -23,6 +23,7 @@
  *     keys at adapter time.
  */
 
+import { customerBillingIdentity } from "@/lib/customerIdentity";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 
@@ -143,7 +144,7 @@ export function buildAccountingDocumentFromQuote(args: {
     expiry_or_due_date: expiryOrDue,
     status: "DRAFT",
     contact: {
-      name:    q.client_name,
+      name:    customerBillingIdentity(q.client_name, q.client_company_name).name,
       email:   q.client_email ?? null,
       phone:   q.client_phone ?? null,
       vat_number: null,

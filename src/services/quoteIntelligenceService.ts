@@ -194,7 +194,7 @@ export const quoteIntelligenceService = {
         if (!existing.client_id && partial.client_id) existing.client_id = partial.client_id;
         // Fill missing fields from later sources
         existing.email ||= partial.email ?? null;
-        existing.company_name ||= partial.company_name ?? null;
+        if (!existing.sources.includes("client")) existing.company_name ||= partial.company_name ?? null;
         existing.phone ||= partial.phone ?? null;
         existing.last_event_date ||= partial.last_event_date ?? null;
         existing.last_guest_count ||= partial.last_guest_count ?? null;
@@ -403,7 +403,7 @@ export const quoteIntelligenceService = {
         ?? lastQuote?.client_name
         ?? args.name
         ?? "",
-      company_name: client?.company_name ?? lead?.company_name ?? lastQuote?.client_company_name ?? null,
+      company_name: client ? client.company_name || null : lead?.company_name ?? lastQuote?.client_company_name ?? null,
       email: client?.email ?? lead?.email ?? lastQuote?.client_email ?? email,
       phone: client?.phone ?? lead?.phone ?? lastOrder?.client_phone ?? null,
       preferred_currency: client?.preferred_currency ?? null,

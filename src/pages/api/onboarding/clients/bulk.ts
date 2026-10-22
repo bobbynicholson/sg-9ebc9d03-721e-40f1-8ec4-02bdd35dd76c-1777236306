@@ -18,6 +18,7 @@
  *   - Returns per-row outcome so the UI can show "imported / skipped /
  *     rejected" with reasons.
  */
+import { importedCustomerIdentity } from "@/lib/customerIdentity";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { createPagesServerClient } from "@/lib/supabase/server";
@@ -158,11 +159,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       const surname = String(row.surname || "").trim();
       const person = [name, surname].filter(Boolean).join(" ").trim();
       const company = String(row.company_name || "").trim();
-      // Company wins as the client name; the person becomes the contact.
-      const fullName = company || person;
+      const identity = importedCustomerIdentity(person, company);
       const contactNote = company && person && company.toLowerCase() !== person.toLowerCase()
         ? `Contact: ${person}` : "";
-      if (!fullName) {
+      if (!person && !company) {
         outcomes.push({
           index: i,
           email,
@@ -193,7 +193,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       toInsert.push({
         company_id: companyId,
         region_id: defaultRegionId,
-        client_name: fullName,
+        ...identity,
         email,
         phone: phoneRes.value || "",
         mobile_number: mobileRes.value || null,

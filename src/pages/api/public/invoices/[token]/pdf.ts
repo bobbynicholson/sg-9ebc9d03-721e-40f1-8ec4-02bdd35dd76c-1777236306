@@ -13,6 +13,7 @@
  */
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
+import { resolveInvoiceCompanyName, resolveInvoiceContactName } from "@/lib/customerIdentity";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import {
@@ -181,8 +182,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         due_date: (inv as any).due_date,
         status: (inv as any).status,
         client: {
-          name: order.client_name || client.client_name || "",
-          company_name: order.client_company_name || client.company_name || inv.invoice_data?.clientCompanyName || null,
+          name: resolveInvoiceContactName({ order, client, invoiceData: inv.invoice_data as any }),
+          company_name: resolveInvoiceCompanyName({ order, client, invoiceData: inv.invoice_data as any }),
           email: order.client_email || client.email || null,
           phone: order.client_phone || client.phone || null,
           address: clientAddress,

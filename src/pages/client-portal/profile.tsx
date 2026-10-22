@@ -52,6 +52,7 @@ interface FormState {
   whatsapp_opt_in: boolean;
   avatar_url: string;
   client_name: string;
+  company_name: string;
 }
 
 /**
@@ -84,6 +85,7 @@ function ClientProfilePageInner() {
     whatsapp_opt_in: false,
     avatar_url: "",
     client_name: "",
+    company_name: "",
   });
   const [tenantClientId, setTenantClientId] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -110,7 +112,7 @@ function ClientProfilePageInner() {
             .maybeSingle(),
           supabase
             .from("clients")
-            .select("id, client_name")
+            .select("id, client_name, company_name")
             .eq("user_id", user.id)
             .eq("company_id", company.id)
             .order("updated_at", { ascending: false })
@@ -160,6 +162,7 @@ function ClientProfilePageInner() {
           whatsapp_opt_in: optInDefault,
           avatar_url: p.avatar_url || "",
           client_name: c.client_name || "",
+          company_name: c.company_name || "",
         });
         setTenantClientId(c.id || null);
       } catch (e: any) {
@@ -311,7 +314,7 @@ function ClientProfilePageInner() {
       if (tenantClientId && form.client_name.trim() !== "") {
         const { error: clientErr } = await supabase
           .from("clients")
-          .update({ client_name: form.client_name.trim() })
+          .update({ client_name: form.client_name.trim(), company_name: form.company_name.trim() || null })
           .eq("id", tenantClientId);
         if (clientErr) throw clientErr;
       }
@@ -643,7 +646,7 @@ function ClientProfilePageInner() {
                       here only affects this catering company - not anyone else you might be a
                       client of.
                     </p>
-                    <Field id="client_name" label={`Name on ${companyName}'s books`} icon={UserIcon}>
+                    <Field id="client_name" label="Contact name" icon={UserIcon}>
                       <Input
                         id="client_name"
                         value={form.client_name}
@@ -651,6 +654,10 @@ function ClientProfilePageInner() {
                         placeholder="What the team should call you"
                       />
                     </Field>
+                    <Field id="billing_company_name" label="Company / organisation name (optional)" icon={UserIcon}>
+                      <Input id="billing_company_name" value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} maxLength={200} placeholder="Company legal name" />
+                    </Field>
+                    <p className="text-sm text-slate-600 dark:text-slate-300">Messages address your contact name. Quotes, invoices and receipts use your company name when entered.</p>
                   </div>
                 </PortalCard>
               )}

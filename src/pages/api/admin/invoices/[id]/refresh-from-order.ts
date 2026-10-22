@@ -69,7 +69,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .eq("id", invoiceId)
         .maybeSingle(),
       admin.from("orders")
-        .select("id, quote_id, order_number, client_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count, currency")
+        .select("id, quote_id, order_number, client_name, client_company_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count, currency")
         .eq("id", (invoice as any).order_id)
         .maybeSingle(),
     ]);

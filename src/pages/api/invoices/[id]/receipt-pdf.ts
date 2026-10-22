@@ -24,6 +24,7 @@
  */
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
+import { resolveInvoiceCompanyName, resolveInvoiceContactName } from "@/lib/customerIdentity";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/withApiLogging";
@@ -69,7 +70,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           billing_city, billing_postal_code
         ),
         order:order_id (
-          id, order_number, client_company_name, event_name, event_date, updated_at
+          id, order_number, client_name, client_company_name, event_name, event_date, updated_at
         ),
         company:company_id (
           id, slug, company_name, legal_name, logo_url, email, phone,
@@ -256,8 +257,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         payment_records: paymentRecords,
         eft_details: eftDetails,
         client: {
-          name: inv.client?.client_name || invoiceData.clientName || "",
-          company_name: inv.order?.client_company_name || inv.client?.company_name || invoiceData.clientCompanyName || null,
+          name: resolveInvoiceContactName({ order: inv.order, client: inv.client, invoiceData }),
+          company_name: resolveInvoiceCompanyName({ order: inv.order, client: inv.client, invoiceData }),
           email: inv.client?.email || null,
           phone: inv.client?.phone || null,
           address: clientAddress,

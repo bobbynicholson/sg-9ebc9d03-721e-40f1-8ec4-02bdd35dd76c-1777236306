@@ -14,6 +14,7 @@
  * Usage: call syncOrderArtifacts(orderId) after any inline order edit.
  * Idempotent + safe to spam.
  */
+import { resolveInvoiceCompanyName } from "@/lib/customerIdentity";
 import { supabase as defaultSb } from "@/integrations/supabase/client";
 import { breakdownFromLineSum } from "@/lib/vatMath";
 import { fetchMenuCategories, sortByCourse } from "@/lib/menuCourses";
@@ -42,7 +43,7 @@ export async function syncInvoiceValuesFromOrder(
   try {
     const [{ data: order, error: orderErr }, { data: invoice, error: invoiceErr }] = await Promise.all([
       sb.from("orders")
-        .select("company_id, subtotal, tax_amount, total_amount, client_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count")
+        .select("company_id, subtotal, tax_amount, total_amount, client_name, client_company_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count")
         .eq("id", orderId)
         .maybeSingle(),
       sb.from("invoices")
@@ -76,6 +77,7 @@ export async function syncInvoiceValuesFromOrder(
       depositPaid: amountPaid,
       balanceDue,
       clientName: (order as any).client_name ?? null,
+      clientCompanyName: resolveInvoiceCompanyName({ order, invoiceData: existingInvoiceData }),
       clientEmail: (order as any).client_email ?? null,
       clientPhone: (order as any).client_phone ?? null,
       eventName: (order as any).event_name ?? null,
@@ -130,7 +132,7 @@ export async function syncOrderArtifacts(
     // 1. Pull the order + its line + equipment data.
     const [{ data: order }, { data: items }, { data: bookings }] = await Promise.all([
       sb.from("orders")
-        .select("id, quote_id, company_id, subtotal, tax_amount, total_amount, discount_amount, client_name, venue_address, event_name, event_date, event_time, guest_count, companies:company_id(pricing_includes_vat)")
+        .select("id, quote_id, company_id, subtotal, tax_amount, total_amount, discount_amount, client_name, client_company_name, venue_address, event_name, event_date, event_time, guest_count, companies:company_id(pricing_includes_vat)")
         .eq("id", orderId)
         .maybeSingle(),
       sb.from("order_items")

@@ -1,3 +1,4 @@
+import { resolveInvoiceCompanyName } from "@/lib/customerIdentity";
 import { useState, useEffect, useMemo, useRef } from "react";
 import Head from "next/head";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
@@ -670,7 +671,7 @@ function InvoicesPageInner() {
       invoiceDate: invoice.invoice_date || current?.invoiceDate,
       dueDate: invoice.due_date || current?.dueDate,
       clientName: order.client_name || data.clientName || current?.clientName,
-      clientCompanyName: order.client_company_name || linkedClient.company_name || data.clientCompanyName || null,
+      clientCompanyName: resolveInvoiceCompanyName({ order, client: linkedClient, invoiceData: data }),
       clientEmail: order.client_email || data.clientEmail || current?.clientEmail,
       clientPhone: order.client_phone || data.clientPhone || current?.clientPhone,
       orderNumber: order.order_number || data.orderNumber || current?.orderNumber,
@@ -1193,7 +1194,7 @@ function InvoicesPageInner() {
         ...refreshedData,
         invoiceNumber: refreshedInvoice.invoice_number || current?.invoiceNumber,
         clientName: order.client_name ?? current?.clientName,
-        clientCompanyName: order.client_company_name || current?.clientCompanyName || null,
+        clientCompanyName: resolveInvoiceCompanyName({ order, invoiceData: refreshedData }),
         clientEmail: order.client_email ?? current?.clientEmail,
         clientPhone: order.client_phone ?? current?.clientPhone,
         orderNumber: order.order_number ?? current?.orderNumber,
@@ -1387,6 +1388,7 @@ function InvoicesPageInner() {
         invoiceDate: invoice.invoice_date,
         dueDate: invoice.due_date,
         clientName: invoice.invoice_data.clientName,
+        clientCompanyName: resolveInvoiceCompanyName({ order: invoice.orders, client: invoice.orders?.clients, invoiceData: invoice.invoice_data }),
         clientEmail: invoice.invoice_data.clientEmail,
         items: invoice.invoice_data.items,
         subtotal: invoice.subtotal,

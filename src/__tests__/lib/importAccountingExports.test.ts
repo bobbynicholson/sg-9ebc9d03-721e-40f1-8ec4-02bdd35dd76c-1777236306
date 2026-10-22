@@ -9,7 +9,7 @@ test("a Wave customer export is recognised as a clients import", () => {
 test("Wave columns map onto client fields instead of being skipped", () => {
   const mapping = buildMappingFromTemplate(getTemplateDefinition("clients"), "Sheet1", WAVE_HEADERS).Sheet1;
   const target = (header: string) => mapping[header].target;
-  expect(target("company")).toBe("client_name");
+  expect(target("company")).toBe("company_name");
   expect(target("firstName")).toBe("first_name");
   expect(target("lastName")).toBe("last_name");
   expect(target("email")).toBe("email");
@@ -24,14 +24,15 @@ test("a person without a company becomes the client name", () => {
   expect(composeImportedClient({ first_name: "Aaron", last_name: "Rhodes" })).toEqual({ client_name: "Aaron Rhodes" });
 });
 
-test("company name wins; contact person and delivery details go to notes", () => {
+test("company and contact are separate; delivery details remain in notes", () => {
   const row = composeImportedClient({
     client_name: "911 Service Centre", first_name: "Joanna", last_name: "Schrenk", notes: "VIP",
     delivery_address_1: "5 The Dell", delivery_city: "Pinelands", delivery_instructions: "Gate code 1234",
   });
-  expect(row.client_name).toBe("911 Service Centre");
-  expect(row.notes).toBe("VIP\nContact: Joanna Schrenk\nDelivery address: 5 The Dell, Pinelands\nDelivery instructions: Gate code 1234");
-  expect(Object.keys(row).sort()).toEqual(["client_name", "notes"]);
+  expect(row.client_name).toBe("Joanna Schrenk");
+  expect(row.company_name).toBe("911 Service Centre");
+  expect(row.notes).toBe("VIP\nDelivery address: 5 The Dell, Pinelands\nDelivery instructions: Gate code 1234");
+  expect(Object.keys(row).sort()).toEqual(["client_name", "company_name", "notes"]);
 });
 
 test("our own template headers still map as before", () => {
