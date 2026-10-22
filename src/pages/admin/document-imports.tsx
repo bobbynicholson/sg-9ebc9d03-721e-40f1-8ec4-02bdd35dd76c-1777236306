@@ -17,7 +17,7 @@ export default function DocumentImportsPage() {
     <Head><title>Import quote and order PDFs - CateringMS</title><meta name="robots" content="noindex,nofollow" /></Head>
     <AdminNav />
     <div className="admin-page-shell"><PortalShell><PortalHeader title="Import quote and order PDFs" subtitle="Extract, match and review your documents before bringing them into the workflow." actions={<Button variant="outline" asChild><Link href={withSlug("/admin/onboarding/imports")}>Import history</Link></Button>} />
-      {router.isReady && <DocumentImportWorkbench initialJob={typeof router.query.job === "string" ? router.query.job : undefined} initialDocument={typeof router.query.document === "string" ? router.query.document : undefined} initialTarget={router.query.target === "orders" ? "orders" : "quotes"} onJobChange={(job) => void router.replace({ pathname: router.pathname, query: { ...router.query, job } }, undefined, { shallow: true })} />}
+      {router.isReady && <DocumentImportWorkbench initialJob={typeof router.query.job === "string" ? router.query.job : undefined} initialDocument={typeof router.query.document === "string" ? router.query.document : undefined} initialTarget={router.query.target === "orders" ? "orders" : "quotes"} onJobChange={(job) => void router.replace(withSlug(`/admin/document-imports?${new URLSearchParams({ target: router.query.target === "orders" ? "orders" : "quotes", job })}`), undefined, { shallow: true })} />}
     </PortalShell><Footer /></div>
   </ProtectedRoute>;
 }

@@ -1,8 +1,10 @@
 /** @jest-environment node */
 const mockInfo = jest.fn(); const mockText = jest.fn(); const mockScreens = jest.fn(); const mockDestroy = jest.fn(); const mockAi = jest.fn(); const mockVision = jest.fn();
-jest.mock("pdf-parse", () => ({ PDFParse: jest.fn().mockImplementation(() => ({ getInfo: mockInfo, getText: mockText, getScreenshot: mockScreens, destroy: mockDestroy })) }));
+jest.mock("pdf-parse/worker", () => ({ getData: () => "data:text/javascript;base64,fixture-worker", CanvasFactory: class {} }));
+jest.mock("pdf-parse", () => ({ PDFParse: Object.assign(jest.fn().mockImplementation(() => ({ getInfo: mockInfo, getText: mockText, getScreenshot: mockScreens, destroy: mockDestroy })), { setWorker: jest.fn() }) }));
 jest.mock("@/lib/ai/textLlm", () => ({ callTextJson: (...args: any[]) => mockAi(...args), chatCompletion: (...args: any[]) => mockVision(...args), parseJsonLoose: JSON.parse, visionModels: () => ({ primary: "fixture-vision" }), visionProviderOrder: () => ["openai"] }));
 import { extractBookingDocument } from "@/server/extractBookingDocument";
+import { PDFParse } from "pdf-parse";
 
 const extraction = () => ({ document_type: "quote", fields: { client_name: { value: "Jane", evidence: "Bill to Jane", page: 1, confidence: .9 } }, items: [{ kind: "menu", name: "Chicken", quantity: null, unit_price: 100, line_total: null }], unmatched: [], warnings: [] });
 const pdf = Buffer.from("%PDF-1.7 synthetic test");
@@ -12,6 +14,8 @@ beforeEach(() => {
 });
 test("all text pages reach the extractor; missing quantities are never invented", async () => {
   const result = await extractBookingDocument(pdf, "quotes");
+  expect(PDFParse.setWorker).toHaveBeenCalledWith("data:text/javascript;base64,fixture-worker");
+  expect(PDFParse).toHaveBeenCalledWith(expect.objectContaining({ CanvasFactory: expect.any(Function) }));
   expect(mockAi.mock.calls[0][0].user).toContain("PAGE 1"); expect(mockAi.mock.calls[0][0].user).toContain("PAGE 2");
   expect(result.extraction.items[0].quantity).toBeNull(); expect(mockDestroy).toHaveBeenCalled();
 });

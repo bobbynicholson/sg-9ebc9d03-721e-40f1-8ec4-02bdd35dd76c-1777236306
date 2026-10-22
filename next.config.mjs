@@ -2,6 +2,13 @@
 const nextConfig = {
   reactStrictMode: true,
   serverExternalPackages: ["pdf-parse", "@napi-rs/canvas"],
+  outputFileTracingIncludes: {
+    "/api/document-imports/**": [
+      "./node_modules/pdf-parse/dist/worker/**/*",
+      "./node_modules/pdf-parse/dist/pdf-parse/cjs/**/*",
+      "./node_modules/@napi-rs/canvas*/**/*",
+    ],
+  },
   devIndicators: false,
   // Build-output directory, env-overridable. Default `.next` for dev +
   // prod. The commit watchdog (E:\Catering\watchdog) runs `next build`

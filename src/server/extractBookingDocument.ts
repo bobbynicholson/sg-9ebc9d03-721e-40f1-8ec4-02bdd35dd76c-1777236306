@@ -1,10 +1,14 @@
-import { PDFParse } from "pdf-parse";
 import { callTextJson, chatCompletion, parseJsonLoose, visionModels, visionProviderOrder } from "@/lib/ai/textLlm";
 import { DOCUMENT_IMPORT_LIMITS, extractionSchema, fieldsForTarget, type DocumentTarget } from "@/lib/documentImport";
 
 export async function extractBookingDocument(buffer: Buffer, target: DocumentTarget) {
   if (!buffer.subarray(0, 1024).includes(Buffer.from("%PDF-"))) throw new Error("This is not a PDF file. Choose the original PDF.");
-  const parser = new PDFParse({ data: buffer });
+  // Initialise the package's Node canvas globals before PDF.js is evaluated.
+  // Its dynamic native imports and worker are otherwise omitted by serverless tracing.
+  const { getData, CanvasFactory } = await import("pdf-parse/worker");
+  const { PDFParse } = await import("pdf-parse");
+  PDFParse.setWorker(getData());
+  const parser = new PDFParse({ data: buffer, CanvasFactory });
   try {
     const info = await parser.getInfo();
     if (!info.total || info.total > DOCUMENT_IMPORT_LIMITS.pages) throw new Error(`Use a PDF with 1-${DOCUMENT_IMPORT_LIMITS.pages} pages. Split larger documents before uploading.`);
