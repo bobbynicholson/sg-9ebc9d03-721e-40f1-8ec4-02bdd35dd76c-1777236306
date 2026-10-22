@@ -101,11 +101,11 @@ import {
 import {
   buildDiaryIndex,
   computeDiarySignal,
-  toDateKey,
   DIARY_TONE,
   type DiaryEntry,
   type DiarySignal,
 } from "@/lib/quoteDiarySignal";
+import { loadQuoteDiary, quoteDiaryRange } from "@/services/quoteDiaryService";
 import { supabase } from "@/integrations/supabase/client";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { cn } from "@/lib/utils";
@@ -454,7 +454,7 @@ function AdminQuotesInner() {
   const [composeMode, setComposeMode] = useState<"status" | "sweetener">("status");
   const [deleteTarget, setDeleteTarget] = useState<Quote | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([]);
+  const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[] | null>(null);
   const [companyName, setCompanyName] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
   // Phase 26 #2: "/" or Cmd-F focuses the search input. Same
@@ -633,10 +633,9 @@ function AdminQuotesInner() {
   const router = useRouter();
   const [focusedQuoteId, setFocusedQuoteId] = useState<string | null>(null);
 
-  // Diary index: every confirmed order + accepted quote pivoted by
-  // event_date so each open quote's row can show "wide open day" or
-  // "stacked" without a per-row roundtrip.
-  const diaryIndex = useMemo(() => buildDiaryIndex(diaryEntries), [diaryEntries]);
+  // Count each booking once, whether represented by an order or an
+  // accepted quote that has not converted yet.
+  const diaryIndex = useMemo(() => diaryEntries ? buildDiaryIndex(diaryEntries) : null, [diaryEntries]);
 
   // Roll quotes + auto-email queue into a single per-row state object
   // with derived intelligence (status bucket, suggested action, last
@@ -982,66 +981,28 @@ function AdminQuotesInner() {
         console.warn("[quotes] followup log fetch failed", err);
       }
 
-      // Diary lookup - every confirmed order + accepted quote in the
-      // company's calendar. Used to decide whether an open quote sits
-      // on a wide-open day worth offering a sweetener for.
-      try {
-        const today = new Date();
-        const horizon = new Date(today.getTime() + 365 * 24 * 60 * 60 * 1000);
-        const startKey = toDateKey(today)!;
-        const endKey = toDateKey(horizon)!;
-
-        const [{ data: orderRows }, { data: acceptedQuoteRows }] = await Promise.all([
-          supabase
-            .from("orders")
-            .select("id, event_date, client_name, guest_count, status")
-            .eq("company_id", user.company_id)
-            .gte("event_date", startKey)
-            .lte("event_date", endKey),
-          supabase
-            .from("quotes")
-            .select("id, event_date, client_name, guest_count, status")
-            .eq("company_id", user.company_id)
-            .eq("status", "accepted")
-            .gte("event_date", startKey)
-            .lte("event_date", endKey),
-        ]);
-
-        const entries: DiaryEntry[] = [];
-        for (const o of (orderRows || [])) {
-          const dk = toDateKey((o as any).event_date);
-          if (!dk) continue;
-          // Skip cancelled / draft orders - they're not real commitments.
-          const status = ((o as any).status || "").toLowerCase();
-          if (status === "cancelled" || status === "canceled" || status === "draft") continue;
-          entries.push({
-            date: dk,
-            kind: "order",
-            label: (o as any).client_name || "Order",
-            guests: (o as any).guest_count ?? null,
-            sourceId: (o as any).id || null,
-          });
-        }
-        for (const q of (acceptedQuoteRows || [])) {
-          const dk = toDateKey((q as any).event_date);
-          if (!dk) continue;
-          entries.push({
-            date: dk,
-            kind: "accepted_quote",
-            label: (q as any).client_name || "Accepted quote",
-            guests: (q as any).guest_count ?? null,
-            sourceId: (q as any).id || null,
-          });
-        }
-        if (!cancelled) setDiaryEntries(entries);
-      } catch (err) {
-        console.warn("[quotes] diary fetch failed", err);
-      }
-
       if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [user?.company_id, refreshTick]);
+
+  // Keep the diary fresh after quote/order realtime changes as well as
+  // manual refresh. A failed load must not advertise an empty diary.
+  useEffect(() => {
+    let cancelled = false;
+    setDiaryEntries(null);
+    if (!user?.company_id) return;
+    const { start, end } = quoteDiaryRange([
+      ...quotes.map((quote) => quote.event_date),
+      ...Array.from(resolvedByQuoteId.values()).map((order) => order.eventDate),
+    ]);
+    loadQuoteDiary(supabase, user.company_id, start, end)
+      .then((entries) => { if (!cancelled) setDiaryEntries(entries); })
+      .catch((error) => {
+        if (!cancelled) console.warn("[quotes] diary fetch failed", error);
+      });
+    return () => { cancelled = true; };
+  }, [quotes, resolvedByQuoteId, user?.company_id, refreshTick]);
 
   // Hydrate authoritative event details from linked orders. When a
   // quote has converted_to_order_id set, the order is the source of
@@ -2595,8 +2556,8 @@ function AdminQuotesInner() {
 
                           {/*
                             Diary signal, "do we have a gap that day?"
-                            Pulled from confirmed orders + accepted
-                            quotes for this company. The "Wide open"
+                            Each order and its accepted quote count
+                            as one booking for this company. The "Wide open"
                             and "Quiet" states surface a one-click
                             "Offer a sweetener" CTA so the team can
                             push hard with a discount or treat instead
@@ -3088,7 +3049,7 @@ function AdminQuotesInner() {
             companyId={profile?.company_id ?? null}
             currencyCode={(composeQuote as any).currency || tenantCurrency.code}
             mode={composeMode}
-            diary={computeDiarySignal(composeQuote.event_date, diaryIndex, composeQuote.id)}
+            diary={computeDiarySignal(resolvedByQuoteId.get(composeQuote.id)?.eventDate ?? composeQuote.event_date, diaryIndex, composeQuote.id)}
             onSweetenerApplied={async (offer) => {
               // Persist the offer to the quote so the figures the
               // client sees on /q match the email the operator sent.

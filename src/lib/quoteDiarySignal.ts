@@ -1,14 +1,14 @@
 /**
  * Quote diary signal - "do we have a gap on this date?"
  *
- * The Quote Management page lifts confirmed orders + accepted quotes
+ * The Quote Management page lifts orders + unconverted accepted quotes
  * from the same company and pivots them by event_date. For each open
  * quote the team sees an at-a-glance signal:
  *
  *   - Wide open       - nothing booked the whole week (push hard)
  *   - Quiet day       - nothing same-day, 1-2 nearby (good fit)
  *   - One booking     - one event the same day (still doable)
- *   - Stacked         - two+ same-day clashes (steady the team first)
+ *   - Multiple bookings - a diary count, not an over-capacity warning
  *
  * The "Wide open" and "Quiet day" buckets are the cue Bobby asked for
  * - those are the days we'd want to offer a treat or discount to lock
@@ -25,14 +25,15 @@ export interface DiaryEntry {
   label: string;
   /** Optional guest count. */
   guests?: number | null;
-  /** Source row id - quote id when kind=accepted_quote, order id otherwise.
-   *  Used to exclude the current quote from its own diary lookup. */
+  /** Stable source row id, used to deduplicate repeated query results. */
   sourceId?: string | null;
+  /** The originating quote, including when this entry is its order. */
+  quoteId?: string | null;
 }
 
 export interface DiarySignal {
   status: DiaryStatus;
-  /** Same-day commitments (orders + accepted quotes). */
+  /** Same-day commitments, counting each order/accepted quote pair once. */
   sameDay: DiaryEntry[];
   /** ±2 day window, excluding same-day. */
   nearby: DiaryEntry[];
@@ -53,6 +54,14 @@ const DAY_MS = 1000 * 60 * 60 * 24;
  */
 export function toDateKey(value: string | Date | null | undefined): string | null {
   if (!value) return null;
+  // Postgres DATE values are calendar dates, not UTC instants. Parsing
+  // them as UTC shifts them to the previous day in western timezones.
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-").map(Number);
+    const calendar = new Date(year, month - 1, day, 12);
+    return calendar.getFullYear() === year && calendar.getMonth() === month - 1 && calendar.getDate() === day
+      ? value : null;
+  }
   const d = typeof value === "string" ? new Date(value) : value;
   if (isNaN(d.getTime())) return null;
   // YYYY-MM-DD using local components - matches what's stored in
@@ -63,14 +72,50 @@ export function toDateKey(value: string | Date | null | undefined): string | nul
   return `${yyyy}-${mm}-${dd}`;
 }
 
+export interface DiaryOrderRow {
+  id: string;
+  quote_id?: string | null;
+  event_date: string | null;
+  client_name?: string | null;
+  guest_count?: number | null;
+  status?: string | null;
+  deleted_at?: string | null;
+}
+
+export interface DiaryQuoteRow extends Omit<DiaryOrderRow, "quote_id"> {
+  converted_to_order_id?: string | null;
+}
+
+/** One commercial booking per entry. Orders own their date and lifecycle;
+ *  an accepted quote only reserves a slot until an order exists. */
+export function buildDiaryEntries(orders: DiaryOrderRow[], quotes: DiaryQuoteRow[]): DiaryEntry[] {
+  const linkedQuotes = new Set(orders.map((order) => order.quote_id).filter(Boolean));
+  const entries: DiaryEntry[] = [];
+  for (const order of orders) {
+    const date = toDateKey(order.event_date);
+    if (!date || order.deleted_at || ["cancelled", "canceled", "draft"].includes((order.status || "").toLowerCase())) continue;
+    entries.push({ date, kind: "order", sourceId: order.id, quoteId: order.quote_id, label: order.client_name || "Order", guests: order.guest_count });
+  }
+  for (const quote of quotes) {
+    if (quote.deleted_at || quote.status !== "accepted" || quote.converted_to_order_id || linkedQuotes.has(quote.id)) continue;
+    const date = toDateKey(quote.event_date);
+    if (date) entries.push({ date, kind: "accepted_quote", sourceId: quote.id, quoteId: quote.id, label: quote.client_name || "Accepted quote", guests: quote.guest_count });
+  }
+  return entries;
+}
+
 /**
  * Build a Map keyed by YYYY-MM-DD for fast same-day + nearby lookup.
  * Caller passes the raw rows from orders + accepted quotes.
  */
 export function buildDiaryIndex(entries: DiaryEntry[]): Map<string, DiaryEntry[]> {
   const idx = new Map<string, DiaryEntry[]>();
+  const seen = new Set<string>();
   for (const e of entries) {
     if (!e.date) continue;
+    const identity = e.sourceId ? `${e.kind}:${e.sourceId}` : null;
+    if (identity && seen.has(identity)) continue;
+    if (identity) seen.add(identity);
     const list = idx.get(e.date) || [];
     list.push(e);
     idx.set(e.date, list);
@@ -80,13 +125,13 @@ export function buildDiaryIndex(entries: DiaryEntry[]): Map<string, DiaryEntry[]
 
 /**
  * Compute the diary signal for a single quote's event_date.
- * Excludes the current quote itself from the lookup so the team
- * doesn't see "one booking" caused by the quote they're looking at.
+ * Counts the whole day, including the current booking when already
+ * accepted. This matches the diary total rather than an "other" count.
  */
 export function computeDiarySignal(
   eventDate: string | Date | null | undefined,
-  diaryIndex: Map<string, DiaryEntry[]>,
-  excludeId?: string,
+  diaryIndex: Map<string, DiaryEntry[]> | null,
+  currentQuoteId?: string,
 ): DiarySignal {
   const target = toDateKey(eventDate);
   if (!target) {
@@ -100,9 +145,14 @@ export function computeDiarySignal(
     };
   }
 
-  const sameDay = (diaryIndex.get(target) || []).filter(
-    (e) => !excludeId || e.sourceId !== excludeId,
-  );
+  if (!diaryIndex) return {
+    status: "unknown", sameDay: [], nearby: [], sweetenerWorthwhile: false,
+    headline: "Diary count unavailable", detail: "Refresh to check bookings for this date.",
+  };
+
+  const sameDay = diaryIndex.get(target) || [];
+  const includesCurrent = !!currentQuoteId && sameDay.some((entry) => entry.quoteId === currentQuoteId
+    || (entry.kind === "accepted_quote" && entry.sourceId === currentQuoteId));
 
   // ±2 day window. Includes the day itself for label clarity, then we
   // strip same-day entries when computing the 'nearby' slice.
@@ -123,13 +173,13 @@ export function computeDiarySignal(
 
   if (sameDay.length >= 2) {
     status = "stacked";
-    headline = `Stacked, ${sameDay.length} bookings same day`;
-    detail = sameDay.slice(0, 3).map((e) => e.label).join(", ");
+    headline = `${sameDay.length} bookings that day`;
+    detail = `${includesCurrent ? "Includes this booking. " : ""}${sameDay.slice(0, 3).map((e) => e.label).join(", ")}${sameDay.length > 3 ? ` +${sameDay.length - 3} more` : ""}`;
   } else if (sameDay.length === 1) {
     status = "one_booking";
     headline = "One booking that day";
     const e = sameDay[0];
-    detail = `Already booked: ${e.label}${e.guests ? ` (${e.guests} guests)` : ""}`;
+    detail = `${includesCurrent ? "This booking" : "Already booked"}: ${e.label}${e.guests ? ` (${e.guests} guests)` : ""}`;
   } else if (nearby.length === 0) {
     status = "wide_open";
     headline = "Wide-open day";
@@ -157,6 +207,6 @@ export const DIARY_TONE: Record<DiaryStatus, { chip: string; dot: string; label:
   wide_open:  { chip: "bg-brand-primary/10 text-brand-primary border-brand-primary/20", dot: "bg-brand-primary",   label: "Wide open" },
   quiet:      { chip: "bg-sky-50 text-sky-700 border-sky-200",             dot: "bg-sky-500",       label: "Quiet"     },
   one_booking:{ chip: "bg-amber-50 text-amber-700 border-amber-200",       dot: "bg-amber-500",     label: "1 booked"  },
-  stacked:    { chip: "bg-rose-50 text-rose-700 border-rose-200",          dot: "bg-rose-500",      label: "Stacked"   },
+  stacked:    { chip: "bg-amber-50 text-amber-700 border-amber-200",       dot: "bg-amber-500",     label: "Multiple bookings" },
   unknown:    { chip: "bg-slate-50 text-slate-500 border-slate-200",       dot: "bg-slate-300",     label: "No date"   },
 };
