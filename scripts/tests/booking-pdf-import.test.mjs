@@ -43,6 +43,7 @@ before(async()=>{
  CREATE TRIGGER trg_orders_stamp_quote_link AFTER INSERT ON orders FOR EACH ROW EXECUTE FUNCTION tg_stamp_quote_converted_to_order_id();`);
  await db.exec(await readFile('supabase/migrations/20261022190000_booking_pdf_imports.sql','utf8'));
  await db.exec(await readFile('supabase/migrations/20261023010000_booking_pdf_import_source_attribution.sql','utf8'));
+ await db.exec(await readFile('supabase/migrations/20261023020000_imported_booking_catalogue_readiness.sql','utf8'));
 });
 after(()=>db.close());
 beforeEach(async()=>{
@@ -115,6 +116,18 @@ test('foreign tenant and stale version cannot create anything',async()=>{
  await assert.rejects(commit(review(),other),/Document not found/);await assert.rejects(commit(review(),company,99),/Document changed/);
  assert.equal((await db.query('SELECT * FROM quotes')).rows.length,0);
 });
+test('matched legacy dishes are checked for this import, while services and unrelated bookings stay unaffected',async()=>{
+ await db.query("INSERT INTO menu_items(id,company_id,item_name,base_price,category) VALUES($1,$3,'Existing dish',25,'Main'),($2,$3,'Waiter',250,'Staff')",[id(9),id(12),company]);
+ const r=review();r.items=[{kind:'menu',catalogue_id:id(9),name:'Existing dish',quantity:10,unit_price:25,line_total:250},{kind:'service',catalogue_id:id(12),name:'Waiter',quantity:1,unit_price:250,line_total:250}];
+ await commit(r);const q=(await db.query('SELECT id FROM quotes')).rows[0].id;
+ await db.exec('UPDATE document_import_files SET setup_completed_at=now()');
+ const gaps=(await db.query('SELECT booking_import_gaps($1,$2,NULL,NULL,false) AS gaps',[company,q])).rows[0].gaps;
+ assert.equal(gaps.length,1);assert.match(gaps[0].message,/Existing dish/);
+ const unrelated=(await db.query('SELECT booking_import_gaps($1,NULL,NULL,$2,false) AS gaps',[company,[id(9)]])).rows[0].gaps;
+ assert.deepEqual(unrelated,[]);
+ await assert.rejects(db.query("UPDATE quotes SET status='sent' WHERE id=$1",[q]),/Complete imported details/);
+});
+
 test('private source storage and read-only table policies are installed',async()=>{
  assert.equal((await db.query("SELECT public FROM storage.buckets WHERE id='booking-imports'")).rows[0].public,false);
  const policies=(await db.query("SELECT cmd FROM pg_policies WHERE tablename='document_import_files'")).rows;assert.deepEqual(policies.map(p=>p.cmd),['SELECT']);
