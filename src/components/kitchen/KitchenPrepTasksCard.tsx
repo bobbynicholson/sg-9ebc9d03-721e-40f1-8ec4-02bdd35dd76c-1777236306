@@ -24,6 +24,8 @@ import { UserRole } from "@/types/app";
 
 interface PrepTaskRow {
   id: string;
+  service_sitting_id?: string | null;
+  notes?: string | null;
   task_type: string | null;
   status: string | null;
   started_at: string | null;
@@ -65,7 +67,7 @@ export function KitchenPrepTasksCard({ orderId, companyId: companyIdProp }: { or
     if (!orderId) return;
     let query = (supabase as any)
       .from("kitchen_prep_tasks")
-      .select("id, task_type, status, started_at, completed_at, completed_by, menu_item_name, start_at, duration_min, assigned_chef_id")
+      .select("service_sitting_id, notes, id, task_type, status, started_at, completed_at, completed_by, menu_item_name, start_at, duration_min, assigned_chef_id")
       .eq("order_id", orderId)
       .is("deleted_at", null);
     if (companyId) query = query.eq("company_id", companyId);
@@ -259,6 +261,7 @@ export function KitchenPrepTasksCard({ orderId, companyId: companyIdProp }: { or
                   <span>{formatKitchenPrepTaskType(t.task_type)}</span>
                   {t.menu_item_name && <span className="text-slate-500"> · {t.menu_item_name}</span>}
                 </p>
+                {t.service_sitting_id && t.notes && <p className="mt-1 break-words text-xs text-slate-600">{t.notes}</p>}
                 {doneish && t.completed_at && (
                   <p className="text-[11px] text-brand-primary">
                     Done{t.completed_by && names.get(t.completed_by) ? ` by ${names.get(t.completed_by)}` : ""} · {fmt(t.completed_at)}

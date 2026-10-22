@@ -69,6 +69,8 @@ interface PrepTask {
   order_id: string;
   station_id: string | null;
   region_id?: string | null;
+  service_sitting_id?: string | null;
+  notes?: string | null;
   menu_item_name: string | null;
   task_type: string | null;
   status: "pending" | "in_progress" | "done" | "skipped" | string;
@@ -976,7 +978,7 @@ function KitchenProductionPageInner() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                               <span className="text-brand-primary mr-1.5">{taskTypeLabel}</span>
-                              {task.menu_item_name || "Item"}
+                              {task.menu_item_name || "Item"}{task.service_sitting_id && task.notes && <span className="mt-1 block whitespace-normal text-xs font-normal">{task.notes}</span>}
                             </p>
                             <p className="text-[11px] text-slate-600 dark:text-slate-400 truncate">
                               {ord?.order_number ? `${ord.order_number} · ` : ""}
@@ -1183,7 +1185,7 @@ function KitchenProductionPageInner() {
                                   title={`Open order document - ${formatKitchenPrepTaskType(t.task_type)} · ${t.menu_item_name} · ${eventName} · starts ${startClock} · ${t.duration_min}m`}
                                 >
                                   <p className="font-semibold truncate leading-tight">
-                                    {t.menu_item_name}
+                                    {t.menu_item_name}{t.service_sitting_id && t.notes && <span className="mt-1 block whitespace-normal text-xs font-normal">{t.notes}</span>}
                                   </p>
                                   <p className="truncate text-[10px] opacity-80 leading-tight">
                                     {formatKitchenPrepTaskType(t.task_type)} &middot; {t.duration_min}m &middot; {eventName}

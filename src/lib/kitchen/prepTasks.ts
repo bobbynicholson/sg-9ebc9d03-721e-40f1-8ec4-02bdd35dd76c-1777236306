@@ -1,5 +1,6 @@
 export type KitchenPrepTaskLike = {
   id: string;
+  service_sitting_id?: string | null;
   task_type?: string | null;
   status?: string | null;
   start_at?: string | null;
@@ -48,6 +49,7 @@ export function dedupeKitchenPrepTasks<T extends KitchenPrepTaskLike>(rows: T[])
 
   for (const row of rows) {
     const key = [
+      row.service_sitting_id || "",
       normaliseKitchenPrepTaskType(row.task_type),
       String(row.menu_item_name || "").trim().toLowerCase(),
       row.station_id || "",

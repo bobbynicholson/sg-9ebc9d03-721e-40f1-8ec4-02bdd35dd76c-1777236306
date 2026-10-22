@@ -16,6 +16,7 @@
  * fallback in inventoryDeductionService - this lets self-service menu
  * editing work today without breaking tenants on the legacy map.
  */
+import { allocateSittingQuantities } from "@/lib/serviceSittings";
 import { tenantDateTime } from "@/lib/portalTime";
 import { supabase } from "@/integrations/supabase/client";
 import { getRecipe as getLegacyRecipe } from "./inventoryDeductionService";
@@ -65,7 +66,12 @@ export interface ScaledRecipe {
   ingredients: ScaledIngredient[];
 }
 
+export type KitchenSittingPlan = { id: string; guestCount: number; serviceTime: string; kitchenReadyTime?: string; dispatchTime?: string };
+
 export interface PrepTask {
+  service_sitting_id?: string | null;
+  planned_yield?: number | null;
+  yield_unit?: string | null;
   id?: string;
   company_id?: string;
   region_id?: string | null;
@@ -349,7 +355,7 @@ export const kitchenPrepService = {
    * Pure compute - doesn't write anything. Caller decides what to do
    * with the result.
    */
-  async planTasksForOrder(companyId: string, orderId: string, client?: typeof supabase): Promise<PrepTask[]> {
+  async planTasksForOrder(companyId: string, orderId: string, client?: typeof supabase, sittingPlan?: KitchenSittingPlan[]): Promise<PrepTask[]> {
     // Wave 70.13 - accept the optional client. Pre-Wave-70.13 the
     // planner always used the global browser supabase import, which
     // has no session when called from a server-side context (regen
@@ -367,13 +373,16 @@ export const kitchenPrepService = {
       // selecting it 400s the whole query. guest_count alone.
       // menu_items lives on the linked quote, not orders - embed it (the
       // planner falls back to order_items below when the snapshot is empty).
-      .select("id, company_id, region_id, guest_count, event_date, event_time, pickup_time, delivery_time, quote:quotes!orders_quote_id_fkey(menu_items)")
+      .select("id, company_id, region_id, guest_count, event_date, event_time, pickup_time, delivery_time, quote:quotes!orders_quote_id_fkey(menu_items), service_sittings(id,sequence_number,guest_count,service_time,kitchen_ready_time,dispatch_time), company:companies!orders_company_id_fkey(timezone)")
       .eq("id", orderId)
+      .eq("company_id", companyId)
       .maybeSingle();
     if (orderErr) {
       console.error("[kitchenPrepService] orders fetch failed:", orderErr);
+      throw orderErr;
     }
     if (!order) return [];
+    const timeZone = order.company?.timezone || "Africa/Johannesburg";
     (order as any).menu_items = (order as any).quote?.menu_items ?? null;
 
     // Determine the pickup moment. Prefer pickup_time, else event_time on
@@ -385,7 +394,7 @@ export const kitchenPrepService = {
       // the event start instead of the (earlier) collection time. Combine it
       // with event_date the same way the BEO ticket does.
       if (order.pickup_time && order.event_date) {
-        const dt = (tenantDateTime(order.event_date, String(order.pickup_time).slice(0, 5)) ?? new Date(NaN));
+        const dt = (tenantDateTime(order.event_date, String(order.pickup_time).slice(0, 5), "00:00", timeZone) ?? new Date(NaN));
         if (!isNaN(dt.getTime())) return dt;
       }
       // delivery_time (also a `time` column) is the next-best anchor: food must
@@ -393,22 +402,25 @@ export const kitchenPrepService = {
       // delivery_time re-stamped the driver + cleaning but left the cook
       // backplan on the old event_time, so food wasn't ready when the truck left.
       if (order.delivery_time && order.event_date) {
-        const dt = (tenantDateTime(order.event_date, String(order.delivery_time).slice(0, 5)) ?? new Date(NaN));
+        const dt = (tenantDateTime(order.event_date, String(order.delivery_time).slice(0, 5), "00:00", timeZone) ?? new Date(NaN));
         if (!isNaN(dt.getTime())) return dt;
       }
       if (order.event_date && order.event_time) {
-        const dt = (tenantDateTime(order.event_date, order.event_time) ?? new Date(NaN));
+        const dt = (tenantDateTime(order.event_date, order.event_time, "00:00", timeZone) ?? new Date(NaN));
         if (!isNaN(dt.getTime())) return dt;
       }
       if (order.event_date) {
-        const dt = (tenantDateTime(order.event_date, "12:00") ?? new Date(NaN));
+        const dt = (tenantDateTime(order.event_date, "12:00", "00:00", timeZone) ?? new Date(NaN));
         if (!isNaN(dt.getTime())) return dt;
       }
       return null;
     })();
-    if (!pickupAt) return [];
+    if (!pickupAt && !sittingPlan?.length && !order.service_sittings?.length) return [];
 
-    const guestCount = Number(order.guest_count || 1);
+    const savedSittings = [...(order.service_sittings || [])].sort((a: any, b: any) => a.sequence_number - b.sequence_number);
+    const batches: KitchenSittingPlan[] = sittingPlan || (savedSittings.length > 1 ? savedSittings.map((row: any) => ({ id: row.id, guestCount: row.guest_count, serviceTime: row.service_time, kitchenReadyTime: row.kitchen_ready_time, dispatchTime: row.dispatch_time })) : []);
+    const split = batches.length > 0;
+    const planningBatches: KitchenSittingPlan[] = split ? batches : [{ id: "", guestCount: Number(order.guest_count || 1), serviceTime: order.event_time }];
 
     // Wave 70.10 - the planner used to only read orders.menu_items
     // (the jsonb snapshot column). For quote-derived orders the
@@ -428,6 +440,7 @@ export const kitchenPrepService = {
         .eq("order_id", orderId);
       if (relErr) {
         console.error("[kitchenPrepService] order_items fallback fetch failed:", relErr);
+        throw relErr;
       }
       items = (relRows as any[] || []).map((r) => ({
         id: r.menu_item_id,
@@ -452,73 +465,84 @@ export const kitchenPrepService = {
     }));
 
     const tasks: PrepTask[] = [];
-    for (const item of items) {
-      const name = item?.name || item?.item_name || item?.menu_item_name;
-      if (!name) continue;
+    for (const [batchIndex, batch] of planningBatches.entries()) {
+      const guestCount = batch.guestCount;
+      const batchPickup = split ? tenantDateTime(order.event_date, batch.kitchenReadyTime || batch.dispatchTime || batch.serviceTime, "00:00", timeZone) : pickupAt;
+      if (!batchPickup) throw new Error("Every kitchen sitting needs a valid service time.");
+      for (const item of items) {
+        const name = item?.name || item?.item_name || item?.menu_item_name;
+        if (!name) continue;
+        const portions = split ? allocateSittingQuantities(Number(item.quantity != null ? item.quantity : order.guest_count || 1), planningBatches.map((row) => row.guestCount))[batchIndex] : null;
+        if (split && !portions) continue;
+        const batchFields = split ? { service_sitting_id: batch.id, planned_yield: portions, yield_unit: "portions", notes: `Sitting ${batchIndex + 1}: ${batch.guestCount} guests at ${String(batch.serviceTime).slice(0, 5)}. ${portions} portions of ${name}.` } : {};
 
-      const recipe = recipeByName.get(name) ?? null;
-      const basePrepMin = recipe?.prep_time_min ?? settings.defaultPrepMinPerDish;
-      const baseCookMin = recipe?.cook_time_min ?? settings.defaultCookMinPerDish;
+        const recipe = recipeByName.get(name) ?? null;
+        const basePrepMin = recipe?.prep_time_min ?? settings.defaultPrepMinPerDish;
+        const baseCookMin = recipe?.cook_time_min ?? settings.defaultCookMinPerDish;
 
-      // Audit Kitchen G4: prep/cook minutes from the recipe are
-      // expressed per recipe.base_servings (e.g. "cook 4h for 10
-      // guests"). The previous code used the recipe value as-is no
-      // matter how many guests were on the order, so a 200-guest
-      // job was scheduled to cook in 4 hours and ran late.
-      //
-      // Scale by ceil(guestCount / base_servings) with a parallelism
-      // cap so a 5x order doesn't naively become a 5x prep slot --
-      // kitchens have multiple stations / ovens. The cap is the
-      // configurable parallelism factor on settings; default 3 means
-      // we never bill more than 3x the recipe time, which matches
-      // a typical small-kitchen layout. Operators can raise it on
-      // settings later.
-      const baseServings = Math.max(1, Number(recipe?.base_servings ?? 1));
-      const rawBatches = Math.ceil(guestCount / baseServings);
-      const parallelism = Math.max(1, Number((settings as any).prepParallelism ?? 3));
-      const effectiveBatches = Math.max(1, Math.min(rawBatches, parallelism));
-      const prepMin = Math.ceil(basePrepMin * effectiveBatches);
-      const cookMin = Math.ceil(baseCookMin * effectiveBatches);
+        // Audit Kitchen G4: prep/cook minutes from the recipe are
+        // expressed per recipe.base_servings (e.g. "cook 4h for 10
+        // guests"). The previous code used the recipe value as-is no
+        // matter how many guests were on the order, so a 200-guest
+        // job was scheduled to cook in 4 hours and ran late.
+        //
+        // Scale by ceil(guestCount / base_servings) with a parallelism
+        // cap so a 5x order doesn't naively become a 5x prep slot --
+        // kitchens have multiple stations / ovens. The cap is the
+        // configurable parallelism factor on settings; default 3 means
+        // we never bill more than 3x the recipe time, which matches
+        // a typical small-kitchen layout. Operators can raise it on
+        // settings later.
+        const baseServings = Math.max(1, Number(recipe?.base_servings ?? 1));
+        const rawBatches = Math.ceil(guestCount / baseServings);
+        const parallelism = Math.max(1, Number((settings as any).prepParallelism ?? 3));
+        const effectiveBatches = Math.max(1, Math.min(rawBatches, parallelism));
+        const prepMin = Math.ceil(basePrepMin * effectiveBatches);
+        const cookMin = Math.ceil(baseCookMin * effectiveBatches);
 
-      // Backwards plan
-      const cookEndsAt = new Date(pickupAt.getTime() - settings.prepSafetyBufferMin * 60_000);
-      const cookStartsAt = new Date(cookEndsAt.getTime() - cookMin * 60_000);
-      const prepStartsAt = new Date(cookStartsAt.getTime() - prepMin * 60_000);
+        // Backwards plan
+        const cookEndsAt = new Date(batchPickup.getTime() - (split && batch.kitchenReadyTime ? 0 : settings.prepSafetyBufferMin) * 60_000);
+        const cookStartsAt = new Date(cookEndsAt.getTime() - cookMin * 60_000);
+        const prepStartsAt = new Date(cookStartsAt.getTime() - prepMin * 60_000);
 
-      // Stamp region_id from the order so RLS region-scoped policies
-      // surface this task to the right branch's chefs only. Without
-      // this every task lands NULL and is visible company-wide - a
-      // cross-branch leak the moment a region_admin signs in.
-      const orderRegionId = (order as any).region_id ?? null;
+        // Stamp region_id from the order so RLS region-scoped policies
+        // surface this task to the right branch's chefs only. Without
+        // this every task lands NULL and is visible company-wide - a
+        // cross-branch leak the moment a region_admin signs in.
+        const orderRegionId = (order as any).region_id ?? null;
 
-      // Each line yields a prep + cook task (when the recipe defines
-      // them). Originally the cook task was nested under the prep gate,
-      // so a dish with prep_min=0 and cook_min>0 silently dropped its
-      // cook task. Independent gates now - audit Agent 6.
-      if (prepMin > 0) {
-        tasks.push({
-          order_id: orderId,
-          company_id: companyId,
-          region_id: orderRegionId,
-          menu_item_name: name,
-          task_type: "prep",
-          start_at: prepStartsAt.toISOString(),
-          duration_min: prepMin,
-          status: "pending",
-        });
+        // Each line yields a prep + cook task (when the recipe defines
+        // them). Originally the cook task was nested under the prep gate,
+        // so a dish with prep_min=0 and cook_min>0 silently dropped its
+        // cook task. Independent gates now - audit Agent 6.
+        if (prepMin > 0) {
+          tasks.push({
+            ...batchFields,
+            order_id: orderId,
+            company_id: companyId,
+            region_id: orderRegionId,
+            menu_item_name: name,
+            task_type: "prep",
+            start_at: prepStartsAt.toISOString(),
+            duration_min: prepMin,
+            status: "pending",
+          });
+        }
+        if (cookMin > 0) {
+          tasks.push({
+            ...batchFields,
+            order_id: orderId,
+            company_id: companyId,
+            region_id: orderRegionId,
+            menu_item_name: name,
+            task_type: "cook",
+            start_at: cookStartsAt.toISOString(),
+            duration_min: cookMin,
+            status: "pending",
+          });
+        }
       }
-      if (cookMin > 0) {
-        tasks.push({
-          order_id: orderId,
-          company_id: companyId,
-          region_id: orderRegionId,
-          menu_item_name: name,
-          task_type: "cook",
-          start_at: cookStartsAt.toISOString(),
-          duration_min: cookMin,
-          status: "pending",
-        });
-      }
+
     }
 
     // Sort earliest first
@@ -659,6 +683,10 @@ export const kitchenPrepService = {
       // region_id flows from planTasksForOrder - defended here too in
       // case anyone ever calls insert without going through the planner.
       region_id: (t as any).region_id ?? null,
+      service_sitting_id: t.service_sitting_id ?? null,
+      planned_yield: t.planned_yield ?? null,
+      yield_unit: t.yield_unit ?? null,
+      notes: t.notes ?? null,
       menu_item_name: t.menu_item_name,
       task_type: t.task_type,
       start_at: t.start_at,

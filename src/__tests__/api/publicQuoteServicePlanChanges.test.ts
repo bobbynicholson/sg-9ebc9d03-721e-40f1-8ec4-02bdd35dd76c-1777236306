@@ -28,12 +28,12 @@ function setup(changes: any = { service_sittings: plan }, quoteOverrides = {}) {
 }
 beforeEach(() => { jest.clearAllMocks(); });
 
-it("records both times as a structured proposal without immediately changing the serving plan", async () => {
+it("keeps old client timing submissions as notes for staff review", async () => {
   const { req, res, writes } = setup(); await handler(req, res);
   expect(res.statusCode).toBe(200);
-  expect(writes).toEqual([{ table: "quote_change_requests", value: [expect.objectContaining({ company_id: "c1", quote_id: "q1", requested_changes: { service_sittings: plan } })] }]);
+  expect(writes).toEqual([{ table: "quote_change_requests", value: [expect.objectContaining({ company_id: "c1", quote_id: "q1", requested_changes: null, message: expect.stringContaining("Sitting 1: 60 guests at 12:00; Sitting 2: 40 guests at 18:00") })] }]);
 });
-it("validates against the requested revised guest count", async () => {
+it("preserves a legacy guest-count request without an executable sitting plan", async () => {
   const { req, res, writes } = setup({ guest_count: 120, service_sittings: [{ guestCount: 60, serviceTime: "12:00" }, { guestCount: 60, serviceTime: "18:00" }] });
   await handler(req, res); expect(res.statusCode).toBe(200);
   expect(writes[0].value[0].requested_changes.guest_count).toBe(120);
@@ -41,15 +41,15 @@ it("validates against the requested revised guest count", async () => {
 it.each([
   [], [{ guestCount: 100, serviceTime: "" }], [{ guestCount: 100, serviceTime: "25:00" }],
   [{ guestCount: 99, serviceTime: "12:00" }], [{ guestCount: 99.5, serviceTime: "12:00" }],
-].map(invalid => [invalid]))("rejects invalid serving plans before storing a request: %j", async (invalid) => {
+].map(invalid => [invalid]))("does not turn obsolete timing input into an executable plan: %j", async (invalid) => {
   const { req, res, writes } = setup({ service_sittings: invalid }); await handler(req, res);
-  expect(res.statusCode).toBe(400); expect(writes).toEqual([]);
+  expect(res.statusCode).toBe(200); expect(writes[0].value[0].requested_changes?.service_sittings).toBeUndefined();
 });
 it("preserves legacy change requests without a serving plan", async () => {
   const { req, res, writes } = setup({ service_sittings: null }); await handler(req, res);
   expect(res.statusCode).toBe(200); expect(writes[0].value[0].requested_changes).toBeNull();
 });
-it("does not replace the operational plan of an existing booking", async () => {
+it("accepts a note about an existing booking without replacing its operational plan", async () => {
   const { req, res, writes } = setup(undefined, { converted_to_order_id: "order1" }); await handler(req, res);
-  expect(res.statusCode).toBe(400); expect(writes).toEqual([]);
+  expect(res.statusCode).toBe(200); expect(writes[0].value[0].requested_changes?.service_sittings).toBeUndefined();
 });

@@ -32,9 +32,9 @@ function setup(overrides = {}, rpcError: any = null) {
 }
 beforeEach(() => { jest.clearAllMocks(); jest.spyOn(console, "warn").mockImplementation(() => {}); jest.spyOn(console, "error").mockImplementation(() => {}); });
 afterEach(() => jest.restoreAllMocks());
-it("saves acceptance and both timings in one tenant-scoped transaction before conversion", async () => {
+it("accepts the saved caterer plan without letting client timings replace it", async () => {
   const { db, req, res } = setup(); await handler(req, res);
-  expect(db.rpc).toHaveBeenCalledWith("accept_quote_service_plan", { p_quote_id: "quote-1", p_company_id: "company-1", p_service_sittings: plan.map(sitting => expect.objectContaining(sitting)) });
+  expect(db.rpc).toHaveBeenCalledWith("accept_quote_service_plan", { p_quote_id: "quote-1", p_company_id: "company-1", p_service_sittings: null });
   expect(quoteService.convertQuoteToOrder).toHaveBeenCalledTimes(1);
   expect(db.rpc.mock.invocationCallOrder[0]).toBeLessThan((quoteService.convertQuoteToOrder as jest.Mock).mock.invocationCallOrder[0]);
   expect(db.from.mock.calls.some(([table]: string[]) => table === "service_sittings")).toBe(false);
@@ -46,11 +46,11 @@ it("a failed plan transaction does not convert the quote or create audit/notific
   expect(current.status).toBe("sent"); expect(quoteService.convertQuoteToOrder).not.toHaveBeenCalled();
   expect(db.from.mock.calls.map(([table]: string[]) => table)).toEqual(["quotes"]);
 });
-it("a retry repairs a missing plan before recovering an earlier accepted quote", async () => {
+it("a retry recovers an accepted quote without writing a client service plan", async () => {
   const { db, req, res } = setup({ status: "accepted" }); await handler(req, res);
-  expect(db.rpc).toHaveBeenCalledTimes(1); expect(res.body).toMatchObject({ ok: true, recoveredConversion: true });
+  expect(db.rpc).not.toHaveBeenCalled(); expect(res.body).toMatchObject({ ok: true, recoveredConversion: true });
 });
-it("refuses invalid two-sitting input before any acceptance write", async () => {
+it("ignores obsolete client timing fields without blocking acceptance", async () => {
   const { db, req, res } = setup(); req.body.serviceSittings[1] = { guestCount: 40, serviceTime: "" };
-  await handler(req, res); expect(res.statusCode).toBe(400); expect(db.rpc).not.toHaveBeenCalled();
+  await handler(req, res); expect(res.statusCode).toBe(200); expect(db.rpc).toHaveBeenCalledWith("accept_quote_service_plan", expect.objectContaining({ p_service_sittings: null }));
 });

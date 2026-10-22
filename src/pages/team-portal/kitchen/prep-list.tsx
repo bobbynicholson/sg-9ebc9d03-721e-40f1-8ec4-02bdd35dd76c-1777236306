@@ -1,3 +1,4 @@
+import { BookingSittings } from "@/components/booking/BookingSittings";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // KIT3-E (task #248): @ts-nocheck removed; this file is type-checked.
 // Remaining `any` casts are isolated to supabase realtime payloads
@@ -1108,6 +1109,7 @@ function KitchenPrepListPageInner() {
                                     <Users className="w-3 h-3" /> {o.guest_count} pax
                                   </span>
                                 </div>
+                                <BookingSittings bookingId={o.order_id} showOperations />
                                 {meta?.venue_address && (
                                   <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1">
                                     <MapPin className="w-3 h-3" />

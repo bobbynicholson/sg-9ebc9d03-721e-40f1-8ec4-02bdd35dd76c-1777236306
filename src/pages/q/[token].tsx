@@ -48,8 +48,6 @@ import { buildCompanyTermsPath } from "@/lib/companyLegal";
 // client gets the "Tell us why -> Confirm" flow with a note before
 // each action. Quote mode skips the payout step (no money to move).
 import { CancellationWizard } from "@/components/cancellation/CancellationWizard";
-import { QuoteItemsEditor, type MenuLine, type EquipLine } from "@/components/quote/QuoteItemsEditor";
-import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { toLocalISO } from "@/lib/localDate";
 import { isPastCalendarDate } from "@/lib/quotes/revisionLifecycle";
 import { QuoteProgress } from "@/components/quotes/QuoteProgress";
@@ -59,8 +57,6 @@ import { DocumentPartiesAndEvent } from "@/components/documents/DocumentPartiesA
 import { formatClockBoth } from "@/lib/portalTime";
 import { groupByCourse } from "@/lib/menuCourses";
 import { visibleDocumentNote } from "@/lib/visibleDocumentNote";
-import { serviceSittingsFromForm, serviceSittingsFormFromSaved, type ServiceSittingsForm } from "@/lib/serviceSittings";
-import { ServiceSittingsEditor } from "@/components/quote/ServiceSittingsEditor";
 
 // Phase 5 #10: per-tenant currency formatter. The Intl 'currency'
 // style honours each currency's standard symbol + grouping (so GBP
@@ -180,10 +176,6 @@ export default function PublicQuotePage() {
   const [acceptName, setAcceptName] = useState("");
   const [accepting, setAccepting] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
-  const [sittingCount, setSittingCount] = useState<1 | 2>(1);
-  const [firstSittingGuests, setFirstSittingGuests] = useState(0);
-  const [firstSittingTime, setFirstSittingTime] = useState("");
-  const [secondSittingTime, setSecondSittingTime] = useState("");
   const [justAccepted, setJustAccepted] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
@@ -254,18 +246,6 @@ export default function PublicQuotePage() {
   const [changesOpen, setChangesOpen] = useState(false);
   const [changesName, setChangesName] = useState("");
   const [changesMessage, setChangesMessage] = useState("");
-  const [changesEventDate, setChangesEventDate] = useState("");
-  const [changesGuestCount, setChangesGuestCount] = useState("");
-  const [changesMenu, setChangesMenu] = useState("");
-  const [changesVenue, setChangesVenue] = useState("");
-  const [changesLogistics, setChangesLogistics] = useState("");
-  const [changesWaiterService, setChangesWaiterService] = useState(false);
-  const [changesServicePlan, setChangesServicePlan] = useState<ServiceSittingsForm | null>(null);
-  // Structured item edits (prefilled from the quote in the editor). Null
-  // until the client touches the editor, so an untouched request doesn't
-  // overwrite the quote's lines with a stale snapshot.
-  const [changesMenuItems, setChangesMenuItems] = useState<MenuLine[] | null>(null);
-  const [changesEquipItems, setChangesEquipItems] = useState<EquipLine[] | null>(null);
   const [changesSubmitting, setChangesSubmitting] = useState(false);
   const [changesError, setChangesError] = useState<string | null>(null);
   const [changesSent, setChangesSent] = useState(false);
@@ -332,7 +312,6 @@ export default function PublicQuotePage() {
         }
       }
       setQuote(data);
-      hydrateAcceptancePlan(data);
       lastSeenUpdatedAtRef.current = data.updated_at || null;
       setLoading(false);
       // Fire-and-forget viewed_at stamp.
@@ -389,11 +368,8 @@ export default function PublicQuotePage() {
   const handleAccept = async () => {
     if (!token) return;
     setAcceptError(null);
-    const totalGuests = Number(quote?.guest_count || 0);
-    const plan = serviceSittingsFromForm({ count: sittingCount, firstGuests: firstSittingGuests, firstTime: firstSittingTime, secondTime: secondSittingTime }, totalGuests);
-    if (plan.error) { setAcceptError(plan.error); return; }
     setAccepting(true);
-    const res = await recordAccept({ token, acceptedByName: acceptName.trim(), serviceSittings: plan.value?.map(({ guestCount, serviceTime }) => ({ guestCount, serviceTime })) });
+    const res = await recordAccept({ token, acceptedByName: acceptName.trim() });
     setAccepting(false);
     if (!res.ok) {
       setAcceptError(res.error || "Could not accept the quote, please try again.");
@@ -448,64 +424,16 @@ export default function PublicQuotePage() {
     return () => window.clearTimeout(timer);
   }, [acceptedOrderUrl, router, router.query.stay]);
 
-  function hydrateAcceptancePlan(data: PublicQuoteView) {
-    const form = serviceSittingsFormFromSaved(data.service_sittings, data.event_time, Number(data.guest_count));
-    setSittingCount(form.count); setFirstSittingGuests(form.firstGuests);
-    setFirstSittingTime(form.firstTime); setSecondSittingTime(form.secondTime);
-  }
-
   const handleSubmitChanges = async () => {
     if (!token) return;
-    if (changesEventDate && isPastCalendarDate(changesEventDate, toLocalISO(new Date()))) {
-      setChangesError("The new event date cannot be in the past.");
-      return;
-    }
-    const changedTotal = changesGuestCount.trim() ? Number(changesGuestCount) : Number(quote?.guest_count || 0);
-    const plan = changesServicePlan ? serviceSittingsFromForm(changesServicePlan, changedTotal) : {};
-    if (plan.error) { setChangesError(plan.error); return; }
-    // The client may express their change two ways: a freeform message, or
-    // by editing the item list (add/remove/qty). Either is enough - when
-    // they only edited items we synthesise a message so the caterer's
-    // notification still reads sensibly and the server's min-length holds.
-    const itemsTouched = changesMenuItems !== null || changesEquipItems !== null;
-    const menuPayload = (changesMenuItems || [])
-      .filter((l) => l.quantity > 0)
-      .map((l) => ({ menu_item_id: l.menu_item_id, item_name: l.item_name, unit_price: l.unit_price, quantity: l.quantity, category: l.category || null }));
-    const equipPayload = (changesEquipItems || [])
-      .filter((l) => l.quantity > 0)
-      .map((l) => ({ equipment_id: l.equipment_id, name: l.name, unit_price: l.unit_price, quantity: l.quantity }));
-
-    let message = changesMessage.trim();
+    const message = changesMessage.trim();
     if (message.length < 10) {
-      if (itemsTouched) {
-        message = "Please update my quote to the menu and equipment selections I've set below.";
-      } else if (plan.value) {
-        message = "Please update my quote to the serving times and guest split selected below.";
-      } else {
-        setChangesError("Please give us at least 10 characters so we know what to change.");
-        return;
-      }
+      setChangesError("Please give us at least 10 characters so we know what to change.");
+      return;
     }
     setChangesSubmitting(true);
     setChangesError(null);
-    const res = await submitChangeRequest({
-      token,
-      message,
-      submitterName: changesName.trim() || quote?.client_name || null,
-      requestedChanges: {
-        event_date: changesEventDate || null,
-        guest_count: changesGuestCount.trim()
-          ? Number.parseInt(changesGuestCount, 10)
-          : null,
-        menu_changes: changesMenu.trim() || null,
-        venue_address: changesVenue.trim() || null,
-        logistics_changes: changesLogistics.trim() || null,
-        waiter_service: changesWaiterService,
-        service_sittings: plan.value?.map(({ guestCount, serviceTime }) => ({ guestCount, serviceTime })) || null,
-        menu_items: changesMenuItems !== null ? menuPayload : null,
-        equipment_items: changesEquipItems !== null ? equipPayload : null,
-      },
-    });
+    const res = await submitChangeRequest({ token, message, submitterName: changesName.trim() || quote?.client_name || null });
     setChangesSubmitting(false);
     if (!res.ok) {
       setChangesError(res.error || "Could not send your message, please try again.");
@@ -1295,7 +1223,7 @@ export default function PublicQuotePage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => { setChangesOpen(true); setChangesError(null); setAcceptOpen(false); setAcceptError(null); setChangesMenuItems(null); setChangesEquipItems(null); }}
+                        onClick={() => { setChangesOpen(true); setChangesError(null); setAcceptOpen(false); setAcceptError(null); }}
                         className="gap-1.5 text-stone-700"
                       >
                         <MessageSquare className="w-4 h-4" />
@@ -1346,11 +1274,6 @@ export default function PublicQuotePage() {
                         onChange={(e) => setAcceptName(e.target.value)}
                         placeholder="Your full name"
                         autoFocus
-                      />
-                      <ServiceSittingsEditor
-                        value={{ count: sittingCount, firstGuests: firstSittingGuests, firstTime: firstSittingTime, secondTime: secondSittingTime }}
-                        totalGuests={Number(quote.guest_count)} disabled={accepting}
-                        onChange={form => { setSittingCount(form.count); setFirstSittingGuests(form.firstGuests); setFirstSittingTime(form.firstTime); setSecondSittingTime(form.secondTime); }}
                       />
                       {acceptError && (
                         <div className="rounded-md bg-rose-50 border border-rose-200 px-3 py-2">
@@ -1414,7 +1337,6 @@ export default function PublicQuotePage() {
                         <Button
                           onClick={() => {
                             if (acceptanceBlocked) return;
-                            hydrateAcceptancePlan(quote);
                             setAcceptOpen(true);
                             setChangesOpen(false);
                             setChangesError(null);
@@ -1437,7 +1359,7 @@ export default function PublicQuotePage() {
                         {!changesSent && !changesOpen && (
                           <Button
                             variant="outline"
-                            onClick={() => { setChangesOpen(true); setChangesError(null); setAcceptOpen(false); setAcceptError(null); setChangesMenuItems(null); setChangesEquipItems(null); }}
+                            onClick={() => { setChangesOpen(true); setChangesError(null); setAcceptOpen(false); setAcceptError(null); }}
                             className="gap-1.5 px-6 border-stone-300 hover:bg-stone-50"
                             size="lg"
                           >
@@ -1517,7 +1439,7 @@ export default function PublicQuotePage() {
                     <div>
                       <p className="text-sm font-semibold text-stone-900">Request changes</p>
                       <p className="text-xs text-stone-600 mt-0.5">
-                        Tell {companyName} what you'd like adjusted. They'll send a fresh quote.
+                        Tell {companyName} what you need, including any separate sittings. The team will confirm the times and update your quote or booking.
                       </p>
                     </div>
 
@@ -1532,103 +1454,10 @@ export default function PublicQuotePage() {
                           onChange={(e) => setChangesMessage(e.target.value)}
                           rows={4}
                           placeholder='e.g. "Could you swap the chicken option for a vegetarian alternative? And see if we can drop guest count to 80."'
-                          className="mt-1"
+                          maxLength={4000}
+                          className="mt-1 text-base"
                         />
                       </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label htmlFor="changes-event-date" className="text-xs font-medium text-stone-700">
-                            New event date (optional)
-                          </label>
-                          <Input
-                            id="changes-event-date"
-                            type="date"
-                            min={toLocalISO(new Date())}
-                            value={changesEventDate}
-                            onChange={(e) => setChangesEventDate(e.target.value)}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="changes-guests" className="text-xs font-medium text-stone-700">
-                            New guest count (optional)
-                          </label>
-                          <Input
-                            id="changes-guests"
-                            type="number"
-                            min={0}
-                            value={changesGuestCount}
-                            onChange={(e) => setChangesGuestCount(e.target.value)}
-                            placeholder="e.g. 80"
-                            className="mt-1"
-                          />
-                        </div>
-                      </div>
-
-                      {!accepted && <ServiceSittingsEditor
-                        optional disabled={changesSubmitting}
-                        totalGuests={changesGuestCount.trim() ? Number(changesGuestCount) : Number(quote.guest_count)}
-                        value={changesServicePlan || serviceSittingsFormFromSaved(quote.service_sittings, quote.event_time, Number(quote.guest_count))}
-                        onChange={form => { setChangesServicePlan(form); setChangesError(null); }}
-                      />}
-
-                      <div>
-                        <p className="text-xs font-medium text-stone-700 mb-1.5">
-                          Adjust your items (optional)
-                        </p>
-                        <p className="text-[11px] text-stone-500 mb-2">
-                          These are the items currently on your quote. Change quantities, remove what you don't want, or add more. The caterer confirms the final price.
-                        </p>
-                        <QuoteItemsEditor
-                          token={token as string}
-                          menuInit={quote.menu_items}
-                          equipInit={quote.equipment_items}
-                          currencyFmt={fmtMoney}
-                          primary={company?.primary_color || "#b45309"}
-                          onChange={(menu, equip) => { setChangesMenuItems(menu); setChangesEquipItems(equip); }}
-                        />
-                      </div>
-
-                      <div>
-                        <label htmlFor="changes-venue" className="text-xs font-medium text-stone-700">
-                          New venue / address (optional)
-                        </label>
-                        <AddressAutocomplete
-                          id="changes-venue"
-                          value={changesVenue}
-                          onChange={(pick) => setChangesVenue(pick.address)}
-                          placeholder="Start typing the venue address..."
-                          suppressNoKeyWarning
-                          className="mt-1"
-                        />
-                      </div>
-
-                      <div>
-                        <label htmlFor="changes-logistics" className="text-xs font-medium text-stone-700">
-                          Delivery / collection changes (optional)
-                        </label>
-                        <Input
-                          id="changes-logistics"
-                          value={changesLogistics}
-                          onChange={(e) => setChangesLogistics(e.target.value)}
-                          placeholder="e.g. we'll collect the equipment ourselves, or please add collection"
-                          className="mt-1"
-                        />
-                      </div>
-
-                      <label className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={changesWaiterService}
-                          onChange={(e) => setChangesWaiterService(e.target.checked)}
-                          className="mt-0.5 h-4 w-4 accent-amber-600"
-                        />
-                        <span>
-                          <span className="block text-xs font-semibold text-amber-950">Please include waiter service</span>
-                          <span className="block mt-0.5 text-[11px] leading-4 text-amber-800">Ask the catering team to price an on-site waiter/service team for this event. They will confirm availability and send an updated quote.</span>
-                        </span>
-                      </label>
 
                       <div>
                         <label htmlFor="changes-name" className="text-xs font-medium text-stone-700">

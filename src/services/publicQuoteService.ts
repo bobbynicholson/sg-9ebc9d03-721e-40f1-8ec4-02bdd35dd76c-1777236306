@@ -222,25 +222,19 @@ export async function recordView(token: string, currentViewedAt: string | null):
 export async function recordAccept(args: {
   token: string;
   acceptedByName: string;
-  serviceSittings?: Array<{ guestCount: number; serviceTime: string }>;
 }): Promise<{ ok: boolean; error?: string; orderId?: string; conversionPending?: boolean }> {
   if (!args.token) return { ok: false, error: "Missing token." };
   if (!args.acceptedByName?.trim()) return { ok: false, error: "Please enter your name." };
   const verifySavedAcceptance = async () => {
     const saved = await fetchByToken(args.token);
     if (!saved || (saved.status !== "accepted" && !saved.converted_to_order_id)) return null;
-    if (args.serviceSittings) {
-      const sittings = [...(saved.service_sittings || [])].sort((left, right) => left.sequence_number - right.sequence_number);
-      if (sittings.length !== args.serviceSittings.length || sittings.some((sitting, index) =>
-        sitting.guest_count !== args.serviceSittings![index].guestCount || sitting.service_time.slice(0, 5) !== args.serviceSittings![index].serviceTime)) return null;
-    }
     return { ok: true, orderId: saved.converted_to_order_id || undefined, conversionPending: !saved.converted_to_order_id };
   };
   try {
     const res = await fetch(`/api/public/quotes/${encodeURIComponent(args.token)}/accept`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ acceptedByName: args.acceptedByName.trim(), serviceSittings: args.serviceSittings }),
+      body: JSON.stringify({ acceptedByName: args.acceptedByName.trim() }),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || json.ok === false) {
@@ -253,7 +247,7 @@ export async function recordAccept(args: {
     return { ok: true, orderId: json.orderId || undefined, conversionPending: json.conversionPending === true };
   } catch (err: any) {
     // A gateway can lose the response after the database commits. Only
-    // confirm success when both acceptance and this exact plan are saved.
+    // confirm success when the caterer's quote acceptance is saved.
     const saved = await verifySavedAcceptance();
     if (saved) return saved;
     return { ok: false, error: err?.message || "Network error" };
@@ -277,8 +271,6 @@ export async function submitChangeRequest(args: {
     logistics_changes?: string | null;
     /** The client is asking the caterer to price on-site waiter service. */
     waiter_service?: boolean;
-    /** Proposed serving times, applied after the caterer addresses this request. */
-    service_sittings?: Array<{ guestCount: number; serviceTime: string }> | null;
     /** Structured item picks from the in-form editor. null = the client
      *  didn't touch the item editor (leave the quote's lines as-is). */
     menu_items?: Array<{ menu_item_id: string | null; item_name: string; unit_price: number; quantity: number; category?: string | null }> | null;

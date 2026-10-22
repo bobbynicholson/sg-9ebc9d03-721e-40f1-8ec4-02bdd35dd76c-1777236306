@@ -18,21 +18,23 @@ before(async()=>{
     CREATE TYPE assignment_status AS ENUM('assigned','accepted','en_route','picked_up','at_venue','delivered','completed','cancelled','rejected');
     CREATE TABLE companies(id uuid PRIMARY KEY,timezone text DEFAULT 'Africa/Johannesburg');
     CREATE TABLE profiles(id uuid PRIMARY KEY,company_id uuid,role text DEFAULT 'driver',is_active boolean DEFAULT true);
-    CREATE TABLE orders(id uuid PRIMARY KEY,company_id uuid,quote_id uuid,status text DEFAULT 'confirmed',event_date date DEFAULT '2099-11-06',event_time time DEFAULT '12:00',deleted_at timestamptz,
+    CREATE TABLE orders(id uuid PRIMARY KEY,company_id uuid,quote_id uuid,guest_count integer DEFAULT 100,region_id uuid,total_amount numeric DEFAULT 10000,amount_paid numeric DEFAULT 5000,deposit_paid boolean DEFAULT true,status text DEFAULT 'confirmed',event_date date DEFAULT '2099-11-06',event_time time DEFAULT '12:00',deleted_at timestamptz,
       assigned_driver_id uuid,driver_id uuid,secondary_driver_id uuid,equipment_return_method text,collection_next_day boolean,updated_at timestamptz,delivered_at timestamptz,service_ended_at timestamptz,event_complete_at timestamptz);
     CREATE TABLE quotes(id uuid PRIMARY KEY,company_id uuid,status text DEFAULT 'draft',guest_count integer DEFAULT 100,event_date date DEFAULT '2099-11-06',event_time time,
       valid_until timestamptz DEFAULT '2099-11-30',accepted_at timestamptz,converted_to_order_id uuid,deleted_at timestamptz,lost_reason text,rejected_at timestamptz,updated_at timestamptz,notes text);
     CREATE TABLE quote_change_requests(id uuid PRIMARY KEY,company_id uuid,quote_id uuid,status text DEFAULT 'pending',requested_changes jsonb,created_at timestamptz DEFAULT now());
     CREATE TABLE driver_assignments(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),company_id uuid,order_id uuid REFERENCES orders,driver_id uuid,assignment_type text,status assignment_status DEFAULT 'assigned',
       scheduled_for timestamptz,notes text,rejection_reason text,accepted_at timestamptz,en_route_at timestamptz,arrived_at_venue_at timestamptz,picked_up_at timestamptz,delivered_at timestamptz,completed_at timestamptz);
-    CREATE TABLE kitchen_prep_tasks(id uuid);
+    CREATE TABLE kitchen_prep_tasks(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),company_id uuid,order_id uuid,region_id uuid,menu_item_name text,task_type text,start_at timestamptz,duration_min integer,status text DEFAULT 'pending',notes text,planned_yield numeric,yield_unit text,deleted_at timestamptz,started_at timestamptz);
+    CREATE TABLE invoices(id uuid PRIMARY KEY,order_id uuid,total_amount numeric,amount_paid numeric);
+    CREATE TABLE payments(id uuid PRIMARY KEY,order_id uuid,amount numeric);
   `);
-  for(const name of ['20261020130000_service_sittings.sql','20261021190000_atomic_quote_service_plan_acceptance.sql','20261022030000_sitting_operations.sql']) await db.exec(await readFile('supabase/migrations/'+name,'utf8'));
+  for(const name of ['20261020130000_service_sittings.sql','20261021190000_atomic_quote_service_plan_acceptance.sql','20261022030000_sitting_operations.sql','20261022150000_admin_managed_order_sittings.sql']) await db.exec(await readFile('supabase/migrations/'+name,'utf8'));
   await db.exec(`CREATE TRIGGER stamp_event_end AFTER UPDATE OF status ON driver_assignments FOR EACH ROW EXECUTE FUNCTION stamp_order_event_end_from_collection();`);
 });
 after(()=>db.close());
 beforeEach(async()=>{
-  await db.exec('TRUNCATE companies,quotes,orders,service_sittings,profiles,driver_assignments,quote_change_requests CASCADE');
+  await db.exec('TRUNCATE companies,quotes,orders,service_sittings,profiles,driver_assignments,quote_change_requests,kitchen_prep_tasks,invoices,payments CASCADE');
   await db.query('INSERT INTO companies(id) VALUES($1),($2)',[company,tenant]);
   await db.query('INSERT INTO quotes(id,company_id) VALUES($1,$2)',[quote,company]);
   await db.query('INSERT INTO profiles(id,company_id) VALUES($1,$4),($2,$4),($3,$4)',[d1,d2,d3,company]);
@@ -115,4 +117,85 @@ test('every delivery and every required collection must finish before the event 
   assert.equal((await db.query('SELECT event_complete_at FROM orders')).rows[0].event_complete_at,null);
   for(const status of ['accepted','en_route','picked_up','completed'])await advance(collections[1],status);
   assert.ok((await db.query('SELECT event_complete_at FROM orders')).rows[0].event_complete_at);
+});
+
+const adminOps = () => [0,1].map(i=>({id:id(30+i),guest_count:50,service_time:i?'18:00':'12:00',kitchenReadyTime:i?'16:30':'10:30',dispatchTime:i?'17:00':'11:00',returnDate:'2099-11-06',returnTime:i?'22:00':'15:00',deliveryDriverIds:[i?d2:d1],collectionDriverIds:[i?d2:d1]}));
+const batchTasks = ops => ops.flatMap((s,i)=>['prep','cook'].map((type,j)=>({service_sitting_id:s.id,menu_item_name:'Brownie',task_type:type,start_at:`2099-11-06T${i?'14':'08'}:${j?'30':'00'}:00Z`,duration_min:30,planned_yield:s.guest_count,yield_unit:'portions',notes:`Sitting ${i+1}: ${s.guest_count} guests at ${s.service_time}`})));
+const adminSave = (ops=adminOps(),tenantId=company,tasks=batchTasks(ops))=>db.query('SELECT save_admin_order_service_plan($1,$2,$3,$4,$5)',[order,tenantId,JSON.stringify(ops),'per_sitting_collection',JSON.stringify(tasks)]);
+async function legacyBooking(){
+  await db.query('INSERT INTO orders(id,company_id,quote_id) VALUES($1,$2,$3)',[order,company,quote]);
+  await db.query("UPDATE quotes SET status='accepted',converted_to_order_id=$1 WHERE id=$2",[order,quote]);
+  await db.query("INSERT INTO kitchen_prep_tasks(company_id,order_id,menu_item_name,task_type,status) VALUES($1,$2,'Brownie','prep','pending')",[company,order]);
+  await db.query('INSERT INTO invoices VALUES($1,$2,10000,5000)',[id(40),order]);
+  await db.query('INSERT INTO payments VALUES($1,$2,5000)',[id(41),order]);
+}
+const activeTasks = async()=> (await db.query('SELECT * FROM kitchen_prep_tasks WHERE deleted_at IS NULL ORDER BY start_at')).rows;
+
+test('an already booked order splits into two kitchen batches with independent trips and one unchanged invoice/payment',async()=>{
+  await legacyBooking();await adminSave();
+  assert.equal((await rows()).length,2);assert.equal((await trips()).length,4);assert.equal((await activeTasks()).length,4);
+  assert.equal((await db.query('SELECT count(*)::int AS n FROM orders')).rows[0].n,1);
+  assert.deepEqual((await db.query('SELECT total_amount,amount_paid FROM invoices')).rows,[{total_amount:'10000',amount_paid:'5000'}]);
+  assert.deepEqual((await db.query('SELECT amount FROM payments')).rows,[{amount:'5000'}]);
+  assert.deepEqual((await db.query('SELECT total_amount,amount_paid,deposit_paid FROM orders')).rows,[{total_amount:'10000',amount_paid:'5000',deposit_paid:true}]);
+  assert.deepEqual((await activeTasks()).map(t=>t.service_sitting_id),[id(30),id(30),id(31),id(31)]);
+  assert.equal((await db.query('SELECT count(*)::int AS n FROM kitchen_prep_tasks WHERE deleted_at IS NOT NULL')).rows[0].n,1);
+});
+test('retrying a saved plan keeps kitchen task and trip IDs stable',async()=>{
+  await legacyBooking();await adminSave();const before=(await activeTasks()).map(t=>t.id);const tripIds=(await trips()).map(t=>t.id);
+  await adminSave();assert.deepEqual((await activeTasks()).map(t=>t.id),before);assert.deepEqual((await trips()).map(t=>t.id),tripIds);
+});
+test('admin can revise guest allocations and both service times before work starts',async()=>{
+  await legacyBooking();await adminSave();const ops=adminOps();ops[0].guest_count=40;ops[1].guest_count=60;ops[1].service_time='19:00';await adminSave(ops);
+  assert.deepEqual((await rows()).map(s=>[s.guest_count,s.service_time]),[[40,'12:00:00'],[60,'19:00:00']]);
+  assert.deepEqual((await activeTasks()).map(t=>Number(t.planned_yield)),[40,40,60,60]);
+});
+test('invalid guest totals leave the booking, tasks and finance intact',async()=>{
+  await legacyBooking();const ops=adminOps();ops[1].guest_count=49;await assert.rejects(adminSave(ops),/booking total/);
+  assert.equal((await rows()).length,0);assert.equal((await activeTasks()).length,1);assert.equal((await trips()).length,0);
+});
+test('a bad driver rolls back the new split, all tasks and every trip',async()=>{
+  await legacyBooking();const ops=adminOps();ops[1].deliveryDriverIds=[id(99)];await assert.rejects(adminSave(ops),/active driver/);
+  assert.equal((await rows()).length,0);assert.equal((await activeTasks()).length,1);assert.equal((await trips()).length,0);
+});
+for(const state of ['in_progress','done'])test(`a ${state} kitchen task prevents rewriting the split`,async()=>{
+  await legacyBooking();await db.query('UPDATE kitchen_prep_tasks SET status=$1',[state]);await assert.rejects(adminSave(),/already started/);
+  assert.equal((await rows()).length,0);assert.equal((await activeTasks()).length,1);
+});
+test('a started sitting trip prevents changing service times without touching its progress',async()=>{
+  await legacyBooking();await adminSave();const t=(await trips())[0];await advance(t,'accepted');await advance(t,'en_route');
+  const ops=adminOps();ops[0].service_time='13:00';await assert.rejects(adminSave(ops),/already started/);assert.equal((await trips())[0].status,'en_route');
+});
+test('a stale version cannot overwrite a saved sitting plan',async()=>{
+  await legacyBooking();await adminSave();const ops=adminOps();ops[0].updated_at='2000-01-01';await assert.rejects(adminSave(ops),/Another team member/);
+});
+test('admin order planning is tenant scoped and unavailable to browser roles',async()=>{
+  await legacyBooking();await assert.rejects(adminSave(adminOps(),tenant));
+  for(const role of ['anon','authenticated']){await db.exec(`SET ROLE ${role}`);await assert.rejects(adminSave(),/permission denied/);await db.exec('RESET ROLE');}
+});
+test('addressing an old client timing request does not apply it without admin review',async()=>{
+  await db.exec("UPDATE quote_change_requests SET status='addressed'");assert.equal((await rows()).length,0);
+});
+test('finishing the first kitchen batch leaves the second batch planned',async()=>{
+  await legacyBooking();await adminSave();
+  await db.query("UPDATE kitchen_prep_tasks SET status='done' WHERE service_sitting_id=$1 AND deleted_at IS NULL",[id(30)]);
+  assert.deepEqual((await rows()).map(s=>s.status),['ready','planned']);
+});
+test('collection drivers remain editable after both deliveries finish',async()=>{
+  await legacyBooking();await adminSave();
+  for(const t of (await trips()).filter(t=>t.assignment_type==='delivery'))for(const status of ['accepted','en_route','at_venue','delivered','completed'])await advance(t,status);
+  const ops=adminOps();ops[0].collectionDriverIds=[d3];await adminSave(ops);
+  assert.equal((await trips()).find(t=>t.service_sitting_id===id(30)&&t.assignment_type==='collection').driver_id,d3);
+  assert.equal((await db.query('SELECT status FROM orders')).rows[0].status,'delivered');
+});
+test('a signed-in company member cannot bypass admin scheduling through direct table writes',async()=>{
+  await legacyBooking();await adminSave();
+  await db.exec(`CREATE OR REPLACE FUNCTION get_user_company_id(uuid) RETURNS uuid LANGUAGE sql AS $$ SELECT '${company}'::uuid $$;
+    GRANT USAGE ON SCHEMA auth TO authenticated; GRANT SELECT,INSERT,UPDATE,DELETE ON service_sittings TO authenticated; SET ROLE authenticated;`);
+  try {
+    assert.equal((await db.query('SELECT * FROM service_sittings')).rows.length,2);
+    await db.query('UPDATE service_sittings SET guest_count=999');
+    assert.deepEqual((await db.query('SELECT guest_count FROM service_sittings')).rows.map(s=>s.guest_count),[50,50]);
+    await assert.rejects(db.query("INSERT INTO service_sittings(company_id,order_id,sequence_number,guest_count,service_time) VALUES($1,$2,3,1,'20:00')",[company,order]),/row-level security/);
+  } finally { await db.exec('RESET ROLE'); }
 });

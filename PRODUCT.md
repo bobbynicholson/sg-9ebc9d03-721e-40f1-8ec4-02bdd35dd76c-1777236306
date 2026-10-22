@@ -18,7 +18,7 @@ The product runs a catering booking from lead through quote, client acceptance, 
 
 ## Operating Context
 
-Clients may require one event to be served in multiple sittings. A sitting has its own guest allocation and service time; it may require its own kitchen batch, driver, venue reset, and equipment-return plan. The client can state this at lead capture, quote acceptance, or later through an amendment request. Operations staff approve and schedule the request rather than inventing it on the client's behalf.
+Clients may require one event to be served in multiple sittings. A sitting has its own guest allocation and service time; it may require its own kitchen batch, driver, venue reset, and equipment-return plan. The client describes requirements in a simple notes field. Only staff choose sitting times and guest allocations in the admin quote or booked order. Clients can read the agreed schedule and request changes in notes.
 
 ## Capabilities and Constraints
 
@@ -31,7 +31,7 @@ Clients may require one event to be served in multiple sittings. A sitting has i
 
 ## Product Principles
 
-- Capture the client requirement early, but do not force operational detail before it is known.
+- Keep customer lead and change-request forms simple; sitting controls belong to staff.
 - Separate commercial approval from operational scheduling.
 - Show each team only the time-bound work it owns, while preserving one source of truth for the event.
 - Prefer explicit service, dispatch, reset, and return labels over ambiguous "collection" language.

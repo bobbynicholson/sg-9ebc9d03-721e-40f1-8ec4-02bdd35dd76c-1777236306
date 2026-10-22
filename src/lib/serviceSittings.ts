@@ -54,3 +54,20 @@ export function serviceSittingsFromForm(form: ServiceSittingsForm, totalGuests: 
 export function describeServiceSittings(sittings: Array<{ guestCount: number; serviceTime: string }>): string {
   return sittings.map((s, index) => `Sitting ${index + 1}: ${s.guestCount} guests at ${s.serviceTime}`).join("; ");
 }
+
+/** Proportional kitchen portions without inventing extra meals. Whole
+ *  quantities stay whole; fractional quantities retain two decimals. */
+export function allocateSittingQuantities(quantity: number, guests: number[]): number[] {
+  const total = guests.reduce((sum, count) => sum + count, 0);
+  if (!(quantity > 0) || !(total > 0)) return guests.map(() => 0);
+  const scale = Number.isInteger(quantity) ? 1 : 100;
+  const units = Math.round(quantity * scale);
+  const shares = guests.map((count, index) => ({ index, exact: units * count / total }));
+  const allocated = shares.map(({ exact }) => Math.floor(exact));
+  let remainder = units - allocated.reduce((sum, count) => sum + count, 0);
+  for (const share of [...shares].sort((a, b) => (b.exact % 1) - (a.exact % 1) || a.index - b.index)) {
+    if (remainder-- <= 0) break;
+    allocated[share.index] += 1;
+  }
+  return allocated.map((count) => count / scale);
+}

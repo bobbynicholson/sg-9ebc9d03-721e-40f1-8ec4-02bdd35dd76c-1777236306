@@ -12,7 +12,6 @@ import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { isPastCalendarDate } from "@/lib/quotes/revisionLifecycle";
 import { getEventCapacityForDate, publicCapacityMessage } from "@/lib/eventCapacity";
-import { normaliseServiceSittings } from "@/lib/serviceSittings";
 
 
 /**
@@ -73,9 +72,9 @@ async function respondToAcceptedQuote(supabase: any, quote: any, origin: string,
   return res.status(202).json({ ok: true, alreadyAccepted: true, conversionPending: true, quoteId: quote.id });
 }
 
-async function saveAcceptance(supabase: any, quote: any, serviceSittings: unknown) {
+async function saveAcceptance(supabase: any, quote: any) {
   return supabase.rpc("accept_quote_service_plan", {
-    p_quote_id: quote.id, p_company_id: quote.company_id, p_service_sittings: serviceSittings || null,
+    p_quote_id: quote.id, p_company_id: quote.company_id, p_service_sittings: null,
   });
 }
 
@@ -123,18 +122,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   if (!existing) return res.status(404).json({ ok: false, error: "Quote not found." });
-  const parsedSittings = normaliseServiceSittings(body.serviceSittings, Number(existing.guest_count));
-  if (parsedSittings.error) return res.status(400).json({ ok: false, error: parsedSittings.error });
+  // Public acceptance confirms the caterer's saved plan. Client-submitted
+  // timing fields from old tabs are never allowed to replace it.
   if (existing.converted_to_order_id || existing.status === "accepted") {
-    // Repair a missing legacy plan before retrying conversion. Never replace
-    // a plan that has already been accepted or operationally scheduled.
-    if (parsedSittings.value) {
-      const { error: planError } = await saveAcceptance(supabase, existing, parsedSittings.value);
-      if (planError) {
-        console.error("[public/quotes/accept] service plan recovery failed:", planError);
-        return res.status(500).json({ ok: false, error: "Your acceptance is recorded, but the serving times still need saving. Please retry with the same times." });
-      }
-    }
     return respondToAcceptedQuote(supabase, existing, requestOrigin(req), res);
   }
   if (existing.status === "rejected") {
@@ -243,14 +233,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   // One database transaction locks this quote, saves its serving plan and
   // stamps acceptance. A plan error rolls the whole operation back.
-  const { data: acceptance, error } = await saveAcceptance(supabase, existing, parsedSittings.value);
+  const { data: acceptance, error } = await saveAcceptance(supabase, existing);
   if (error) {
     console.error("[public/quotes/accept] atomic acceptance failed:", error);
     return res.status(error.code === "22023" ? 409 : 500).json({
       ok: false,
       error: error.code === "22023"
-        ? "The quote or serving plan changed. Refresh the quote and check the guest counts and times before accepting."
-        : "Couldn't save your acceptance and serving times. Please try again or contact the caterer.",
+        ? "The quote changed. Refresh it before accepting."
+        : "Couldn't save your acceptance. Please try again or contact the caterer.",
     });
   }
   const updated = acceptance?.quote;

@@ -5243,6 +5243,7 @@ export type Database = {
       }
       kitchen_prep_tasks: {
         Row: {
+          service_sitting_id: string | null
           actual_yield: number | null
           allergen_check_at: string | null
           allergen_check_by: string | null
@@ -5269,6 +5270,7 @@ export type Database = {
           yield_unit: string | null
         }
         Insert: {
+          service_sitting_id?: string | null
           actual_yield?: number | null
           allergen_check_at?: string | null
           allergen_check_by?: string | null
@@ -5295,6 +5297,7 @@ export type Database = {
           yield_unit?: string | null
         }
         Update: {
+          service_sitting_id?: string | null
           actual_yield?: number | null
           allergen_check_at?: string | null
           allergen_check_by?: string | null

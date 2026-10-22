@@ -12,7 +12,7 @@ export function AdminServicePlanEditor({ value, totalGuests, onChange, disabled 
   const edit = (index: number, patch: Partial<ServiceSittingInput>) => onChange(value.map((s, n) => n === index ? { ...s, ...patch } : s));
   return <fieldset disabled={disabled} className="min-w-0 space-y-3 border-t border-slate-200 pt-4" aria-describedby={`${uid}-hint`}>
     <legend className="text-base font-semibold text-slate-950">Serving times &amp; guest split</legend>
-    <p id={`${uid}-hint`} className="text-sm text-slate-600">Each sitting carries into the client quote and booking. Assign drivers and equipment collections on the booking after acceptance.</p>
+    <p id={`${uid}-hint`} className="text-sm text-slate-600">Your team controls these times. Customers see the confirmed plan; they request changes in a note. Manage drivers and collections on the booked order.</p>
     {value.map((s, index) => <div key={index} className="grid min-w-0 grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_1fr_auto]">
       <label className="min-w-0 text-sm text-slate-700">Sitting {index + 1} guests<Input type="number" min={1} step={1} value={s.guestCount || ""} onChange={e => edit(index, { guestCount: Number(e.target.value) })} className="mt-1 text-base" /></label>
       <label className="min-w-0 text-sm text-slate-700">Sitting {index + 1} service time<Input type="time" value={s.serviceTime} onChange={e => edit(index, { serviceTime: e.target.value })} className="mt-1 min-w-0 text-base" /></label>

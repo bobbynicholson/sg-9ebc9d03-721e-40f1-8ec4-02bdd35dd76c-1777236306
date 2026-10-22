@@ -2,7 +2,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getRequestSupabase } from "@/lib/supabase/service";
 import { emailService } from "@/services/emailService";
-import { normaliseServiceSittings, describeServiceSittings } from "@/lib/serviceSittings";
 import {
   applyCorsHeaders,
   checkAndIncrementRateLimit,
@@ -60,7 +59,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const honeypot = typeof body.honeypot === "string" ? body.honeypot : "";
   if (honeypot.trim().length > 0) return res.status(200).json({ ok: true });
 
-  const message =
+  let message =
     typeof body.message === "string"
       ? body.message.trim().slice(0, MAX_MESSAGE)
       : "";
@@ -188,11 +187,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   if (!quote || quote.deleted_at) return res.status(404).json({ ok: false, error: "Quote not found" });
 
-  if (rawChanges.service_sittings != null) {
-    if (quote.converted_to_order_id || quote.status === "accepted") return res.status(400).json({ ok: false, error: "Please request serving-time changes from your booking page." });
-    const plan = normaliseServiceSittings(rawChanges.service_sittings, requestedChanges.guest_count ?? Number(quote.guest_count));
-    if (plan.error) return res.status(400).json({ ok: false, error: plan.error });
-    requestedChanges.service_sittings = plan.value!.map(({ guestCount, serviceTime }) => ({ guestCount, serviceTime }));
+  // Older open tabs may still send a structured timing proposal. Preserve
+  // it as a note for staff to review, never as an executable service plan.
+  if (Array.isArray(rawChanges.service_sittings) && rawChanges.service_sittings.length) {
+    const note = rawChanges.service_sittings.slice(0, 12).map((s: any, index: number) =>
+      `Sitting ${index + 1}: ${String(s?.guestCount ?? "unspecified").slice(0, 20)} guests at ${String(s?.serviceTime ?? "unspecified").slice(0, 20)}`,
+    ).join("; ");
+    message = `${message}\n\nRequested serving arrangement (team to confirm): ${note}`.slice(0, MAX_MESSAGE);
   }
 
   if (
@@ -542,7 +543,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           <blockquote style="border-left:3px solid #e2e8f0;margin:16px 0;padding:8px 16px;color:#475569;font-style:italic">
             ${message.replace(/\n/g, "<br/>")}
           </blockquote>
-          ${requestedChanges.service_sittings ? `<p><strong>Requested serving times:</strong> ${describeServiceSittings(requestedChanges.service_sittings)}</p>` : ""}
           <p><a href="${quoteLink}" style="color:#4f46e5">View change request &rarr;</a></p>
           <p style="font-size:12px;color:#94a3b8">${companyName || "CateringMS"} &mdash; automated notification</p>
         `;

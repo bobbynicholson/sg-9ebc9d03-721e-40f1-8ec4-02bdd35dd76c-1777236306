@@ -965,7 +965,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
           {/* Who brings the equipment back (quote "Equipment return"
               choice). Everyone sees it; admins can change it. */}
           {(order.service_sittings?.length || 0) < 2 && <EquipmentReturnCard order={order} canEdit={canSeeFinance} onChanged={load} />}
-          {!isClient && (order.service_sittings?.length || 0) > 1 && <ServiceSittingsOperations orderId={order.id} companyId={order.company_id} canEdit={primary === "admin"} />}
+          {!isClient && (primary === "admin" || (order.service_sittings?.length || 0) > 1) && <ServiceSittingsOperations orderId={order.id} companyId={order.company_id} canEdit={primary === "admin"} onSaved={load} />}
 
             <OrderTimelineSection
               order={order}

@@ -30,6 +30,8 @@ import { useToast } from "@/hooks/use-toast";
  */
 interface PrepTask {
   id: string;
+  service_sitting_id?: string | null;
+  notes?: string | null;
   menu_item_name: string;
   task_type: string;
   duration_min: number;
@@ -81,6 +83,7 @@ function PrepTaskTimerRow({
         <div className="text-xs font-medium text-slate-900 truncate" data-prep-task-label data-task-id={task.id}>
           {task.menu_item_name}
         </div>
+        {task.service_sitting_id && task.notes && <p className="mt-1 break-words text-xs text-slate-600">{task.notes}</p>}
         <div className="text-[10px] text-slate-500 capitalize">{task.task_type} - {task.duration_min}m</div>
       </div>
 
@@ -200,7 +203,7 @@ export function PrepTaskTimer({ orderId, companyId: companyIdProp }: PrepTaskTim
   const load = useCallback(async () => {
     let query = supabase
       .from("kitchen_prep_tasks")
-      .select("id, menu_item_name, task_type, duration_min, status, started_at, completed_at, start_at")
+      .select("service_sitting_id, notes, id, menu_item_name, task_type, duration_min, status, started_at, completed_at, start_at")
       .eq("order_id", orderId)
       .in("status", ["pending", "in_progress"])
       .is("deleted_at", null);

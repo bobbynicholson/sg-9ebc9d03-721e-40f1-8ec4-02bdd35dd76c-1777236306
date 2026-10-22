@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { CustomerIdentityFields } from "@/components/admin/CustomerIdentityFields";
+import { ServiceSittingsOperations } from "@/components/order/ServiceSittingsOperations";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1334,8 +1335,9 @@ return (
         {/* 7 tabs in grid-cols-7 clipped + overlapped the labels ("Menu
             Items", "Cancellations") at phone width. Scroll horizontally on
             mobile (tabs keep full labels, shrink-0), grid from sm up. */}
-        <TabsList className="flex w-full justify-start overflow-x-auto [&>*]:shrink-0 sm:grid sm:grid-cols-7">
+        <TabsList className="flex w-full justify-start overflow-x-auto [&>*]:shrink-0">
           <TabsTrigger id="order-details" data-chat-section="admin.order-details.details" data-chat-section-label="Order details" value="details">Details</TabsTrigger>
+          <TabsTrigger id="order-sittings" data-chat-section="admin.order-details.sittings" data-chat-section-label="Service sittings and trips" value="sittings">Sittings &amp; trips</TabsTrigger>
           <TabsTrigger id="order-menu" data-chat-section="admin.order-details.menu" data-chat-section-label="Order menu items" value="menu">Menu Items</TabsTrigger>
           <TabsTrigger id="order-equipment" data-chat-section="admin.order-details.equipment" data-chat-section-label="Order equipment" value="equipment">Equipment</TabsTrigger>
           <TabsTrigger id="order-messages" data-chat-section="admin.order-details.messages" data-chat-section-label="Order messages" value="messages">Messages</TabsTrigger>
@@ -1645,6 +1647,18 @@ return (
               </div>
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="sittings" className="space-y-4 mt-4">
+          {editMode ? <p className="text-sm text-slate-700">Save or discard your order edits before changing the sitting schedule.</p> : <ServiceSittingsOperations
+            orderId={selectedOrder.id} companyId={companyId || ""}
+            canEdit={["super_admin","owner","company_admin","admin","region_admin","sales_admin"].includes(user?.active_role || user?.role)}
+            onSaved={() => {
+              void loadOrders();
+              void supabase.from("orders").select("*").eq("id",selectedOrder.id).eq("company_id",companyId || "").maybeSingle()
+                .then(({ data }) => { if (data) setSelectedOrder(data as any); });
+            }}
+          />}
         </TabsContent>
 
         <TabsContent value="menu" className="space-y-4 mt-4">

@@ -278,7 +278,7 @@ export function BookingHeader({
                 </span>
               )}
             </div>
-            <BookingSittings bookingId={booking.id} />
+            <BookingSittings bookingId={booking.id} showOperations={variant !== "client"} />
           </div>
 
           {rightSlot && (
