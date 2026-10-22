@@ -1,3 +1,4 @@
+import { BookingSittings } from "./BookingSittings";
 /**
  * BookingHeader - Wave 70.41
  *
@@ -277,6 +278,7 @@ export function BookingHeader({
                 </span>
               )}
             </div>
+            <BookingSittings bookingId={booking.id} />
           </div>
 
           {rightSlot && (

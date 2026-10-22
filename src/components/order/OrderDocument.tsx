@@ -1,3 +1,4 @@
+import { ServiceSittingsOperations } from "./ServiceSittingsOperations";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * ODOC: unified order document.
@@ -89,6 +90,7 @@ function resolvePrimarySection(
 }
 
 interface OrderHead {
+  service_sittings?: Array<{id:string}>;
   id: string;
   company_id: string;
   payment_terms_text: string;
@@ -599,7 +601,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, company_id, order_number, event_name, event_date, event_time, setup_time, delivery_time, venue_name, venue_address, guest_count, status, client_id, client_name, client_email, client_phone, special_instructions, kitchen_instructions, assigned_chef_id, assigned_driver_id, collection_time, confirmed_at, prep_started_at, ready_at, picked_up_at, arrived_at_venue_at, pod_captured_at, pod_photo_url, pod_signature_url, delivered_at, setup_started_at, service_started_at, departed_venue_at, completed_at, cancelled_at, postponed_at, requires_waiter, waiter_service_required, equipment_return_method, collection_next_day, created_at, event_end_date, dietary_requirements, requires_refrigeration, requires_two_drivers, final_order_change_date, comms_paused_until, region_id, quote_id, package_id, paused_reason, paused_expected_resume_date, paused_from_status, cancellation_reason, lead_source, deposit_amount, amount_paid, balance_amount, balance_due_date, deposit_paid_at, balance_paid_at, payment_status, deposit_paid, balance_paid, delivery_distance_km, delivery_duration_minutes, driver_acknowledged_at, driver_acknowledged_via, venue_contact_person, venue_contact_phone, assigned_vehicle_id, secondary_driver_id, secondary_vehicle_id, pickup_time",
+          "service_sittings(id), id, company_id, order_number, event_name, event_date, event_time, setup_time, delivery_time, venue_name, venue_address, guest_count, status, client_id, client_name, client_email, client_phone, special_instructions, kitchen_instructions, assigned_chef_id, assigned_driver_id, collection_time, confirmed_at, prep_started_at, ready_at, picked_up_at, arrived_at_venue_at, pod_captured_at, pod_photo_url, pod_signature_url, delivered_at, setup_started_at, service_started_at, departed_venue_at, completed_at, cancelled_at, postponed_at, requires_waiter, waiter_service_required, equipment_return_method, collection_next_day, created_at, event_end_date, dietary_requirements, requires_refrigeration, requires_two_drivers, final_order_change_date, comms_paused_until, region_id, quote_id, package_id, paused_reason, paused_expected_resume_date, paused_from_status, cancellation_reason, lead_source, deposit_amount, amount_paid, balance_amount, balance_due_date, deposit_paid_at, balance_paid_at, payment_status, deposit_paid, balance_paid, delivery_distance_km, delivery_duration_minutes, driver_acknowledged_at, driver_acknowledged_via, venue_contact_person, venue_contact_phone, assigned_vehicle_id, secondary_driver_id, secondary_vehicle_id, pickup_time",
         )
         .eq("id", orderId)
         .is("deleted_at", null)
@@ -962,7 +964,8 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
 
           {/* Who brings the equipment back (quote "Equipment return"
               choice). Everyone sees it; admins can change it. */}
-          <EquipmentReturnCard order={order} canEdit={canSeeFinance} onChanged={load} />
+          {(order.service_sittings?.length || 0) < 2 && <EquipmentReturnCard order={order} canEdit={canSeeFinance} onChanged={load} />}
+          {!isClient && (order.service_sittings?.length || 0) > 1 && <ServiceSittingsOperations orderId={order.id} companyId={order.company_id} canEdit={primary === "admin"} />}
 
             <OrderTimelineSection
               order={order}
@@ -1033,7 +1036,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
                     onOutstandingChange={setShoppingOutstanding}
                   />
                 )}
-                {showFor("driver") && (
+                {showFor("driver") && (order.service_sittings?.length || 0) < 2 && (
                   <DriverSection
                     order={order}
                     forceOpen={forceAll}

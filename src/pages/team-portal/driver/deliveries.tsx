@@ -205,7 +205,7 @@ function DriverDeliveriesInner() {
         .from("driver_assignments")
         .select("order_id")
         .eq("driver_id", user.id)
-        .eq("assignment_type", "collection")
+        .eq("assignment_type", "collection").is("service_sitting_id", null)
         .not("status", "in", "(completed,cancelled)");
       const collectionOrderIds = Array.from(new Set(((collectionRows || []) as any[]).map((r) => r.order_id).filter(Boolean)));
       const idFilter = collectionOrderIds.length ? `,id.in.(${collectionOrderIds.join(",")})` : "";

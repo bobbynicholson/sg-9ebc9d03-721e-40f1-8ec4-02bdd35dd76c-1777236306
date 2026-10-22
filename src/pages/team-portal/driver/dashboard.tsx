@@ -361,6 +361,7 @@ function DriverDashboardInner() {
           )
         `)
         .eq("driver_id", user.id)
+        .is("service_sitting_id", null)
         .eq("company_id", user.company_id)
         // driver_assignments has no deleted_at column (the .is("deleted_at",null)
         // here 400'd the whole assignments load -> driver saw no jobs). Soft-

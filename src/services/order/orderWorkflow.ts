@@ -2715,7 +2715,7 @@ async function _lockstepMirrorToDriverAssignment(
     .from("driver_assignments")
     .select("id, status, en_route_at, picked_up_at, delivered_at, completed_at")
     .eq("order_id", orderId)
-    .eq("assignment_type", "delivery");
+    .eq("assignment_type", "delivery").is("service_sitting_id", null);
 
   if (selErr) {
     console.warn("[lockstepMirror] driver_assignments select failed:", selErr);

@@ -85,7 +85,8 @@ import {
   isDriverCollection, resolveEquipmentReturn, type EquipmentReturnMethod,
 } from "@/lib/equipmentReturn";
 import { revealSection } from "@/lib/ui/revealSection";
-import { describeServiceSittings } from "@/lib/serviceSittings";
+import { describeServiceSittings, normaliseServiceSittings, type ServiceSittingInput } from "@/lib/serviceSittings";
+import { AdminServicePlanEditor } from "@/components/quote/AdminServicePlanEditor";
 import { resolveBranchSettings } from "@/services/branchSettingsService";
 import { suggestKitchenForDate, type CapacitySuggestion } from "@/services/kitchenCapacityService";
 import { ClientTypeahead } from "@/components/admin/ClientTypeahead";
@@ -300,6 +301,7 @@ function quoteContentSignatureFromPayload(payload: any): string {
   const money = (v: any) => Math.round(safeNum(v) * 100) / 100;
   const text = (v: any) => String(v ?? "").trim();
   return JSON.stringify({
+    service_sittings: asArray(payload.service_sittings).map((s: any) => ({guestCount:Number(s.guest_count ?? s.guestCount),serviceTime:String(s.service_time ?? s.serviceTime).slice(0,5)})),
     currency: text(payload.currency).toUpperCase(),
     quote_name: text(payload.quote_name),
     event_date: text(payload.event_date).slice(0, 10),
@@ -419,6 +421,7 @@ function NewQuotePage() {
     eventDateRef.current = eventDate;
   }, [eventDate]);
   const [eventTime, setEventTime] = useState("");
+  const [servicePlan, setServicePlan] = useState<ServiceSittingInput[] | null>(null);
   // Distinct from event start time: a morning setup for an evening
   // event is normal at big functions, so the operator gets an
   // explicit field they can override (defaults to event_time minus
@@ -896,7 +899,7 @@ function NewQuotePage() {
       setHydrateError(null);
       const { data, error } = await supabase
         .from("quotes")
-        .select("*")
+        .select("*,service_sittings(sequence_number,guest_count,service_time)")
         .eq("id", fromQuoteId)
         .maybeSingle();
       if (cancelled) return;
@@ -920,7 +923,7 @@ function NewQuotePage() {
       try {
         let requestQuery = supabase
           .from("quote_change_requests")
-          .select("id, message, requested_changes, created_at, status")
+          .select("id, message, requested_changes, reviewed_service_sittings, created_at, status")
           .eq("quote_id", fromQuoteId);
         if (typeof changeRequestId === "string" && changeRequestId) {
           // The notification link names the exact request the operator is
@@ -971,12 +974,13 @@ function NewQuotePage() {
       }
 
       // 2) Overlay the client's requested changes (same tick, so these win).
-      if (cr) {
+      if (cr?.status === "pending") {
         const rc = (cr.requested_changes || {}) as any;
         if (!quoteUserEditedRef.current && rc.event_date) setEventDate(String(rc.event_date));
         if (typeof rc.guest_count === "number") setGuestCount(rc.guest_count);
         if (rc.waiter_service === true) setWaiterServiceRequired(true);
-        if (Array.isArray(rc.service_sittings) && rc.service_sittings[0]?.serviceTime) setEventTime(rc.service_sittings[0].serviceTime);
+        const proposedPlan = cr.reviewed_service_sittings || rc.service_sittings;
+        if (Array.isArray(proposedPlan) && proposedPlan.length) { setServicePlan(proposedPlan); setEventTime(proposedPlan[0].serviceTime); }
         if (rc.venue_address) setVenueAddress(String(rc.venue_address));
         if (Array.isArray(rc.menu_items)) {
           setMenuItems(
@@ -1018,7 +1022,7 @@ function NewQuotePage() {
           id: cr.id,
           created_at: cr.created_at,
           message: cr.message || null,
-          servicePlanSummary: Array.isArray(rc.service_sittings) ? describeServiceSittings(rc.service_sittings) : null,
+          servicePlanSummary: Array.isArray(proposedPlan) ? describeServiceSittings(proposedPlan) : null,
         });
       }
 
@@ -1042,6 +1046,7 @@ function NewQuotePage() {
   }, [fromQuoteId, changeRequestId, hydrateRetryTick]);
 
   function hydrateFromQuote(q: any) {
+    setServicePlan(q.service_sittings?.length ? [...q.service_sittings].sort((a: any,b: any) => a.sequence_number-b.sequence_number).map((s: any) => ({guestCount:s.guest_count,serviceTime:s.service_time.slice(0,5)})) : null);
     setClientId(q.client_id || null);
     // Saved quote currency is part of the agreed price. Legacy quotes
     // without it continue to inherit the company default.
@@ -1812,13 +1817,15 @@ function NewQuotePage() {
 
   const quoteContentHasChanged = useCallback(() => {
     if (!contentSignatureAtLoad) return true;
-    return quoteContentSignatureFromPayload(buildPayload()) !== contentSignatureAtLoad;
-  }, [buildPayload, contentSignatureAtLoad]);
+    return quoteContentSignatureFromPayload({...buildPayload(),service_sittings:servicePlan}) !== contentSignatureAtLoad;
+  }, [buildPayload, contentSignatureAtLoad, servicePlan]);
 
   // First save = INSERT, all subsequent = UPDATE.
   const persistQuote = useCallback(async (override: { status?: string; sent_at?: string; __skipSentEmail?: boolean; __contentChanged?: boolean } = {}): Promise<string | null> => {
     if (!companyId || !user?.id) return null;
     if (!clientName) return null;          // never save an empty husk
+    const parsedPlan = servicePlan ? normaliseServiceSittings(servicePlan, guestCount) : {};
+    if (parsedPlan.error) { toast({title:"Check the serving times",description:parsedPlan.error,variant:"destructive"}); return null; }
     // Time sanity gate: never persist a quote whose setup / delivery
     // time isn't at least 30 min before the start. Blocks the explicit
     // Save buttons (autosave skips silently - see the effect below).
@@ -2025,10 +2032,17 @@ function NewQuotePage() {
         // (only present on create-from-lead), so it's null on every edit.
         // Stripping null FKs here preserves whatever the DB already has.
         const updatePayload = { ...payload };
+        delete updatePayload.company_id;
         if (updatePayload.lead_id == null) delete updatePayload.lead_id;
         if (updatePayload.client_id == null) delete updatePayload.client_id;
-        const { error } = await supabase.from("quotes").update(updatePayload).eq("id", quoteId);
-        if (error) throw error;
+        if (parsedPlan.value && !isConvertedQuote) {
+          const response = await fetch(`/api/admin/quotes/${quoteId}/service-plan`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({plan:parsedPlan.value,patch:updatePayload,requestId:appliedChangeRequest?.id || null})});
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error(result.error || "Serving times could not be saved.");
+        } else {
+          const { error } = await supabase.from("quotes").update(updatePayload).eq("id", quoteId);
+          if (error) throw error;
+        }
         if (!isConvertedQuote && Math.abs(updatedQuoteTotal - previousQuoteTotal) > 0.009) {
           const amountChange = await recordDocumentAmountChange(supabase, {
             companyId,
@@ -2286,6 +2300,11 @@ function NewQuotePage() {
         if (!created?.id) throw new Error("Quote create returned no id");
         setQuoteId(created.id);
         setQuoteNumber(created.quote_number);
+        if (parsedPlan.value) {
+          const response = await fetch(`/api/admin/quotes/${created.id}/service-plan`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({plan:parsedPlan.value})});
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error(result.error || "Serving times could not be saved.");
+        }
         setStatus(created.status as any);
         setSavedAt(new Date());
         // First save with status='sent' (Save & Send on a brand-new
@@ -2317,7 +2336,7 @@ function NewQuotePage() {
     } finally {
       setSaving(false);
     }
-  }, [buildPayload, clientName, companyId, leadId, quoteId, quoteNumber, router, toast, user?.id, setupTimeError, fromQuoteId, deliveryDistance, distanceStatus, email, phone]);
+  }, [buildPayload, clientName, companyId, leadId, quoteId, quoteNumber, router, toast, user?.id, setupTimeError, fromQuoteId, deliveryDistance, distanceStatus, email, phone, servicePlan, guestCount, appliedChangeRequest]);
 
   // Auto-save: 1.5s debounced, only for active drafts with a name AND
   // an email. Audit (May 2026): the email check was on handleSaveDraft
@@ -2940,7 +2959,7 @@ function NewQuotePage() {
                         <strong>Client note:</strong> {appliedChangeRequest.message}
                       </p>
                     )}
-                    {appliedChangeRequest.servicePlanSummary && <p className="text-slate-700"><strong>Requested serving times:</strong> {appliedChangeRequest.servicePlanSummary}. These times are saved when you address the request or send the updated quote.</p>}
+                    {appliedChangeRequest.servicePlanSummary && <p className="text-slate-700"><strong>Requested serving times:</strong> {appliedChangeRequest.servicePlanSummary}. Review and edit both sittings below. Your saved plan is carried into the updated quote.</p>}
                   </div>
                 )}
                 {isRevisingNonDraft && (
@@ -3114,6 +3133,7 @@ function NewQuotePage() {
                           // invalid while leaving the field hidden, trapping
                           // the operator behind a disabled Save button.
                           setEventTime(e.target.value);
+                          setServicePlan(previous => previous?.map((s,index) => index === 0 ? {...s,serviceTime:e.target.value} : s) || null);
                           setSetupTime("");
                         }}
                       />
@@ -3145,6 +3165,7 @@ function NewQuotePage() {
                       )}
                     </div>
                   </div>
+                  <AdminServicePlanEditor value={servicePlan || [{guestCount,serviceTime:eventTime}]} totalGuests={guestCount} disabled={!!linkedOrderId || saving} onChange={plan => {setServicePlan(plan);setEventTime(plan[0]?.serviceTime || "");setSetupTime("");}} />
                   <div>
                     <Label className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" /> Venue address</Label>
                     <AddressAutocomplete
@@ -4065,6 +4086,7 @@ function NewQuotePage() {
                         <p className="text-xs text-slate-500 mb-3">
                           {eventDate ? new Date(eventDate).toLocaleDateString("en-ZA") : "-"}
                           {eventTime ? ` at ${formatClock(eventTime)}` : ""}
+                          {servicePlan && servicePlan.length > 1 && <span className="mt-2 block text-sm font-semibold">{describeServiceSittings(servicePlan)}</span>}
                           {guestCount ? ` • ${guestCount} guests` : ""}
                         </p>
                         <ul className="space-y-1 mb-3">
@@ -4214,6 +4236,7 @@ function NewQuotePage() {
           }}
           tenantName={null}
           onSent={() => {
+            setAppliedChangeRequest(null);
             setSendDialogQuote(null);
             router.push(withSlug("/admin/quotes"));
           }}

@@ -45,6 +45,20 @@ const quoteData = (count, overrides = {}) => ({
   menu_items: items(count), subtotal: 5000, tax_amount: 750, total: 5750,
   payment_instructions: payment, payment_terms: terms, company, ...overrides,
 });
+
+test("quote: both service sittings are present in the PDF", async () => {
+  const pages = await render("quote-two-sittings", QuoteDocument, quoteData(2, {
+    event_date: "2099-11-06", event_time: "12:00", guest_count: 100,
+    service_sittings: [
+      { sequence_number: 1, guest_count: 50, service_time: "12:00" },
+      { sequence_number: 2, guest_count: 50, service_time: "18:00" },
+    ],
+  }));
+  assertPageSafety(pages);
+  const text = pages.map(page => page.text).join(" ");
+  assert.match(text, /Sitting 1: 50 guests/);
+  assert.match(text, /Sitting 2: 50 guests/);
+});
 const receiptData = (count, payments = 1, overrides = {}) => ({
   ...invoiceData(count), paid_at: "2026-10-06T14:35:00Z", amount_paid: 5750, balance_due: 0,
   payment_records: Array.from({ length: payments }, (_, i) => ({

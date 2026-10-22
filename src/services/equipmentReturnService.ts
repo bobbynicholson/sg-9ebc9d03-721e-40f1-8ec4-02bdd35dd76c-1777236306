@@ -56,8 +56,11 @@ export const equipmentReturnService = {
     /** Driver or waiter bringing the gear back; damage is charged to them. */
     responsibleUserId: string;
     damages?: ReturnDamage[];
+    /** Server callers provide their authenticated service client. */
+    client?: any;
   }): Promise<ReturnOrderEquipmentResult> {
     const { orderId, responsibleUserId } = params;
+    const db = params.client || supabase;
     const damages = (params.damages || []).filter((d) => d.equipmentId && Number(d.quantityDamaged) > 0);
     const result: ReturnOrderEquipmentResult = {
       bookingsReturned: 0, damagesRecorded: 0, cleaningNotified: false,
@@ -95,7 +98,7 @@ export const equipmentReturnService = {
     //    returned quantity excludes them (spread across that equipment's
     //    bookings) and availability is not over-credited.
     try {
-      const { data: bookings } = await (supabase as any)
+      const { data: bookings } = await (db as any)
         .from("equipment_bookings")
         .select("id, status, equipment_id, quantity")
         .eq("order_id", orderId);
@@ -109,10 +112,10 @@ export const equipmentReturnService = {
         result.booked += qty;
         result.back += qty - short;
         try {
-          await (equipmentService as any).returnEquipment(b.id, qty - short);
+          await (equipmentService as any).returnEquipment(b.id, qty - short, params.client);
           result.bookingsReturned += 1;
           // Who brought it back, and when (shown on the order page).
-          const { error: stampErr } = await (supabase as any)
+          const { error: stampErr } = await (db as any)
             .from("equipment_bookings")
             .update({ returned_at: new Date().toISOString(), returned_by_user_id: responsibleUserId })
             .eq("id", b.id);
@@ -127,7 +130,7 @@ export const equipmentReturnService = {
 
     // 3. Tell the cleaning team there is a return to process.
     try {
-      const { data: order } = await (supabase as any)
+      const { data: order } = await (db as any)
         .from("orders")
         .select("company_id, order_number")
         .eq("id", orderId)
@@ -146,14 +149,14 @@ export const equipmentReturnService = {
           relatedEntityType: "order",
           relatedEntityId: orderId,
           dedup: true,
-        } as any);
+        } as any, params.client);
         result.cleaningNotified = true;
 
         // Office: one summary for both return paths (driver collection
         // trip and waiter return) - who brought it back and the count.
         let who = "The team";
         try {
-          const { data: prof } = await (supabase as any)
+          const { data: prof } = await (db as any)
             .from("profiles").select("full_name, email").eq("id", responsibleUserId).maybeSingle();
           who = (prof as any)?.full_name || (prof as any)?.email || who;
         } catch { /* name is cosmetic */ }
@@ -172,7 +175,7 @@ export const equipmentReturnService = {
           relatedEntityType: "order",
           relatedEntityId: orderId,
           dedup: true,
-        } as any);
+        } as any, params.client);
       }
     } catch (e) {
       console.warn("[equipmentReturn] return notifications failed (non-blocking):", e);

@@ -1,3 +1,5 @@
+import { useRouter } from "next/router";
+import { SittingTrips } from "./SittingTrips";
 /**
  * DriverPageShell - the canonical outer layout for every driver-portal
  * page.
@@ -66,6 +68,8 @@ export function DriverPageShell({
   children,
   hideFooter = false,
 }: DriverPageShellProps) {
+  const router = useRouter();
+  const showSittingTrips = /\/(dashboard|deliveries|routes|schedule|calendar)$/.test(router.pathname);
   return (
     <>
       <NoIndexMeta />
@@ -95,7 +99,7 @@ export function DriverPageShell({
           <PageWorkbench />
           {overview}
 
-          <div id="main-content">{children}</div>
+          <div id="main-content">{showSittingTrips && <SittingTrips />}{children}</div>
 
           {!hideFooter && (
             <div className="mt-12">

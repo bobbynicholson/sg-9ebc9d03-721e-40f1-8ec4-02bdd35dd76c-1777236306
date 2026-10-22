@@ -1,0 +1,21 @@
+import { test, expect } from '@playwright/test';
+for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`quote review and independent sitting trip choices at ${viewport.width}px`,async({page})=>{
+  await page.setViewportSize(viewport);await page.goto('/');
+  await expect(page.getByLabel('Sitting 2 service time')).toHaveValue('04:30');
+  await page.getByLabel('Sitting 2 service time').fill('18:00');
+  await expect(page.getByLabel('Sitting 1 service time')).toHaveValue('12:00');
+  await page.getByRole('combobox',{name:'Equipment returns',exact:true}).selectOption('per_sitting_collection');
+  const articles=page.locator('article');await expect(articles).toHaveCount(2);
+  await articles.nth(0).getByRole('group',{name:'Delivery drivers',exact:true}).getByLabel('Thabo').check();
+  await articles.nth(1).getByRole('group',{name:'Delivery drivers',exact:true}).getByLabel('Zanele').check();
+  await articles.nth(0).getByRole('group',{name:'Collection drivers',exact:true}).getByLabel('Noah').check();
+  await articles.nth(1).getByRole('group',{name:'Collection drivers',exact:true}).getByLabel('Zanele').check();
+  const pending=page.waitForRequest(r=>r.url().includes('/api/orders/')&&r.method()==='POST');
+  await page.getByRole('button',{name:'Save sitting schedule',exact:true}).click();
+  const request=await pending;const payload=request.postDataJSON();
+  expect(payload.returnPlan).toBe('per_sitting_collection');expect(payload.sittings[0].deliveryDriverIds).toEqual(['d1']);expect(payload.sittings[0].collectionDriverIds).toEqual(['d3']);expect(payload.sittings[1].deliveryDriverIds).toEqual(['d2']);expect(payload.sittings[1].collectionDriverIds).toEqual(['d2']);
+  await expect(page.getByRole('alert')).toContainText('another trip within 45 minutes');
+  await expect(articles.nth(1).getByRole('group',{name:'Delivery drivers',exact:true}).getByLabel('Zanele')).toBeChecked();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+  await page.screenshot({path:`tmp/sitting-ui-${viewport.width}.png`,fullPage:true});
+});

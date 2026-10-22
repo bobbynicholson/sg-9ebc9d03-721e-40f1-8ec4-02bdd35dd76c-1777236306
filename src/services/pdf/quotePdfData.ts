@@ -141,6 +141,7 @@ export function buildQuotePdfDataFromRow(row: any): QuotePdfData {
     client_tax_number: row?.client?.tax_number ?? null,
     event_date: row?.event_date ?? null,
     event_time: row?.event_time ?? null,
+    service_sittings: asArray(row?.service_sittings),
     setup_time: row?.setup_time ?? null,
     guest_count: guestCount,
     venue_address: row?.venue_address ?? null,

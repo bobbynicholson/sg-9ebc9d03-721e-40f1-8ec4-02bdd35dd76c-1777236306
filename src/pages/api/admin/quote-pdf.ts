@@ -67,7 +67,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { data: q, error: readErr } = await ssr
       .from("quotes")
       .select(`
-        id, public_token, quote_number, quote_name, client_name, client_email, client_phone, event_date, event_time, setup_time, guest_count,
+        service_sittings(sequence_number,guest_count,service_time), id, public_token, quote_number, quote_name, client_name, client_email, client_phone, event_date, event_time, setup_time, guest_count,
         client:clients!quotes_client_id_fkey(billing_address_line1, billing_address_line2, billing_city, billing_postal_code, tax_number, payment_terms),
         venue_address, menu_items, equipment_items, notes, terms_and_conditions,
         subtotal, tax_amount, discount_amount, total, total_amount, initial_payment_amount, currency, status,

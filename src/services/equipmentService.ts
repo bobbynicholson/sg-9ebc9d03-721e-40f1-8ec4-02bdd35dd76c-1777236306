@@ -201,9 +201,11 @@ export const equipmentService = {
 
   async returnEquipment(
     bookingId: string,
-    returnedQuantity?: number
+    returnedQuantity?: number,
+    client?: any
   ): Promise<EquipmentBooking | null> {
-    const { data: booking, error: fetchError } = await supabase
+    const db = client || supabase;
+    const { data: booking, error: fetchError } = await db
       .from("equipment_bookings")
       .select("*, order_id, equipment_id, quantity, user_id, company_id")
       .eq("id", bookingId)
@@ -221,7 +223,7 @@ export const equipmentService = {
     // availability calculator's `quantity - returned_quantity` math
     // treated every partial return as a full one - a shortage was
     // released back into stock as if intact.
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("equipment_bookings")
       .update({
         status: "returned",

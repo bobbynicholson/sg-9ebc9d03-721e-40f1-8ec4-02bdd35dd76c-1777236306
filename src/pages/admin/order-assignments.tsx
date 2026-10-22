@@ -1,3 +1,4 @@
+import { ServiceSittingsOperations } from "@/components/order/ServiceSittingsOperations";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { tenantDateTime } from "@/lib/portalTime";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -53,6 +54,7 @@ import {
 } from "@/services/orderDriverInterestService";
 
 interface OrderRow {
+  sittingCount: number;
   id: string;
   order_number: string | null;
   client_id: string | null;
@@ -262,7 +264,7 @@ function DispatchQueuePage() {
       const { data: rows, error, count } = await supabase
         .from("orders")
         .select(`
-          id, order_number, client_id, client_name, event_date, event_time, pickup_time, status, total_amount,
+          service_sittings(id), id, order_number, client_id, client_name, event_date, event_time, pickup_time, status, total_amount,
           venue_lat, venue_lng, venue_name, venue_address,
           confirmed_at, assigned_driver_id, assigned_at, assignment_score, region_id,
           assigned_chef_id,
@@ -316,6 +318,7 @@ function DispatchQueuePage() {
       }
       if (requestId !== loadRequestRef.current) return;
       const mapped: OrderRow[] = (rows || []).map((r: any) => ({
+        sittingCount: r.service_sittings?.length || 0,
         id: r.id,
         order_number: r.order_number ?? null,
         client_id: r.client_id ?? null,
@@ -594,6 +597,7 @@ function DispatchQueuePage() {
   // ── Assign dialog ─────────────────────────────────────────────────────────
 
   const openAssign = async (order: OrderRow) => {
+    if (order.sittingCount > 1) { setExpandedRowId(order.id); return; }
     setAssignTarget(order);
     setAssignOpen(true);
     setSuggestions([]);
@@ -1404,7 +1408,9 @@ function DispatchQueuePage() {
                         )}
                       </div>
                       <div className="min-w-0">
-                        {order.assigned_driver_name ? (
+                        {order.sittingCount > 1 ? (
+                          <span className="text-sm font-medium text-slate-700">{order.sittingCount} sittings ? Open trip schedule</span>
+                        ) : order.assigned_driver_name ? (
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <Badge className="text-[10px] font-normal bg-brand-primary/15 text-brand-primary border-0">
                               <CheckCircle2 className="w-3 h-3 mr-0.5" />
@@ -1641,6 +1647,8 @@ function DispatchQueuePage() {
                             </p>
                           </div>
                         </div>
+
+                        <ServiceSittingsOperations orderId={order.id} companyId={companyId!} canEdit />
 
                         {/* Wave 66.3 - inline pickup_time editor. The
                             readiness chip's "Pickup time missing - Fix
