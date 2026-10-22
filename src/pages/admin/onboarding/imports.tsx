@@ -346,6 +346,7 @@ function ImportsHistoryPage() {
             </Link>
           </div>
 
+          <div className="mb-6"><Button variant="outline" asChild><Link href={withSlug("/admin/document-imports")}>Import quote and order PDFs<ArrowRight className="ml-2 h-4 w-4" /></Link></Button></div>
           {/* List */}
           {loading ? (
             <Card><CardContent className="py-12 text-center text-slate-500">
@@ -398,7 +399,7 @@ function ImportsHistoryPage() {
                   j.completed_at
                     ? (Date.now() - new Date(j.completed_at).getTime()) / (1000 * 60 * 60)
                     : 0;
-                const canRollback = j.status === "completed" && ageHours <= ROLLBACK_HOURS;
+                const canRollback = !j.summary?.document_import && j.status === "completed" && ageHours <= ROLLBACK_HOURS;
                 const commit = j.summary?.commit;
                 // Commit summaries carry a triad per entity (clients,
                 // orders, leads, quotes, invoices, payments). The old
@@ -472,7 +473,8 @@ function ImportsHistoryPage() {
                             Roll back
                           </Button>
                         )}
-                        {!["completed", "rolled_back", "failed"].includes(j.status) && (
+                        {j.summary?.document_import && <Button size="sm" variant="outline" asChild><Link href={withSlug(`/admin/document-imports?job=${j.id}`)}>Open PDF review<ArrowRight className="ml-1 h-4 w-4" /></Link></Button>}
+                        {!j.summary?.document_import && !["completed", "rolled_back", "failed"].includes(j.status) && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -482,7 +484,7 @@ function ImportsHistoryPage() {
                             <ArrowRight className="w-3.5 h-3.5 ml-1" />
                           </Button>
                         )}
-                        {j.status === "completed" && (
+                        {!j.summary?.document_import && j.status === "completed" && (
                           <span className="inline-flex items-center gap-1 text-xs text-emerald-600 px-2">
                             <CheckCircle2 className="w-3.5 h-3.5" />
                             {ageHours <= ROLLBACK_HOURS
@@ -494,7 +496,7 @@ function ImportsHistoryPage() {
                             live data (i.e. anything except 'completed').
                             Useful for test uploads the operator abandoned
                             half-way through mapping. */}
-                        {j.status !== "completed" && (
+                        {!j.summary?.document_import && j.status !== "completed" && (
                           <Button
                             size="sm"
                             variant="ghost"

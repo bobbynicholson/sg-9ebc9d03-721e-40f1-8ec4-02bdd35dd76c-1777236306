@@ -306,6 +306,7 @@ export async function rollbackImportJob(
   // Verify ownership before mutating anything.
   const job = await getImportJob(jobId, companyId);
   if (!job) throw new Error("Import job not found");
+  if (job.summary?.document_import) throw new Error("PDF records use the normal quote/order cancellation and deletion flow. Open the PDF review to manage this import.");
   if (job.status === "rolled_back") {
     return { clientsDeleted: 0, ordersDeleted: 0, leadsDeleted: 0, quotesDeleted: 0, quotesKept: 0 };
   }

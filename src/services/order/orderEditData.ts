@@ -73,7 +73,7 @@ export async function buildOrderEditData(sb: any, order: OrderEditDataInput) {
 
   const { data: bookingRows } = await sb
     .from("equipment_bookings")
-    .select("equipment_id, quantity, status")
+    .select("equipment_id, quantity, unit_price, status")
     .eq("order_id", orderId)
     .neq("status", "cancelled");
   const bookedIds = Array.from(
@@ -95,7 +95,7 @@ export async function buildOrderEditData(sb: any, order: OrderEditDataInput) {
       equipment_id: b.equipment_id,
       name: meta.name,
       quantity: Number(b.quantity) || 0,
-      unit_price: meta.unit_price,
+      unit_price: b.unit_price != null ? Number(b.unit_price) : meta.unit_price,
     };
   });
 

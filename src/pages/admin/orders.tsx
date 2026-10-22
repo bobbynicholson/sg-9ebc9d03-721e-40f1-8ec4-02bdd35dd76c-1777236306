@@ -2148,6 +2148,7 @@ function OrderProcessDashboard() {
                     and label align consistently with the other
                     icon-and-label patterns on the page. Bumped
                     shadow + active scale for tactile feedback. */}
+                  {["owner", "super_admin", "company_admin", "admin"].includes(String(user?.active_role || user?.role || "")) && <Button asChild variant="outline" size="sm"><Link href={withSlug("/admin/document-imports?target=orders")}><FileText className="mr-2 h-4 w-4" />Import PDFs</Link></Button>}
                   <Link href={withSlug("/admin/quotes/new")}>
                     <Button
                       size="sm"

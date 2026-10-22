@@ -3261,6 +3261,7 @@ export type Database = {
           equipment_id: string | null
           id: string
           order_id: string | null
+          unit_price: number | null
           quantity: number | null
           returned_quantity: number | null
           status: string | null
@@ -3276,6 +3277,7 @@ export type Database = {
           equipment_id?: string | null
           id?: string
           order_id?: string | null
+          unit_price?: number | null
           quantity?: number | null
           returned_quantity?: number | null
           status?: string | null
@@ -3291,6 +3293,7 @@ export type Database = {
           equipment_id?: string | null
           id?: string
           order_id?: string | null
+          unit_price?: number | null
           quantity?: number | null
           returned_quantity?: number | null
           status?: string | null

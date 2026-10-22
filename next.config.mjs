@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  serverExternalPackages: ["pdf-parse", "@napi-rs/canvas"],
   devIndicators: false,
   // Build-output directory, env-overridable. Default `.next` for dev +
   // prod. The commit watchdog (E:\Catering\watchdog) runs `next build`

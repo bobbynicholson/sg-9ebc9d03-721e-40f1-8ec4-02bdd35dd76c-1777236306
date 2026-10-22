@@ -314,6 +314,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const job = await getImportJob(jobId, companyId);
+    if (job?.summary?.document_import) return res.status(409).json({ error: "Use the PDF review to manage this import.", fix_link: `/admin/document-imports?job=${jobId}` });
     if (!job) {
       importLog.warn(jobId, "commit.start", "Rejected: import job not found for this company", { companyId });
       return res.status(404).json({ error: "Import job not found" });

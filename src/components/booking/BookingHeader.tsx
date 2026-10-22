@@ -1,3 +1,4 @@
+import { ImportReadinessBanner } from "@/components/admin/ImportReadinessBanner";
 import { BookingSittings } from "./BookingSittings";
 /**
  * BookingHeader - Wave 70.41
@@ -151,6 +152,8 @@ export function BookingHeader({
     : (n: number) => tenantCurrency.format(n, 2);
 
   return (
+    <>
+    {variant !== "client" && !compact && <ImportReadinessBanner orderId={booking.id} />}
     <div
       className={cn(
         // Wave 70.44 - print-clean by default. shadow-sm is dropped
@@ -289,5 +292,6 @@ export function BookingHeader({
         </div>
       </div>
     </div>
+    </>
   );
 }

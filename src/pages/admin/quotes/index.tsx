@@ -1785,6 +1785,7 @@ function AdminQuotesInner() {
                   <Download className="w-4 h-4 mr-2" />
                   Export CSV
                 </Button>
+                {canImportQuotes && <Button asChild variant="outline"><Link href={withSlug("/admin/document-imports?target=quotes")}><Upload className="mr-2 h-4 w-4" />Import PDFs</Link></Button>}
                 {canImportQuotes && (
                   <Button variant="outline" onClick={() => setImportOpen(true)}>
                     <Upload className="w-4 h-4 mr-2" />

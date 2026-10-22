@@ -1,3 +1,4 @@
+import { ImportReadinessBanner } from "@/components/admin/ImportReadinessBanner";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { CustomerIdentityFields } from "@/components/admin/CustomerIdentityFields";
 /**
@@ -2789,6 +2790,7 @@ function NewQuotePage() {
               tenant's brand colours. Subtitle carries the live save
               state; chips show the live total, guests and validity
               from the form state itself (no extra queries). */}
+          <ImportReadinessBanner quoteId={quoteId || undefined} menuIds={menuItems.map((item) => item.menu_item_id).filter(Boolean)} />
           <PortalHeader
             variant="hero"
             title={quoteId ? "Edit Quote" : "Create Quote"}

@@ -1,3 +1,4 @@
+import { ImportReadinessBanner } from "@/components/admin/ImportReadinessBanner";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Check, X, Timer, AlertTriangle, Mic, MicOff } from "lucide-react";
@@ -356,6 +357,7 @@ export function PrepTaskTimer({ orderId, companyId: companyIdProp }: PrepTaskTim
 
   return (
     <div className="space-y-1.5" data-prep-task-timer={orderId}>
+      <ImportReadinessBanner orderId={orderId} />
       {alerts.length > 0 && (
         <div className="space-y-1">
           {alerts.map(a => (

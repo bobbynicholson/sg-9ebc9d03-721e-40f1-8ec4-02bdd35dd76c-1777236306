@@ -1,3 +1,4 @@
+import { ImportReadinessBanner } from "@/components/admin/ImportReadinessBanner";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Interactive prep-task list for the kitchen ticket (the page chefs
@@ -224,6 +225,7 @@ export function KitchenPrepTasksCard({ orderId, companyId: companyIdProp }: { or
 
   return (
     <div className="no-print rounded-xl border border-brand-primary/20 bg-brand-primary/5 p-4 mb-4">
+      <ImportReadinessBanner orderId={orderId} />
       <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-brand-primary">Prep tasks - tick as you go</h3>
         <div className="flex items-center gap-2">

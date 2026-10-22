@@ -35,3 +35,9 @@ Clients may require one event to be served in multiple sittings. A sitting has i
 - Separate commercial approval from operational scheduling.
 - Show each team only the time-bound work it owns, while preserving one source of truth for the event.
 - Prefer explicit service, dispatch, reset, and return labels over ambiguous "collection" language.
+
+## PDF document imports
+
+Administrators can upload individual PDFs or folders of quote/order PDFs. AI extracts evidence and proposes only supported business fields; staff review missing values, catalogue links and totals before an atomic import. Imported dishes and equipment become reusable catalogue items; imported equipment quantities never imply owned stock. Person and billing company stay separate. Upcoming and historical orders are distinct choices. PDFs remain in private storage and payment receipt is never inferred from a document.
+
+Incomplete imported recipes and ingredient inventory links show a persistent banner with a direct completion link on quotes, orders and operational views, including later bookings that reuse an imported item. Sending, confirming and starting kitchen/driver work are blocked by database checks until real setup is complete. An administrator explicitly completes each imported booking setup; imported communications remain quarantined until enabled.

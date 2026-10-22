@@ -145,7 +145,7 @@ export async function syncOrderArtifacts(
         // breaking the admin order drawer's Equipment tab; fixing here
         // means equipment subtotals on the quote sync now compute
         // correctly instead of always falling back to 0.
-        .select("id, equipment_id, quantity, booked_from, booked_until, equipment:equipment(name, rental_price)")
+        .select("id, equipment_id, quantity, unit_price, booked_from, booked_until, equipment:equipment(name, rental_price)")
         .eq("order_id", orderId),
     ]);
 
@@ -163,7 +163,7 @@ export async function syncOrderArtifacts(
 
     const equipmentSubtotal = (bookings || []).reduce((sum: number, b: any) => {
       const eq = Array.isArray(b.equipment) ? b.equipment[0] : b.equipment;
-      const dailyRate = Number(eq?.rental_price || 0);
+      const dailyRate = Number(b.unit_price ?? eq?.rental_price ?? 0);
       const days = b.booked_from && b.booked_until
         ? Math.max(1, Math.round(
             (new Date(b.booked_until).getTime() - new Date(b.booked_from).getTime()) /
@@ -277,7 +277,7 @@ export async function syncOrderArtifacts(
           id: b.equipment_id,
           name: eq?.name || "(equipment)",
           quantity: Number(b.quantity || 0),
-          rentalPrice: Number(eq?.rental_price || 0),
+          rentalPrice: Number(b.unit_price ?? eq?.rental_price ?? 0),
           booked_from: b.booked_from,
           booked_until: b.booked_until,
         };

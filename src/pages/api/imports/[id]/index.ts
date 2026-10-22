@@ -55,6 +55,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (!jobId) return res.status(400).json({ error: "Missing job id" });
 
     const job = await getImportJob(jobId, companyId);
+    if (job?.summary?.document_import) return res.status(409).json({ error: "Use the PDF review to manage this import.", fix_link: `/admin/document-imports?job=${jobId}` });
     if (!job) return res.status(404).json({ error: "Import job not found" });
 
     if (req.method === "DELETE") {

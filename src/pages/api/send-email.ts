@@ -92,6 +92,17 @@ async function handler(
         return res.status(403).json({ error: "Cannot send email for another company" });
       }
 
+      // Imported records remain blocked even when the sender already has a
+      // sent quote open in another tab. Critical cancellation/refund notices
+      // keep the existing bypass path.
+      if (!bypassQuarantine && (quoteId || quoteId2 || orderId)) {
+        for (const contextQuoteId of [quoteId, quoteId2].filter(Boolean).concat(quoteId || quoteId2 ? [] : [null])) {
+          const readiness = await (getServiceSupabase() as any).rpc("booking_import_gaps", { p_company_id: companyId, p_quote_id: contextQuoteId || null, p_order_id: orderId || null });
+          if (readiness.error) return res.status(503).json({ error: "Could not check imported details. Try again before sending." });
+          if (readiness.data?.length) return res.status(409).json({ error: "Complete imported details before sending this booking.", fix_link: readiness.data[0].href, gaps: readiness.data });
+        }
+      }
+
       // Negative gates - two ways a send can be refused:
       //
       //   (1) blocked_contacts: the contact was deleted with the

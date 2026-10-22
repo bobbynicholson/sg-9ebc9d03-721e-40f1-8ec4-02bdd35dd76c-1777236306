@@ -443,7 +443,7 @@ export async function generateInvoiceData(
     if (equipmentItems.length === 0) {
       const { data: equipmentRows, error: equipmentRowsError } = await (supabase as any)
         .from("equipment_bookings")
-        .select("id, quantity, equipment:equipment_id(name, rental_price, is_hire_in)")
+        .select("id, quantity, unit_price, equipment:equipment_id(name, rental_price, is_hire_in)")
         .eq("order_id", orderId)
         .order("created_at", { ascending: true });
       if (equipmentRowsError) {

@@ -1,3 +1,4 @@
+import { ImportReadinessBanner } from "@/components/admin/ImportReadinessBanner";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { CustomerIdentityFields } from "@/components/admin/CustomerIdentityFields";
 import { ServiceSittingsOperations } from "@/components/order/ServiceSittingsOperations";
@@ -278,7 +279,7 @@ const reloadEquipment = async () => {
   // below.
   const { data, error } = await supabase
     .from("equipment_bookings")
-    .select("id, equipment_id, quantity, status, booked_from, booked_until, returned_quantity, equipment:equipment!equipment_bookings_equipment_id_fkey(name, rental_price, category)")
+    .select("id, equipment_id, quantity, unit_price, status, booked_from, booked_until, returned_quantity, equipment:equipment!equipment_bookings_equipment_id_fkey(name, rental_price, category)")
     .eq("order_id", selectedOrder.id);
   if (error) {
     console.error("[admin/orders] equipment_bookings reload failed:", error);
@@ -388,7 +389,7 @@ const currentBaseSubtotal = () => {
     const days = booking.booked_from && booking.booked_until
       ? Math.max(1, Math.round((new Date(booking.booked_until).getTime() - new Date(booking.booked_from).getTime()) / (24 * 60 * 60 * 1000)))
       : 1;
-    return sum + Number(booking.quantity || 0) * Number(equipment?.rental_price || 0) * days;
+    return sum + Number(booking.quantity || 0) * Number(booking.unit_price ?? equipment?.rental_price ?? 0) * days;
   }, 0);
   return Number((itemSubtotal + equipmentSubtotal).toFixed(2));
 };
@@ -588,7 +589,7 @@ useEffect(() => {
     try {
       const { data, error } = await supabase
         .from("equipment_bookings")
-        .select("id, equipment_id, quantity, status, booked_from, booked_until, returned_quantity, equipment:equipment!equipment_bookings_equipment_id_fkey(name, rental_price, category)")
+        .select("id, equipment_id, quantity, unit_price, status, booked_from, booked_until, returned_quantity, equipment:equipment!equipment_bookings_equipment_id_fkey(name, rental_price, category)")
         .eq("order_id", selectedOrder.id);
       if (error) {
         console.error("[admin/orders] equipment_bookings fetch failed:", error);
@@ -862,6 +863,7 @@ return (
           when client_phone / client_email present. RATE hides
           unless status is completed (post-event quality lives
           with the closure, not the navigation strip). */}
+      <ImportReadinessBanner orderId={selectedOrder.id} />
       <DialogHeader className="space-y-3">
         <DialogTitle className="sr-only">
           {(selectedOrder as any)?.order_number

@@ -1,3 +1,4 @@
+import { ImportReadinessBanner } from "@/components/admin/ImportReadinessBanner";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Quote detail page.
@@ -792,6 +793,7 @@ function AdminQuoteDetailInner() {
           {/* Command-centre hero band, washed in the tenant's brand
               colours. Chips show the loaded quote's live reference,
               total and open client change requests. */}
+          {quote?.id && <ImportReadinessBanner quoteId={quote.id} />}
           <PortalHeader
             variant="hero"
             title="Quote details"
