@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/router";
+import Link from "next/link";
 import { Search } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { AutomatedEmailInfoChip } from "./AutomatedEmailInfoChip";
 import { AUTOMATED_EMAIL_SECTIONS, automatedEmailControlId, automatedEmailCategoryId, automatedEmailNavigationRef } from "@/lib/email/automatedEmailSections";
 import { AUTOMATED_EMAIL_TEMPLATES, resolveEmailDeliveryMode, type EmailDeliveryMode } from "@/lib/email/automatedEmailTemplates";
+import { getTemplateDefinition } from "@/lib/messageTemplates/registry";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface Props {
   preferences: unknown;
@@ -16,6 +19,7 @@ interface Props {
 
 export function AutomatedEmailControls({ preferences, onModeChange }: Props) {
   const router = useRouter();
+  const { withSlug } = useTenantHref();
   const rootRef = useRef<HTMLDivElement>(null);
   const searchId = useId();
   const [search, setSearch] = useState("");
@@ -118,7 +122,16 @@ export function AutomatedEmailControls({ preferences, onModeChange }: Props) {
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-semibold leading-5 text-slate-900">{template.label}</p>
                             <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{template.category === "staff" ? "Staff" : "Client"} · {template.group}</p>
-                            <AutomatedEmailInfoChip templateKey={template.key} label={template.label} />
+                            <div className="flex flex-wrap items-center gap-x-3">
+                              <AutomatedEmailInfoChip templateKey={template.key} label={template.label} />
+                              {getTemplateDefinition(template.key) && (
+                                <Link href={withSlug(`/admin/email-templates?tab=templates&template=${encodeURIComponent(template.key)}`)}
+                                  aria-label={`Edit the ${template.label} template`}
+                                  className="mt-1.5 rounded-sm text-xs font-medium text-brand-primary underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary">
+                                  Edit template
+                                </Link>
+                              )}
+                            </div>
                           </div>
                           {template.controllable ? (
                             <Button type="button" size="sm" role="switch" aria-label={template.label} aria-checked={mode === "automatic"}

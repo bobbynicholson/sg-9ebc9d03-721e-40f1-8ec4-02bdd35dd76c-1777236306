@@ -1065,6 +1065,7 @@ export const emailService = {
         companyId: payload.companyId,
         templateType: payload.template,
         variables: normVars,
+        escapeBodyVariables: payload.template === "quote_price_updated",
         fallback: {
           subject: payload.subject || "",
           bodyHtml: payload.body || "",

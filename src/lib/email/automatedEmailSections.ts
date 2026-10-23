@@ -47,6 +47,7 @@ const EMAIL_ALIASES: Record<string, string[]> = {
   email_lead_quoted: ["quote follow up 1", "first quote follow up"],
   email_lead_quiet: ["quote follow up 2", "second quote follow up"],
   email_lead_lost: ["quote follow up 3", "third quote follow up"],
+  quote_price_updated: ["quote update email", "quote change email", "quote price update", "quote price increase email", "revised quote automatic email"],
 };
 
 export function automatedEmailKeywords(template: AutomatedEmailTemplate): string[] {

@@ -31,7 +31,8 @@
  * page concerns. The hub page at /admin/email-templates renders this
  * inside its own tab.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +65,7 @@ function useCompanyId(): string | null {
 }
 
 export function TemplatesPanel() {
+  const router = useRouter();
   const companyId = useCompanyId();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
@@ -75,6 +77,8 @@ export function TemplatesPanel() {
   const [filterDelivery, setFilterDelivery] = useState<"all" | MessageDelivery>("all");
   const [query, setQuery] = useState("");
   const [onlyCustomised, setOnlyCustomised] = useState(false);
+  const openedTemplateRef = useRef<string | null>(null);
+  const requestedTemplate = typeof router.query.template === "string" ? router.query.template : "";
 
   const reload = async () => {
     if (!companyId) return;
@@ -94,6 +98,22 @@ export function TemplatesPanel() {
   };
 
   useEffect(() => { reload(); /* eslint-disable-next-line */ }, [companyId]);
+
+  // Links from Email settings open the exact template, including after
+  // its company override has loaded. Closing or saving must not reopen it.
+  useEffect(() => {
+    if (!requestedTemplate) { openedTemplateRef.current = null; return; }
+    if (loading || openedTemplateRef.current === requestedTemplate) return;
+    const target = rows.find((row) => row.key === requestedTemplate);
+    if (!target) return;
+    openedTemplateRef.current = requestedTemplate;
+    setQuery(target.label);
+    setFilterChannel("all");
+    setFilterCategory("all");
+    setFilterDelivery("all");
+    setOnlyCustomised(false);
+    setEditing(target);
+  }, [requestedTemplate, loading, rows]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -635,8 +655,9 @@ function EditorDrawer({
 
         {isEmail && (
           <div>
-            <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Subject</label>
+            <label htmlFor="template-subject" className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Subject</label>
             <Input
+              id="template-subject"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder={template.defaultSubject || ""}
@@ -646,7 +667,7 @@ function EditorDrawer({
         )}
 
         <div>
-          <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Message body</label>
+          <label htmlFor="template-body" className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Message body</label>
           <textarea
             id="template-body"
             value={body}

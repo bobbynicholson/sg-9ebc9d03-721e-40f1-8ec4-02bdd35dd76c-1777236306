@@ -131,16 +131,7 @@ import { getEventCapacityForDate, type EventCapacityCheck } from "@/lib/eventCap
 import { savedQuantityWasOverridden } from "@/lib/quotes/revisionLifecycle";
 import { notifyQuoteUpdated } from "@/services/quote/quoteNotifications";
 import { recordDocumentAmountChange } from "@/services/documentAmountChanges";
-
-function escapeEmailHtml(value: unknown): string {
-  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  })[char] || char);
-}
+import { buildQuotePriceUpdateEmail, shouldSendQuotePriceUpdate } from "@/services/quote/quotePriceUpdateEmail";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -381,7 +372,7 @@ export default function ProtectedNewQuotePage() {
 
 function NewQuotePage() {
   const router = useRouter();
-  const { user } = useAuth() as any;
+  const { user, company } = useAuth() as any;
   const { toast } = useToast();
   // Wave 27: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
@@ -2072,7 +2063,11 @@ function NewQuotePage() {
           if (amountChange.error) console.warn("[quotes/new] quote amount audit failed:", amountChange.error);
         }
 
-        if (!isConvertedQuote && prevStatus === "sent" && updatedQuoteTotal > previousQuoteTotal + 0.009 && email) {
+        if (shouldSendQuotePriceUpdate({
+          previousStatus: prevStatus, converted: isConvertedQuote,
+          previousTotal: previousQuoteTotal, updatedTotal: updatedQuoteTotal, email,
+          manualSendPending: override.__skipSentEmail === true,
+        })) {
           try {
             const { data: updatedQuote } = await supabase
               .from("quotes")
@@ -2081,46 +2076,25 @@ function NewQuotePage() {
               .maybeSingle();
             const quoteNumberForEmail = (updatedQuote as any)?.quote_number || quoteNumber || quoteId;
             const quoteUrl = (updatedQuote as any)?.public_token
-              ? `${window.location.origin}/q/${(updatedQuote as any).public_token}`
+              ? `${window.location.origin}${company?.slug ? `/${encodeURIComponent(company.slug)}` : ""}/q/${(updatedQuote as any).public_token}`
               : "";
-            const currency = quoteCurrencyCode || "ZAR";
-            const formatAmount = (amount: number) => {
-              try {
-                return new Intl.NumberFormat("en-ZA", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
-              } catch {
-                return `${currency} ${amount.toFixed(2)}`;
-              }
-            };
-            const subject = `Updated quote ${quoteNumberForEmail}: new total ${formatAmount(updatedQuoteTotal)}`;
-            const body = `<div style="font-family:Arial,sans-serif;color:#1f2937;line-height:1.6;">
-              <p>Hi ${escapeEmailHtml(clientName.split(/\s+/)[0] || clientName)},</p>
-              <p>We updated the price for <strong>${escapeEmailHtml(eventName || "your event")}</strong>.</p>
-              <table role="presentation" style="border-collapse:collapse;width:100%;max-width:480px;">
-                <tr><td style="padding:7px 12px 7px 0;color:#64748b;">Previous total</td><td style="padding:7px 0;text-align:right;">${escapeEmailHtml(formatAmount(previousQuoteTotal))}</td></tr>
-                <tr><td style="padding:7px 12px 7px 0;color:#64748b;">Updated total</td><td style="padding:7px 0;text-align:right;font-weight:700;">${escapeEmailHtml(formatAmount(updatedQuoteTotal))}</td></tr>
-                <tr><td style="padding:7px 12px 7px 0;color:#64748b;">Increase</td><td style="padding:7px 0;text-align:right;color:#047857;font-weight:700;">${escapeEmailHtml(formatAmount(updatedQuoteTotal - previousQuoteTotal))}</td></tr>
-              </table>
-              ${quoteUrl ? `<p><a href="${escapeEmailHtml(quoteUrl)}">Review the updated quote</a></p>` : "<p>The updated quote PDF is attached.</p>"}
-              <p>If anything doesn’t look right, reply to this email and we’ll help.</p>
-            </div>`;
             const emailResponse = await fetch("/api/send-email", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                companyId,
-                to: email,
-                subject,
-                body,
-                quoteId,
-                attachQuotePdf: true,
-                idempotencyKey: `quote-price-update/${quoteId}/${String((updatedQuote as any)?.updated_at || updatedQuoteTotal).replace(/[^\w.-]/g, "")}`,
-              }),
+              body: JSON.stringify(buildQuotePriceUpdateEmail({
+                companyId, companyName: company?.company_name || "Your catering team", quoteId,
+                quoteNumber: quoteNumberForEmail, updatedAt: (updatedQuote as any)?.updated_at,
+                quoteUrl, clientName, email, eventName, eventDate, guestCount,
+                currency: quoteCurrencyCode || "ZAR", previousTotal: previousQuoteTotal, updatedTotal: updatedQuoteTotal,
+              })),
             });
             const emailResult = await emailResponse.json().catch(() => ({} as any));
             if (!emailResponse.ok || emailResult.success !== true) {
               toast({ title: "Quote updated, but the client email failed", description: emailResult.error || "Review the quote and retry the email.", variant: "destructive" });
+            } else if (emailResult.skipped_by_settings) {
+              toast({ title: "Quote saved", description: "The automatic quote price-update email is off. Use Save & Send when you want to email the revised quote." });
             } else {
-              toast({ title: "Updated quote emailed", description: `The client was sent the increased total of ${formatAmount(updatedQuoteTotal)}.` });
+              toast({ title: "Updated quote emailed", description: "The client was sent the updated total and quote PDF." });
             }
           } catch (emailError: any) {
             console.warn("[quotes/new] updated quote email failed:", emailError);
@@ -2354,7 +2328,7 @@ function NewQuotePage() {
     } finally {
       setSaving(false);
     }
-  }, [buildPayload, clientName, companyId, leadId, quoteId, quoteNumber, router, toast, user?.id, setupTimeError, fromQuoteId, deliveryDistance, distanceStatus, email, phone, servicePlan, guestCount, appliedChangeRequest]);
+  }, [buildPayload, clientName, companyId, company?.company_name, company?.slug, eventName, eventDate, quoteCurrencyCode, leadId, quoteId, quoteNumber, router, toast, user?.id, setupTimeError, fromQuoteId, deliveryDistance, distanceStatus, email, phone, servicePlan, guestCount, appliedChangeRequest]);
 
   // Auto-save: 1.5s debounced, only for active drafts with a name AND
   // an email. Audit (May 2026): the email check was on handleSaveDraft

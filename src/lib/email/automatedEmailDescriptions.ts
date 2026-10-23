@@ -140,6 +140,11 @@ export const AUTOMATED_EMAIL_DESCRIPTIONS: Record<string, AutomatedEmailDescript
     when: "When they send a quote request, to say you've received it.",
     ifOff: "The client hears nothing until you send the quote.",
   },
+  quote_price_updated: {
+    who: "The client whose quote has not been accepted yet.",
+    when: "Saving a previously sent quote increases its total. Includes the updated quote PDF and a link to review it. This is a quote update, before it becomes an order.",
+    ifOff: "Saving a higher quote total sends no automatic price-update email. You can still review and send the revised quote yourself with Save & Send.",
+  },
   email_lead_quoted: {
     who: "The client.",
     when: "The first follow-up, sent when a quote you sent hasn't been answered for a while.",

@@ -50,6 +50,7 @@ describe("which emails the on/off setting covers", () => {
       "deposit_reminder", "quote_request_received", "kitchen_pre_event_reminder", "collection_en_route",
       "collection_arrived", "collection_complete", "payment_failed", "equipment_damage_charge",
       "stale_shopping_list_digest", "invoices_overdue_admin_digest",
+      "quote_price_updated",
     ]) expect(isApprovalControllable(key)).toBe(true);
     // Booking confirmation queued by the database on every new order.
     expect(isApprovalControllable("order.created")).toBe(true);

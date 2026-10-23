@@ -470,12 +470,35 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     variables: QUOTE_VARS,
   },
   {
+    key: "quote_price_updated",
+    channel: "email",
+    category: "client",
+    group: "Quote",
+    label: "Quote price update — client email",
+    description: "Automatic email when a sent, unaccepted quote is saved with a higher total.",
+    delivery: "automated",
+    trigger: "Saving a previously sent quote increases its total, before acceptance. Manual Save & Send uses its own preview.",
+    settingsLink: "/admin/email-settings#automatic-email-quote_price_updated",
+    defaultSubject: "Updated quote {{quote_number}}: new total {{total}}",
+    defaultBody:
+      `Hi {{first_name}},\n\nWe updated the price for {{event_name}}.\n\n` +
+      `Previous total: {{previous_total}}\nUpdated total: {{total}}\nIncrease: {{increase_amount}}\n\n` +
+      `The updated quote PDF is attached.\n\nReview the updated quote:\n{{quote_url}}\n\n` +
+      `If anything doesn't look right, reply to this email and we'll help.`,
+    variables: [
+      ...QUOTE_VARS.filter((variable, index, all) => variable.name !== "equipment_breakdown" && all.findIndex((other) => other.name === variable.name) === index)
+        .map((variable) => ["total", "total_zar"].includes(variable.name) ? { ...variable, example: "R 5 750.00" } : variable),
+      { name: "previous_total", description: "Quote total before the increase", example: "R 5 000.00" },
+      { name: "increase_amount", description: "Amount added to the quote total", example: "R 750.00" },
+    ],
+  },
+  {
     key: "email_quote_revised",
     channel: "email",
     category: "client",
     group: "Quote",
     label: "Revised quote email",
-    description: "After a quote is updated.",
+    description: "Manual re-send after editing a quote; separate from the automatic quote price update.",
     defaultSubject: "Your revised {{event_name}} quote - {{total_zar}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +

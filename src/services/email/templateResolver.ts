@@ -48,6 +48,8 @@ export interface TemplateResolveInput {
    * email_templates RLS scopes by company_id.
    */
   client?: any;
+  /** Escape quote data in HTML overrides; render plain-text wording as safe paragraphs. */
+  escapeBodyVariables?: boolean;
 }
 
 /**
@@ -70,6 +72,20 @@ function substitute(
     const v = vars[key];
     return v === null || v === undefined ? "" : String(v);
   });
+}
+
+function substituteBody(template: string, vars: Record<string, string | number | null | undefined>, safe: boolean | undefined): string {
+  if (!safe) return substitute(template, vars);
+  const escape = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  // Decide from the trusted template before substituting customer text,
+  // so a name containing markup can never turn a plain email into HTML.
+  if (/<\/?[a-z][^>]*>/i.test(template)) {
+    return substitute(template, Object.fromEntries(Object.entries(vars).map(([key, value]) =>
+      [key, value == null ? "" : escape(String(value))])));
+  }
+  const content = escape(substitute(template, vars)).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>');
+  return content.split(/\n\s*\n/).map((part) => `<p>${part.replace(/\n/g, "<br>")}</p>`).join("");
 }
 
 interface TemplateRow {
@@ -121,7 +137,7 @@ export async function resolveEmailTemplate(
   if (tenantRow && tenantRow.subject && tenantRow.body) {
     return {
       subject: substitute(tenantRow.subject, vars),
-      bodyHtml: substitute(tenantRow.body, vars),
+      bodyHtml: substituteBody(tenantRow.body, vars, input.escapeBodyVariables),
       source: "db",
     };
   }
@@ -131,7 +147,7 @@ export async function resolveEmailTemplate(
   if (globalRow && globalRow.subject && globalRow.body) {
     return {
       subject: substitute(globalRow.subject, vars),
-      bodyHtml: substitute(globalRow.body, vars),
+      bodyHtml: substituteBody(globalRow.body, vars, input.escapeBodyVariables),
       source: "db",
     };
   }
@@ -139,7 +155,7 @@ export async function resolveEmailTemplate(
   // 3. Caller's fallback.
   return {
     subject: substitute(input.fallback.subject, vars),
-    bodyHtml: substitute(input.fallback.bodyHtml, vars),
+    bodyHtml: substituteBody(input.fallback.bodyHtml, vars, input.escapeBodyVariables),
     bodyText: input.fallback.bodyText
       ? substitute(input.fallback.bodyText, vars)
       : undefined,

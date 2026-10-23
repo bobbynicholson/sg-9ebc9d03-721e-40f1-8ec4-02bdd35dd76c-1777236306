@@ -59,6 +59,8 @@ describe("chatbot: payment reminders and automatic emails", () => {
     ["where do I change quote follow up 2", "email_lead_quiet"],
     ["stop sending review request emails", "review_request"],
     ["turn off event tomorrow kitchen email", "event_tomorrow_kitchen_email"],
+    ["turn off quote change emails", "quote_price_updated"],
+    ["stop quote price update emails", "quote_price_updated"],
   ])("opens the specific control for '%s'", (query, key) => {
     const [first] = getRelevantNavigation(query, "company_admin", 3);
     expect(first?.ref).toBe(automatedEmailNavigationRef(key));
