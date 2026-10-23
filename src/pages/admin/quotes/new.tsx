@@ -484,6 +484,9 @@ function NewQuotePage() {
    *  without re-resolving. */
   const [depositPercent, setDepositPercent] = useState(50);
   const [initialPaymentAmountOverride, setInitialPaymentAmountOverride] = useState<number | null>(null);
+  // A different first payment saved on this quote earlier. The editor
+  // reopens at the deposit % and offers this as a one-click "keep" instead.
+  const [savedFirstPaymentAmount, setSavedFirstPaymentAmount] = useState<number | null>(null);
   const [deliveryFee, setDeliveryFee] = useState(0);
   /** True once the operator has manually overridden the auto-fee.
    *  Stops subsequent auto-recalcs from clobbering their override. */
@@ -963,11 +966,10 @@ function NewQuotePage() {
             : 0,
       );
       setContentSignatureAtLoad(quoteContentSignatureFromPayload(data));
-      // Only treat the saved first payment as a deliberate override when
-      // it differs from the deposit % of the saved total. Otherwise keep
-      // following the deposit % as lines change - freezing it made the
-      // first payment silently become "pay in full" when the total
-      // dropped, and a saved 0 (website-request drafts) came back as R0.01.
+      // The first payment always reopens at the deposit % (default 50%).
+      // Restoring an old typed amount meant edited quotes went out asking
+      // for the wrong deposit unless someone remembered to reset it. A
+      // saved amount that differs is offered as "Keep saved R…" instead.
       {
         const savedFirst = Number((data as any).initial_payment_amount);
         const savedTotal = Number((data as any).total ?? (data as any).total_amount);
@@ -979,7 +981,8 @@ function NewQuotePage() {
           && Number.isFinite(savedFirst)
           && savedFirst > 0.01
           && !(Number.isFinite(suggestedForSaved) && Math.abs(savedFirst - suggestedForSaved) <= 0.01);
-        setInitialPaymentAmountOverride(isDeliberate ? savedFirst : null);
+        setInitialPaymentAmountOverride(null);
+        setSavedFirstPaymentAmount(isDeliberate ? savedFirst : null);
       }
 
       // 2) Overlay the client's requested changes (same tick, so these win).
@@ -2739,6 +2742,21 @@ function NewQuotePage() {
                           className="block text-brand-primary hover:underline"
                         >
                           Reset to {depositPercent > 0 ? depositPercent : 50}%
+                        </button>
+                      )}
+                      {initialPaymentAmountOverride == null && savedFirstPaymentAmount != null
+                        && Math.abs(savedFirstPaymentAmount - firstPaymentAmount) > 0.01 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setInitialPaymentAmountOverride(savedFirstPaymentAmount);
+                            setSavedFirstPaymentAmount(null);
+                          }}
+                          title="This quote was saved with a different first payment. It now uses the deposit %."
+                          className="block text-slate-500 hover:text-brand-primary hover:underline"
+                        >
+                          Keep saved {fmtR(savedFirstPaymentAmount)}
                         </button>
                       )}
                     </span>
