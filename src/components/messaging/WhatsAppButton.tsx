@@ -7,7 +7,7 @@
  *   - Popover lets the operator pick a template (chips), tweak the
  *     message in a textarea, then hit "Send via WhatsApp" which opens
  *     the right deep-link for the platform (mobile -> wa.me, desktop
- *     -> web.whatsapp.com/send so we skip the download nudge).
+ *     -> the installed desktop app). Web is a separate optional action.
  *   - Hides cleanly when the phone is missing or looks like a SA
  *     landline - no point firing a chat that will never deliver.
  *     Pass `forceShow` to override the landline filter (useful for
@@ -238,7 +238,7 @@ export function WhatsAppButton(props: Props) {
     }
   }, [open, edited, renderedTemplate]);
 
-  const handleSend = (event?: React.MouseEvent<HTMLAnchorElement>) => {
+  const handleSend = (event?: React.MouseEvent<HTMLAnchorElement>, target: "app" | "web" = "app") => {
     if (sendingRef.current) {
       event?.preventDefault();
       return;
@@ -260,7 +260,7 @@ export function WhatsAppButton(props: Props) {
 
     sendingRef.current = true;
     setSending(true);
-    const url = buildWhatsAppUrl(phone, body);
+    const url = buildWhatsAppUrl(phone, body, target);
     if (!url) {
       event?.preventDefault();
       toast({
@@ -277,12 +277,12 @@ export function WhatsAppButton(props: Props) {
     // reliable than window.open in embedded/local Chromium and still opens
     // the exact URL built from the current textarea contents.
     toast({
-      title: "WhatsApp opened",
+      title: target === "web" ? "Opening WhatsApp Web" : "Opening WhatsApp app",
       description: "Review the pre-filled message and press Send in WhatsApp.",
     });
     onSent?.(pickedKey);
     // Do not unmount the anchor in the same click event. Chromium can cancel
-    // a native target=_blank navigation when the clicked node disappears
+    // native navigation when the clicked node disappears
     // synchronously (the popover close used to make the action look dead).
     // Keep it mounted long enough for the browser to dispatch the link, then
     // close the composer.
@@ -420,6 +420,7 @@ export function WhatsAppButton(props: Props) {
           </div>
 
           <textarea
+            aria-label="WhatsApp message"
             value={message}
             onChange={(e) => {
               setEdited(true);
@@ -430,7 +431,7 @@ export function WhatsAppButton(props: Props) {
           />
 
           <p className="text-[10px] text-slate-500 leading-snug">
-            Opens WhatsApp with the message pre-filled. You hit send. Nothing leaves until you do.
+            Opens your WhatsApp app with the message ready to review. Press Send there to send it.
           </p>
 
           <Button
@@ -439,9 +440,9 @@ export function WhatsAppButton(props: Props) {
           >
             <a
               href={buildWhatsAppUrl(phone, message.trim() ? message : renderedTemplate) || "#"}
-              target="_blank"
+              target="_self"
               rel="noopener noreferrer"
-              aria-label="Send current message via WhatsApp"
+              aria-label="Open current message in WhatsApp app"
               aria-disabled={sending}
               tabIndex={sending ? -1 : 0}
               onClick={(event) => {
@@ -453,9 +454,17 @@ export function WhatsAppButton(props: Props) {
               }}
             >
               <Send className="w-3.5 h-3.5" />
-              {sending ? "Opening WhatsApp…" : "Send via WhatsApp"}
+              {sending ? "Opening WhatsApp…" : "Open WhatsApp app"}
             </a>
           </Button>
+          <a href={buildWhatsAppUrl(phone, message.trim() ? message : renderedTemplate, "web") || "#"}
+            target="_blank" rel="noopener noreferrer"
+            aria-label="Open current message in WhatsApp Web" aria-disabled={sending}
+            tabIndex={sending ? -1 : 0}
+            className="inline-flex min-h-9 items-center rounded-sm text-xs font-medium text-slate-600 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+            onClick={(event) => handleSend(event, "web")}>
+            Use WhatsApp Web
+          </a>
         </div>
       )}
     </div>

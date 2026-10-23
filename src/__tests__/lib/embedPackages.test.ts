@@ -3,6 +3,7 @@ import {
   buildRequestedCatalogueItems,
   defaultEquipmentPackages,
   resolveEquipmentPackages,
+  splitRequestedItems,
 } from "@/lib/embed/catalogueSelection";
 
 const equipment = [
@@ -24,8 +25,39 @@ describe("equipment place-setting packages", () => {
   it("builds the two packages from catalogue pieces", () => {
     const pkgs = defaultEquipmentPackages(equipment as any);
     expect(pkgs.map((p) => p.label)).toEqual(["Plate, knife & fork", "Plate, knife, fork, bowl & spoon"]);
-    // Prefers the 25cm plate and porcelain bowl; never a salad bowl.
-    expect(pkgs[1].items).toEqual(["plate25", "knife", "fork", "bowl", "spoon"]);
+    expect(pkgs[0].items).toEqual(["plate20", "knife", "fork"]);
+    // Uses the requested 20cm plate and porcelain bowl; never a salad bowl.
+    expect(pkgs[1].items).toEqual(["plate20", "knife", "fork", "bowl", "spoon"]);
+  });
+
+  it("falls back to available pieces when another tenant has no 20cm plate", () => {
+    expect(defaultEquipmentPackages(equipment.filter((e) => e.id !== "plate20"))[0].items)
+      .toEqual(["plate25", "knife", "fork"]);
+  });
+
+  it.each([0, 1])("preserves package %i through unordered database results into the quote", (packageIndex) => {
+    const pkg = defaultEquipmentPackages(equipment)[packageIndex];
+    // Actual production result order was Fork, Bowl, Plate, Knife, Spoon.
+    const databaseRows = [equipment[3], equipment[6], equipment[0], equipment[2], equipment[4]]
+      .filter((row) => pkg.items.includes(row.id));
+    const requested = buildRequestedCatalogueItems(menu, databaseRows, 40, new Set(pkg.items));
+    const { menuItems, equipmentItems } = splitRequestedItems(requested);
+    expect(equipmentItems.map((row) => row.equipment_id)).toEqual(pkg.items);
+    expect(equipmentItems.map((row) => row.name)).toEqual(packageIndex === 0
+      ? ["Plate 20cm", "Stainless Steel Knife", "Stainless Steel Fork"]
+      : ["Plate 20cm", "Stainless Steel Knife", "Stainless Steel Fork", "Bowl (porcelain)", "Stainless Steel Spoon"]);
+    expect(equipmentItems.every((row) => row.quantity === 40 && row.line_total === row.unit_price * 40)).toBe(true);
+    expect(equipmentItems.reduce((sum, row) => sum + row.line_total, 0)).toBe(packageIndex === 0 ? 260 : 440);
+    expect(menuItems.map((row) => row.menu_item_id)).toEqual(["m1", "m2"]);
+  });
+
+  it("corrects saved standard package order without replacing the selected equipment", () => {
+    const fields = [{ id: "equipment_package", options: [{ value: "plate_knife_fork_bowl_spoon", items: ["fork", "bowl", "plate25", "knife", "spoon"] }] }];
+    expect(resolveEquipmentPackages(fields as any, equipment)[0].items)
+      .toEqual(["plate25", "knife", "fork", "bowl", "spoon"]);
+    fields[0].options[0].value = "custom";
+    expect(resolveEquipmentPackages(fields as any, equipment)[0].items)
+      .toEqual(["fork", "bowl", "plate25", "knife", "spoon"]);
   });
 
   it("offers only the first package when bowls or spoons are missing", () => {

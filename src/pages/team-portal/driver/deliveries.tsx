@@ -1,3 +1,4 @@
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
@@ -606,10 +607,10 @@ function DeliveryList({
                           Call
                         </a>
                         <a
-                          href={`https://wa.me/${String(o.client_phone).replace(/[^\d]/g, "")}?text=${encodeURIComponent(
+                          href={buildWhatsAppUrl(String(o.client_phone),
                             `Hi ${(o.client_name || "there").split(" ")[0]}, I'm your driver for today's delivery to ${String(o.venue_address || "").split(",")[0]}.`,
-                          )}`}
-                          target="_blank"
+                          ) || undefined}
+                          target="_self"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-brand-primary/20 bg-brand-primary/10 hover:bg-brand-primary/15 text-brand-primary dark:border-brand-primary/30 dark:bg-brand-primary/15 dark:text-brand-primary dark:hover:bg-brand-primary/20"
                           title="Open WhatsApp"

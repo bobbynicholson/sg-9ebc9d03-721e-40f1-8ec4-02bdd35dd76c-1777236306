@@ -1,3 +1,4 @@
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * ODOC H.4: quick-action chip strip at the top of the order doc.
@@ -10,7 +11,7 @@
  *   - Copy link (mints a tokenised client-view URL to clipboard)
  *   - Invoice (jumps to /admin/invoices filtered to this order)
  *   - Call (tel:)
- *   - WhatsApp (wa.me pre-populated with first-name + order_number)
+ *   - WhatsApp (app link pre-populated with first-name + order_number)
  *   - Email (mailto: pre-populated subject)
  *
  * Admin-tier only - previewing-as-client, minting tokens, and
@@ -134,13 +135,13 @@ export function OrderQuickActions({ order }: Props) {
         <span className={groupLabel}>Client</span>
         {phone && (
           <>
-            <a href={`tel:${phone.replace(/[^+d]/g, "")}`} className={chip} title={`Call ${phone}`}>
+            <a href={`tel:${phone.replace(/[^+\d]/g, "")}`} className={chip} title={`Call ${phone}`}>
               <Phone className="h-3.5 w-3.5 text-slate-500" />
               Call
             </a>
             <a
-              href={`https://wa.me/${phone.replace(/[^d]/g, "")}?text=${encodeURIComponent(waMessage)}`}
-              target="_blank"
+              href={buildWhatsAppUrl(phone, waMessage) || undefined}
+              target="_self"
               rel="noopener noreferrer"
               className={chip}
               title="Open WhatsApp pre-filled"

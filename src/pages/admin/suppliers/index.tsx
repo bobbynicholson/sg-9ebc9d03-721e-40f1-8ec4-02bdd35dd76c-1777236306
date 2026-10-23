@@ -1,3 +1,4 @@
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 /**
  * Suppliers hub - list of every supplier on file with rolling spend
  * totals (30d / 90d / 365d), product counts, and a one-click compose
@@ -68,17 +69,7 @@ const relativeTime = (iso: string | null) => {
   return hours >= 1 ? `${hours}h ago` : "just now";
 };
 
-// SUP-B: international format the phone for wa.me. Strips spaces /
-// dashes / parens and converts a leading 0 to ZA's +27 (most common
-// case for this tenant base). Leaves +XX prefixes alone.
-const waLink = (phone: string | null | undefined): string | null => {
-  if (!phone) return null;
-  const cleaned = String(phone).replace(/[\s()-]/g, "");
-  if (!cleaned) return null;
-  if (cleaned.startsWith("+")) return `https://wa.me/${cleaned.slice(1)}`;
-  if (cleaned.startsWith("0")) return `https://wa.me/27${cleaned.slice(1)}`;
-  return `https://wa.me/${cleaned}`;
-};
+const waLink = buildWhatsAppUrl;
 
 function SuppliersList() {
   const { profile } = useAuth() as { profile: { company_id: string; role?: string; active_role?: string } | null };
@@ -498,7 +489,7 @@ function SuppliersList() {
                                     {wa && (
                                       <a
                                         href={wa}
-                                        target="_blank"
+                                        target="_self"
                                         rel="noreferrer"
                                         onClick={(e) => e.stopPropagation()}
                                         className="inline-flex items-center text-brand-primary hover:text-brand-primary"
@@ -610,7 +601,7 @@ function SuppliersList() {
                                   <div className="flex items-center gap-2">
                                     <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {s.phone}</span>
                                     {wa && (
-                                      <a href={wa} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-brand-primary">
+                                      <a href={wa} target="_self" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-brand-primary">
                                         <MessageCircle className="w-3.5 h-3.5" />
                                       </a>
                                     )}

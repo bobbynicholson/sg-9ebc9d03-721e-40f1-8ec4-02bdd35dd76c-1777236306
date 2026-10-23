@@ -1,3 +1,4 @@
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { ImportReadinessBanner } from "@/components/admin/ImportReadinessBanner";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { CustomerIdentityFields } from "@/components/admin/CustomerIdentityFields";
@@ -1235,8 +1236,8 @@ return (
                   Call {(selectedOrder as any).client_phone}
                 </a>
                 <a
-                  href={`https://wa.me/${String((selectedOrder as any).client_phone).replace(/[^\d]/g, "")}?text=${encodeURIComponent(`Hi ${((selectedOrder as any).client_name || "there").split(" ")[0]}, regarding your booking ${(selectedOrder as any).order_number || ""}`)}`}
-                  target="_blank"
+                  href={buildWhatsAppUrl(String((selectedOrder as any).client_phone), `Hi ${((selectedOrder as any).client_name || "there").split(" ")[0]}, regarding your booking ${(selectedOrder as any).order_number || ""}`) || undefined}
+                  target="_self"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded-md px-2 py-1 hover:bg-brand-primary/15 transition"
                   title="Open WhatsApp pre-filled"

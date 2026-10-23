@@ -1,3 +1,4 @@
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * /admin/outsource-providers/[id] - Wave 67.4.
@@ -371,7 +372,7 @@ function ProviderDetail() {
                       </a>
                     )}
                     {provider.whatsapp_number && (
-                      <a href={`https://wa.me/${provider.whatsapp_number.replace(/[^\d]/g, "")}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded-md px-2.5 py-1.5 min-h-[34px] hover:bg-brand-primary/15">
+                      <a href={buildWhatsAppUrl(provider.whatsapp_number) || undefined} target="_self" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded-md px-2.5 py-1.5 min-h-[34px] hover:bg-brand-primary/15">
                         <MessageCircle className="w-3 h-3 shrink-0" /> {provider.whatsapp_number}
                       </a>
                     )}

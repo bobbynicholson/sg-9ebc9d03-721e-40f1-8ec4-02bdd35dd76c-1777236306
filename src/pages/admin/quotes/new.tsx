@@ -132,6 +132,7 @@ import { savedQuantityWasOverridden } from "@/lib/quotes/revisionLifecycle";
 import { notifyQuoteUpdated } from "@/services/quote/quoteNotifications";
 import { recordDocumentAmountChange } from "@/services/documentAmountChanges";
 import { buildQuotePriceUpdateEmail, shouldSendQuotePriceUpdate } from "@/services/quote/quotePriceUpdateEmail";
+import { orderPlaceSettingItems } from "@/lib/placeSettings";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -853,9 +854,9 @@ function NewQuotePage() {
         const requestedMenu = l.requested_items.filter(
           (it: any) => it?.item_type !== "equipment" && (it?.item_name || it?.name),
         );
-        const requestedEquipment = l.requested_items.filter(
+        const requestedEquipment = orderPlaceSettingItems(l.requested_items.filter(
           (it: any) => it?.item_type === "equipment" && (it?.item_name || it?.name),
-        );
+        ));
         setMenuItems(
           requestedMenu.map((it: any, i: number) => ({
             id: `L_lead_${i}`,
@@ -1174,7 +1175,7 @@ function NewQuotePage() {
     }
     if (Array.isArray(q.equipment_items)) {
       setEquipment(
-        q.equipment_items.map((e: any, i: number) => ({
+        (q.lead_id && q.status === "draft" && !q.converted_to_order_id ? orderPlaceSettingItems(q.equipment_items) : q.equipment_items).map((e: any, i: number) => ({
           id: `E_${i}`,
           equipment_id: e.equipment_id ?? null,
           name: e.name ?? "",

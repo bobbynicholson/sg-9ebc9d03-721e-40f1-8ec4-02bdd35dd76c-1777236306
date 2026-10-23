@@ -1,3 +1,4 @@
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { UserRole } from "@/types/app";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/router";
@@ -1192,8 +1193,8 @@ function KitchenStaffPage() {
                             )}
                             {s.phone && (
                               <a
-                                href={`https://wa.me/${String(s.phone).replace(/[^\d]/g, "")}`}
-                                target="_blank"
+                                href={buildWhatsAppUrl(String(s.phone)) || undefined}
+                                target="_self"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
                                 className="text-brand-primary hover:text-brand-primary"

@@ -1,4 +1,5 @@
 import type { EmbedField } from "@/types/embedForms";
+import { orderPlaceSettingItems, restorePackageItemOrder } from "@/lib/placeSettings";
 
 export const EMBED_MENU_FIELD_ID = "menu_item_ids";
 export const EMBED_EQUIPMENT_FIELD_ID = "equipment_item_ids";
@@ -47,11 +48,11 @@ function findPiece(
  * tenant with those pieces gets them without setup.
  */
 export function defaultEquipmentPackages(equipment: EmbedEquipmentCatalogueRow[]): EquipmentPackageOption[] {
-  const plate = findPiece(equipment, /plate/, /25/);
-  const knife = findPiece(equipment, /knife/);
-  const fork = findPiece(equipment, /fork/);
+  const plate = findPiece(equipment, /plate/, /\b20\s*cm\b/);
+  const knife = findPiece(equipment, /knife/, /stainless\s*steel/);
+  const fork = findPiece(equipment, /fork/, /stainless\s*steel/);
   const bowl = findPiece(equipment, /bowl/, /porcelain/);
-  const spoon = findPiece(equipment, /spoon/);
+  const spoon = findPiece(equipment, /spoon/, /stainless\s*steel/);
   const out: EquipmentPackageOption[] = [];
   if (plate && knife && fork) {
     out.push({ value: "plate_knife_fork", label: "Plate, knife & fork", items: [plate.id, knife.id, fork.id] });
@@ -79,7 +80,12 @@ export function resolveEquipmentPackages(
   const known = new Set(equipment.map((e) => e.id));
   const savedOptions = ((saved?.options || []) as unknown as EquipmentPackageOption[])
     .filter((o) => o && typeof o.value === "string" && Array.isArray(o.items))
-    .map((o) => ({ value: o.value, label: o.label || o.value, items: o.items.filter((id) => known.has(id)) }))
+    .map((o) => {
+      const ids = o.items.filter((id) => known.has(id));
+      const isStandard = ["plate_knife_fork", "plate_knife_fork_bowl_spoon"].includes(o.value);
+      const pieces = ids.flatMap((id) => { const item = equipment.find((row) => row.id === id); return item ? [item] : []; });
+      return { value: o.value, label: o.label || o.value, items: isStandard ? orderPlaceSettingItems(pieces).map((item) => item.id) : ids };
+    })
     .filter((o) => o.items.length > 0);
   return savedOptions.length > 0 ? savedOptions : defaultEquipmentPackages(equipment);
 }
@@ -383,7 +389,7 @@ export function buildRequestedCatalogueItems(
       line_total: Number((unitPrice * quantity).toFixed(2)),
     };
   });
-  const equipmentItems: RequestedCatalogueItem[] = equipment.map((item) => {
+  const equipmentItems: RequestedCatalogueItem[] = restorePackageItemOrder(equipment, perGuestEquipmentIds).map((item) => {
     const unitPrice = Number(item.rental_price) || 0;
     const quantity = perGuestEquipmentIds.has(item.id) ? guests : 1;
     return {

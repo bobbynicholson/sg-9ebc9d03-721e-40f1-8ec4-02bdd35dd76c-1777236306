@@ -1,3 +1,4 @@
+import { orderPlaceSettingItems } from "@/lib/placeSettings";
 import { ImportReadinessBanner } from "@/components/admin/ImportReadinessBanner";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
@@ -477,7 +478,9 @@ function AdminQuoteDetailInner() {
   // /q view then showed a total the operator never agreed to.
   const equipmentRows = useMemo<any[]>(() => {
     const arr = (quote as any)?.equipment_items;
-    return Array.isArray(arr) ? arr : [];
+    if (!Array.isArray(arr)) return [];
+    return quote?.status === "draft" && (quote as any)?.lead_id && !(quote as any)?.converted_to_order_id
+      ? orderPlaceSettingItems(arr) : arr;
   }, [quote]);
   const equipmentSubtotal = useMemo(
     () => equipmentRows.reduce(
@@ -543,6 +546,7 @@ function AdminQuoteDetailInner() {
     });
     return {
       menu_items: menuItemsJson,
+      equipment_items: equipmentRows,
       subtotal: computed.subtotal,
       tax_amount: computed.tax,
       tax: computed.tax,
@@ -1684,7 +1688,7 @@ function AdminQuoteDetailInner() {
             user_id: (quote as any).user_id ?? null,
             public_token: (quote as any).public_token ?? null,
             menu_items: (quote as any).menu_items ?? null,
-            equipment_items: (quote as any).equipment_items ?? null,
+            equipment_items: equipmentRows,
             // TIGHTEN I.128: forward guest count + event date + the
             // converted flag so the body reflects the live booking.
             guest_count: (quote as any).guest_count ?? null,

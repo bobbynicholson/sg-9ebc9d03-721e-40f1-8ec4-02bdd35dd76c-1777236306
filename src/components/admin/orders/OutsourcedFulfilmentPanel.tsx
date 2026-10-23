@@ -1,3 +1,4 @@
+import { openWhatsApp } from "@/lib/whatsapp";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * OutsourcedFulfilmentPanel - Wave 67 Phase D.
@@ -426,7 +427,7 @@ export function OutsourcedFulfilmentPanel({
       return;
     }
     const { body } = composedRequest(a);
-    window.open(`https://wa.me/${num}?text=${encodeURIComponent(body)}`, "_blank", "noopener,noreferrer");
+    openWhatsApp(num, body);
   };
 
   const copyAcceptLink = async (a: OutsourceAssignmentWithProvider) => {

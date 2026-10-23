@@ -1,3 +1,4 @@
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * /admin/outsource-providers - Wave 67 Phase B.
@@ -521,7 +522,7 @@ function ProvidersList() {
         : "We've got an upcoming event and would like to check your availability.",
       "Are you free in the next two weeks? Happy to share the details.",
     ].join("\n\n");
-    return `https://wa.me/${num}?text=${encodeURIComponent(text)}`;
+    return buildWhatsAppUrl(num, text);
   };
 
   return (
@@ -766,8 +767,8 @@ function ProvidersList() {
                             )}
                             {p.whatsapp_number && (
                               <a
-                                href={waTemplateFor(p) || `https://wa.me/${p.whatsapp_number.replace(/[^\d]/g, "")}`}
-                                target="_blank"
+                                href={waTemplateFor(p) || buildWhatsAppUrl(p.whatsapp_number) || undefined}
+                                target="_self"
                                 rel="noopener noreferrer"
                                 title="Opens WhatsApp with a templated enquiry pre-filled"
                                 className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded-md px-2 py-1 hover:bg-brand-primary/15"

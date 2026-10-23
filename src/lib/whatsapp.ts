@@ -7,9 +7,8 @@
  *
  * Why two URL shapes:
  *   - Mobile  -> wa.me/PHONE?text=MSG       (universal link, opens app)
- *   - Desktop -> web.whatsapp.com/send?...  (skips the wa.me landing
- *     page with the "Download it now" download nudge that the catering
- *     owner does NOT want clients/staff to see).
+ *   - Desktop -> whatsapp://send?... (asks the OS to open its installed app)
+ * WhatsApp Web is an explicit alternative, never an automatic redirect.
  *
  * Phone validation:
  *   normaliseToE164() takes any free-form input and returns a digits-
@@ -17,9 +16,6 @@
  *   code that does not start with 6/7/8) are flagged via isLikelyMobile
  *   so the UI can hide the WhatsApp option for those numbers rather
  *   than firing the user off to a chat that will never deliver.
- *
- * Future: when we wire WhatsApp Business API, the templates layer
- * stays unchanged - only buildWhatsAppUrl flips to a server send.
  */
 
 /**
@@ -76,9 +72,7 @@ export function isLikelyMobile(phone: string | null | undefined): boolean {
 
 /**
  * Detect whether the current browser is mobile. Used to pick the URL
- * shape: wa.me on mobile (so the WhatsApp app opens), web.whatsapp.com
- * on desktop (so we skip the wa.me landing page with the download
- * nudge).
+ * shape: wa.me on mobile, the registered WhatsApp app protocol on desktop.
  *
  * Falls back to "desktop" on the server.
  */
@@ -94,37 +88,34 @@ export function isMobileBrowser(): boolean {
  *   buildWhatsAppUrl("+27 82 555 0001", "Hi Bobby, ...")
  *
  * Mobile  -> https://wa.me/27825550001?text=Hi%20Bobby...
- * Desktop -> https://web.whatsapp.com/send?phone=27825550001&text=Hi%20Bobby...
+ * Desktop -> whatsapp://send?phone=27825550001&text=Hi%20Bobby...
  *
- * Both URLs are valid universal links; the chat opens with the message
- * pre-populated and the user just hits send.
+ * The OS chooses the installed app; a website cannot detect its running
+ * state or account. Passing "web" explicitly opens the separate web client.
  */
-export function buildWhatsAppUrl(phone: string | null | undefined, message?: string): string | null {
+export function buildWhatsAppUrl(phone: string | null | undefined, message?: string, target: "app" | "web" = "app"): string | null {
   const digits = normaliseToE164(phone);
   if (!digits) return null;
   const text = message ? encodeURIComponent(message) : "";
-  if (isMobileBrowser()) {
+  if (target === "app" && isMobileBrowser()) {
     return text ? `https://wa.me/${digits}?text=${text}` : `https://wa.me/${digits}`;
   }
-  // Desktop: web.whatsapp.com/send opens WhatsApp Web directly with no
-  // intermediate landing page. If the user does not have the app
-  // installed they go straight to the QR-paired Web client.
   const params = [`phone=${digits}`, text ? `text=${text}` : ""].filter(Boolean).join("&");
-  return `https://web.whatsapp.com/send?${params}`;
+  return target === "web" ? `https://web.whatsapp.com/send?${params}` : `whatsapp://send?${params}`;
 }
 
 /**
- * One-call helper: build the URL and open it in a new tab. Returns
- * true if the chat was opened, false if the phone was unusable.
+ * Request an app launch without leaving a blank browser tab. Returns true
+ * when navigation was requested, not proof that the installed app opened.
  */
-export function openWhatsApp(phone: string | null | undefined, message?: string): boolean {
-  const url = buildWhatsAppUrl(phone, message);
+export function openWhatsApp(phone: string | null | undefined, message?: string, target: "app" | "web" = "app"): boolean {
+  const url = buildWhatsAppUrl(phone, message, target);
   if (!url) return false;
   if (typeof window === "undefined") return false;
   // Use the normal browser launch path first. Some browsers and embedded
   // Chromium sessions return null when `noopener` is supplied, even though
   // the user-initiated launch is otherwise valid.
-  const opened = window.open(url, "_blank");
+  const opened = window.open(url, target === "web" ? "_blank" : "_self");
   if (opened !== null) return true;
 
   // A blocked new tab must not make the button appear dead. Navigating the

@@ -1,3 +1,4 @@
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { resolveInvoiceCompanyName } from "@/lib/customerIdentity";
 import { useState, useEffect, useMemo, useRef } from "react";
 import Head from "next/head";
@@ -2688,8 +2689,8 @@ function InvoicesPageInner() {
                                 <Phone className="w-3 h-3" />
                               </a>
                               <a
-                                href={`https://wa.me/${String(invoice.orders.clients.phone).replace(/[^\d]/g, "")}?text=${encodeURIComponent(`Hi ${(invoice.orders.clients.client_name || "there").split(" ")[0]}, regarding invoice ${invoice.invoice_number || ""}`)}`}
-                                target="_blank"
+                                href={buildWhatsAppUrl(String(invoice.orders.clients.phone), `Hi ${(invoice.orders.clients.client_name || "there").split(" ")[0]}, regarding invoice ${invoice.invoice_number || ""}`) || undefined}
+                                target="_self"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
                                 className="text-brand-primary inline-flex items-center gap-0.5"

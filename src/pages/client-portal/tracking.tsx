@@ -1,3 +1,4 @@
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -721,10 +722,10 @@ function ClientTrackingInner() {
                       </Button>
                       <Button asChild className="bg-brand-primary text-white hover:opacity-90">
                         <a
-                          href={`https://wa.me/${String(selectedOrder.driver_phone).replace(/[^\d]/g, "")}?text=${encodeURIComponent(
+                          href={buildWhatsAppUrl(String(selectedOrder.driver_phone),
                             `Hi, I'm the client for ${selectedOrder.order_number || "this delivery"}. Quick question --`,
-                          )}`}
-                          target="_blank"
+                          ) || undefined}
+                          target="_self"
                           rel="noopener noreferrer"
                         >
                           <MessageCircle className="mr-2 h-4 w-4" />

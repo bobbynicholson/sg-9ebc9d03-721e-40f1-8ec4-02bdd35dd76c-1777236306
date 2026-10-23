@@ -1,3 +1,4 @@
+import { openWhatsApp } from "@/lib/whatsapp";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Smart Shopping - the procurement brain.
@@ -766,8 +767,7 @@ function SmartShoppingPage() {
         toast({ title: "No phone on file", description: `Add a phone for ${d.supplierName} on /admin/suppliers.`, variant: "destructive" });
         return;
       }
-      const intl = num.startsWith("+") ? num.slice(1) : num.startsWith("0") ? `27${num.slice(1)}` : num;
-      window.open(`https://wa.me/${intl}?text=${encodeURIComponent(d.body)}`, "_blank", "noopener");
+      openWhatsApp(num, d.body);
       await finaliseOrderDialog("WhatsApp");
       return;
     }
@@ -867,8 +867,7 @@ function SmartShoppingPage() {
       setTimeout(() => {
         const raw = (g.supplier?.phone || "").replace(/[\s()-]/g, "");
         if (!raw) return;
-        const intl = raw.startsWith("+") ? raw.slice(1) : raw.startsWith("0") ? `27${raw.slice(1)}` : raw;
-        window.open(`https://wa.me/${intl}?text=${encodeURIComponent(body)}`, "_blank", "noopener");
+        openWhatsApp(raw, body);
         if (g.supplier?.id) markSentToday(g.supplier.id);
       }, i * 200);
     });
