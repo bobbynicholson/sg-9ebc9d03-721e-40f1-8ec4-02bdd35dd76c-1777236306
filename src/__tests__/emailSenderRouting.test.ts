@@ -36,7 +36,7 @@ describe("application sender routing", () => {
     });
     function client() {
       const q: any = { then: (resolve: any) => Promise.resolve({ data: null, error: null }).then(resolve) };
-      for (const method of ["select", "eq", "limit", "in"]) q[method] = () => q;
+      for (const method of ["select", "eq", "neq", "order", "limit", "in"]) q[method] = () => q;
       q.maybeSingle = async () => ({ data: { company_name: "Team", email: "admin@spitbraaidelivery.co.za" }, error: null });
       return { from: () => q };
     }
@@ -50,6 +50,33 @@ describe("application sender routing", () => {
       const result = await emailService.sendEmailDetailed({ companyId: "company", to: "person@example.net", subject: "Hello", body: "<html>Hello</html>", bypassQuarantine: true, skipUnsubscribeFooter: true, _client: client() });
       expect(result.success).toBe(true);
       expect(transport).toHaveBeenCalledWith(expect.objectContaining({ from: expectedFrom }));
+    });
+
+    it("sends lead alerts as internal notifications with their real template tag and no list unsubscribe", async () => {
+      jest.spyOn(emailService, "getEmailConfig").mockResolvedValue(config);
+      const log = jest.spyOn(emailService, "logEmailSent").mockResolvedValue(null);
+      const transport = jest.spyOn(emailService, "sendViaResend").mockResolvedValue({ ok: true });
+      const result = await emailService.sendEmailDetailed({ companyId: "company", to: "office@example.com", subject: "New enquiry", body: "<html><body>New website enquiry</body></html>", automationKey: "embed_lead_admin_email", bypassQuarantine: true, _client: client() });
+      expect(result.success).toBe(true);
+      expect(transport).toHaveBeenCalledWith(expect.objectContaining({
+        from: "Wilma's team <office@example.com>",
+        html: expect.not.stringContaining("Unsubscribe"),
+        headers: undefined,
+        tags: expect.arrayContaining([{ name: "template", value: "embed_lead_admin_email" }]),
+      }));
+      expect(log.mock.calls[0][1]).toBe("embed_lead_admin_email");
+    });
+
+    it("preserves unsubscribe controls on ordinary customer email", async () => {
+      jest.spyOn(emailService, "getEmailConfig").mockResolvedValue(config);
+      jest.spyOn(emailService, "logEmailSent").mockResolvedValue(null);
+      const transport = jest.spyOn(emailService, "sendViaResend").mockResolvedValue({ ok: true });
+      const result = await emailService.sendEmailDetailed({ companyId: "company", to: "customer@example.net", subject: "Your enquiry", body: "<html><body>Your enquiry</body></html>", bypassQuarantine: true, _client: client() });
+      expect(result.success).toBe(true);
+      expect(transport).toHaveBeenCalledWith(expect.objectContaining({
+        html: expect.stringContaining("Unsubscribe"),
+        headers: expect.objectContaining({ "List-Unsubscribe": expect.stringContaining("/u/"), "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }),
+      }));
     });
     it.each([
       ["resend", "sendViaResend"],

@@ -23,6 +23,7 @@
  */
 
 import { escapeHtml } from "@/lib/embedFormApi";
+import { publicAppOrigin } from "@/lib/publicAppOrigin";
 
 export interface NotifyEmbedLeadInput {
   companyId: string;
@@ -199,7 +200,7 @@ export async function notifyAdminOfEmbedLead(
       // hardcoded "R" prefix which read wrong for USD / GBP / EUR
       // tenants who ran embed forms.
       .from("companies")
-      .select("id, company_name, notification_email, currency")
+      .select("id, company_name, notification_email, currency, slug")
       .eq("id", companyId)
       .maybeSingle(),
     ownerUserId
@@ -239,7 +240,17 @@ export async function notifyAdminOfEmbedLead(
       })
     : "TBD";
 
-  const leadLink = `${appOrigin}/admin/leads?leadId=${encodeURIComponent(leadId)}`;
+  // A deployment hostname changes on every release and may require Vercel
+  // login. Operational emails must consistently link to the public app.
+  const publicOrigin = publicAppOrigin({
+    environment: process.env.NODE_ENV,
+    configuredUrl: process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL,
+    vercelProductionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    vercelUrl: process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL,
+    requestOrigin: appOrigin,
+  });
+  const slug = String(company?.slug || "").trim();
+  const leadLink = `${publicOrigin}${slug ? `/${encodeURIComponent(slug)}` : ""}/admin/leads?leadId=${encodeURIComponent(leadId)}`;
   const summary = formName ? `from "${formName}"` : "from your embedded form";
 
   // ── 1. In-portal notification to every admin-tier user ───────────
@@ -393,6 +404,8 @@ export async function notifyAdminOfEmbedLead(
               to,
               allowPlatformFallback: true,
               automationKey: "embed_lead_admin_email",
+              // ensureLeadLinkInEmailBody already builds this alert's shell.
+              skipBrandedShell: true,
               subject: resolved.subject,
               body: ensureLeadLinkInEmailBody(resolved.bodyHtml, leadLink, leadInsert.requested_items, {
                 clientName: String(clientName),

@@ -783,6 +783,13 @@ export const emailService = {
       }
     }
 
+    const templateKey = payload.template || payload.templateType || payload.automationKey || "custom";
+    // Lead alerts are internal operational messages, not customer subscriptions.
+    // Their automatic on/off control remains in Email settings.
+    const isInternalLeadAlert = [payload.template, payload.templateType, payload.automationKey]
+      .includes("embed_lead_admin_email");
+    const includeUnsubscribe = !payload.skipUnsubscribeFooter && !isInternalLeadAlert;
+
     // Email settings -> "Off": a listed automatic email that is turned off
     // is not sent. Never applies to an admin's own Send action, or to a
     // send the caller already checked (deliverAutomatedEmail, the queue).
@@ -850,7 +857,7 @@ export const emailService = {
         try {
           await this.logEmailSent(
             payload.companyId,
-            payload.template || "custom",
+            templateKey,
             payload.to,
             payload.variables?.clientName || "N/A",
             payload.subject,
@@ -946,7 +953,7 @@ export const emailService = {
           // dashboard rather than wondering where the email went.
           await this.logEmailSent(
             payload.companyId,
-            payload.template || "custom",
+            templateKey,
             payload.to,
             payload.variables?.clientName || "N/A",
             payload.subject,
@@ -979,7 +986,7 @@ export const emailService = {
           console.warn(`[emailService] refused - ${recipientLower} is in import quarantine for ${payload.companyId}`);
           await this.logEmailSent(
             payload.companyId,
-            payload.template || "custom",
+            templateKey,
             payload.to,
             payload.variables?.clientName || "N/A",
             payload.subject,
@@ -1165,9 +1172,10 @@ export const emailService = {
     // resolves on /u/[token] -> /api/public/unsubscribe without a
     // tokens table. Skipped when:
     //   - the caller explicitly opts out (skipUnsubscribeFooter)
+    //   - this is an internal lead alert controlled in Email settings
     //   - the body already includes "/u/" (template wrote its own)
     //   - we can't build the link (no companyId / no recipient)
-    if (!payload.skipUnsubscribeFooter && payload.companyId && recipientLower && !finalBody.includes("/u/")) {
+    if (includeUnsubscribe && payload.companyId && recipientLower && !finalBody.includes("/u/")) {
       try {
         finalBody = appendUnsubscribeFooter(finalBody, payload.companyId, recipientLower);
       } catch (footerErr) {
@@ -1227,20 +1235,12 @@ export const emailService = {
           companyId: payload.companyId, provider: config.provider, from,
           mode: from.endsWith(`<${SHARED_FROM_EMAIL}>`) ? "shared" : "custom",
         });
-        // TIGHTEN I.43 (2026-06-01): inject List-Unsubscribe +
-        // List-Unsubscribe-Post headers so Gmail / Yahoo's 2024
-        // bulk-sender rules treat us as compliant. Missing these
-        // headers is the single biggest reason a fresh shared sender
-        // (send.cateringms.com) lands in spam. Resend signs the
-        // outbound DKIM over the headers we provide, so the
-        // unsubscribe link is part of the authenticated message body
-        // and survives forwarding checks.
+        // Keep one-click unsubscribe on customer mail. Internal lead alerts
+        // use the company's notification settings rather than list opt-outs.
         const headers: Record<string, string> = {};
-        if (recipientLower) {
+        if (includeUnsubscribe && recipientLower) {
           const unsubUrl = buildUnsubscribeUrl(resolveBaseUrl(), recipientLower, payload.companyId);
           headers["List-Unsubscribe"] = `<${unsubUrl}>`;
-          // One-Click required by Gmail/Yahoo for senders over
-          // 5000/day, harmless below and a clear deliverability win.
           headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
         }
         providerResult = await this.sendViaResend({
@@ -1263,7 +1263,7 @@ export const emailService = {
           // "order.created" contain a dot.
           tags: [
             { name: "company_id", value: resendTagValue(payload.companyId) },
-            { name: "template", value: resendTagValue(payload.template || "custom") },
+            { name: "template", value: resendTagValue(templateKey) },
           ],
         });
       } else if (config.provider === 'smtp' && config.smtp_host) {
@@ -1282,7 +1282,7 @@ export const emailService = {
         releaseCopyClaim();
         await this.logEmailSent(
           payload.companyId,
-          payload.template || "custom",
+          templateKey,
           payload.to,
           payload.variables?.clientName || "N/A",
           finalSubject,
@@ -1317,7 +1317,7 @@ export const emailService = {
 
         await this.logEmailSent(
           payload.companyId,
-          payload.template || 'custom',
+          templateKey,
           payload.to,
           payload.variables?.clientName || "N/A",
           finalSubject,
@@ -1339,7 +1339,7 @@ export const emailService = {
       if (providerResult && (providerResult as any).ok) {
         await this.logEmailSent(
           payload.companyId,
-          payload.template || 'custom',
+          templateKey,
           payload.to,
           payload.variables?.clientName || "N/A",
           finalSubject,
@@ -1357,7 +1357,7 @@ export const emailService = {
       const reason = failure?.message || `Provider ${config.provider || "?"} returned not-ok`;
       await this.logEmailSent(
         payload.companyId,
-        payload.template || 'custom',
+        templateKey,
         payload.to,
         payload.variables?.clientName || "N/A",
         finalSubject,
@@ -1463,7 +1463,7 @@ export const emailService = {
       try {
         await this.logEmailSent(
           payload.companyId,
-          payload.template || 'custom',
+          templateKey,
           payload.to,
           payload.variables?.clientName || "N/A",
           finalSubject,
