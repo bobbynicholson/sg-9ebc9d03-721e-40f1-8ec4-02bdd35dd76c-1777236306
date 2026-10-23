@@ -2319,7 +2319,7 @@ function AdminQuotesInner() {
                           >
                             <CardContent className="p-4 sm:p-6">
                       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between xl:gap-0">
-                        <div className="flex-1">
+                        <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-3 mb-3 flex-wrap">
                             <h3 className="text-xl font-semibold text-slate-900">{quote.client_name}</h3>
                             {(quote as any).quote_number && (
@@ -2489,24 +2489,24 @@ function AdminQuotesInner() {
                             )}
                           </div>
 
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-2">
-                            <div className="flex items-center gap-2 text-slate-600">
-                              <Mail className="w-4 h-4" />
-                              <span className="text-sm">{quote.client_email}</span>
+                          <div className="mb-2 flex flex-wrap items-start gap-x-6 gap-y-3">
+                            <div className="flex min-w-0 max-w-full items-start gap-2 text-slate-600">
+                              <Mail className="mt-0.5 w-4 h-4 shrink-0" />
+                              <span className="min-w-0 break-all text-sm">{quote.client_email}</span>
                             </div>
-                            <div className="flex items-center gap-2 text-slate-600">
-                              <Calendar className="w-4 h-4" />
+                            <div className="flex items-start gap-2 text-slate-600">
+                              <Calendar className="mt-0.5 w-4 h-4 shrink-0" />
                               <span className="text-sm">
                                 {formatLocalDate(displayEventDate, "-")}
                                 {displayEventTime ? ` at ${formatClock(displayEventTime)}` : ""}
                               </span>
                             </div>
                             <div className="flex items-center gap-2 text-slate-600">
-                              <Users className="w-4 h-4" />
+                              <Users className="w-4 h-4 shrink-0" />
                               <span className="text-sm">{displayGuestCount ?? "-"} guests</span>
                             </div>
                             <div className="flex items-center gap-2 text-slate-600">
-                              <Banknote className="w-4 h-4" />
+                              <Banknote className="w-4 h-4 shrink-0" />
                               <span className="text-sm font-semibold text-brand-primary">
                                 {formatQuoteMoney(Number(displayTotal), quote.currency, tenantCurrency.code)}
                               </span>
