@@ -27,6 +27,7 @@ import { toLocalISO } from "@/lib/localDate";
 import { resolveTemplateSync } from "@/services/messageTemplateService";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import { MessageComposer } from "@/components/messaging/MessageComposer";
+import { LeadWhatsAppButton } from "@/components/messaging/WorkflowWhatsAppButtons";
 import { ClientEmailDrawer } from "@/components/messaging/ClientEmailDrawer";
 import { useToast } from "@/hooks/use-toast";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -1639,6 +1640,7 @@ function AdminLeadsInner() {
                             tooltip={suggestionCtaTooltip(suggestion.kind)}
                             onClick={() => runSuggestionAction(lead, links, suggestion.kind)}
                           />
+                          <LeadWhatsAppButton lead={lead} className="w-full justify-center" />
                           <div className="flex items-center gap-1.5 justify-end flex-wrap">
                             <Button
                               variant="outline"

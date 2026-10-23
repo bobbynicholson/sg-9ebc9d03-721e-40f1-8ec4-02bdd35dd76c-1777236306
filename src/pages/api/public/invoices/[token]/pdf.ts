@@ -30,6 +30,7 @@ import { invoicePaymentTerms } from "@/lib/invoicePaymentTerms";
 import { configuredPaymentTerms } from "@/lib/paymentTerms";
 import { buildPdfPaymentInstructions } from "@/lib/pdfPaymentInstructions";
 import { publicAppOrigin } from "@/lib/publicAppOrigin";
+import { hydratePublicInvoiceLines, invoiceRows } from "@/lib/publicInvoiceLines";
 
 export const config = { api: { responseLimit: false } };
 
@@ -56,7 +57,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         subtotal, tax_amount, total_amount, amount_paid, balance_due,
         notes, invoice_data, updated_at,
         client:client_id ( client_name, company_name, email, phone, billing_address_line1, billing_address_line2, billing_city, billing_postal_code, tax_number, payment_terms ),
-        order:order_id ( id, order_number, client_name, client_company_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count, deposit_amount, deposit_percentage, currency, updated_at ),
+        order:order_id ( id, quote_id, order_number, client_name, client_company_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count, deposit_amount, deposit_percentage, currency, updated_at ),
         company:company_id ( id, slug, company_name, legal_name, time_format, logo_url, email, phone, address_line1, address_line2, city, state_province, postal_code, country, primary_color, vat_registered, vat_number, vat_rate, deposit_percent, dispatch_settings, registration_number, tax_number, currency, bank_name, bank_account_holder, bank_account_number, bank_branch_code, bank_account_type, eft_instructions, updated_at )
       `)
       .eq("public_token", token)
@@ -85,12 +86,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       } catch { logoUrl = null; }
     } else if (logoUrl && !/^data:/i.test(logoUrl)) logoUrl = null;
 
-    // Line items from invoice_data. invoice_data splits food + equipment
-    // into separate arrays (menuItems / equipmentItems); combine BOTH so
+    // Line items from invoice_data, refreshed from current order rows when
+    // available. Combine food and equipment arrays so
     // the PDF isn't missing the equipment lines (bug found 2026-07-04:
     // only the food showed, so lines didn't sum to the total). Fall back
     // to a flat line_items/items array for older invoices.
-    const idata = (inv as any).invoice_data || {};
+    const idata = await hydratePublicInvoiceLines(
+      supabase,
+      (inv as any).invoice_data || {},
+      (inv as any).order_id,
+      order.quote_id,
+      { preferCurrentOrderLines: (inv as any).invoice_data?.manual !== true },
+    );
     const hasOrder = !!order.id;
     const firstPaymentAmount = resolveInvoiceFirstPaymentAmount({
       totalAmount: (inv as any).total_amount,
@@ -109,28 +116,30 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       total: Number(it.total ?? it.line_total ?? 0),
     });
     let line_items: any[] = [];
-    if (Array.isArray(idata.menuItems) || Array.isArray(idata.equipmentItems)) {
+    const menuLines = invoiceRows(idata.menuItems).length > 0 ? invoiceRows(idata.menuItems) : invoiceRows(idata.menu_items);
+    const equipmentLines = invoiceRows(idata.equipmentItems).length > 0 ? invoiceRows(idata.equipmentItems) : invoiceRows(idata.equipment_items);
+    if (menuLines.length > 0 || equipmentLines.length > 0) {
       // Delivery / collection / waiter etc. only live in the flat items
       // list. Without them the lines came up short and the gap was shown
       // as a fake "Discount / adjustment".
       const CHARGE = /delivery|collection|waiter|service fee|damage|shortage|surcharge/i;
       const lineName = (it: any) => String(it?.description || it?.name || it?.item_name || "");
       const baseLines = [
-        ...(Array.isArray(idata.menuItems) ? idata.menuItems.map(mapItem) : []),
-        ...(Array.isArray(idata.equipmentItems) ? idata.equipmentItems.map(mapItem) : []),
+        ...menuLines.map(mapItem),
+        ...equipmentLines.map(mapItem),
       ];
       // Some invoices (e.g. imported ones) already carry these charges
       // inside the menu list - only add a charge kind that is missing.
       const kindsPresent = new Set(
         baseLines.map((l) => (lineName(l).match(CHARGE)?.[0] || "").toLowerCase()).filter(Boolean),
       );
-      const chargeLines = (Array.isArray(idata.items) ? idata.items : []).filter((it: any) => {
+      const chargeLines = invoiceRows(idata.items).filter((it: any) => {
         const kind = (lineName(it).match(CHARGE)?.[0] || "").toLowerCase();
         return !!kind && !kindsPresent.has(kind);
       });
       line_items = [...baseLines, ...chargeLines.map(mapItem)];
     } else {
-      const raw = Array.isArray(idata.line_items) ? idata.line_items : Array.isArray(idata.items) ? idata.items : [];
+      const raw = invoiceRows(idata.line_items).length > 0 ? invoiceRows(idata.line_items) : invoiceRows(idata.items);
       line_items = raw.map(mapItem);
     }
     // Surge / discount adjustment: only when the lines reconcile to

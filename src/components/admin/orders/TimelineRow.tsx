@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { OrderWhatsAppButton } from "@/components/messaging/WorkflowWhatsAppButtons";
 import { Button } from "@/components/ui/button";
 import {
   Calendar, Users, MapPin, ShoppingCart, Copy, Eye, ChevronRight,
@@ -257,7 +258,8 @@ export function TimelineRow({
                 />
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2 self-end pt-0.5 sm:self-start">
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 self-end pt-0.5 sm:max-w-sm sm:self-start">
+              <OrderWhatsAppButton order={order} />
               {onEmail && (
                 <Button
                   type="button"

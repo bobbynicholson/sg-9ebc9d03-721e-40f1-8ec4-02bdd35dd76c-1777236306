@@ -1,4 +1,4 @@
-import { buildWhatsAppUrl } from "@/lib/whatsapp";
+import { OrderWhatsAppButton } from "@/components/messaging/WorkflowWhatsAppButtons";
 import { ImportReadinessBanner } from "@/components/admin/ImportReadinessBanner";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { CustomerIdentityFields } from "@/components/admin/CustomerIdentityFields";
@@ -25,7 +25,7 @@ import {
   ShoppingCart, Calendar, Users, Banknote, Eye, Edit, ChevronRight,
   Clock, CheckCircle2, Package, MapPin, AlertCircle, Save, X, FileText,
   Receipt, Pause, Copy, Star, RefreshCw, MoreHorizontal, Phone,
-  MessageCircle, Mail, ArrowRight, Download, Trash2, Play,
+  Mail, ArrowRight, Download, Trash2, Play,
   UserPlus, Truck, ChefHat,
 } from "lucide-react";
 import {
@@ -1235,16 +1235,7 @@ return (
                   <Phone className="w-3.5 h-3.5" />
                   Call {(selectedOrder as any).client_phone}
                 </a>
-                <a
-                  href={buildWhatsAppUrl(String((selectedOrder as any).client_phone), `Hi ${((selectedOrder as any).client_name || "there").split(" ")[0]}, regarding your booking ${(selectedOrder as any).order_number || ""}`) || undefined}
-                  target="_self"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded-md px-2 py-1 hover:bg-brand-primary/15 transition"
-                  title="Open WhatsApp pre-filled"
-                >
-                  <MessageCircle className="w-3.5 h-3.5" />
-                  WhatsApp
-                </a>
+                <OrderWhatsAppButton order={selectedOrder} />
               </>
             )}
             {(selectedOrder as any).client_email && (

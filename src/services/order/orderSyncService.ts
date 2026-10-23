@@ -20,6 +20,7 @@ import { breakdownFromLineSum } from "@/lib/vatMath";
 import { fetchMenuCategories, sortByCourse } from "@/lib/menuCourses";
 import { reconcileCompanyInvoiceDueDates } from "@/services/invoiceDueDateService";
 import { recordDocumentAmountChange } from "@/services/documentAmountChanges";
+import { hydratePublicInvoiceLines } from "@/lib/publicInvoiceLines";
 
 const FALLBACK_TAX_RATE = 0.15; // SA VAT default
 
@@ -69,8 +70,11 @@ export async function syncInvoiceValuesFromOrder(
     const existingInvoiceData = (invoice as any).invoice_data && typeof (invoice as any).invoice_data === "object"
       ? (invoice as any).invoice_data
       : {};
+    const currentInvoiceData = await hydratePublicInvoiceLines(
+      sb, existingInvoiceData, orderId, null, { preferCurrentOrderLines: true },
+    );
     const updatedInvoiceData = {
-      ...existingInvoiceData,
+      ...currentInvoiceData,
       subtotal: Number((order as any).subtotal || 0),
       taxAmount: Number((order as any).tax_amount || 0),
       total: totalAmount,

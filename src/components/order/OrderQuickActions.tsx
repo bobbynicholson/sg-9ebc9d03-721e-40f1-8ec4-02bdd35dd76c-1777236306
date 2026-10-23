@@ -1,4 +1,5 @@
-import { buildWhatsAppUrl } from "@/lib/whatsapp";
+import { OrderWhatsAppButton } from "@/components/messaging/WorkflowWhatsAppButtons";
+import type { WhatsAppOrder } from "@/lib/whatsappContexts";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * ODOC H.4: quick-action chip strip at the top of the order doc.
@@ -11,7 +12,7 @@ import { buildWhatsAppUrl } from "@/lib/whatsapp";
  *   - Copy link (mints a tokenised client-view URL to clipboard)
  *   - Invoice (jumps to /admin/invoices filtered to this order)
  *   - Call (tel:)
- *   - WhatsApp (app link pre-populated with first-name + order_number)
+ *   - WhatsApp (editable booking message in the shared composer)
  *   - Email (mailto: pre-populated subject)
  *
  * Admin-tier only - previewing-as-client, minting tokens, and
@@ -25,11 +26,11 @@ import { canSeeOtherStaffPay } from "@/lib/authGuards";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { UserRole } from "@/types/app";
 import {
-  FileText, Eye, Copy, Receipt, Phone, MessageCircle, Mail, UserPlus, Truck, ChefHat,
+  FileText, Eye, Copy, Receipt, Phone, Mail, UserPlus, Truck, ChefHat,
 } from "lucide-react";
 
 interface Props {
-  order: {
+  order: WhatsAppOrder & {
     id: string;
     order_number: string | null;
     client_name: string | null;
@@ -51,8 +52,6 @@ export function OrderQuickActions({ order }: Props) {
 
   const phone = order.client_phone || "";
   const email = order.client_email || "";
-  const firstName = (order.client_name || "there").trim().split(" ")[0] || "there";
-  const waMessage = `Hi ${firstName}, regarding your booking ${order.order_number || ""}`;
   const emailSubject = `Booking ${order.order_number || "your order"}`;
 
   // TIGHTEN I.111 (2026-06-02): the preview-as-client API returns a
@@ -139,18 +138,9 @@ export function OrderQuickActions({ order }: Props) {
               <Phone className="h-3.5 w-3.5 text-slate-500" />
               Call
             </a>
-            <a
-              href={buildWhatsAppUrl(phone, waMessage) || undefined}
-              target="_self"
-              rel="noopener noreferrer"
-              className={chip}
-              title="Open WhatsApp pre-filled"
-            >
-              <MessageCircle className="h-3.5 w-3.5 text-emerald-600" />
-              WhatsApp
-            </a>
           </>
         )}
+        <OrderWhatsAppButton order={order} className={chip} />
         {email && (
           <a href={`mailto:${email}?subject=${encodeURIComponent(emailSubject)}`} className={chip} title={`Email ${email}`}>
             <Mail className="h-3.5 w-3.5 text-slate-500" />

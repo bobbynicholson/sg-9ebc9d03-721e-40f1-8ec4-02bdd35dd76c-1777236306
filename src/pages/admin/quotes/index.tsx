@@ -2700,6 +2700,7 @@ function AdminQuotesInner() {
                           <WhatsAppButton
                             kind="client"
                             phone={(quote as any).client_phone}
+                            showWhenUnavailable
                             clientId={(quote as any).client_id}
                             size="sm"
                             variant="outline"

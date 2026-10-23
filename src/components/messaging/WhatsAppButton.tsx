@@ -39,8 +39,10 @@ import { useTemplateOverrides } from "@/hooks/useTemplateOverrides";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { getTemplateDefinition } from "@/lib/messageTemplates/registry";
 import {
   CLIENT_WHATSAPP_LABELS,
+  CLIENT_KIND_TO_REGISTRY,
   STAFF_WHATSAPP_LABELS,
   renderClientWhatsApp,
   renderStaffWhatsApp,
@@ -55,6 +57,8 @@ type ButtonVariant = "default" | "outline" | "ghost" | "secondary";
 
 interface BaseProps {
   phone: string | null | undefined;
+  /** Keep the entry point visible with a reason when contact details are missing. */
+  showWhenUnavailable?: boolean;
   /** Bypass the mobile heuristic. Use for non-SA numbers. */
   forceShow?: boolean;
   /** Visual sizing - maps to shadcn Button sizes. */
@@ -112,7 +116,7 @@ const DEFAULT_STAFF_TEMPLATES: StaffWhatsAppKind[] = [
 
 export function WhatsAppButton(props: Props) {
   const {
-    phone, forceShow = false,
+    phone, forceShow = false, showWhenUnavailable = false,
     size = "sm", variant = "outline", className,
     label = "WhatsApp",
     defaultTemplate, onSent,
@@ -307,7 +311,11 @@ export function WhatsAppButton(props: Props) {
   const labels: Record<string, string> =
     props.kind === "client" ? CLIENT_WHATSAPP_LABELS : STAFF_WHATSAPP_LABELS;
 
-  if (!hasPhone) return null;
+  const templateKey = props.kind === "client" ? CLIENT_KIND_TO_REGISTRY[pickedKey as ClientWhatsAppKind] : null;
+  const templateDefinition = templateKey ? getTemplateDefinition(templateKey) : null;
+  const templateEditorHref = `${companySlug ? `/${encodeURIComponent(companySlug)}` : ""}/admin/email-templates?tab=templates&template=${templateKey}`;
+
+  if (!hasPhone && !showWhenUnavailable) return null;
 
   if (!phoneIsUsable) {
     return (
@@ -382,6 +390,7 @@ export function WhatsAppButton(props: Props) {
       <DialogContent
         aria-modal="true"
         className="max-w-2xl"
+        onClick={(event) => event.stopPropagation()}
       >
         <DialogHeader className="pr-8 text-left">
           <DialogTitle className="flex items-center gap-2">
@@ -394,7 +403,7 @@ export function WhatsAppButton(props: Props) {
         </DialogHeader>
 
         {/* Template chips - picking one re-renders the message body. */}
-        <div className="flex flex-wrap gap-1">
+        <div role="group" aria-label="Message template" className="flex flex-wrap gap-1">
           {templateKeys.map((k) => (
             <button
               key={k}
@@ -418,6 +427,16 @@ export function WhatsAppButton(props: Props) {
             </button>
           ))}
         </div>
+
+        {templateDefinition && (
+          <div className="space-y-1 text-xs leading-relaxed text-slate-600">
+            <p>{templateDefinition.description}</p>
+            <a href={templateEditorHref} target="_blank" rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center font-medium underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary">
+              Edit saved template
+            </a>
+          </div>
+        )}
 
         <textarea
           ref={messageRef}

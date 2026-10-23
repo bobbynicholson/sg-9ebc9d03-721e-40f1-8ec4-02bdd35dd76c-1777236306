@@ -52,6 +52,7 @@ describe("syncInvoiceValuesFromOrder", () => {
           select: (columns: string) => { selected = columns.split(",").map((column) => column.trim()); return builder; },
           eq: () => builder,
           is: () => builder,
+          order: async () => ({ data: [] }),
           maybeSingle: async () => ({ data: table === "orders" ? order : invoice, error: null }),
           update: (patch: any) => {
             invoicePatch = patch;
@@ -101,6 +102,7 @@ describe("syncInvoiceValuesFromOrder", () => {
           select: (columns: string) => { selected = columns.split(",").map((column) => column.trim()); return builder; },
           eq: () => builder,
           is: () => builder,
+          order: async () => ({ data: [] }),
           maybeSingle: async () => ({ data: table === "orders" ? order : invoice, error: null }),
           update: (patch: any) => {
             invoicePatch = patch;
@@ -121,7 +123,7 @@ describe("syncInvoiceValuesFromOrder", () => {
     });
   });
 
-  it("refreshes current order values and preserves invoice item snapshots", async () => {
+  it("refreshes current order values and itemized lines while preserving extra charges", async () => {
     const items = [{ description: "Existing menu item", total: 500 }];
     const order = {
       subtotal: 1200,
@@ -151,6 +153,11 @@ describe("syncInvoiceValuesFromOrder", () => {
           select: (columns: string) => { selected = columns.split(",").map((column) => column.trim()); return builder; },
           eq: () => builder,
           is: () => builder,
+          order: async () => ({ data: table === "order_items"
+            ? [{ item_name: "Cutlery & Crockery", description: "Plate, knife & fork", quantity: 60, unit_price: 10, line_total: 600 }]
+            : table === "equipment_bookings"
+              ? [{ quantity: 60, unit_price: 2, equipment: { name: "Dinner plates", rental_price: 2 } }]
+              : [] }),
           maybeSingle: async () => ({
             data: Object.fromEntries(Object.entries(table === "orders" ? order : invoice).filter(([key]) => selected.includes(key))),
             error: null,
@@ -176,6 +183,8 @@ describe("syncInvoiceValuesFromOrder", () => {
       status: "partially_paid",
       invoice_data: {
         items,
+        menuItems: [expect.objectContaining({ description: "Cutlery & Crockery - Plate, knife & fork", total: 600 })],
+        equipmentItems: [expect.objectContaining({ description: "Dinner plates", total: 120 })],
         guestCount: 60,
         venue: "Updated venue",
         eventDate: "2027-02-07",

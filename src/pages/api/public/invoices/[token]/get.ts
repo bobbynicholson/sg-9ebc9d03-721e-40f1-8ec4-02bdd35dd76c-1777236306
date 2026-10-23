@@ -36,61 +36,11 @@ import { isManualEftAvailable } from "@/lib/publicPaymentOptions";
 import { resolveInvoiceFirstPaymentAmount } from "@/lib/invoiceClientView";
 import { invoicePaymentTerms } from "@/lib/invoicePaymentTerms";
 import { configuredPaymentTerms } from "@/lib/paymentTerms";
+import { hydratePublicInvoiceLines, invoiceRows } from "@/lib/publicInvoiceLines";
 
 export const config = {
   api: { bodyParser: { sizeLimit: "8kb" } },
 };
-
-function asArray(value: any): any[] {
-  if (Array.isArray(value)) return value;
-  if (typeof value === "string") {
-    try {
-      const parsed = JSON.parse(value);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-  return [];
-}
-
-function moneyNumber(...values: any[]): number {
-  for (const value of values) {
-    if (value === null || value === undefined || value === "") continue;
-    const n = Number(value);
-    if (Number.isFinite(n)) return n;
-  }
-  return 0;
-}
-
-function menuLineFromRow(row: any): any {
-  const quantity = moneyNumber(row?.quantity, row?.qty, 1) || 1;
-  const unitPrice = moneyNumber(row?.unitPrice, row?.unit_price, row?.price);
-  const total = moneyNumber(row?.total, row?.line_total, row?.lineTotal, quantity * unitPrice);
-  return {
-    description: row?.description || row?.item_name || row?.menu_item_name || row?.name || "Menu item",
-    category: row?.category ?? null,
-    quantity,
-    unitPrice,
-    total,
-    note: row?.notes || row?.note || null,
-  };
-}
-
-function equipmentLineFromRow(row: any): any {
-  const equipment = row?.equipment || {};
-  const quantity = moneyNumber(row?.quantity, row?.qty, 1) || 1;
-  const unitPrice = moneyNumber(row?.unitPrice, row?.unit_price, row?.rentalPrice, row?.rental_price, equipment?.rental_price);
-  const total = moneyNumber(row?.total, row?.line_total, row?.lineTotal, quantity * unitPrice);
-  return {
-    description: row?.description || row?.equipment_name || row?.name || equipment?.name || "Equipment",
-    quantity,
-    unitPrice,
-    total,
-    isHireIn: row?.isHireIn ?? row?.is_hire_in ?? equipment?.is_hire_in ?? false,
-    note: row?.notes || row?.note || null,
-  };
-}
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   applyCorsHeaders(res);
@@ -147,7 +97,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   let invoiceForResponse = data as any;
-  const invoiceData = invoiceForResponse.invoice_data && typeof invoiceForResponse.invoice_data === "object"
+  let invoiceData = invoiceForResponse.invoice_data && typeof invoiceForResponse.invoice_data === "object"
     ? { ...invoiceForResponse.invoice_data }
     : {};
   const client = invoiceForResponse.client || {};
@@ -165,9 +115,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     client.payment_terms,
     configuredPaymentTerms(invoiceForResponse.companies?.dispatch_settings),
   );
-  const snapshotItems = asArray(invoiceData.items);
-  const hasMenuSnapshot = asArray(invoiceData.menuItems).length > 0 || asArray(invoiceData.menu_items).length > 0;
-  const hasEquipmentSnapshot = asArray(invoiceData.equipmentItems).length > 0 || asArray(invoiceData.equipment_items).length > 0;
+  const snapshotItems = invoiceRows(invoiceData.items);
   // Keep the currency decision identical to /api/payments/create-session:
   // order currency first, then invoice currency, then ZAR.
   let paymentCurrency = String(invoiceForResponse.currency || "ZAR").toUpperCase();
@@ -183,8 +131,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       paymentCurrency = String((orderMeta as any).currency).toUpperCase();
     }
 
-    // The linked order is authoritative for current booking values. Always
-    // refresh these fields; item snapshots remain untouched below.
+    // The linked order is authoritative for current booking values and
+    // item lines, so the displayed breakdown stays aligned with the total.
     if (orderMeta) {
       invoiceData.eventDate = (orderMeta as any).event_date ?? null;
       invoiceData.eventTime = (orderMeta as any).event_time ?? null;
@@ -221,43 +169,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
     }
 
-    let quoteMenuItems: any[] = [];
-    let quoteEquipmentItems: any[] = [];
-    if ((orderMeta as any)?.quote_id) {
-      const { data: quote } = await supabase
-        .from("quotes")
-        .select("menu_items, equipment_items")
-        .eq("id", (orderMeta as any).quote_id)
-        .maybeSingle();
-      quoteMenuItems = asArray((quote as any)?.menu_items);
-      quoteEquipmentItems = asArray((quote as any)?.equipment_items);
-    }
-
-    if (!hasMenuSnapshot) {
-      let menuItems = quoteMenuItems.map(menuLineFromRow);
-      if (menuItems.length === 0) {
-        const { data: orderItems } = await supabase
-          .from("order_items")
-          .select("item_name, description, quantity, unit_price, line_total")
-          .eq("order_id", invoiceForResponse.order_id)
-          .order("created_at", { ascending: true });
-        menuItems = (orderItems || []).map(menuLineFromRow);
-      }
-      if (menuItems.length > 0) invoiceData.menuItems = menuItems;
-    }
-
-    if (!hasEquipmentSnapshot) {
-      let equipmentItems = quoteEquipmentItems.map(equipmentLineFromRow);
-      if (equipmentItems.length === 0) {
-        const { data: bookings } = await supabase
-          .from("equipment_bookings")
-          .select("id, quantity, equipment:equipment_id(name, rental_price, is_hire_in)")
-          .eq("order_id", invoiceForResponse.order_id)
-          .order("created_at", { ascending: true });
-        equipmentItems = (bookings || []).map(equipmentLineFromRow);
-      }
-      if (equipmentItems.length > 0) invoiceData.equipmentItems = equipmentItems;
-    }
+    invoiceData = await hydratePublicInvoiceLines(
+      supabase, invoiceData, invoiceForResponse.order_id, (orderMeta as any)?.quote_id,
+      { preferCurrentOrderLines: invoiceData.manual !== true },
+    );
 
     if (!invoiceData.packageName && (orderMeta as any)?.package_id) {
       const { data: bookingPackage } = await supabase
@@ -269,8 +184,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
   }
 
-  if (snapshotItems.length === 0 && asArray(invoiceData.menuItems).length > 0) {
-    invoiceData.items = asArray(invoiceData.menuItems);
+  if (snapshotItems.length === 0 && invoiceRows(invoiceData.menuItems).length > 0) {
+    invoiceData.items = invoiceRows(invoiceData.menuItems);
   }
   invoiceForResponse = {
     ...invoiceForResponse,

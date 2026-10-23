@@ -69,6 +69,9 @@ const firstName = (name: string | null | undefined): string =>
 export type ClientWhatsAppKind =
   | "touch_base"
   | "lead_followup"
+  | "lead_details"
+  | "lead_chase"
+  | "order_update"
   | "quote_sent"
   | "quote_chase"
   | "quote_accepted"
@@ -84,6 +87,7 @@ export interface ClientWhatsAppContext {
   guestCount?: number | null;
   total?: number | null;
   quoteRef?: string | null;
+  orderRef?: string | null;
   driverName?: string | null;
   arrivalTime?: string | null;
   delayMinutes?: number | null;
@@ -115,9 +119,12 @@ const portalLinkLine = (slug: string | null | undefined): string => {
 };
 
 /** Map a client-facing kind to the matching registry override key. */
-const CLIENT_KIND_TO_REGISTRY: Record<ClientWhatsAppKind, string> = {
+export const CLIENT_KIND_TO_REGISTRY: Record<ClientWhatsAppKind, string> = {
   touch_base:        "whatsapp_touch_base",
   lead_followup:     "whatsapp_lead_followup",
+  lead_details:      "whatsapp_lead_details",
+  lead_chase:        "whatsapp_lead_chase",
+  order_update:      "whatsapp_order_update",
   quote_sent:        "whatsapp_quote_sent",
   quote_chase:       "whatsapp_quote_chase",
   quote_accepted:    "whatsapp_quote_accepted",
@@ -135,10 +142,11 @@ function buildClientCtx(ctx: ClientWhatsAppContext): Record<string, string | num
     client_name:  ctx.contactName || "",
     company_name: ctx.companyName || "",
     from_name:    ctx.fromName || ctx.companyName || "",
-    event_name:   ctx.eventName || "your event",
+    event_name:   ctx.eventName || "event",
     event_date:   ctx.eventDate || "",
     guest_count:  ctx.guestCount ?? "",
     quote_ref:    ctx.quoteRef ? ` (ref ${ctx.quoteRef})` : "",
+    order_ref:    ctx.orderRef || "",
     total:        fmtMoney(ctx.total, ctx.currencyCode),
     portal_link:  ctx.companySlug ? `${PUBLIC_ORIGIN}/p/${ctx.companySlug}` : "",
     portal_line:  portalLinkLine(ctx.companySlug).trimStart(),
@@ -147,7 +155,10 @@ function buildClientCtx(ctx: ClientWhatsAppContext): Record<string, string | num
 
 export const CLIENT_WHATSAPP_LABELS: Record<ClientWhatsAppKind, string> = {
   touch_base:        "Touch base",
-  lead_followup:     "Lead follow-up",
+  lead_followup:     "Reply to enquiry",
+  lead_details:      "Ask for event details",
+  lead_chase:        "Follow up on enquiry",
+  order_update:      "Booking update",
   quote_sent:        "Quote sent — client notification",
   quote_chase:       "Quote chase",
   quote_accepted:    "Quote accepted, next steps",
@@ -201,7 +212,16 @@ export function renderClientWhatsApp(kind: ClientWhatsAppKind, ctx: ClientWhatsA
       return `Hi ${first}, hope you're well! Just touching base from ${ctx.companyName || "the team"}. Whenever you've got an event coming up, give me a shout and I'll put a quote together. No rush, just wanted to make sure you've got my number.${sigLine}${portalLine}`;
 
     case "lead_followup":
-      return `Hi ${first}, thanks for the enquiry about ${eventLine}. Just checking that the date is still on. Happy to put a quote together as soon as I have final guest numbers.${sigLine}${portalLine}`;
+      return `Hi ${first}, thanks for your enquiry about ${eventLine}. We'd be happy to help. Let me know if you'd like to discuss the details or have any questions before we prepare your quote.${sigLine}${portalLine}`;
+
+    case "lead_details":
+      return `Hi ${first}, thanks for your enquiry about ${eventLine}. Could you confirm the event date, serving time, venue, guest numbers and any dietary requirements so we can prepare your quote?${sigLine}${portalLine}`;
+
+    case "lead_chase":
+      return `Hi ${first}, just following up on your enquiry about ${eventLine}. Are you still looking for catering? Let me know if your plans have changed or if you have any questions.${sigLine}${portalLine}`;
+
+    case "order_update":
+      return `Hi ${first}, I'm getting in touch about your booking${ctx.orderRef ? ` ${ctx.orderRef}` : ""} for ${eventLine}. Please let me know if you have any questions or changes to discuss.${sigLine}${portalLine}`;
 
     case "quote_sent":
       return `Hi ${first}, just sent the quote across for ${eventLine}${ref}.${totalLine} Have a look when you can and let me know if anything needs tweaking.${sigLine}${portalLine}`;

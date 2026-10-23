@@ -2,6 +2,7 @@
 import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { OrderWhatsAppButton } from "@/components/messaging/WorkflowWhatsAppButtons";
 import { Button } from "@/components/ui/button";
 import {
   ShoppingCart, Calendar, Users, MapPin, ArrowRight, Eye, ChevronRight, MoreVertical,
@@ -168,7 +169,8 @@ function OrderCard({ order, autoEmailMap, currencySymbol, setSelectedOrder, setI
             <span className="font-semibold text-slate-900">
               {C}{Number(order.total_amount || 0).toLocaleString()}
             </span>
-            <div className="ml-auto flex items-center gap-1">
+            <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1">
+              <OrderWhatsAppButton order={order} />
               <ClientLinkButton orderId={order.id} companyId={(order as any).company_id} compact />
               {onOutsideAreaEmail && canEmailOutsideArea && (
                 <Button

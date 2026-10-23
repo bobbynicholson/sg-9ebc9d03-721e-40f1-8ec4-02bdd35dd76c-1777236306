@@ -757,6 +757,36 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
 
   // --- CLIENT WHATSAPP ---
   {
+    key: "whatsapp_lead_details",
+    channel: "whatsapp",
+    category: "client",
+    group: "Lead follow-up",
+    label: "Enquiry — request event details",
+    description: "Ask for the date, serving time, venue, guest numbers and dietary requirements before preparing a quote.",
+    defaultBody: `Hi {{first_name}}, thanks for your enquiry about your {{event_name}}. Could you confirm the event date, serving time, venue, guest numbers and any dietary requirements so we can prepare your quote?\n\n{{from_name}}`,
+    variables: COMMON_CLIENT_VARS,
+  },
+  {
+    key: "whatsapp_lead_chase",
+    channel: "whatsapp",
+    category: "client",
+    group: "Lead follow-up",
+    label: "Enquiry — WhatsApp follow-up",
+    description: "Check whether a lead still needs catering after an earlier enquiry or conversation.",
+    defaultBody: `Hi {{first_name}}, just following up on your enquiry about your {{event_name}}. Are you still looking for catering? Let me know if your plans have changed or if you have any questions.\n\n{{from_name}}`,
+    variables: COMMON_CLIENT_VARS,
+  },
+  {
+    key: "whatsapp_order_update",
+    channel: "whatsapp",
+    category: "client",
+    group: "Order",
+    label: "Booking — WhatsApp update",
+    description: "Start a conversation about this booking. Edit the message to explain the update or question.",
+    defaultBody: `Hi {{first_name}}, I'm getting in touch about your booking {{order_ref}} for your {{event_name}}. Please let me know if you have any questions or changes to discuss.\n\n{{from_name}}`,
+    variables: [...COMMON_CLIENT_VARS, { name: "order_ref", description: "Order reference", example: "ORD-00123" }],
+  },
+  {
     key: "whatsapp_touch_base",
     channel: "whatsapp",
     category: "client",
@@ -775,7 +805,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     label: "New enquiry — WhatsApp reply",
     description: "First WhatsApp on a fresh enquiry.",
     defaultBody:
-      `Hi {{first_name}}, thanks for the enquiry about your event. Just checking that the date is still on. Happy to put a quote together as soon as I have final guest numbers.\n\n{{from_name}}`,
+      `Hi {{first_name}}, thanks for your enquiry about your {{event_name}}. We'd be happy to help. Let me know if you'd like to discuss the details or have any questions before we prepare your quote.\n\n{{from_name}}`,
     variables: COMMON_CLIENT_VARS,
   },
   {
@@ -1835,6 +1865,9 @@ const DELIVERY_WIRING: Record<string, { delivery: MessageDelivery; trigger?: str
   // --- MANUAL: WhatsApp outreach (operator clicks Send on /admin/quotes / leads / staff) ---
   whatsapp_touch_base:       { delivery: "manual", trigger: "Click WhatsApp on a contact in /admin/contacts.",   settingsLink: "/admin/contacts" },
   whatsapp_lead_followup:    { delivery: "manual", trigger: "Click WhatsApp on a lead in /admin/leads.",          settingsLink: "/admin/leads" },
+  whatsapp_lead_details:     { delivery: "manual", trigger: "Choose Ask for event details from WhatsApp on a lead.", settingsLink: "/admin/leads" },
+  whatsapp_lead_chase:       { delivery: "manual", trigger: "Choose Follow up on enquiry from WhatsApp on a lead.", settingsLink: "/admin/leads" },
+  whatsapp_order_update:     { delivery: "manual", trigger: "Click WhatsApp on an order and review the booking message.", settingsLink: "/admin/orders" },
   whatsapp_quote_sent:       { delivery: "manual", trigger: "Click WhatsApp on a quote in /admin/quotes.",        settingsLink: "/admin/quotes" },
   whatsapp_quote_chase:      { delivery: "manual", trigger: "Click WhatsApp chase on a quote in /admin/quotes.", settingsLink: "/admin/quotes" },
   whatsapp_quote_accepted:   { delivery: "manual", trigger: "Click WhatsApp on an accepted quote.",              settingsLink: "/admin/quotes" },
