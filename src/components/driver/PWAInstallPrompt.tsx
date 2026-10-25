@@ -23,7 +23,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Smartphone, X, Download, ChevronRight, Share2, Check, MoreHorizontal } from "lucide-react";
 
-const DISMISS_KEY = "cateringmsPwaInstallDismissedAt";
+// Version the prompt so an older dismissed/unclear banner cannot hide this
+// improved install guide from users who have already seen the previous one.
+const DISMISS_KEY = "cateringmsPwaInstallDismissedAt:v2";
 // Stay quiet for 14 days after a dismissal. After that the banner
 // can come back - a driver who was on a borrowed phone last time
 // might be on their own this time.
