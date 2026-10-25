@@ -18,6 +18,7 @@ import {
   Menu,
   ChevronRight,
   ChevronLeft,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -146,6 +147,12 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   useSyncSidebarCollapsed(isCollapsed);
   const { userRoles } = useAuth();
   const hasSeveralRoles = (userRoles?.length ?? 0) > 1;
+
+  const requestPwaInstall = () => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("cms:pwa-install-request"));
+    }
+  };
 
   // Wave 70.7c - external open trigger. The kitchen service FAB
   // sits at the bottom-left during service hours and dispatches
@@ -624,6 +631,19 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                   )}
                   style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0.75rem))" }}
                 >
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      "w-full justify-start",
+                      forceBrand
+                        ? "text-white/85 hover:bg-white/10 hover:text-white"
+                        : "text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white",
+                    )}
+                    onClick={() => { setOpen(false); requestPwaInstall(); }}
+                  >
+                    <Download className="mr-3 h-4 w-4" />
+                    Install app
+                  </Button>
                   <SignOutButton
                     className={signOutBrandClass}
                   />
@@ -781,6 +801,22 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               forceBrand ? "border-white/15" : "border-slate-200 dark:border-slate-700",
             )}
           >
+            <Button
+              variant="ghost"
+              className={cn(
+                "w-full",
+                forceBrand
+                  ? "text-white/75 hover:bg-white/10 hover:text-white"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white",
+                isCollapsed ? "justify-center px-2" : "justify-start",
+              )}
+              onClick={requestPwaInstall}
+              title="Install CateringMS"
+              aria-label="Install CateringMS"
+            >
+              <Download className={isCollapsed ? "h-5 w-5" : "mr-3 h-4 w-4"} />
+              {!isCollapsed && "Install app"}
+            </Button>
             <SignOutButton
               collapsed={isCollapsed}
               className={signOutBrandClass}

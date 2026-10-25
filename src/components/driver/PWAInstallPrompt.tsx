@@ -54,6 +54,7 @@ function isIos(): boolean {
 export function PWAInstallPrompt() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [showIosHint, setShowIosHint] = useState(false);
+  const [showBrowserHint, setShowBrowserHint] = useState(false);
   const [dismissed, setDismissed] = useState(true); // start hidden
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -62,6 +63,7 @@ export function PWAInstallPrompt() {
   const dragStartRef = useRef(0);
   const dragValueRef = useRef(0);
   const dragMovedRef = useRef(false);
+  const deferredRef = useRef<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -88,10 +90,14 @@ export function PWAInstallPrompt() {
 
     const onPrompt = (e: Event) => {
       e.preventDefault();
-      setDeferred(e as BeforeInstallPromptEvent);
+      const prompt = e as BeforeInstallPromptEvent;
+      deferredRef.current = prompt;
+      setDeferred(prompt);
+      setShowBrowserHint(false);
     };
     window.addEventListener("beforeinstallprompt", onPrompt);
     const onInstalled = () => {
+      deferredRef.current = null;
       setDeferred(null);
       setDismissed(true);
     };
@@ -102,8 +108,28 @@ export function PWAInstallPrompt() {
     };
   }, []);
 
+  // The sidebar exposes a permanent install entry. Some desktop browsers do
+  // not emit beforeinstallprompt until the user has opened the browser menu,
+  // so a manual request must still reveal a useful instruction card.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onInstallRequest = () => {
+      if (isStandalone()) return;
+      setDismissed(false);
+      if (isIos()) {
+        setShowIosHint(true);
+        setShowBrowserHint(false);
+      } else {
+        setShowIosHint(false);
+        setShowBrowserHint(!deferredRef.current);
+      }
+    };
+    window.addEventListener("cms:pwa-install-request", onInstallRequest);
+    return () => window.removeEventListener("cms:pwa-install-request", onInstallRequest);
+  }, []);
+
   if (dismissed) return null;
-  if (!deferred && !showIosHint) return null;
+  if (!deferred && !showIosHint && !showBrowserHint) return null;
 
   const dismiss = () => {
     try {
@@ -189,12 +215,18 @@ export function PWAInstallPrompt() {
           </div>
           <div className="min-w-0 flex-1 pr-6">
             <p className="text-sm font-semibold text-slate-900">
-              {showIosHint ? "Add CateringMS to your home screen" : "Keep CateringMS one tap away"}
+              {showIosHint
+                ? "Add CateringMS to your home screen"
+                : showBrowserHint && !deferred
+                  ? "Install CateringMS on this device"
+                  : "Keep CateringMS one tap away"}
             </p>
             <p className="mt-0.5 text-xs leading-relaxed text-slate-600">
               {showIosHint
                 ? "Tap Share, then Add to Home Screen. Your signed-in session will stay available when you reopen the app."
-                : "Open your workspace from the home screen and keep your signed-in session between launches."}
+                : showBrowserHint && !deferred
+                  ? "Use your browser menu and choose Install CateringMS or Add to Home screen. Your signed-in session will stay available."
+                  : "Open your workspace from the home screen and keep your signed-in session between launches."}
             </p>
           </div>
           <Button
@@ -212,6 +244,11 @@ export function PWAInstallPrompt() {
           <div className="mt-3 flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
             <Share2 className="h-4 w-4 shrink-0 text-brand-primary" />
             <span>Share <span aria-hidden>›</span> Add to Home Screen</span>
+          </div>
+        ) : showBrowserHint && !deferred ? (
+          <div className="mt-3 flex min-w-0 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
+            <Download className="h-4 w-4 shrink-0 text-brand-primary" />
+            <span className="min-w-0 break-words">Browser menu <span aria-hidden>→</span> Install CateringMS</span>
           </div>
         ) : deferred ? (
           <div
