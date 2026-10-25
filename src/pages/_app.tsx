@@ -59,6 +59,21 @@ const inter = Inter({
 // would eat a driver's unsaved photo. Deferred reloads retry on a 3s
 // interval until the moment is safe.
 const RELOAD_GUARD_KEY = "__sw_update_reload_at";
+const APP_PREFIXES = ["/admin", "/team-portal", "/client-portal", "/account", "/super-admin"];
+
+// Tenant portals are also reachable at /{company_slug}/{portal-route}. Keep
+// the PWA shell and install metadata active on both the global and tenant
+// URL shapes.
+function normalizeProductPath(value: string): string {
+  const pathname = (value || "").split(/[?#]/)[0];
+  return pathname.replace(/^\/[^/]+(?=\/(?:admin|team-portal|client-portal|account|super-admin)(?:\/|$))/, "");
+}
+
+function isProductPath(value: string): boolean {
+  const pathname = normalizeProductPath(value);
+  return APP_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 function reloadForNewBuild() {
   try {
     const last = Number(sessionStorage.getItem(RELOAD_GUARD_KEY) || 0);
@@ -169,18 +184,40 @@ function GlobalChatAssistant() {
 
 function GlobalPWAInstallPrompt() {
   const router = useRouter();
-  const path = (router.pathname || "").split(/[?#]/)[0];
-  const appPrefixes = ["/admin", "/team-portal", "/client-portal", "/account", "/super-admin"];
-  const isAuthenticatedSurface = appPrefixes.some(
-    (prefix) => path === prefix || path.startsWith(`${prefix}/`),
-  );
+  const { company, companySlug } = useAuth() as any;
+  const path = normalizeProductPath(router.asPath || router.pathname || "");
+  const isAuthenticatedSurface = isProductPath(path);
+  const activeCompanySlug = companySlug || company?.slug || "";
+  const manifestHref = activeCompanySlug
+    ? `/api/pwa/manifest?slug=${encodeURIComponent(activeCompanySlug)}`
+    : company?.id
+      ? `/api/pwa/manifest?id=${encodeURIComponent(company.id)}`
+    : "/manifest.webmanifest";
+  const companyName = String(company?.company_name || "CateringMS").trim() || "CateringMS";
+  const companyLogo = typeof company?.logo_url === "string" &&
+    (/^https:\/\//i.test(company.logo_url) || /^data:image\//i.test(company.logo_url))
+    ? company.logo_url
+    : "/icons/cateringms-192.png";
+  const themeColor = typeof company?.primary_color === "string" && company.primary_color.trim()
+    ? company.primary_color
+    : "#10b981";
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const appleIcon = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
+    if (appleIcon) appleIcon.href = companyLogo;
+    const appleTitle = document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-title"]');
+    if (appleTitle) appleTitle.content = companyName;
+    const theme = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (theme) theme.content = themeColor;
+  }, [companyLogo, companyName, themeColor]);
 
   if (!isAuthenticatedSurface) return null;
 
   return (
     <>
       <Head>
-        <link rel="manifest" href="/manifest.webmanifest" />
+        <link key="cateringms-pwa-manifest" rel="manifest" href={manifestHref} />
       </Head>
       <PWAInstallPrompt />
     </>
@@ -200,8 +237,7 @@ export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
-    const appPrefixes = ["/admin", "/team-portal", "/client-portal", "/account", "/super-admin"];
-    if (!appPrefixes.some((prefix) => router.pathname === prefix || router.pathname.startsWith(`${prefix}/`))) return;
+    if (!isProductPath(router.asPath || router.pathname || "")) return;
     let cancelled = false;
     let registration: ServiceWorkerRegistration | null = null;
 
@@ -277,8 +313,8 @@ export default function App({ Component, pageProps }: AppProps) {
   // 400-ing static assets) and must never loop.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const APP_PREFIXES = ["/team-portal", "/admin", "/client-portal", "/account", "/super-admin", "/c/"];
-    if (!APP_PREFIXES.some((p) => router.pathname.startsWith(p))) return;
+    const appPath = normalizeProductPath(router.asPath || router.pathname || "");
+    if (!isProductPath(appPath) && !appPath.startsWith("/c/")) return;
     const buildId = (window as unknown as { __NEXT_DATA__?: { buildId?: string } }).__NEXT_DATA__?.buildId;
     if (!buildId || buildId === "development") return;
     const STALE_RELOAD_KEY = "__stale_build_reload_at";
