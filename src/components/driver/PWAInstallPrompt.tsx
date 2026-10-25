@@ -59,8 +59,6 @@ export function PWAInstallPrompt() {
   const [iosInstructionsOpen, setIosInstructionsOpen] = useState(false);
   const [showBrowserHint, setShowBrowserHint] = useState(false);
   const [browserStepsOpen, setBrowserStepsOpen] = useState(false);
-  const [shareOpened, setShareOpened] = useState(false);
-  const [shareAvailable, setShareAvailable] = useState(false);
   const [iosInstallConfirmed, setIosInstallConfirmed] = useState(false);
   const [dismissed, setDismissed] = useState(true); // start hidden
   const [dragX, setDragX] = useState(0);
@@ -74,7 +72,6 @@ export function PWAInstallPrompt() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setShareAvailable(typeof navigator.share === "function");
     if (isStandalone()) return;
 
     // Honour a recent dismissal.
@@ -152,27 +149,6 @@ export function PWAInstallPrompt() {
       // Private mode or storage full - harmless, just don't persist.
     }
     setDismissed(true);
-  };
-
-  const openIosShare = async () => {
-    if (typeof window === "undefined") return;
-    const share = (navigator as Navigator & {
-      share?: (data: { title?: string; text?: string; url?: string }) => Promise<void>;
-    }).share;
-    if (!share) {
-      setShareOpened(false);
-      return;
-    }
-    try {
-      await share.call(navigator, {
-        title: "CateringMS",
-        text: "Add CateringMS to your Home Screen",
-        url: window.location.href,
-      });
-      setShareOpened(true);
-    } catch {
-      // Closing the native share sheet is a normal user action.
-    }
   };
 
   const confirmIosInstall = () => {
@@ -292,23 +268,11 @@ export function PWAInstallPrompt() {
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-primary text-xs font-bold text-white">1</span>
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-slate-900">Open Safari&apos;s Share menu</p>
-                <p className="mt-0.5 leading-relaxed text-slate-500">Tap the Share icon in Safari&apos;s bottom toolbar.</p>
-                {shareAvailable ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-2 min-h-10 w-full justify-center gap-2 bg-white"
-                    onClick={() => void openIosShare()}
-                  >
-                    <Share2 className="h-4 w-4" />
-                    {shareOpened ? "Share menu opened" : "Open Share menu"}
-                  </Button>
-                ) : (
-                  <p className="mt-2 rounded-lg bg-amber-50 px-2.5 py-2 text-[11px] leading-relaxed text-amber-800">
-                    This browser cannot open Safari&apos;s menu for you. Tap Safari&apos;s Share icon directly.
-                  </p>
-                )}
+                <p className="mt-0.5 leading-relaxed text-slate-500">Use Safari&apos;s own Share button in the bottom browser toolbar. Do not use an in-page share button for this step.</p>
+                <div className="mt-2 flex items-start gap-2 rounded-lg bg-brand-primary/5 px-2.5 py-2 text-[11px] leading-relaxed text-slate-700 ring-1 ring-brand-primary/15">
+                  <Share2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-primary" />
+                  <span>The Safari browser menu contains <span className="font-semibold">Add to Home Screen</span>; the regular share sheet may only show Copy, Reading List, Chrome, and Google.</span>
+                </div>
               </div>
             </div>
             <div className="flex items-start gap-2.5 rounded-xl bg-white p-2.5 ring-1 ring-slate-200">
