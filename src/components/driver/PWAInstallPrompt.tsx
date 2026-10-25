@@ -54,6 +54,7 @@ function isIos(): boolean {
 export function PWAInstallPrompt() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [showIosHint, setShowIosHint] = useState(false);
+  const [iosInstructionsOpen, setIosInstructionsOpen] = useState(false);
   const [showBrowserHint, setShowBrowserHint] = useState(false);
   const [dismissed, setDismissed] = useState(true); // start hidden
   const [dragX, setDragX] = useState(0);
@@ -118,6 +119,7 @@ export function PWAInstallPrompt() {
       setDismissed(false);
       if (isIos()) {
         setShowIosHint(true);
+        setIosInstructionsOpen(false);
         setShowBrowserHint(false);
       } else {
         setShowIosHint(false);
@@ -182,11 +184,14 @@ export function PWAInstallPrompt() {
     const completed = !dragMovedRef.current || (max > 0 && dragValueRef.current >= max * 0.72);
     dragValueRef.current = 0;
     setDragX(0);
-    if (completed) void install();
+    if (completed) {
+      if (showIosHint && !deferred) setIosInstructionsOpen(true);
+      else void install();
+    }
   };
 
   const startDrag = (clientX: number) => {
-    if (!deferred || installing) return;
+    if ((!deferred && !showIosHint) || installing) return;
     dragStartRef.current = clientX - dragValueRef.current;
     dragMovedRef.current = false;
     setDragging(true);
@@ -195,7 +200,10 @@ export function PWAInstallPrompt() {
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      if (deferred && !installing) void install();
+      if (!installing && (deferred || showIosHint)) {
+        if (showIosHint && !deferred) setIosInstructionsOpen(true);
+        else void install();
+      }
     }
   };
 
@@ -240,7 +248,7 @@ export function PWAInstallPrompt() {
           </Button>
         </div>
 
-        {showIosHint ? (
+        {showIosHint && iosInstructionsOpen ? (
           <div className="mt-3 flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
             <Share2 className="h-4 w-4 shrink-0 text-brand-primary" />
             <span>Share <span aria-hidden>›</span> Add to Home Screen</span>
@@ -250,13 +258,13 @@ export function PWAInstallPrompt() {
             <Download className="h-4 w-4 shrink-0 text-brand-primary" />
             <span className="min-w-0 break-words">Browser menu <span aria-hidden>→</span> Install CateringMS</span>
           </div>
-        ) : deferred ? (
+        ) : deferred || showIosHint ? (
           <div
             ref={trackRef}
             className="relative mt-3 h-12 min-w-0 select-none touch-none overflow-hidden rounded-full bg-slate-100 p-1 ring-1 ring-inset ring-slate-200"
             style={{ touchAction: "none" }}
             onPointerDown={(event) => {
-              if (!deferred || installing) return;
+              if ((!deferred && !showIosHint) || installing) return;
               event.preventDefault();
               event.currentTarget.setPointerCapture(event.pointerId);
               startDrag(event.clientX);
@@ -266,7 +274,7 @@ export function PWAInstallPrompt() {
             onPointerCancel={endDrag}
             role="button"
             tabIndex={0}
-            aria-label="Slide right to install CateringMS"
+            aria-label={showIosHint ? "Slide right to see Safari install steps" : "Slide right to install CateringMS"}
             onKeyDown={handleKeyDown}
           >
             <div
@@ -281,7 +289,11 @@ export function PWAInstallPrompt() {
               <span className="sr-only">Install</span>
             </div>
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1 text-xs font-semibold text-slate-600">
-              {installing ? "Installing..." : "Slide right to install"}
+              {installing
+                ? "Installing..."
+                : showIosHint
+                  ? "Slide right to add"
+                  : "Slide right to install"}
               {!installing && <ChevronRight className="h-4 w-4" />}
             </div>
             <div
