@@ -123,6 +123,7 @@ export function PWAInstallPrompt() {
         setShowBrowserHint(false);
       } else {
         setShowIosHint(false);
+        setIosInstructionsOpen(false);
         setShowBrowserHint(!deferredRef.current);
       }
     };
@@ -185,13 +186,13 @@ export function PWAInstallPrompt() {
     dragValueRef.current = 0;
     setDragX(0);
     if (completed) {
-      if (showIosHint && !deferred) setIosInstructionsOpen(true);
+      if ((showIosHint || showBrowserHint) && !deferred) setIosInstructionsOpen(true);
       else void install();
     }
   };
 
   const startDrag = (clientX: number) => {
-    if ((!deferred && !showIosHint) || installing) return;
+    if ((!deferred && !showIosHint && !showBrowserHint) || installing) return;
     dragStartRef.current = clientX - dragValueRef.current;
     dragMovedRef.current = false;
     setDragging(true);
@@ -200,8 +201,8 @@ export function PWAInstallPrompt() {
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      if (!installing && (deferred || showIosHint)) {
-        if (showIosHint && !deferred) setIosInstructionsOpen(true);
+      if (!installing && (deferred || showIosHint || showBrowserHint)) {
+        if ((showIosHint || showBrowserHint) && !deferred) setIosInstructionsOpen(true);
         else void install();
       }
     }
@@ -253,18 +254,18 @@ export function PWAInstallPrompt() {
             <Share2 className="h-4 w-4 shrink-0 text-brand-primary" />
             <span>Share <span aria-hidden>›</span> Add to Home Screen</span>
           </div>
-        ) : showBrowserHint && !deferred ? (
+        ) : showBrowserHint && !deferred && iosInstructionsOpen ? (
           <div className="mt-3 flex min-w-0 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
             <Download className="h-4 w-4 shrink-0 text-brand-primary" />
             <span className="min-w-0 break-words">Browser menu <span aria-hidden>→</span> Install CateringMS</span>
           </div>
-        ) : deferred || showIosHint ? (
+        ) : deferred || showIosHint || showBrowserHint ? (
           <div
             ref={trackRef}
             className="relative mt-3 h-12 min-w-0 select-none touch-none overflow-hidden rounded-full bg-slate-100 p-1 ring-1 ring-inset ring-slate-200"
             style={{ touchAction: "none" }}
             onPointerDown={(event) => {
-              if ((!deferred && !showIosHint) || installing) return;
+              if ((!deferred && !showIosHint && !showBrowserHint) || installing) return;
               event.preventDefault();
               event.currentTarget.setPointerCapture(event.pointerId);
               startDrag(event.clientX);
@@ -274,7 +275,7 @@ export function PWAInstallPrompt() {
             onPointerCancel={endDrag}
             role="button"
             tabIndex={0}
-            aria-label={showIosHint ? "Slide right to see Safari install steps" : "Slide right to install CateringMS"}
+            aria-label={showIosHint ? "Slide right to see Safari install steps" : showBrowserHint ? "Slide right to see browser install steps" : "Slide right to install CateringMS"}
             onKeyDown={handleKeyDown}
           >
             <div
