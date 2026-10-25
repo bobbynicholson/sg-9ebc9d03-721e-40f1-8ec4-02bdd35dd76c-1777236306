@@ -11,7 +11,7 @@
     "check:migration-rls": "node scripts/check-migration-rls.mjs",
     "check:realtime-channels": "node scripts/check-realtime-channels.mjs",
     "test": "jest --watch",
-    "test:payments": "jest --runInBand --testPathPatterns=\"(payment|Payment|refund|Refund|invoice|Invoice|payfast|PayFast|Eft|eft|yoco|Yoco)\"",
+    "test:payments": "jest --runInBand --testPathPatterns=\"(payment|Payment|refund|Refund|invoice|Invoice|payfast|PayFast|Eft|eft|yoco|Yoco)\" --testPathIgnorePatterns=\"/node_modules/|/tmp/|/src/pages/api/\"",
     "test:pdf-layout": "node --loader ./scripts/tests/pdf-source-loader.mjs --test scripts/tests/pdf-layout.test.mjs",
     "test:service-sittings": "node --test scripts/tests/service-sittings.test.mjs",
     "test:quote-conversion": "node --test scripts/tests/quote-order-conversion.test.mjs",
