@@ -61,6 +61,7 @@ export function PWAInstallPrompt() {
   const [browserStepsOpen, setBrowserStepsOpen] = useState(false);
   const [iosInstallConfirmed, setIosInstallConfirmed] = useState(false);
   const [iosLinkCopied, setIosLinkCopied] = useState(false);
+  const [systemShareOpened, setSystemShareOpened] = useState(false);
   const [dismissed, setDismissed] = useState(true); // start hidden
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -180,6 +181,25 @@ export function PWAInstallPrompt() {
     }
   };
 
+  const openSystemShare = async () => {
+    if (typeof window === "undefined") return;
+    const share = (navigator as Navigator & {
+      share?: (data: { title?: string; text?: string; url?: string }) => Promise<void>;
+    }).share;
+    if (!share) return;
+    try {
+      await share.call(navigator, {
+        title: "CateringMS",
+        text: "Open CateringMS",
+        url: window.location.href,
+      });
+      setSystemShareOpened(true);
+      window.setTimeout(() => setSystemShareOpened(false), 3000);
+    } catch {
+      // Closing the native share sheet is a normal user action.
+    }
+  };
+
   const install = async () => {
     if (!deferred) return;
     setInstalling(true);
@@ -292,7 +312,16 @@ export function PWAInstallPrompt() {
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-primary text-xs font-bold text-white">1</span>
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-slate-900">Open Safari&apos;s Share menu</p>
-                <p className="mt-0.5 leading-relaxed text-slate-500">Use Safari&apos;s own Share button in the bottom browser toolbar. Do not use an in-page share button for this step.</p>
+                <p className="mt-0.5 leading-relaxed text-slate-500">This opens the iPhone share sheet. For installation, use Safari&apos;s own Share button in the browser toolbar.</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-2 min-h-10 w-full justify-center gap-2 bg-white"
+                  onClick={() => void openSystemShare()}
+                >
+                  <Share2 className="h-4 w-4" />
+                  {systemShareOpened ? "iPhone share sheet opened" : "Open iPhone share sheet"}
+                </Button>
                 <div className="mt-2 flex items-start gap-2 rounded-lg bg-brand-primary/5 px-2.5 py-2 text-[11px] leading-relaxed text-slate-700 ring-1 ring-brand-primary/15">
                   <Share2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-primary" />
                   <span>The Safari browser menu contains <span className="font-semibold">Add to Home Screen</span>; the regular share sheet may only show Copy, Reading List, Chrome, and Google.</span>
