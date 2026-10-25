@@ -30,7 +30,7 @@ export default function InstallPage({ pwaBranding, brandingError }: { pwaBrandin
     } finally { setChecking(false); }
   }
   return <>
-    <Head><title>Install {name}</title></Head>
+    <Head><title>{`Install ${name}`}</title></Head>
     <main className="min-h-screen bg-slate-50 px-4 py-8 sm:py-14">
       <div className="mx-auto max-w-xl">
         <div className="mb-6 flex items-center gap-4">
