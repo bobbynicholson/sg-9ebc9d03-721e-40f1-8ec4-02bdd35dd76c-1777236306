@@ -88,3 +88,5 @@ tmp/refund-receipt-delivery.sql
 .next-payment-ui/
 tmp/payment-ui-results/
 tmp/payment-targeted-tests.log
+/.next-pwa-*/
+tmp/pwa-install-audit/

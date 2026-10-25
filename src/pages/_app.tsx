@@ -1,7 +1,6 @@
 import type { AppProps } from "next/app";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import Head from "next/head";
 import { Fraunces, Inter } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TenantBrandingApplier } from "@/components/TenantBrandingApplier";
@@ -16,6 +15,10 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { GlobalInternalFooter } from "@/components/GlobalInternalFooter";
 import { AdminSetupSticky } from "@/components/admin/AdminSetupSticky";
 import { PWAInstallPrompt } from "@/components/driver/PWAInstallPrompt";
+import { PwaMetadata } from "@/components/pwa/PwaMetadata";
+import { useBrandingRow } from "@/lib/branding/useBranding";
+import { type PwaBranding, isCompanySlug } from "@/lib/pwa/metadata";
+import { normalizeProductPath, isProductPath, pwaRouteInfo } from "@/lib/pwa/routes";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { ChatBot } from "@/components/ChatBot";
 import { useAuth } from "@/contexts/AuthContext";
@@ -59,21 +62,6 @@ const inter = Inter({
 // would eat a driver's unsaved photo. Deferred reloads retry on a 3s
 // interval until the moment is safe.
 const RELOAD_GUARD_KEY = "__sw_update_reload_at";
-const APP_PREFIXES = ["/admin", "/team-portal", "/client-portal", "/account", "/super-admin"];
-
-// Tenant portals are also reachable at /{company_slug}/{portal-route}. Keep
-// the PWA shell and install metadata active on both the global and tenant
-// URL shapes.
-function normalizeProductPath(value: string): string {
-  const pathname = (value || "").split(/[?#]/)[0];
-  return pathname.replace(/^\/[^/]+(?=\/(?:admin|team-portal|client-portal|account|super-admin)(?:\/|$))/, "");
-}
-
-function isProductPath(value: string): boolean {
-  const pathname = normalizeProductPath(value);
-  return APP_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-}
-
 function reloadForNewBuild() {
   try {
     const last = Number(sessionStorage.getItem(RELOAD_GUARD_KEY) || 0);
@@ -182,49 +170,26 @@ function GlobalChatAssistant() {
   return <ChatBot global userRole={user.active_role || user.role} companyId={user.company_id || user.user_metadata?.company_id} />;
 }
 
-function GlobalPWAInstallPrompt() {
+function GlobalPWAInstallPrompt({ initialBranding }: { initialBranding: InitialBranding | null }) {
   const router = useRouter();
-  const { company, companySlug } = useAuth() as any;
-  const path = normalizeProductPath(router.asPath || router.pathname || "");
-  const isAuthenticatedSurface = isProductPath(path);
-  const routeCompanySlug = typeof router.query.company_slug === "string"
-    ? router.query.company_slug
-    : "";
-  const activeCompanySlug = companySlug || company?.slug || routeCompanySlug;
-  const manifestHref = activeCompanySlug
-    ? `/api/pwa/manifest?slug=${encodeURIComponent(activeCompanySlug)}`
-    : company?.id
-      ? `/api/pwa/manifest?id=${encodeURIComponent(company.id)}`
-    : "/manifest.webmanifest";
-  const companyName = String(company?.company_name || "CateringMS").trim() || "CateringMS";
-  const companyLogo = typeof company?.logo_url === "string" &&
-    (/^https:\/\//i.test(company.logo_url) || /^data:image\//i.test(company.logo_url))
-    ? company.logo_url
-    : "/icons/cateringms-192.png";
-  const themeColor = typeof company?.primary_color === "string" && company.primary_color.trim()
-    ? company.primary_color
-    : "#10b981";
-
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const appleIcon = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
-    if (appleIcon) appleIcon.href = companyLogo;
-    const appleTitle = document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-title"]');
-    if (appleTitle) appleTitle.content = companyName;
-    const theme = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-    if (theme) theme.content = themeColor;
-  }, [companyLogo, companyName, themeColor]);
-
-  if (!isAuthenticatedSurface) return null;
-
-  return (
-    <>
-      <Head>
-        <link key="cateringms-pwa-manifest" rel="manifest" href={manifestHref} />
-      </Head>
-      <PWAInstallPrompt />
-    </>
-  );
+  const { company } = useAuth();
+  const liveBrand = useBrandingRow();
+  const route = pwaRouteInfo(router.asPath || router.pathname || "");
+  const querySlug = router.query.company_slug || (route.installPage ? router.query.company : undefined);
+  // The URL is authoritative; a platform user can browse another tenant.
+  const routeSlug = route.tenantSlug || (isCompanySlug(querySlug) ? querySlug : "");
+  const platform = normalizeProductPath(router.asPath || "").startsWith("/admin/platform");
+  const companyBrand: PwaBranding | null = company && (!routeSlug || company.slug === routeSlug) && !platform
+    ? { id: company.id, slug: company.slug, companyName: company.company_name, logoUrl: company.logo_url, primaryColor: company.primary_color }
+    : null;
+  let branding: PwaBranding | null = initialBranding && (!routeSlug || initialBranding.slug === routeSlug) ? initialBranding : companyBrand;
+  if (liveBrand && branding?.id === liveBrand.id) branding = { ...branding, ...liveBrand };
+  if (routeSlug) branding = { ...branding, slug: routeSlug };
+  if (!route.enabled) return null;
+  return <>
+    <PwaMetadata branding={branding} />
+    {route.showPrompt && <PWAInstallPrompt appName={branding?.companyName || "CateringMS"} companySlug={branding?.slug} />}
+  </>;
 }
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -240,7 +205,7 @@ export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
-    if (!isProductPath(router.asPath || router.pathname || "")) return;
+    if (!pwaRouteInfo(router.asPath || router.pathname || "").enabled) return;
     let cancelled = false;
     let registration: ServiceWorkerRegistration | null = null;
 
@@ -298,7 +263,7 @@ export default function App({ Component, pageProps }: AppProps) {
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [router.pathname]);
+  }, [router.pathname, router.asPath]);
 
   // Long-lived-tab deploy detection for all app portals (Callum,
   // 2026-07-09). Phones can restore a week-old app tab without any
@@ -347,7 +312,7 @@ export default function App({ Component, pageProps }: AppProps) {
       document.removeEventListener("visibilitychange", onVis);
       window.clearInterval(ticker);
     };
-  }, [router.pathname]);
+  }, [router.pathname, router.asPath]);
 
   // Post-deploy stale-bundle recovery. After a new deploy the old JS
   // chunk files are removed; a tab still holding the previous build
@@ -401,7 +366,7 @@ export default function App({ Component, pageProps }: AppProps) {
             <CommandPalette />
             <MiddlewareErrorToast />
             <GlobalChatAssistant />
-            <GlobalPWAInstallPrompt />
+            <GlobalPWAInstallPrompt initialBranding={initialBranding} />
             <AdminSetupSticky />
             {/* VersionWatcher (the "A new version is available" banner)
                 unmounted per Raj, 2026-06-12 - it nagged on every

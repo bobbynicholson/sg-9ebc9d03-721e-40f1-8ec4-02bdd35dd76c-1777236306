@@ -6,14 +6,8 @@ export default function Document() {
       <Head>
         <meta name="robots" content="noindex, nofollow" />
         <meta name="googlebot" content="noindex, nofollow" />
-        {/* The authenticated app shell adds the shared manifest only on
-            product surfaces. Public website pages remain ordinary pages. */}
-        <meta name="theme-color" content="#10b981" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="CateringMS" />
-        <link rel="apple-touch-icon" href="/icons/cateringms-192.png" />
+        {/* PwaMetadata in _app owns the keyed install metadata, including SSR
+            company branding on login/install pages. Do not duplicate it here. */}
       </Head>
       <body>
         <Main />
