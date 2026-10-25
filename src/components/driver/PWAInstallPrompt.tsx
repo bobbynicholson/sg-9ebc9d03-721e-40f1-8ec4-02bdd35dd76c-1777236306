@@ -60,6 +60,7 @@ export function PWAInstallPrompt() {
   const [showBrowserHint, setShowBrowserHint] = useState(false);
   const [browserStepsOpen, setBrowserStepsOpen] = useState(false);
   const [iosInstallConfirmed, setIosInstallConfirmed] = useState(false);
+  const [iosLinkCopied, setIosLinkCopied] = useState(false);
   const [dismissed, setDismissed] = useState(true); // start hidden
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -154,6 +155,29 @@ export function PWAInstallPrompt() {
   const confirmIosInstall = () => {
     setIosInstallConfirmed(true);
     window.setTimeout(dismiss, 900);
+  };
+
+  const copyLinkForSafari = async () => {
+    if (typeof window === "undefined") return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(window.location.href);
+      } else {
+        const helper = document.createElement("textarea");
+        helper.value = window.location.href;
+        helper.setAttribute("readonly", "true");
+        helper.style.position = "fixed";
+        helper.style.opacity = "0";
+        document.body.appendChild(helper);
+        helper.select();
+        document.execCommand("copy");
+        helper.remove();
+      }
+      setIosLinkCopied(true);
+      window.setTimeout(() => setIosLinkCopied(false), 3000);
+    } catch {
+      // Clipboard access can be blocked by a private or embedded browser.
+    }
   };
 
   const install = async () => {
@@ -303,6 +327,15 @@ export function PWAInstallPrompt() {
             <p className="text-center text-[11px] leading-relaxed text-slate-500">
               The final Add tap must be done in Safari. iOS does not allow a website to press it automatically.
             </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-10 w-full justify-center gap-2 bg-white"
+              onClick={() => void copyLinkForSafari()}
+            >
+              <Share2 className="h-4 w-4" />
+              {iosLinkCopied ? "Link copied — paste it into Safari" : "Copy link for Safari"}
+            </Button>
           </div>
         ) : showBrowserHint && !deferred && iosInstructionsOpen ? (
           <div className="mt-3 space-y-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
