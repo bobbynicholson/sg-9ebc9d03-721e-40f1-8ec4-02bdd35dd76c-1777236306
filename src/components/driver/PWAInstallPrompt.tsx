@@ -21,7 +21,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Smartphone, X, Download, ChevronRight, Share2 } from "lucide-react";
+import { Smartphone, X, Download, ChevronRight, Share2, Check, MoreHorizontal } from "lucide-react";
 
 const DISMISS_KEY = "cateringmsPwaInstallDismissedAt";
 // Stay quiet for 14 days after a dismissal. After that the banner
@@ -58,6 +58,8 @@ export function PWAInstallPrompt() {
   const [showBrowserHint, setShowBrowserHint] = useState(false);
   const [browserStepsOpen, setBrowserStepsOpen] = useState(false);
   const [shareOpened, setShareOpened] = useState(false);
+  const [shareAvailable, setShareAvailable] = useState(false);
+  const [iosInstallConfirmed, setIosInstallConfirmed] = useState(false);
   const [dismissed, setDismissed] = useState(true); // start hidden
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -70,6 +72,7 @@ export function PWAInstallPrompt() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    setShareAvailable(typeof navigator.share === "function");
     if (isStandalone()) return;
 
     // Honour a recent dismissal.
@@ -88,6 +91,9 @@ export function PWAInstallPrompt() {
     // installed).
     if (isIos()) {
       setShowIosHint(true);
+      // iOS cannot receive a programmatic install prompt. Keep the guide
+      // open so the required Safari action is visible without a second tap.
+      setIosInstructionsOpen(true);
       return;
     }
 
@@ -121,7 +127,7 @@ export function PWAInstallPrompt() {
       setDismissed(false);
       if (isIos()) {
         setShowIosHint(true);
-        setIosInstructionsOpen(false);
+        setIosInstructionsOpen(true);
         setShowBrowserHint(false);
       } else {
         setShowIosHint(false);
@@ -165,6 +171,11 @@ export function PWAInstallPrompt() {
     } catch {
       // Closing the native share sheet is a normal user action.
     }
+  };
+
+  const confirmIosInstall = () => {
+    setIosInstallConfirmed(true);
+    window.setTimeout(dismiss, 900);
   };
 
   const install = async () => {
@@ -234,7 +245,7 @@ export function PWAInstallPrompt() {
 
   return (
     <Card
-      className="fixed inset-x-3 z-50 border-slate-200 bg-white/95 shadow-2xl backdrop-blur sm:inset-x-auto sm:right-6 sm:w-[min(430px,calc(100vw-3rem))]"
+      className="fixed inset-x-3 z-50 max-h-[min(82vh,590px)] overflow-y-auto overscroll-contain border-slate-200 bg-white/95 shadow-2xl backdrop-blur sm:inset-x-auto sm:right-6 sm:w-[min(430px,calc(100vw-3rem))]"
       style={{ bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
     >
       <CardContent className="p-3.5 sm:p-4">
@@ -256,9 +267,7 @@ export function PWAInstallPrompt() {
             </p>
             <p className="mt-0.5 text-xs leading-relaxed text-slate-600">
               {showIosHint
-                ? iosInstructionsOpen
-                  ? "Safari needs one final confirmation: choose Add to Home Screen, then tap Add."
-                  : "Slide right to see Safari's Share and Add to Home Screen steps."
+                ? "Safari needs three quick taps. Follow the steps below, then open CateringMS from your Home Screen."
                 : showBrowserHint && !deferred
                   ? "Use your browser menu and choose Install CateringMS or Add to Home screen. Your signed-in session will stay available."
                   : "Open your workspace from the home screen and keep your signed-in session between launches."}
@@ -275,24 +284,58 @@ export function PWAInstallPrompt() {
           </Button>
         </div>
 
-        {showIosHint && iosInstructionsOpen ? (
-          <div className="mt-3 space-y-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
-            <div className="flex min-w-0 items-center gap-2">
-              <Share2 className="h-4 w-4 shrink-0 text-brand-primary" />
-              <span className="min-w-0 break-words">Safari: Share → Add to Home Screen → Add</span>
+        {showIosHint ? (
+          <div className="mt-3 space-y-2.5 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+            <div className="flex items-start gap-2.5 rounded-xl bg-white p-2.5 ring-1 ring-slate-200">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-primary text-xs font-bold text-white">1</span>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-slate-900">Open Safari&apos;s Share menu</p>
+                <p className="mt-0.5 leading-relaxed text-slate-500">Tap the Share icon in Safari&apos;s bottom toolbar.</p>
+                {shareAvailable ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 min-h-10 w-full justify-center gap-2 bg-white"
+                    onClick={() => void openIosShare()}
+                  >
+                    <Share2 className="h-4 w-4" />
+                    {shareOpened ? "Share menu opened" : "Open Share menu"}
+                  </Button>
+                ) : (
+                  <p className="mt-2 rounded-lg bg-amber-50 px-2.5 py-2 text-[11px] leading-relaxed text-amber-800">
+                    This browser cannot open Safari&apos;s menu for you. Tap Safari&apos;s Share icon directly.
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-start gap-2.5 rounded-xl bg-white p-2.5 ring-1 ring-slate-200">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-primary text-xs font-bold text-white">2</span>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-slate-900">Choose Add to Home Screen</p>
+                <p className="mt-0.5 leading-relaxed text-slate-500">Scroll down in the Share menu. If you do not see it, tap <span className="font-semibold text-slate-700">Edit Actions</span> or <span className="font-semibold text-slate-700">More</span> and add it.</p>
+              </div>
+              <MoreHorizontal className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+            </div>
+            <div className="flex items-start gap-2.5 rounded-xl bg-white p-2.5 ring-1 ring-slate-200">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-primary text-xs font-bold text-white">3</span>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-slate-900">Tap Add</p>
+                <p className="mt-0.5 leading-relaxed text-slate-500">Keep <span className="font-semibold text-slate-700">Open as Web App</span> enabled if iOS shows it, then tap <span className="font-semibold text-slate-700">Add</span> in the top-right.</p>
+              </div>
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
             </div>
             <Button
               type="button"
-              variant="outline"
-              size="sm"
-              className="min-h-10 w-full justify-center gap-2 bg-white"
-              onClick={() => void openIosShare()}
+              className="min-h-11 w-full justify-center gap-2 bg-brand-primary text-white hover:bg-brand-primary/90"
+              onClick={confirmIosInstall}
+              disabled={iosInstallConfirmed}
             >
-              <Share2 className="h-4 w-4" />
-              {shareOpened ? "Share sheet opened" : "Open Share"}
+              <Check className="h-4 w-4" />
+              {iosInstallConfirmed ? "CateringMS added" : "I added CateringMS to Home Screen"}
             </Button>
-            <p className="text-[11px] font-normal leading-relaxed text-slate-500">
-              If Add to Home Screen is not listed, tap Safari&apos;s Share icon in the browser toolbar.
+            <p className="text-center text-[11px] leading-relaxed text-slate-500">
+              The final Add tap must be done in Safari. iOS does not allow a website to press it automatically.
             </p>
           </div>
         ) : showBrowserHint && !deferred && iosInstructionsOpen ? (
