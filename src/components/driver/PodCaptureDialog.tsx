@@ -65,6 +65,13 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [celebrationOpen, setCelebrationOpen] = useState(false);
+  // Opening a file input with capture="environment" hands control to the
+  // native camera. On Android the return can briefly look like an outside
+  // interaction to Radix before the input's change event is delivered. Keep
+  // the dialog alive for that handoff so the selected File can populate the
+  // preview instead of dismissing the whole POD workflow.
+  const nativeCapturePendingRef = useRef(false);
+  const nativeCaptureCancelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Signature pad state
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -98,6 +105,10 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
       markPodCapturePending(orderId, Date.now(), undefined, recoveryFlow);
     } catch { /* storage unavailable - degrade to old behaviour */ }
     return () => {
+      if (nativeCaptureCancelTimerRef.current) {
+        clearTimeout(nativeCaptureCancelTimerRef.current);
+        nativeCaptureCancelTimerRef.current = null;
+      }
       try {
         (window as unknown as { __cmsHoldSwReload?: boolean }).__cmsHoldSwReload = false;
       } catch { /* ignore */ }
@@ -113,7 +124,13 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
   // resume marker must go too or the dialog would haunt them on the
   // next reload.
   const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) clearPendingMarker();
+    if (!nextOpen) {
+      // A close emitted during the native-camera round trip is not a user
+      // cancel. The input's change event will clear this ref once the photo
+      // is back in the page.
+      if (nativeCapturePendingRef.current) return;
+      clearPendingMarker();
+    }
     onOpenChange(nextOpen);
   };
 
@@ -172,6 +189,11 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
   const stopDraw = () => { drawingRef.current = false; };
 
   const onPhotoPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    nativeCapturePendingRef.current = false;
+    if (nativeCaptureCancelTimerRef.current) {
+      clearTimeout(nativeCaptureCancelTimerRef.current);
+      nativeCaptureCancelTimerRef.current = null;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
@@ -187,6 +209,28 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
     const reader = new FileReader();
     reader.onload = ev => setPhotoPreview(ev.target?.result as string);
     reader.readAsDataURL(file);
+  };
+
+  const onPhotoInputCancel = () => {
+    nativeCapturePendingRef.current = false;
+    if (nativeCaptureCancelTimerRef.current) {
+      clearTimeout(nativeCaptureCancelTimerRef.current);
+      nativeCaptureCancelTimerRef.current = null;
+    }
+  };
+
+  const onPhotoInputClick = (e: React.MouseEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
+    nativeCapturePendingRef.current = true;
+    if (nativeCaptureCancelTimerRef.current) clearTimeout(nativeCaptureCancelTimerRef.current);
+    // If the driver cancels the picker/camera without choosing a file, allow
+    // normal close behaviour again after the browser has returned focus.
+    nativeCaptureCancelTimerRef.current = setTimeout(() => {
+      if (!input.files?.length) {
+        nativeCapturePendingRef.current = false;
+      }
+      nativeCaptureCancelTimerRef.current = null;
+    }, 5000);
   };
 
   // Convert canvas to PNG blob for upload
@@ -295,7 +339,7 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
     <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="max-w-md max-h-[90vh] overflow-y-auto"
+        className="w-[calc(100vw-1rem)] max-w-md max-h-[calc(100dvh-1rem)] min-w-0 overflow-y-auto overscroll-contain p-4 sm:p-6"
         // Mobile camera fix (owner Callum): tapping "Take photo" opens
         // the native camera (capture="environment"); when it returns,
         // the browser fires a focus/pointer "interact outside" that
@@ -307,9 +351,11 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
         onInteractOutside={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex min-w-0 items-start gap-2">
             <Camera className="w-5 h-5 text-brand-primary" />
-            {title || "Confirm delivery"}{clientName ? ` · ${clientName}` : ""}
+            <span className="min-w-0 break-words">
+              {title || "Confirm delivery"}{clientName ? ` · ${clientName}` : ""}
+            </span>
           </DialogTitle>
           <DialogDescription className="text-sm text-slate-500">
             Snap a photo of the drop, get the recipient to sign, then save. Marks the order as delivered.
@@ -338,7 +384,15 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
               </div>
             ) : (
               <label className="flex items-center justify-center h-32 rounded-md border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 cursor-pointer">
-                <input type="file" accept="image/*" capture="environment" className="hidden" onChange={onPhotoPicked} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onClick={onPhotoInputClick}
+                  onCancel={onPhotoInputCancel}
+                  onChange={onPhotoPicked}
+                />
                 <div className="text-center">
                   <Camera className="w-8 h-8 text-slate-400 mx-auto mb-1" />
                   <p className="text-sm text-slate-600 font-medium">Tap to take photo</p>
@@ -400,11 +454,11 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2 pt-2 sm:flex-row sm:justify-end sm:space-x-2">
           <DialogClose asChild>
-            <Button variant="outline" disabled={saving}>Cancel</Button>
+            <Button variant="outline" disabled={saving} className="min-h-11 w-full sm:w-auto">Cancel</Button>
           </DialogClose>
-          <Button onClick={handleSave} disabled={saving} className="bg-brand-primary hover:bg-brand-primary/90">
+          <Button onClick={handleSave} disabled={saving} className="min-h-11 w-full sm:w-auto whitespace-normal bg-brand-primary hover:bg-brand-primary/90">
             {saving ? "Saving..." : "Confirm delivered"}
           </Button>
         </DialogFooter>

@@ -1,10 +1,10 @@
 /**
- * PWAInstallPrompt - driver portal Add-to-Home-Screen banner.
+ * PWAInstallPrompt - authenticated CateringMS Add-to-Home-Screen banner.
  *
- * Phase 7 #4. The driver portal already ships a manifest (see
- * _document.tsx) and a service worker (registered in _app.tsx),
- * which is enough to make Chrome / Edge fire `beforeinstallprompt`
- * once a driver has visited a few times. This component:
+ * Phase 7 #4. Authenticated portal surfaces ship the shared manifest
+ * and service worker (registered in _app.tsx), which is enough to make
+ * Chrome / Edge fire `beforeinstallprompt` once a user has visited a few
+ * times. This component:
  *
  *   - captures that deferred event so we can fire it on a button
  *     click instead of relying on the browser's auto chip;
@@ -13,16 +13,17 @@
  *   - hides itself when the app is already running standalone;
  *   - remembers a dismissal in localStorage so we don't nag.
  *
- * Mount it inside the driver dashboard only - the manifest scope
- * limits install eligibility to /team-portal/driver/ anyway, but
- * this keeps the banner from rendering on admin views even briefly.
+ * Mount it from the authenticated app shell. Public website pages remain
+ * ordinary website pages, while admin, platform, team and client workspaces
+ * can all offer the same install affordance without changing their normal
+ * browser sign-in flow.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Smartphone, X, Download } from "lucide-react";
+import { Smartphone, X, Download, ChevronRight, Share2 } from "lucide-react";
 
-const DISMISS_KEY = "driverPwaInstallDismissedAt";
+const DISMISS_KEY = "cateringmsPwaInstallDismissedAt";
 // Stay quiet for 14 days after a dismissal. After that the banner
 // can come back - a driver who was on a borrowed phone last time
 // might be on their own this time.
@@ -54,13 +55,24 @@ export function PWAInstallPrompt() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [showIosHint, setShowIosHint] = useState(false);
   const [dismissed, setDismissed] = useState(true); // start hidden
+  const [dragX, setDragX] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef(0);
+  const dragValueRef = useRef(0);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (isStandalone()) return;
 
     // Honour a recent dismissal.
-    const last = Number(window.localStorage.getItem(DISMISS_KEY) || 0);
+    let last = 0;
+    try {
+      last = Number(window.localStorage.getItem(DISMISS_KEY) || 0);
+    } catch {
+      // Private browsing / blocked storage should not prevent installation.
+    }
     if (last && Date.now() - last < QUIET_MS) return;
 
     setDismissed(false);
@@ -78,7 +90,15 @@ export function PWAInstallPrompt() {
       setDeferred(e as BeforeInstallPromptEvent);
     };
     window.addEventListener("beforeinstallprompt", onPrompt);
-    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
+    const onInstalled = () => {
+      setDeferred(null);
+      setDismissed(true);
+    };
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
   }, []);
 
   if (dismissed) return null;
@@ -95,6 +115,7 @@ export function PWAInstallPrompt() {
 
   const install = async () => {
     if (!deferred) return;
+    setInstalling(true);
     try {
       await deferred.prompt();
       const choice = await deferred.userChoice;
@@ -109,44 +130,130 @@ export function PWAInstallPrompt() {
       // Some browsers reject if the prompt is fired twice; safest
       // to just clear and hide.
       setDeferred(null);
+    } finally {
+      setInstalling(false);
+    }
+  };
+
+  const slideMax = () => Math.max(0, (trackRef.current?.clientWidth || 0) - 56);
+
+  const updateDrag = (clientX: number) => {
+    const max = slideMax();
+    const next = Math.max(0, Math.min(max, clientX - dragStartRef.current));
+    dragValueRef.current = next;
+    setDragX(next);
+  };
+
+  const endDrag = () => {
+    if (!dragging) return;
+    setDragging(false);
+    const max = slideMax();
+    const completed = max > 0 && dragValueRef.current >= max * 0.72;
+    dragValueRef.current = 0;
+    setDragX(0);
+    if (completed) void install();
+  };
+
+  const startDrag = (clientX: number) => {
+    if (!deferred || installing) return;
+    dragStartRef.current = clientX - dragValueRef.current;
+    setDragging(true);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      if (deferred && !installing) void install();
     }
   };
 
   return (
-    <Card className="border-brand-primary/20 bg-brand-primary/5">
-      <CardContent className="p-3 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full bg-brand-primary/10 flex items-center justify-center shrink-0">
-          <Smartphone className="w-5 h-5 text-brand-primary" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-brand-primary">
-            Install the driver app
-          </p>
-          <p className="text-xs text-slate-700">
-            {showIosHint
-              ? "Tap the Share icon in Safari, then \"Add to Home Screen\" for a faster, full-screen experience."
-              : "Add it to your home screen so it opens like a regular app - faster login, full-screen, works on patchy signal."}
-          </p>
-        </div>
-        {!showIosHint && deferred && (
+    <Card
+      className="fixed inset-x-3 z-50 border-slate-200 bg-white/95 shadow-2xl backdrop-blur sm:inset-x-auto sm:right-6 sm:w-[min(430px,calc(100vw-3rem))]"
+      style={{ bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+    >
+      <CardContent className="p-3.5 sm:p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-primary/10">
+            {showIosHint ? (
+              <Share2 className="h-5 w-5 text-brand-primary" />
+            ) : (
+              <Smartphone className="h-5 w-5 text-brand-primary" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1 pr-6">
+            <p className="text-sm font-semibold text-slate-900">
+              {showIosHint ? "Add CateringMS to your home screen" : "Keep CateringMS one tap away"}
+            </p>
+            <p className="mt-0.5 text-xs leading-relaxed text-slate-600">
+              {showIosHint
+                ? "Tap Share, then Add to Home Screen. Your signed-in session will stay available when you reopen the app."
+                : "Open your workspace from the home screen and keep your signed-in session between launches."}
+            </p>
+          </div>
           <Button
-            size="sm"
-            onClick={install}
-            className="bg-brand-primary hover:bg-brand-primary/90 shrink-0"
+            variant="ghost"
+            size="icon"
+            onClick={dismiss}
+            className="absolute right-2 top-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            aria-label="Dismiss install prompt"
           >
-            <Download className="w-4 h-4 mr-1" />
-            Install
+            <X className="h-4 w-4" />
           </Button>
-        )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={dismiss}
-          className="shrink-0 text-brand-primary hover:bg-brand-primary/10"
-          aria-label="Dismiss"
-        >
-          <X className="w-4 h-4" />
-        </Button>
+        </div>
+
+        {showIosHint ? (
+          <div className="mt-3 flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
+            <Share2 className="h-4 w-4 shrink-0 text-brand-primary" />
+            <span>Share <span aria-hidden>›</span> Add to Home Screen</span>
+          </div>
+        ) : deferred ? (
+          <div
+            ref={trackRef}
+            className="relative mt-3 h-12 select-none overflow-hidden rounded-full bg-slate-100 p-1 ring-1 ring-inset ring-slate-200"
+            onPointerMove={(event) => dragging && updateDrag(event.clientX)}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+            onPointerLeave={(event) => {
+              if (dragging && event.buttons === 0) endDrag();
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Slide right to install CateringMS"
+            onKeyDown={handleKeyDown}
+          >
+            <div
+              className="absolute inset-y-1 left-1 flex items-center gap-1 rounded-full bg-brand-primary px-3 text-white shadow-md"
+              style={{
+                width: 48 + dragX,
+                transition: dragging ? "none" : "width 180ms ease-out",
+              }}
+              aria-hidden="true"
+            >
+              <Download className="h-4 w-4 shrink-0" />
+              <span className="sr-only">Install</span>
+            </div>
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1 text-xs font-semibold text-slate-600">
+              {installing ? "Installing..." : "Slide right to install"}
+              {!installing && <ChevronRight className="h-4 w-4" />}
+            </div>
+            <div
+              className="absolute inset-y-1 left-1 flex h-10 w-10 cursor-grab items-center justify-center rounded-full bg-brand-primary text-white shadow-md active:cursor-grabbing"
+              style={{
+                transform: `translateX(${dragX}px)`,
+                transition: dragging ? "none" : "transform 180ms ease-out",
+                touchAction: "none",
+              }}
+              onPointerDown={(event) => {
+                event.currentTarget.setPointerCapture(event.pointerId);
+                startDrag(event.clientX);
+              }}
+              aria-hidden="true"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </div>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

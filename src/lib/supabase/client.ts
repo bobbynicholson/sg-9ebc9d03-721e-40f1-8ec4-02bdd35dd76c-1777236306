@@ -25,6 +25,25 @@ export const createClient = () => {
 
   return createBrowserClient<Database>(
     supabaseUrl || PLACEHOLDER_URL,
-    supabaseKey || PLACEHOLDER_KEY
+    supabaseKey || PLACEHOLDER_KEY,
+    {
+      auth: {
+        // Keep the signed-in session in the browser/PWA between launches.
+        // Supabase refreshes the short-lived access token using its persisted
+        // refresh token; passwords are never stored by the app.
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+      // @supabase/ssr stores the browser session in cookies so the server
+      // middleware can authenticate the very first request from an installed
+      // PWA. Make the intended lifetime explicit: a normal app relaunch
+      // should resume the session, while an explicit sign-out still clears it.
+      cookieOptions: {
+        path: "/",
+        sameSite: "lax",
+        maxAge: 400 * 24 * 60 * 60,
+      },
+    },
   );
 };

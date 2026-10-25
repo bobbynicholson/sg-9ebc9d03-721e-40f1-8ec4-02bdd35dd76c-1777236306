@@ -104,7 +104,7 @@ export default function CompanyStaffLoginPage({
   slugFailureDebug,
 }: PageProps) {
   const router = useRouter();
-  const { company_slug, message } = router.query;
+  const { company_slug, message, redirectTo, redirect } = router.query;
   const { toast } = useToast();
 
   const [email, setEmail] = useState("");
@@ -122,6 +122,36 @@ export default function CompanyStaffLoginPage({
   // auto-redirect below so a freshly-created company whose ISR page was
   // cached as "not found" gets a second chance before we bounce it.
   const [clientLookupDone, setClientLookupDone] = useState(false);
+
+  // A driver/staff PWA can briefly land on its login URL while the browser
+  // is restoring the persisted Supabase cookie. If a valid session is
+  // already present, continue to the role picker instead of asking for the
+  // password again. An explicit session-expired redirect must still show
+  // the form so the user can recover with fresh credentials.
+  useEffect(() => {
+    if (!router.isReady || message === "session_expired") return;
+    let cancelled = false;
+    const resume = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (cancelled || !session?.user) return;
+        const requestedRedirect =
+          typeof redirectTo === "string" ? redirectTo :
+          typeof redirect === "string" ? redirect : undefined;
+        const pickerUrl = requestedRedirect
+          ? `/auth/select-role?redirectTo=${encodeURIComponent(requestedRedirect)}`
+          : "/auth/select-role";
+        window.location.assign(pickerUrl);
+      } catch {
+        // Keep the sign-in form available if storage is unavailable or the
+        // device is offline during a cold launch.
+      }
+    };
+    void resume();
+    return () => {
+      cancelled = true;
+    };
+  }, [router.isReady, message, redirectTo, redirect]);
 
   // Refresh branding from the SECURITY DEFINER RPC once we're on the
   // client. Catches the case where the operator has just saved new

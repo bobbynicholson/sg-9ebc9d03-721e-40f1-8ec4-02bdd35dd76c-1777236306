@@ -43,7 +43,7 @@ export function DriverStatusDialog({
   return (
     <Dialog open={Boolean(job)} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="max-w-lg"
+        className="w-[calc(100vw-1rem)] max-w-lg max-h-[calc(100dvh-1rem)] min-w-0 overflow-y-auto overscroll-contain p-3 sm:p-6"
         data-testid="driver-status-dialog"
         // This parent contains a second, portaled Dialog. Returning from the
         // native camera produces focus/pointer-outside events against this
@@ -52,9 +52,9 @@ export function DriverStatusDialog({
         onPointerDownOutside={(event) => event.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex min-w-0 items-start gap-2">
             <CheckCircle className="w-5 h-5 text-brand-primary dark:text-brand-primary" />
-            Status - {job?.client_name}
+            <span className="min-w-0 break-words">Status - {job?.client_name}</span>
           </DialogTitle>
           <DialogDescription className="sr-only">
             Update delivery milestones and capture proof of delivery.

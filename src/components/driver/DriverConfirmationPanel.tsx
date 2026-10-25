@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatLocalTime } from "@/lib/localFormat";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { PodCaptureDialog } from "@/components/driver/PodCaptureDialog";
-import { EquipmentReturnDialog } from "@/components/equipment/EquipmentReturnDialog";
+import { EquipmentReturnDialog } from "@/components/equipment/EquipmentReturnDialog";
 import { formatClock } from "@/lib/portalTime";
 import {
   hasFreshPendingPodCapture,
@@ -295,16 +295,16 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
 
   return (
     <Card className="border-2 border-brand-primary/20">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+      <CardHeader className="min-w-0">
+        <CardTitle className="flex min-w-0 items-center gap-2">
           <Truck className="h-5 w-5 text-brand-primary" />
-          Delivery Checklist - Order #{orderNumber}
+          <span className="min-w-0 break-words">Delivery Checklist - Order #{orderNumber}</span>
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="break-words">
           Event Time: {formatClock(eventTime)} | Venue: {venueAddress}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="min-w-0 space-y-4 overflow-x-hidden">
         {collectionOnly && (
           <p className="text-xs text-muted-foreground">
             You're doing the equipment collection for this order. The delivery was done by another driver.
@@ -313,10 +313,10 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
         {!collectionOnly && (
         <>
         {/* En-Route to Kitchen */}
-        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
-          <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-col items-stretch gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
             <MapPin className={`h-5 w-5 ${isConfirmed('en_route_to_kitchen') ? 'text-brand-primary' : 'text-gray-400'}`} />
-            <div>
+            <div className="min-w-0">
               <p className="font-medium">En-Route to Kitchen</p>
               {isConfirmed('en_route_to_kitchen') && (
                 <p className="text-sm text-muted-foreground">Confirmed at {getConfirmationTime('en_route_to_kitchen')}</p>
@@ -333,6 +333,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
               onClick={() => handleConfirm('en_route_to_kitchen')}
               disabled={loading}
               size="sm"
+              className="w-full max-w-full whitespace-normal sm:w-auto"
             >
               Confirm
             </Button>
@@ -340,10 +341,10 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
         </div>
 
         {/* At Kitchen */}
-        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
-          <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-col items-stretch gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
             <MapPinned className={`h-5 w-5 ${isConfirmed('at_kitchen') ? 'text-brand-primary' : 'text-gray-400'}`} />
-            <div>
+            <div className="min-w-0">
               <p className="font-medium">Arrived at Kitchen</p>
               {isConfirmed('at_kitchen') && (
                 <p className="text-sm text-muted-foreground">Confirmed at {getConfirmationTime('at_kitchen')}</p>
@@ -360,6 +361,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
               onClick={() => handleConfirm('at_kitchen')}
               disabled={loading || !isConfirmed('en_route_to_kitchen')}
               size="sm"
+              className="w-full max-w-full whitespace-normal sm:w-auto"
             >
               Confirm
             </Button>
@@ -367,10 +369,10 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
         </div>
 
         {/* Departed Kitchen */}
-        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
-          <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-col items-stretch gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
             <Truck className={`h-5 w-5 ${isConfirmed('departed_kitchen') ? 'text-brand-primary' : 'text-gray-400'}`} />
-            <div>
+            <div className="min-w-0">
               <p className="font-medium">Departed Kitchen</p>
               {isConfirmed('departed_kitchen') && (
                 <p className="text-sm text-muted-foreground">Confirmed at {getConfirmationTime('departed_kitchen')}</p>
@@ -387,6 +389,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
               onClick={() => handleConfirm('departed_kitchen')}
               disabled={loading || !isConfirmed('at_kitchen')}
               size="sm"
+              className="w-full max-w-full whitespace-normal sm:w-auto"
             >
               Confirm
             </Button>
@@ -394,10 +397,10 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
         </div>
 
         {/* At Venue */}
-        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
-          <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-col items-stretch gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
             <Clock className={`h-5 w-5 ${isConfirmed('at_venue') ? 'text-brand-primary' : 'text-gray-400'}`} />
-            <div>
+            <div className="min-w-0">
               <p className="font-medium">Arrived at Venue</p>
               {isConfirmed('at_venue') && (
                 <p className="text-sm text-muted-foreground">Confirmed at {getConfirmationTime('at_venue')}</p>
@@ -424,6 +427,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
               onClick={() => handleConfirm('at_venue')}
               disabled={loading || !isConfirmed('departed_kitchen')}
               size="sm"
+              className="w-full max-w-full whitespace-normal sm:w-auto"
             >
               Confirm
             </Button>
@@ -440,10 +444,10 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
             "Arrived at venue"). The tap opens the POD dialog; saving it
             stamps setup_started_at, records the POD and flips the order
             to delivered in one path. */}
-        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
-          <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-col items-stretch gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
             <Package className={`h-5 w-5 ${isConfirmed('setup_started') ? 'text-brand-primary' : 'text-gray-400'}`} />
-            <div>
+            <div className="min-w-0">
               <p className="font-medium">Setup completed</p>
               {isConfirmed('setup_started') && (
                 <p className="text-sm text-muted-foreground">Tapped at {getConfirmationTime('setup_started')}</p>
@@ -460,6 +464,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
               onClick={() => setPodOpen(true)}
               disabled={loading || !isConfirmed('at_venue')}
               size="sm"
+              className="w-full max-w-full whitespace-normal sm:w-auto"
             >
               Capture POD
             </Button>
@@ -472,10 +477,10 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
             The driver goes straight from setup to departing the venue. */}
 
         {/* Departed venue */}
-        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
-          <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-col items-stretch gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
             <Truck className={`h-5 w-5 ${isConfirmed('departed_venue') ? 'text-brand-primary' : 'text-gray-400'}`} />
-            <div>
+            <div className="min-w-0">
               <p className="font-medium">Departed venue</p>
               {isConfirmed('departed_venue') && (
                 <p className="text-sm text-muted-foreground">Tapped at {getConfirmationTime('departed_venue')}</p>
@@ -492,6 +497,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
               onClick={() => handleConfirm('departed_venue')}
               disabled={loading || !isConfirmed('setup_started')}
               size="sm"
+              className="w-full max-w-full whitespace-normal sm:w-auto"
             >
               Tap when truck rolls home
             </Button>
@@ -500,10 +506,10 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
 
         {/* Leaving the venue is not the end of the driver's work. The
             final checkpoint closes the paid shift only after return to base. */}
-        <div className="flex items-center justify-between p-4 rounded-lg border border-amber-200 bg-amber-50/50">
+        <div className="flex min-w-0 flex-col items-stretch gap-3 rounded-lg border border-amber-200 bg-amber-50/50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <MapPinned className={`h-5 w-5 ${isConfirmed('returned_to_base') ? 'text-brand-primary' : 'text-amber-600'}`} />
-            <div>
+            <div className="min-w-0">
               <p className="font-medium">Reached kitchen / warehouse</p>
               {isConfirmed('returned_to_base') ? (
                 <p className="text-sm text-muted-foreground">Timer stopped at {getConfirmationTime('returned_to_base')}</p>
@@ -513,7 +519,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
             </div>
           </div>
           {isConfirmed('returned_to_base') ? (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               <Badge variant="default" className="bg-brand-primary">
                 <CheckCircle className="h-3 w-3 mr-1" />
                 Shift complete
@@ -523,7 +529,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
                   onClick={startCollectionTrip}
                   disabled={loading}
                   size="sm"
-                  className="bg-brand-primary hover:bg-brand-primary/90"
+                  className="w-full max-w-full whitespace-normal bg-brand-primary hover:bg-brand-primary/90 sm:w-auto"
                 >
                   Start collection
                 </Button>
@@ -534,7 +540,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
               onClick={() => handleConfirm('returned_to_base')}
               disabled={loading || !isConfirmed('departed_venue')}
               size="sm"
-              className="bg-amber-600 hover:bg-amber-700"
+              className="w-full max-w-full whitespace-normal bg-amber-600 hover:bg-amber-700 sm:w-auto"
             >
               Stop timer at base
             </Button>
@@ -550,17 +556,17 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
             Wave 11 #11. */}
         {collectionAssignment && isConfirmed('returned_to_base') && (
           <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-4 space-y-3">
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Package className="h-5 w-5 text-brand-primary" />
-              <p className="font-semibold text-slate-900">Collection trip</p>
+              <p className="min-w-0 break-words font-semibold text-slate-900">Collection trip</p>
               {collectionAssignment.scheduled_for && (
-                <span className="text-xs text-slate-500">
+                <span className="min-w-0 break-words text-xs text-slate-500">
                   Scheduled: {new Date(collectionAssignment.scheduled_for).toLocaleString("en-ZA")}
                 </span>
               )}
             </div>
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
                 <p className="text-sm font-medium">On my way to collect</p>
                 {collectionAssignment.en_route_at && (
                   <p className="text-xs text-muted-foreground">
@@ -577,6 +583,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
                 <Button
                   size="sm"
                   disabled={loading}
+                  className="w-full max-w-full whitespace-normal sm:w-auto"
                   onClick={startCollectionTrip}
                 >
                   Start
@@ -587,8 +594,8 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
                 (client in-app + email + dispatch) so the client sees the
                 driver actually turn up for the pickup, mirroring the delivery
                 "driver arrived" ping. */}
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
                 <p className="text-sm font-medium">Arrived to collect</p>
                 <p className="text-xs text-muted-foreground">Notifies the client you're at the venue</p>
               </div>
@@ -602,6 +609,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
                   size="sm"
                   variant="outline"
                   disabled={loading || collectionAssignment.status !== "en_route"}
+                  className="w-full max-w-full whitespace-normal sm:w-auto"
                   onClick={async () => {
                     if (!user) return;
                     setLoading(true);
@@ -624,8 +632,8 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
                 is where the CLIENT'S collection finishes - they're pinged
                 "all done" now and no longer wait for the driver to drive
                 back to base. */}
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
                 <p className="text-sm font-medium">Equipment collected</p>
                 {collectionAssignment.picked_up_at && (
                   <p className="text-xs text-muted-foreground">
@@ -642,6 +650,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
                 <Button
                   size="sm"
                   disabled={loading || collectionAssignment.status !== "en_route"}
+                  className="w-full max-w-full whitespace-normal sm:w-auto"
                   onClick={async () => {
                     if (!user) return;
                     setLoading(true);
@@ -663,8 +672,8 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
             {/* Step 3: gear back at base - internal close-out only
                 (equipment returned, cleaning intake, shift clock-out).
                 The client has already been told it's done in step 2. */}
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
                 <p className="text-sm font-medium">Equipment back at base</p>
                 {collectionAssignment.completed_at && (
                   <p className="text-xs text-muted-foreground">
@@ -681,6 +690,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
                 <Button
                   size="sm"
                   disabled={loading || collectionAssignment.status !== "picked_up"}
+                  className="w-full max-w-full whitespace-normal sm:w-auto"
                   onClick={() => setReturnOpen(true)}
                 >
                   Mark back at base

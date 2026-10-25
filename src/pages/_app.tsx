@@ -1,6 +1,7 @@
 import type { AppProps } from "next/app";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import Head from "next/head";
 import { Fraunces, Inter } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TenantBrandingApplier } from "@/components/TenantBrandingApplier";
@@ -14,6 +15,7 @@ import { MiddlewareErrorToast } from "@/components/MiddlewareErrorToast";
 import { CommandPalette } from "@/components/CommandPalette";
 import { GlobalInternalFooter } from "@/components/GlobalInternalFooter";
 import { AdminSetupSticky } from "@/components/admin/AdminSetupSticky";
+import { PWAInstallPrompt } from "@/components/driver/PWAInstallPrompt";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { ChatBot } from "@/components/ChatBot";
 import { useAuth } from "@/contexts/AuthContext";
@@ -165,6 +167,26 @@ function GlobalChatAssistant() {
   return <ChatBot global userRole={user.active_role || user.role} companyId={user.company_id || user.user_metadata?.company_id} />;
 }
 
+function GlobalPWAInstallPrompt() {
+  const router = useRouter();
+  const path = (router.pathname || "").split(/[?#]/)[0];
+  const appPrefixes = ["/admin", "/team-portal", "/client-portal", "/account", "/super-admin"];
+  const isAuthenticatedSurface = appPrefixes.some(
+    (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+  );
+
+  if (!isAuthenticatedSurface) return null;
+
+  return (
+    <>
+      <Head>
+        <link rel="manifest" href="/manifest.webmanifest" />
+      </Head>
+      <PWAInstallPrompt />
+    </>
+  );
+}
+
 export default function App({ Component, pageProps }: AppProps) {
   // Tenant pre-auth pages (/[company_slug]/login etc.) ship their
   // branding row via getStaticProps. Forward it to the applier so the
@@ -172,20 +194,18 @@ export default function App({ Component, pageProps }: AppProps) {
   const initialBranding: InitialBranding | null =
     (pageProps as { initialBranding?: InitialBranding | null })?.initialBranding ?? null;
 
-  // Phase 3 #3: register the driver portal service worker. We only
-  // register when the user is currently on a /team-portal/driver/*
-  // path so the SW never gets installed in an admin or client tab.
-  // The browser scopes the SW to /team-portal/driver/ via the
-  // registration scope, so even after install the SW only intercepts
-  // requests inside that subtree.
+  // Register the app service worker only on authenticated product
+  // surfaces. Public marketing pages remain ordinary website pages, while
+  // the installed CateringMS app can cover every role's workspace.
   const router = useRouter();
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
-    if (!router.pathname.startsWith("/team-portal/driver")) return;
+    const appPrefixes = ["/admin", "/team-portal", "/client-portal", "/account", "/super-admin"];
+    if (!appPrefixes.some((prefix) => router.pathname === prefix || router.pathname.startsWith(`${prefix}/`))) return;
     let cancelled = false;
     let registration: ServiceWorkerRegistration | null = null;
 
-    // Stale-PWA recovery (Callum, 2026-07-09): the driver portal kept
+    // Stale-PWA recovery (Callum, 2026-07-09): an installed app kept
     // running a bundle from BEFORE a deploy - skipWaiting/claim swap
     // the worker, but nothing reloads the already-open page, and an
     // installed PWA restored from the app switcher never re-navigates.
@@ -222,15 +242,15 @@ export default function App({ Component, pageProps }: AppProps) {
     const register = async () => {
       try {
         const reg = await navigator.serviceWorker.register("/sw.js", {
-          scope: "/team-portal/driver/",
+          scope: "/",
         });
         if (cancelled) return;
         registration = reg;
-        // Pull updates on each route change so the driver picks up
+        // Pull updates on each route change so the app picks up
         // a deploy without having to fully close + reopen the tab.
         reg.update().catch(() => {});
       } catch (e) {
-        console.warn("[sw] driver portal SW registration failed:", e);
+        console.warn("[sw] app service worker registration failed:", e);
       }
     };
     void register();
@@ -241,12 +261,8 @@ export default function App({ Component, pageProps }: AppProps) {
     };
   }, [router.pathname]);
 
-  // Long-lived-tab deploy detection for ALL app portals (Callum,
-  // 2026-07-09). The service worker path above only covers documents
-  // inside its /team-portal/driver/ scope - but on prod the portals
-  // are usually browsed via tenant-slugged URLs
-  // (/spit-braai-delivery/team-portal/...), which the SW does NOT
-  // control, and phones happily restore a week-old tab without any
+  // Long-lived-tab deploy detection for all app portals (Callum,
+  // 2026-07-09). Phones can restore a week-old app tab without any
   // reload. Detection: this build's own /_next/static/<buildId>/
   // _buildManifest.js stops existing the moment a new deploy replaces
   // it (that 404 is the same mechanism behind the ChunkLoadError
@@ -261,7 +277,7 @@ export default function App({ Component, pageProps }: AppProps) {
   // 400-ing static assets) and must never loop.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const APP_PREFIXES = ["/team-portal", "/admin", "/client-portal", "/c/"];
+    const APP_PREFIXES = ["/team-portal", "/admin", "/client-portal", "/account", "/super-admin", "/c/"];
     if (!APP_PREFIXES.some((p) => router.pathname.startsWith(p))) return;
     const buildId = (window as unknown as { __NEXT_DATA__?: { buildId?: string } }).__NEXT_DATA__?.buildId;
     if (!buildId || buildId === "development") return;
@@ -346,6 +362,7 @@ export default function App({ Component, pageProps }: AppProps) {
             <CommandPalette />
             <MiddlewareErrorToast />
             <GlobalChatAssistant />
+            <GlobalPWAInstallPrompt />
             <AdminSetupSticky />
             {/* VersionWatcher (the "A new version is available" banner)
                 unmounted per Raj, 2026-06-12 - it nagged on every

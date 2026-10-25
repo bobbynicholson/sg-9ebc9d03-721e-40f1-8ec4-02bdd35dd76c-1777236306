@@ -7,6 +7,7 @@ import {
 } from "@/lib/podCaptureRecovery";
 
 let mockRenderNestedPod = false;
+let mockPodOnOpenChange: jest.Mock;
 
 jest.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: jest.fn() }) }));
 jest.mock("@/lib/events/orderEvents", () => ({ emitOrderUpdated: jest.fn() }));
@@ -24,7 +25,7 @@ jest.mock("@/components/driver/DriverConfirmationPanel", () => ({
     return (
       <PodCaptureDialog
         open
-        onOpenChange={jest.fn()}
+        onOpenChange={mockPodOnOpenChange}
         orderId={orderId}
         title="Setup completed"
         recoveryFlow="status"
@@ -68,6 +69,7 @@ describe("DriverStatusDialog POD nesting", () => {
   beforeEach(() => {
     localStorage.clear();
     mockRenderNestedPod = false;
+    mockPodOnOpenChange = jest.fn();
   });
 
   it("keeps the nested Setup POD and selected camera file through focus return", async () => {
@@ -86,6 +88,24 @@ describe("DriverStatusDialog POD nesting", () => {
     expect(readPendingPodCapture(localStorage)?.flow).toBe("status");
     expect(onClose).not.toHaveBeenCalled();
   }, 15000);
+
+  it("does not dismiss the POD while the native camera handoff is pending", () => {
+    mockRenderNestedPod = true;
+    render(<DriverStatusDialog job={job} onClose={jest.fn()} />);
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const podDialog = screen.getByText("Setup completed").closest('[role="dialog"]') as HTMLElement;
+    expect(podDialog).not.toBeNull();
+
+    fireEvent.click(input);
+    fireEvent.keyDown(podDialog, { key: "Escape" });
+    expect(mockPodOnOpenChange).not.toHaveBeenCalled();
+
+    fireEvent.change(input, {
+      target: { files: [new File(["image-bytes"], "delivery.jpg", { type: "image/jpeg" })] },
+    });
+    fireEvent.keyDown(podDialog, { key: "Escape" });
+    expect(mockPodOnOpenChange).toHaveBeenCalledWith(false);
+  });
 
   it("does not dismiss the parent workflow on an outside camera-return interaction", () => {
     const onClose = jest.fn();

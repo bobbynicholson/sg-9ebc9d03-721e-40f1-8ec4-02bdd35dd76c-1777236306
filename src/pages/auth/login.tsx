@@ -101,22 +101,30 @@ export default function LoginPage() {
   const [devMode, setDevMode] = useState(false);
   const { toast } = useToast();
 
-  // Clear stale auth on mount
+  // Resume an existing session when the installed PWA is opened again. The
+  // session is already persisted by the browser Supabase client; this page
+  // should never clear it just because a login route was rendered.
   useEffect(() => {
-    const supabase = createClient();
-    // Remove all sb- localStorage keys
-    Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith("sb-")) {
-        localStorage.removeItem(key);
+    if (!router.isReady || message === "session_expired") return;
+    let cancelled = false;
+    const resume = async () => {
+      try {
+        const { data: { session } } = await createClient().auth.getSession();
+        if (cancelled || !session?.user) return;
+        const requestedRedirect =
+          typeof redirectTo === "string" ? redirectTo :
+          typeof redirect === "string" ? redirect : undefined;
+        await routeAfterLogin(requestedRedirect);
+      } catch {
+        // A cold/offline launch may not be able to read or refresh the
+        // session. Leave the form usable so the user can sign in normally.
       }
-    });
-    // Remove legacy auth token
-    localStorage.removeItem("supabase.auth.token");
-    // Clear session storage
-    sessionStorage.clear();
-    // Sign out silently
-    supabase.auth.signOut().catch(() => {});
-  }, []);
+    };
+    void resume();
+    return () => {
+      cancelled = true;
+    };
+  }, [router.isReady, message, redirect, redirectTo]);
 
   useEffect(() => {
     if (message === "session_expired") {

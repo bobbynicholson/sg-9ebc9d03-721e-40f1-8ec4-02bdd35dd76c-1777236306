@@ -1,14 +1,12 @@
 /* eslint-disable no-restricted-globals */
 /**
- * CateringMS driver portal service worker.
+ * CateringMS authenticated app service worker.
  *
- * Scope: /team-portal/driver/  (set by Service-Worker-Allowed via
- * the manifest's `scope` and the registration `scope` arg in _app).
+ * Scope: / (registered from _app only after entering an app surface).
  *
  * What it does today:
- *   1. Shell cache: precache the driver dashboard + key offline
- *      fallback so a driver who loses signal still sees the shell
- *      rather than the browser's "no internet" screen.
+ *   1. Shell cache: precache the login page + workspace fallbacks so an
+ *      installed app that loses signal still has a usable shell.
  *   2. Network-first for everything else, falling back to the
  *      cached shell when offline -- the driver still reads stale
  *      data instead of a blank page.
@@ -23,18 +21,24 @@
  * JS after a deploy.
  */
 
-// v2 (2026-07-11): Callum's driver portal kept running a pre-deploy
+// v3 (2026-07-11): the authenticated app kept running a pre-deploy
 // bundle for DAYS - skipWaiting/claim swap the worker but nothing
 // reloads an already-open PWA, so fixes never reached his phone. The
 // version bump drops every v1 cache, and _app.tsx now listens for
 // controllerchange + re-checks for updates on tab focus and reloads
 // once, so future deploys actually land on installed PWAs.
-const CACHE_VERSION = "v2";
-const SHELL_CACHE = `cms-driver-shell-${CACHE_VERSION}`;
+const CACHE_VERSION = "v3";
+const SHELL_CACHE = `cms-app-shell-${CACHE_VERSION}`;
 const SHELL_URLS = [
+  "/auth/login",
+  "/admin/platform/dashboard",
+  "/admin/dashboard",
   "/team-portal/driver/dashboard",
-  "/team-portal/driver/deliveries",
-  "/team-portal/driver/routes",
+  "/team-portal/kitchen/dashboard",
+  "/team-portal/shopping/dashboard",
+  "/team-portal/cleaning/dashboard",
+  "/team-portal/waiter/dashboard",
+  "/client-portal/dashboard",
   "/favicon.ico",
   "/manifest.webmanifest",
 ];
@@ -62,7 +66,7 @@ self.addEventListener("activate", (event) => {
       const keys = await caches.keys();
       await Promise.all(
         keys
-          .filter((k) => k.startsWith("cms-driver-shell-") && k !== SHELL_CACHE)
+          .filter((k) => k.startsWith("cms-app-shell-") && k !== SHELL_CACHE)
           .map((k) => caches.delete(k)),
       );
       await self.clients.claim();
@@ -119,7 +123,7 @@ self.addEventListener("fetch", (event) => {
         }
         return resp;
       })
-      .catch(() => caches.match(req).then((c) => c || caches.match("/team-portal/driver/dashboard"))),
+      .catch(() => caches.match(req).then((c) => c || caches.match("/auth/login"))),
   );
 });
 
