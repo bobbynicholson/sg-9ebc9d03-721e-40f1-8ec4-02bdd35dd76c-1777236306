@@ -56,6 +56,7 @@ export function PWAInstallPrompt() {
   const [showIosHint, setShowIosHint] = useState(false);
   const [iosInstructionsOpen, setIosInstructionsOpen] = useState(false);
   const [showBrowserHint, setShowBrowserHint] = useState(false);
+  const [browserStepsOpen, setBrowserStepsOpen] = useState(false);
   const [shareOpened, setShareOpened] = useState(false);
   const [dismissed, setDismissed] = useState(true); // start hidden
   const [dragX, setDragX] = useState(0);
@@ -125,6 +126,7 @@ export function PWAInstallPrompt() {
       } else {
         setShowIosHint(false);
         setIosInstructionsOpen(false);
+        setBrowserStepsOpen(false);
         setShowBrowserHint(!deferredRef.current);
       }
     };
@@ -294,9 +296,23 @@ export function PWAInstallPrompt() {
             </p>
           </div>
         ) : showBrowserHint && !deferred && iosInstructionsOpen ? (
-          <div className="mt-3 flex min-w-0 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
+          <div className="mt-3 space-y-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
+            <button
+              type="button"
+              className="flex min-h-10 w-full min-w-0 items-center gap-2 rounded-lg text-left hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+              onClick={() => setBrowserStepsOpen((open) => !open)}
+              aria-expanded={browserStepsOpen}
+            >
             <Download className="h-4 w-4 shrink-0 text-brand-primary" />
             <span className="min-w-0 break-words">Browser menu <span aria-hidden>→</span> Install CateringMS</span>
+            </button>
+            {browserStepsOpen && (
+              <ol className="space-y-1.5 border-t border-slate-200 pt-2 text-[11px] font-normal leading-relaxed text-slate-600">
+                <li><span className="font-semibold text-slate-800">1.</span> Open your browser menu <span aria-hidden>⋮</span>.</li>
+                <li><span className="font-semibold text-slate-800">2.</span> Choose <span className="font-semibold text-slate-800">Install CateringMS</span> or <span className="font-semibold text-slate-800">Add to Home screen</span>.</li>
+                <li><span className="font-semibold text-slate-800">3.</span> Confirm <span className="font-semibold text-slate-800">Install</span>.</li>
+              </ol>
+            )}
           </div>
         ) : deferred || showIosHint || showBrowserHint ? (
           <div
