@@ -232,7 +232,9 @@ export function PWAInstallPrompt() {
             </p>
             <p className="mt-0.5 text-xs leading-relaxed text-slate-600">
               {showIosHint
-                ? "Tap Share, then Add to Home Screen. Your signed-in session will stay available when you reopen the app."
+                ? iosInstructionsOpen
+                  ? "Safari needs one final confirmation: choose Add to Home Screen, then tap Add."
+                  : "Slide right to see Safari's Share and Add to Home Screen steps."
                 : showBrowserHint && !deferred
                   ? "Use your browser menu and choose Install CateringMS or Add to Home screen. Your signed-in session will stay available."
                   : "Open your workspace from the home screen and keep your signed-in session between launches."}
@@ -252,7 +254,7 @@ export function PWAInstallPrompt() {
         {showIosHint && iosInstructionsOpen ? (
           <div className="mt-3 flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
             <Share2 className="h-4 w-4 shrink-0 text-brand-primary" />
-            <span>Share <span aria-hidden>›</span> Add to Home Screen</span>
+            <span>Safari: Share → Add to Home Screen → Add</span>
           </div>
         ) : showBrowserHint && !deferred && iosInstructionsOpen ? (
           <div className="mt-3 flex min-w-0 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
