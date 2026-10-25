@@ -61,6 +61,7 @@ export function PWAInstallPrompt() {
   const trackRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef(0);
   const dragValueRef = useRef(0);
+  const dragMovedRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -140,6 +141,7 @@ export function PWAInstallPrompt() {
   const updateDrag = (clientX: number) => {
     const max = slideMax();
     const next = Math.max(0, Math.min(max, clientX - dragStartRef.current));
+    if (Math.abs(next - dragValueRef.current) > 4) dragMovedRef.current = true;
     dragValueRef.current = next;
     setDragX(next);
   };
@@ -148,7 +150,10 @@ export function PWAInstallPrompt() {
     if (!dragging) return;
     setDragging(false);
     const max = slideMax();
-    const completed = max > 0 && dragValueRef.current >= max * 0.72;
+    // A short tap remains a useful fallback for browsers that do not report
+    // a reliable drag sequence. A real rightward slide still uses the same
+    // 72% completion threshold shown in the UI.
+    const completed = !dragMovedRef.current || (max > 0 && dragValueRef.current >= max * 0.72);
     dragValueRef.current = 0;
     setDragX(0);
     if (completed) void install();
@@ -157,6 +162,7 @@ export function PWAInstallPrompt() {
   const startDrag = (clientX: number) => {
     if (!deferred || installing) return;
     dragStartRef.current = clientX - dragValueRef.current;
+    dragMovedRef.current = false;
     setDragging(true);
   };
 
@@ -210,13 +216,17 @@ export function PWAInstallPrompt() {
         ) : deferred ? (
           <div
             ref={trackRef}
-            className="relative mt-3 h-12 select-none overflow-hidden rounded-full bg-slate-100 p-1 ring-1 ring-inset ring-slate-200"
+            className="relative mt-3 h-12 min-w-0 select-none touch-none overflow-hidden rounded-full bg-slate-100 p-1 ring-1 ring-inset ring-slate-200"
+            style={{ touchAction: "none" }}
+            onPointerDown={(event) => {
+              if (!deferred || installing) return;
+              event.preventDefault();
+              event.currentTarget.setPointerCapture(event.pointerId);
+              startDrag(event.clientX);
+            }}
             onPointerMove={(event) => dragging && updateDrag(event.clientX)}
             onPointerUp={endDrag}
             onPointerCancel={endDrag}
-            onPointerLeave={(event) => {
-              if (dragging && event.buttons === 0) endDrag();
-            }}
             role="button"
             tabIndex={0}
             aria-label="Slide right to install CateringMS"
@@ -243,10 +253,6 @@ export function PWAInstallPrompt() {
                 transform: `translateX(${dragX}px)`,
                 transition: dragging ? "none" : "transform 180ms ease-out",
                 touchAction: "none",
-              }}
-              onPointerDown={(event) => {
-                event.currentTarget.setPointerCapture(event.pointerId);
-                startDrag(event.clientX);
               }}
               aria-hidden="true"
             >
