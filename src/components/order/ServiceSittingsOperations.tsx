@@ -2,8 +2,10 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatClock } from "@/lib/portalTime";
 import { emitOrderUpdated } from "@/lib/events/orderEvents";
+import { Check, ChevronDown, Search } from "lucide-react";
 
 export type SittingOperations = {
   id: string; sequence_number: number; guest_count: number; service_time: string;
@@ -13,6 +15,103 @@ export type SittingOperations = {
 };
 type Driver = { id: string; full_name: string; is_active?: boolean | null };
 const openTrip = (a: any) => !["cancelled", "rejected"].includes(a.status);
+
+function DriverMultiSelect({
+  drivers,
+  selectedIds,
+  disabled,
+  label,
+  onChange,
+}: {
+  drivers: Driver[];
+  selectedIds: string[];
+  disabled: boolean;
+  label: string;
+  onChange: (ids: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const normalizedSearch = search.trim().toLowerCase();
+  const visibleDrivers = drivers.filter(driver => !normalizedSearch || (driver.full_name || "Driver").toLowerCase().includes(normalizedSearch));
+  const selectedDrivers = drivers.filter(driver => selectedIds.includes(driver.id));
+  const allVisibleSelected = visibleDrivers.length > 0 && visibleDrivers.every(driver => selectedIds.includes(driver.id));
+  const selectedLabel = selectedDrivers.length === 0
+    ? "Select drivers"
+    : selectedDrivers.length <= 2
+      ? selectedDrivers.map(driver => driver.full_name || "Driver").join(", ")
+      : `${selectedDrivers[0].full_name || "Driver"} + ${selectedDrivers.length - 1} more`;
+
+  const toggleDriver = (driverId: string) => {
+    onChange(selectedIds.includes(driverId)
+      ? selectedIds.filter(id => id !== driverId)
+      : Array.from(new Set([...selectedIds, driverId])));
+  };
+
+  const toggleVisible = () => {
+    onChange(allVisibleSelected
+      ? selectedIds.filter(id => !visibleDrivers.some(driver => driver.id === id))
+      : Array.from(new Set([...selectedIds, ...visibleDrivers.map(driver => driver.id)])));
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={disabled || !drivers.length}
+          className="mt-2 min-h-11 w-full min-w-0 justify-between gap-2 bg-white px-3 text-left font-normal"
+          aria-label={label}
+          aria-expanded={open}
+        >
+          <span className="min-w-0 truncate">{drivers.length ? selectedLabel : "No company drivers found"}</span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[min(22rem,calc(100vw-2rem))] overflow-hidden p-0">
+        <div className="border-b border-slate-200 p-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              autoFocus
+              type="search"
+              value={search}
+              onChange={event => setSearch(event.target.value)}
+              placeholder="Search company drivers"
+              aria-label={`Search ${label.toLowerCase()}`}
+              className="min-h-10 pl-9"
+            />
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-600">
+            <span>{selectedIds.length} selected</span>
+            <Button type="button" variant="ghost" size="sm" className="min-h-8 px-2 text-xs" onClick={toggleVisible} disabled={!visibleDrivers.length}>
+              {allVisibleSelected ? "Clear shown" : "Select shown"}
+            </Button>
+          </div>
+        </div>
+        <div className="max-h-64 overflow-y-auto p-1" role="listbox" aria-label={`${label} options`}>
+          {visibleDrivers.length ? visibleDrivers.map(driver => (
+            <label key={driver.id} className="flex min-h-11 min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 text-sm text-slate-700 hover:bg-slate-50">
+              <input
+                type="checkbox"
+                className="h-4 w-4 shrink-0 accent-brand-primary"
+                checked={selectedIds.includes(driver.id)}
+                onChange={() => toggleDriver(driver.id)}
+              />
+              <span className="min-w-0 flex-1 truncate">{driver.full_name || "Driver"}</span>
+              {selectedIds.includes(driver.id) && <Check className="h-4 w-4 shrink-0 text-brand-primary" aria-hidden="true" />}
+            </label>
+          )) : (
+            <p className="px-2 py-3 text-sm text-slate-600">No company drivers match “{search}”.</p>
+          )}
+        </div>
+        <div className="border-t border-slate-200 px-3 py-2 text-[11px] leading-relaxed text-slate-500">
+          Select one or more drivers for this {label.toLowerCase()}.
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export function ServiceSittingsOperations({ orderId, companyId, canEdit = false, onSaved }: { orderId: string; companyId: string; canEdit?: boolean; onSaved?: () => void }) {
   const uid = useId();
@@ -26,7 +125,6 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
   const [saveNotice, setSaveNotice] = useState("");
   const [totalGuests, setTotalGuests] = useState(0);
   const [eventDate, setEventDate] = useState("");
-  const [driverSearch, setDriverSearch] = useState("");
   const [editableBooking, setEditableBooking] = useState(true);
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -101,44 +199,16 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
         const collection = returnPlan === "per_sitting_collection" || (returnPlan === "final_collection" && index === rows.length - 1);
         const driverPicker = (leg: "delivery" | "collection") => {
           const key = leg === "delivery" ? "deliveryDriverIds" : "collectionDriverIds";
-          const normalizedSearch = driverSearch.trim().toLowerCase();
-          const visibleDrivers = drivers.filter(driver => !normalizedSearch || (driver.full_name || "Driver").toLowerCase().includes(normalizedSearch));
-          const allVisibleSelected = visibleDrivers.length > 0 && visibleDrivers.every(driver => s[key].includes(driver.id));
-          const updateVisibleDrivers = () => {
-            const next = allVisibleSelected
-              ? s[key].filter(id => !visibleDrivers.some(driver => driver.id === id))
-              : Array.from(new Set([...s[key], ...visibleDrivers.map(driver => driver.id)]));
-            edit(s.id, { [key]: next });
-          };
-          return <fieldset disabled={!mayEdit || saving} className="mt-3 min-w-0"><legend className="text-sm font-semibold text-slate-900">{leg === "delivery" ? "Delivery drivers" : "Collection drivers"}</legend>
-            {canEdit ? <div className="mt-2 min-w-0 rounded-lg border border-slate-200 bg-slate-50/70 p-2.5">
-              <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-                <Input
-                  type="search"
-                  value={driverSearch}
-                  onChange={event => setDriverSearch(event.target.value)}
-                  placeholder="Search drivers"
-                  aria-label={`Search ${leg} drivers`}
-                  className="min-h-10 min-w-0 bg-white text-sm sm:flex-1"
-                />
-                <div className="flex shrink-0 items-center justify-between gap-2 text-xs text-slate-600 sm:justify-end">
-                  <span>{s[key].length} selected</span>
-                  <Button type="button" variant="ghost" size="sm" className="min-h-9 px-2 text-xs" onClick={updateVisibleDrivers} disabled={!visibleDrivers.length}>
-                    {allVisibleSelected ? "Clear shown" : "Select shown"}
-                  </Button>
-                </div>
-              </div>
-              {drivers.length ? (
-                <div className="mt-2 grid max-h-56 min-w-0 grid-cols-1 gap-1 overflow-y-auto overscroll-contain pr-1 sm:grid-cols-2" aria-label={`${leg} driver options`}>
-                  {visibleDrivers.length ? visibleDrivers.map(d => (
-                    <label key={d.id} className="flex min-h-11 min-w-0 items-center gap-2 rounded-md px-2 text-sm text-slate-700 hover:bg-white">
-                      <input type="checkbox" className="h-4 w-4 shrink-0 accent-brand-primary" checked={s[key].includes(d.id)} onChange={event => edit(s.id, { [key]: event.target.checked ? Array.from(new Set([...s[key], d.id])) : s[key].filter(id => id !== d.id) })} />
-                      <span className="min-w-0 truncate">{d.full_name || "Driver"}</span>
-                    </label>
-                  )) : <p className="col-span-full px-2 py-2 text-sm text-slate-600">No drivers match “{driverSearch}”.</p>}
-                </div>
-              ) : <p className="mt-2 text-sm text-slate-600">No active drivers found.</p>}
-            </div> : <p className="mt-1 break-words text-sm text-slate-700">{s[key].length ? s[key].map(id => drivers.find(d => d.id === id)?.full_name || "Assigned driver").join(", ") : "Not assigned yet"}</p>}
+          const label = leg === "delivery" ? "delivery drivers" : "collection drivers";
+          return <fieldset disabled={!mayEdit || saving} className="mt-3 min-w-0">
+            <legend className="text-sm font-semibold text-slate-900">{leg === "delivery" ? "Delivery drivers" : "Collection drivers"}</legend>
+            {canEdit ? <DriverMultiSelect
+              drivers={drivers}
+              selectedIds={s[key]}
+              disabled={!mayEdit || saving}
+              label={label}
+              onChange={ids => edit(s.id, { [key]: ids })}
+            /> : <p className="mt-1 break-words text-sm text-slate-700">{s[key].length ? s[key].map(id => drivers.find(d => d.id === id)?.full_name || "Assigned driver").join(", ") : "Not assigned yet"}</p>}
           </fieldset>;
         };
         return <article key={s.id} className="min-w-0 py-5 first:pt-0">
