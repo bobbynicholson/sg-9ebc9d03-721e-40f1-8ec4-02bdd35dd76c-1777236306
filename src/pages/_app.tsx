@@ -187,7 +187,10 @@ function GlobalPWAInstallPrompt() {
   const { company, companySlug } = useAuth() as any;
   const path = normalizeProductPath(router.asPath || router.pathname || "");
   const isAuthenticatedSurface = isProductPath(path);
-  const activeCompanySlug = companySlug || company?.slug || "";
+  const routeCompanySlug = typeof router.query.company_slug === "string"
+    ? router.query.company_slug
+    : "";
+  const activeCompanySlug = companySlug || company?.slug || routeCompanySlug;
   const manifestHref = activeCompanySlug
     ? `/api/pwa/manifest?slug=${encodeURIComponent(activeCompanySlug)}`
     : company?.id
