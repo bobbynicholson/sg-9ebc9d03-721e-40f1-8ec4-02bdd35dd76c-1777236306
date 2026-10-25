@@ -24,9 +24,9 @@ export default function InstallPage({ pwaBranding, brandingError }: { pwaBrandin
         const result = await fetch(icon.src, { method: "HEAD", cache: "no-store" });
         if (!result.ok || !result.headers.get("content-type")?.startsWith("image/")) throw new Error("Icon unavailable");
       }));
-      setSetupResult("App name, manifest and icon URLs are available. Safari's own menu is still required to add the Home Screen icon.");
+      setSetupResult("App name, manifest and icon URLs are available. Use the Install button when offered, or follow the steps for your browser.");
     } catch {
-      setSetupResult("App setup could not be checked. Check your connection and try again. You can still follow Safari's Add to Home Screen steps.");
+      setSetupResult("App setup could not be checked. Check your connection and try again, or follow the installation steps for your browser.");
     } finally { setChecking(false); }
   }
   return <>
@@ -41,7 +41,7 @@ export default function InstallPage({ pwaBranding, brandingError }: { pwaBrandin
         <PWAInstallPrompt appName={name} companySlug={pwaBranding?.slug} inline />
         <details className="mt-5 rounded-xl border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-700">
           <summary className="min-h-11 cursor-pointer py-2 font-medium text-slate-950">Check website app setup</summary>
-          <p className="mt-2">This checks the website's app metadata. It cannot inspect your iPhone's browser menu or create an icon.</p>
+          <p className="mt-2">This checks the app name, manifest and icon URLs. Your browser handles installation and creates the app shortcut.</p>
           <Button type="button" variant="outline" className="mt-3 min-h-11 w-full" disabled={checking} onClick={() => void checkSetup()}>{checking ? "Checking app setup..." : "Check app setup"}</Button>
           {setupResult && <p role="status" className="mt-3">{setupResult}</p>}
         </details>

@@ -4,6 +4,7 @@ import { ChevronRight, Download, Share, Smartphone, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { IosInstallGuide } from "@/components/pwa/IosInstallGuide";
+import { BrowserInstallGuide } from "@/components/pwa/BrowserInstallGuide";
 import { isInstalledApp, isIosDevice } from "@/lib/pwa/environment";
 import { pwaInstallUrl } from "@/lib/pwa/metadata";
 
@@ -123,6 +124,9 @@ export function PWAInstallPrompt({ appName = "CateringMS", companySlug, inline =
       </div>
       {error && <p role="alert" className="mt-3 text-sm text-red-800">{error}</p>}
       {ios ? <IosInstallGuide appName={appName} installPath={installPath} /> : <>
+        {(deferred || !stepsOpen) && <Button type="button" disabled={installing} className="mt-4 min-h-11 w-full whitespace-normal bg-brand-primary text-white hover:bg-brand-primary/90" onClick={() => void activateInstall()}>
+          <Download className="h-4 w-4" />{installing ? "Opening install prompt..." : deferred ? `Install ${appName}` : "Show installation steps"}
+        </Button>}
         {deferred || !stepsOpen ? <button
           ref={trackRef} type="button" disabled={installing}
           className="relative mt-4 h-12 w-full touch-none select-none overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset ring-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary disabled:opacity-60"
@@ -159,10 +163,9 @@ export function PWAInstallPrompt({ appName = "CateringMS", companySlug, inline =
           onBlur={resetGesture}>
           <span className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1 pl-8 text-sm font-semibold text-slate-700">{installing ? "Opening install prompt..." : deferred ? "Slide right to install" : "Slide for install steps"}<ChevronRight className="h-4 w-4" /></span>
           <span aria-hidden="true" className="pointer-events-none absolute left-1 top-1 flex h-10 w-10 items-center justify-center rounded-full bg-brand-primary text-white" style={{ transform: `translateX(${dragX}px)`, transition: dragging ? "none" : "transform 180ms ease-out" }}><Download className="h-5 w-5" /></span>
-        </button> : <div className="mt-4 space-y-3 text-sm leading-6 text-slate-700">
-          <p>In Chrome or Edge, open the browser menu and choose <strong>Install {appName}</strong> or <strong>Add to Home screen</strong>, then confirm Install.</p>
-          <p>In Safari on Mac, choose <strong>File → Add to Dock</strong>.</p>
-          <Button type="button" variant="outline" className="min-h-11 w-full" onClick={() => setStepsOpen(false)}>Show install control</Button>
+        </button> : <div className="mt-4 space-y-3">
+          <BrowserInstallGuide appName={appName} />
+          <Button type="button" variant="outline" className="min-h-11 w-full" onClick={() => setStepsOpen(false)}>Show slider</Button>
         </div>}
       </>}
       {!inline && <Link href={installPath} className="mt-3 flex min-h-11 items-center justify-center gap-1 text-sm font-medium text-brand-primary underline underline-offset-4">Open full installation guide<ChevronRight className="h-4 w-4" /></Link>}
