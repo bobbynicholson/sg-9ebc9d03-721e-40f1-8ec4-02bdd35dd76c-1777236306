@@ -56,6 +56,7 @@ export function PWAInstallPrompt() {
   const [showIosHint, setShowIosHint] = useState(false);
   const [iosInstructionsOpen, setIosInstructionsOpen] = useState(false);
   const [showBrowserHint, setShowBrowserHint] = useState(false);
+  const [shareOpened, setShareOpened] = useState(false);
   const [dismissed, setDismissed] = useState(true); // start hidden
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -141,6 +142,27 @@ export function PWAInstallPrompt() {
       // Private mode or storage full - harmless, just don't persist.
     }
     setDismissed(true);
+  };
+
+  const openIosShare = async () => {
+    if (typeof window === "undefined") return;
+    const share = (navigator as Navigator & {
+      share?: (data: { title?: string; text?: string; url?: string }) => Promise<void>;
+    }).share;
+    if (!share) {
+      setShareOpened(false);
+      return;
+    }
+    try {
+      await share.call(navigator, {
+        title: "CateringMS",
+        text: "Add CateringMS to your Home Screen",
+        url: window.location.href,
+      });
+      setShareOpened(true);
+    } catch {
+      // Closing the native share sheet is a normal user action.
+    }
   };
 
   const install = async () => {
@@ -252,9 +274,24 @@ export function PWAInstallPrompt() {
         </div>
 
         {showIosHint && iosInstructionsOpen ? (
-          <div className="mt-3 flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
-            <Share2 className="h-4 w-4 shrink-0 text-brand-primary" />
-            <span>Safari: Share → Add to Home Screen → Add</span>
+          <div className="mt-3 space-y-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
+            <div className="flex min-w-0 items-center gap-2">
+              <Share2 className="h-4 w-4 shrink-0 text-brand-primary" />
+              <span className="min-w-0 break-words">Safari: Share → Add to Home Screen → Add</span>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-10 w-full justify-center gap-2 bg-white"
+              onClick={() => void openIosShare()}
+            >
+              <Share2 className="h-4 w-4" />
+              {shareOpened ? "Share sheet opened" : "Open Share"}
+            </Button>
+            <p className="text-[11px] font-normal leading-relaxed text-slate-500">
+              If Add to Home Screen is not listed, tap Safari&apos;s Share icon in the browser toolbar.
+            </p>
           </div>
         ) : showBrowserHint && !deferred && iosInstructionsOpen ? (
           <div className="mt-3 flex min-w-0 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
