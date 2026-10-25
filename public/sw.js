@@ -40,6 +40,8 @@ const SHELL_URLS = [
   "/team-portal/waiter/dashboard",
   "/client-portal/dashboard",
   "/favicon.ico",
+  "/icons/cateringms-192.png",
+  "/icons/cateringms-512.png",
   "/manifest.webmanifest",
 ];
 
