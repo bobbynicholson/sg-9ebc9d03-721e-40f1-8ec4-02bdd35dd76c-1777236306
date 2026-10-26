@@ -42,7 +42,8 @@ const STATUS_VOCAB = {
   // 20261004150000: Stripe/Yoco platform plan checkout outcomes.
   platform_subscription_checkouts: ["pending", "succeeded", "failed", "expired"],
   cleaning_event_handovers: ["expected", "in_progress", "complete", "cancelled"],
-  outgoing_email_queue: ["queued", "in_progress", "paused", "sent", "failed", "cancelled"],
+  // 20261013100000: admin approval holds remain outside the worker's claimable states.
+  outgoing_email_queue: ["queued", "awaiting_approval", "in_progress", "paused", "sent", "failed", "cancelled"],
   driver_assignments: [
     "assigned", "accepted", "en_route", "picked_up", "at_venue",
     "delivered", "completed", "cancelled", "rejected",
@@ -206,7 +207,7 @@ const KNOWN_TABLES = new Set([
   "payment_credit_redemptions", // 20261004090000
   "refund_reconciliation_events", // 20261004100000
   "platform_subscription_checkouts", // 20261004150000
-  "account_deletion_requests","accounting_integrations","admin_notifications","ai_brain_access_policies","ai_brain_documents","ai_brain_sources","ai_brain_tool_policies","ai_dynamic_tools","allergens",
+  "account_deletion_requests","accounting_integrations","admin_notifications","ai_brain_access_policies","ai_brain_documents","ai_brain_sources","ai_brain_tool_policies","ai_dynamic_tools","ai_usage_events","allergens", // 20261007090000
   "api_key_rate_limits","api_keys","app_config","audit_logs","backup_generators",
   "billing_history","blocked_contacts","blog_posts","booking_packages",
   "cancellation_requests","chat_messages","chat_sessions","cleaning_duty_logs","cleaning_event_checklists","cleaning_event_handovers","cleaning_jobs","cleaning_machines",
@@ -220,7 +221,7 @@ const KNOWN_TABLES = new Set([
   // prod via PostgREST on 2026-07-06.
   "company_shopping_settings",
   "complaints",
-  "currency_fluctuation_alerts","deliveries","delivery_crates","delivery_feedback",
+  "currency_fluctuation_alerts","deliveries","delivery_crates","delivery_feedback","document_import_files", // 20261022190000
   "delivery_route_stops","delivery_routes","dispatch_messages","driver_assignments",
   "driver_confirmations","driver_locations","driver_payouts","driver_rest_logs","driver_shifts",
   "email_automation_log","email_delivery_events","email_notification_preferences","email_provider_settings",
@@ -263,7 +264,7 @@ const KNOWN_TABLES = new Set([
   "recipe_ingredients","recipe_scaling_history","recipes","recurring_invoice_runs",
   "recurring_invoice_templates","regions","return_load_tracking",
   "sa_tax_deductibility_rules","safety_checks","safety_equipment","shopping_list_items",
-  "shopping_lists","staff_invitations","staff_payment_ledger","staff_shift_tasks",
+  "shopping_lists","service_sittings","staff_invitations","staff_payment_ledger","staff_shift_tasks", // 20261020130000
   "staff_work_sessions","storage_locations","storage_racks","subscription_webhook_events",
   "subscriptions","suppliers","team_manager_notes",
   "supplier_payables","support_ticket_messages","support_tickets","temperature_logs","time_clock_entries",
