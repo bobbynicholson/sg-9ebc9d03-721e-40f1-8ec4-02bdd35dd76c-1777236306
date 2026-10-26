@@ -9,23 +9,25 @@ Generated from the Next.js src/pages route files. API endpoints, framework files
 | Audience / role | Route modules | Shared interface shell |
 |---|---:|---|
 | Blog | 2 | Public site header/footer and page templates |
-| Cleaning team | 12 | CleaningPageShell; shared portal header and workbench |
+| Cleaning team | 12 | OperationalPortalPageShell via CleaningPageShell |
 | Client links, orders, and payments | 13 | Focused quote, order, invoice, and payment flows |
 | Clients | 10 | Client navigation and shared portal components |
 | Company administrators and operators | 94 | PortalHeader / PortalShell; admin navigation |
 | Cross-role team pages | 1 | Public site header/footer and page templates |
-| Drivers | 9 | DriverPageShell; shared portal header and workbench |
-| Kitchen team | 14 | KitchenPageShell; shared portal header and workbench |
+| Drivers | 9 | OperationalPortalPageShell via DriverPageShell |
+| Kitchen team | 14 | OperationalPortalPageShell via KitchenPageShell |
 | Platform administrators | 21 | Platform navigation and shared portal components |
 | Public website and regional pages | 28 | Public site header/footer and page templates |
-| Shopping team | 13 | ShoppingPageShell; shared portal header and workbench |
+| Shopping team | 13 | OperationalPortalPageShell via ShoppingPageShell |
 | Sign-in, accounts, and onboarding | 9 | AuthShell or account shell |
-| Waiter team | 3 | WaiterPageShell; shared portal header and workbench |
+| Waiter team | 3 | OperationalPortalPageShell via WaiterPageShell |
 
 ## Coverage notes
 
 This is a route-module inventory, not one row per account. Protected pages render for the roles allowed by their route guards; aliases and redirects are listed because existing links can still reach them.
 
+- Company-admin and platform-admin screens share `PortalShell` and `PortalHeader` alongside their role navigation, with `PageWorkbench` on standard content pages. Kitchen, driver, waiter, shopping, and cleaning screens now share `OperationalPortalPageShell`; each role supplies its own navigation and brand accent while retaining the same responsive frame.
+- The delivery-sheet print route uses a deliberately reduced layout so printed output stays usable. Route aliases and redirects reuse their canonical page rather than introducing a second visual implementation.
 - Public marketing pages use the shared `LandingHeader` and `LandingFooter`. Regional homepages reuse the same sections and keep their regional pricing URLs.
 - Sign-in and onboarding routes use the shared `AuthShell`; tenant branding changes the logo, name and accent while the layout stays consistent.
 - Company admin, platform admin, client, driver, kitchen, shopping, cleaning and waiter routes use their shared portal shells where a canonical page is rendered. Legacy routes generally redirect or re-export those canonical pages.
