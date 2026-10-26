@@ -11,6 +11,7 @@ import {
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { hasEventDatePassed } from "@/lib/eventDateGuard";
 
 
 const CRON_NAME = "quote-followup-send";
@@ -38,7 +39,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const { data: tenants, error: tenantErr } = await sb
       .from("companies")
-      .select("id")
+      .select("id, timezone")
       .eq("auto_followups_enabled", true);
     if (tenantErr) {
       console.error("[quote-followup-send] tenant fetch failed:", tenantErr);
@@ -52,6 +53,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     let totalConsidered = 0;
     let totalSent = 0;
+    let totalSkippedPastEvent = 0;
     const errors: string[] = [];
 
     for (const tenant of tenants as any[]) {
@@ -59,7 +61,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
       const { data: quotes, error: qErr } = await sb
         .from("quotes")
-        .select("id, status, sent_at, accepted_at, client_email, client_name, quote_number, quote_name")
+        .select("id, status, sent_at, accepted_at, client_email, client_name, quote_number, quote_name, event_date")
         .eq("company_id", tenant.id)
         .not("sent_at", "is", null)
         .not("status", "in", "(accepted,rejected,expired)")
@@ -84,6 +86,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
       for (const quote of quotes as any[]) {
         totalConsidered += 1;
+        // A quote can remain technically open after its event. Never send
+        // an automated chase for an event that has already happened.
+        if (hasEventDatePassed(quote.event_date, now, tenant.timezone)) {
+          totalSkippedPastEvent += 1;
+          continue;
+        }
         const state = computeFollowupState(quote, byQuote[quote.id] || [], cadence, now);
         if (state.light !== "amber" && state.light !== "rose") continue;
         if (!state.nextPosition) continue;
@@ -206,6 +214,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       tenantsConsidered: tenants.length,
       quotesConsidered: totalConsidered,
       sent: totalSent,
+      skipped_past_event: totalSkippedPastEvent,
       errors_count: errors.length,
     });
     return res.status(200).json({
@@ -213,6 +222,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       tenantsConsidered: tenants.length,
       quotesConsidered: totalConsidered,
       sent: totalSent,
+      skippedPastEvent: totalSkippedPastEvent,
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (e: any) {

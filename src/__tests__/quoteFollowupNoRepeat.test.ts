@@ -45,7 +45,7 @@ jest.mock("@/lib/supabase/service", () => ({
 
 const quote = (id: string, email: string) => ({
   id, company_id: "co-1", status: "sent", sent_at: "2026-10-08T10:00:00Z", client_email: email, client_name: "Natasha Cupido",
-  quote_number: id, quote_name: "Birthday",
+  quote_number: id, quote_name: "Birthday", event_date: null,
 });
 
 async function run() {
@@ -60,6 +60,15 @@ beforeEach(() => {
 });
 
 describe("quote follow-up job", () => {
+  it("does not send an automatic follow-up when the event date has passed", async () => {
+    tables.quotes = [{ ...quote("q-1", "natasha@example.com"), event_date: "2020-01-01" }];
+    const res = await run();
+    expect(deliverAutomatedEmail).not.toHaveBeenCalled();
+    expect(recordFollowupSent).not.toHaveBeenCalled();
+    expect(res.body.sent).toBe(0);
+    expect(res.body.skippedPastEvent).toBe(1);
+  });
+
   it("records, and does not resend, a follow-up the client already received", async () => {
     tables.quotes = [quote("q-1", "natasha@example.com")];
     tables.email_automation_log = [{ user_id: "co-1", status: "sent", recipient_email: "Natasha@example.com", subject: "Just checking in on Birthday", created_at: "2026-10-14T09:00:00Z" }];
