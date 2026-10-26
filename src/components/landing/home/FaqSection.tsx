@@ -9,11 +9,11 @@ export const FAQS = [
   { question: "How long does setup take?", answer: "It depends on how much menu and booking information you add. Start with your company details, then add quotes and orders as you need them. You can also import bookings from PDFs or spreadsheets." },
   { question: "Do I need technical skills to use this?", answer: "Not at all. The platform is designed for caterers, not tech experts. If you can use WhatsApp, you can use our system. We've made everything intuitive and simple." },
   { question: "What if my team isn't tech-savvy?", answer: "Our mobile apps are incredibly simple. Drivers tap a button to start jobs, kitchen staff see clear prep lists, clients track orders visually. Everyone picks it up in minutes." },
-  { question: "Can I scale to multiple locations?", answer: "Absolutely. Our multi-region feature lets you launch new kitchens, teams, and operations across South Africa with one-click setup. Head office manages sales, regions handle fulfillment." },
-  { question: "What payment methods do you support?", answer: "We integrate with PayFast, Stripe, Paystack, and Flutterwave. Accept card payments, EFTs, and instant payments. All reconciled automatically." },
+  { question: "Can I scale to multiple locations?", answer: "Yes. Manage kitchens, teams and operations across regions, with head office and local teams working from the same booking information." },
+  { question: "What payment methods do you support?", answer: "Connect the payment gateways available for your business and region, then track deposits, balances and invoices alongside each booking." },
   { question: "Is my data secure?", answer: "Bank-level encryption, daily backups, 99.9% uptime. Your business data is protected, secure, and always accessible when you need it." },
   { question: "Can I try it before committing?", answer: "Yes! Start with a free trial. No credit card required. Test everything, invite your team, run a real event. Only pay if you love it." },
-  { question: "What kind of support do you provide?", answer: "Email support, video tutorials, detailed documentation, and a growing community of South African caterers. We're invested in your success." },
+  { question: "What kind of support do you provide?", answer: "Get help from our support team, with guides and documentation to help your team set up and use the platform." },
 ];
 
 export function FaqSection() {

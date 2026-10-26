@@ -35,7 +35,7 @@ export function FinalCtaSection() {
             Let&apos;s make your next event effortless
           </h2>
           <p className="mx-auto mt-6 max-w-2xl text-balance text-lg text-stone-200 sm:text-xl">
-            Join forward-thinking catering businesses across South Africa running
+            Join catering businesses running
             profitable, scalable operations - without being trapped in the day-to-day.
           </p>
 

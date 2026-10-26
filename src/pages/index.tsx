@@ -1,17 +1,6 @@
 import Head from "next/head";
-import { LandingFooter } from "@/components/landing/LandingFooter";
-import { LandingHeader } from "@/components/landing/LandingHeader";
-import { HeroSection } from "@/components/landing/home/HeroSection";
-import { SocialProofSection } from "@/components/landing/home/SocialProofSection";
-import { ServicesSection } from "@/components/landing/home/ServicesSection";
-import { MenuSection } from "@/components/landing/home/MenuSection";
-import { WhySection } from "@/components/landing/home/WhySection";
-import { TestimonialsSection } from "@/components/landing/home/TestimonialsSection";
-import { GallerySection } from "@/components/landing/home/GallerySection";
-import { StatementSection } from "@/components/landing/home/StatementSection";
-import { ProcessSection } from "@/components/landing/home/ProcessSection";
-import { FaqSection, FAQS } from "@/components/landing/home/FaqSection";
-import { FinalCtaSection } from "@/components/landing/home/FinalCtaSection";
+import { LandingHomeContent } from "@/components/landing/LandingHomeContent";
+import { FAQS } from "@/components/landing/home/FaqSection";
 
 const SITE_URL = "https://cateringms.com";
 // The only image guaranteed to exist in /public today. Swap for a proper
@@ -88,21 +77,7 @@ export default function HomePage() {
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
       </Head>
 
-      <div className="font-body min-h-screen bg-stone-50 text-stone-900">
-        <LandingHeader />
-        <HeroSection />
-        <SocialProofSection />
-        <ServicesSection />
-        <MenuSection />
-        <WhySection />
-        <TestimonialsSection />
-        <GallerySection />
-        <StatementSection />
-        <ProcessSection />
-        <FaqSection />
-        <FinalCtaSection />
-        <LandingFooter />
-      </div>
+      <LandingHomeContent />
     </>
   );
 }

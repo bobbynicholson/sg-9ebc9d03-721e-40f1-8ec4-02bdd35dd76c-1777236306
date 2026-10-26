@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { getRegionFromPath, getRegionCurrency, type MarketRegion } from "@/lib/geoLocation";
 import { getAllPricingOptions, calculateAnnualSavings, formatPrice, applyLivePlans, type LivePlan } from "@/lib/pricingCalculator";
+import Head from "next/head";
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -18,10 +19,9 @@ import { EASE, btnPress } from "@/components/motion/marketing";
 // formatCurrency that used to live here have been removed - they were
 // stale copies of the same data and never wired into the JSX.
 
-export default function PricingPage() {
-  const [region, setRegion] = useState<MarketRegion>("za");
+export default function PricingPage({ initialRegion = "za" }: { initialRegion?: MarketRegion }) {
+  const [region, setRegion] = useState<MarketRegion>(initialRegion);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annually">("monthly");
-  const [isLoading, setIsLoading] = useState(true);
   const [livePlans, setLivePlans] = useState<LivePlan[] | null>(null);
   // When a signed-in company views pricing, the plan CTA takes them
   // straight to checkout (upgrade). Logged-out prospects register first.
@@ -35,43 +35,43 @@ export default function PricingPage() {
   }, []);
 
   useEffect(() => {
-    const initRegion = async () => {
-      const pathRegion = getRegionFromPath(window.location.pathname);
-      setRegion(pathRegion);
-      // Fetch live prices from the platform_pricing_plans table.
-      // If the API is down we fall back to the hard-coded defaults
-      // baked into pricingCalculator - the page never blanks.
-      try {
-        const r = await fetch("/api/platform/pricing-plans");
-        if (r.ok) {
-          const j = await r.json();
-          if (Array.isArray(j?.plans) && j.plans.length) setLivePlans(j.plans);
-        }
-      } catch {
-        // ignore - fallback to baked-in pricing
-      }
-      setIsLoading(false);
-    };
+    setRegion(getRegionFromPath(window.location.pathname));
 
-    initRegion();
+    // The baked-in prices are ready for the first render. Refresh them in the
+    // background so a slow pricing API can never hold the whole page on a spinner.
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 6000);
+    fetch("/api/platform/pricing-plans", { signal: controller.signal })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (Array.isArray(data?.plans) && data.plans.length) setLivePlans(data.plans);
+      })
+      .catch(() => {
+        // Keep the built-in pricing options available when the API is offline.
+      })
+      .finally(() => window.clearTimeout(timeout));
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, []);
 
   const pricingOptions = applyLivePlans(getAllPricingOptions(region), livePlans, region);
   const currency = getRegionCurrency(region);
+  const pricingTitle = region === "us"
+    ? "US pricing | CateringMS"
+    : region === "uk"
+      ? "UK pricing | CateringMS"
+      : region === "eu"
+        ? "European pricing | CateringMS"
+        : "CateringMS pricing | Plans for catering teams";
   const currencyNote =
     region === "za" ? "All prices in South African Rand (ZAR)"
     : region === "us" ? "All prices in US Dollars (USD)"
     : region === "uk" ? "All prices in British Pounds (GBP)"
     : region === "eu" ? "All prices in Euros (EUR)"
     : "All prices in South African Rand (ZAR)";
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-stone-50">
-        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-amber-600 motion-reduce:animate-none"></div>
-      </div>
-    );
-  }
 
   const faqs = [
     {
@@ -126,6 +126,10 @@ export default function PricingPage() {
 
   return (
     <div className="font-body min-h-screen bg-stone-50 text-stone-900">
+      <Head>
+        <title>{pricingTitle}</title>
+        <meta name="description" content="Compare CateringMS plans for quotes, payments, kitchen operations and delivery management." />
+      </Head>
       <Header />
 
       <main className="mx-auto max-w-7xl px-4 py-16 md:py-24">

@@ -123,7 +123,7 @@ export function Footer() {
   // block doesn't help anyone who's already inside their portal --
   // it just adds noise to authenticated dashboards. Hidden when
   // signed in. (Moved up so the hook always runs.)
-  const { user } = useAuth() as any;
+  const { user } = useAuth();
   const isSignedIn = !!user;
 
   // Footer-below-the-fold spacer hooks. Always declared so the
@@ -180,6 +180,8 @@ export function Footer() {
 
   const displayName = branding?.companyName || "CateringMS";
   const displayLogo = branding?.logoUrl;
+  const currentPath = (router?.asPath || router?.pathname || "").split(/[?#]/)[0];
+  const regionPrefix = /^(?:\/)?(us|uk|eu)(?:\/|$)/.exec(currentPath)?.[1] as "us" | "uk" | "eu" | undefined;
 
   // The marketing footer IS the warm landing footer - one voice across the
   // whole public site. The old slate-gradient block (gradient wordmark,
@@ -199,6 +201,7 @@ export function Footer() {
           displayName={displayName}
           logoUrl={displayLogo || null}
           isWhiteLabeled={isWhiteLabeled}
+          regionPrefix={regionPrefix || ""}
         />
       </div>
     </>

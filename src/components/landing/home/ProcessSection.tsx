@@ -4,7 +4,7 @@ import { SectionHeader } from "./shared";
 
 const WORKFLOW = [
   { icon: FileText, step: "Enquiry & Quote", description: "Capture every lead and build itemised, menu-based quotes in minutes. Send a branded quote your client can accept online." },
-  { icon: Calendar, step: "Confirm & Deposit", description: "Clients accept via a secure magic-link portal and pay a deposit through PayFast. The function locks into your calendar automatically." },
+  { icon: Calendar, step: "Confirm & Deposit", description: "Clients accept through a secure portal and pay a deposit using your connected payment provider. The booking locks into your calendar automatically." },
   { icon: ChefHat, step: "Plan & Prep", description: "Auto-generate the BEO, kitchen prep lists, shopping lists and allergen sheets - with own stock and hire-in equipment reconciled." },
   { icon: Truck, step: "Deliver & Serve", description: "Drivers get optimised routes and live GPS tracking. Clients watch their order arrive while equipment is checked out and back in." },
   { icon: RefreshCw, step: "Invoice & Rebook", description: "Settle the balance with final guest-count adjustments, then trigger automated thank-yous and rebooking nurture for next season." },

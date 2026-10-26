@@ -1,8 +1,6 @@
 import { useEffect } from "react";
 import Head from "next/head";
-import dynamic from "next/dynamic";
-
-const PricingPage = dynamic(() => import("../pricing"), { ssr: false });
+import PricingPage from "../pricing";
 
 export default function EUPricingPage() {
   useEffect(() => {
@@ -28,7 +26,7 @@ export default function EUPricingPage() {
         <link rel="alternate" hrefLang="x-default" href="https://cateringms.com/pricing" />
       </Head>
 
-      <PricingPage />
+      <PricingPage initialRegion="eu" />
     </>
   );
 }

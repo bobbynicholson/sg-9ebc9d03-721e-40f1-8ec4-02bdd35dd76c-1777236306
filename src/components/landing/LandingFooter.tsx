@@ -44,12 +44,16 @@ export function LandingFooter({
   displayName = "CateringMS",
   logoUrl = null,
   isWhiteLabeled = false,
+  regionPrefix = "",
 }: {
   displayName?: string;
   logoUrl?: string | null;
   isWhiteLabeled?: boolean;
+  regionPrefix?: "" | "us" | "uk" | "eu";
 }) {
   const year = new Date().getFullYear();
+  const homeHref = regionPrefix ? `/${regionPrefix}` : "/";
+  const pricingHref = regionPrefix ? `/${regionPrefix}/pricing` : "/pricing";
 
   return (
     <footer className="bg-stone-950 text-stone-300">
@@ -57,12 +61,12 @@ export function LandingFooter({
         <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-5">
           {/* Brand + contact */}
           <div className="lg:col-span-2">
-            <Link href="/" className="flex items-center gap-2">
+            <Link href={homeHref} className="flex items-center gap-2">
               {logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={logoUrl} alt={displayName} className="h-9 max-w-[180px] object-contain" />
               ) : (
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-700">
                   <ChefHat className="h-5 w-5 text-white" />
                 </span>
               )}
@@ -73,7 +77,7 @@ export function LandingFooter({
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-stone-400">
               {isWhiteLabeled
                 ? "Complete catering management - quotes, kitchen, delivery and payments, connected."
-                : "The complete operating system for South African catering businesses - quote, plan, deliver and get paid, beautifully, from one platform."}
+                : "The complete operating system for catering businesses: quote, plan, deliver and get paid from one platform."}
             </p>
             {!isWhiteLabeled && (
               <div className="mt-6 space-y-2 text-sm">
@@ -116,7 +120,7 @@ export function LandingFooter({
                 {col.links.map((link) => (
                   <li key={link.name}>
                     <Link
-                      href={link.href}
+                      href={link.name === "Pricing" ? pricingHref : link.href}
                       className="text-sm text-stone-400 transition-colors duration-150 hover:text-amber-400"
                     >
                       {link.name}
@@ -137,7 +141,7 @@ export function LandingFooter({
             </div>
             <Link
               href="/company-signup"
-              className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-b from-amber-700 to-amber-800 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-amber-900/20 transition-[transform,box-shadow] duration-150 ease-standard hover:from-amber-800 hover:to-amber-900 hover:shadow-lg active:scale-[0.97]"
+              className="group inline-flex items-center gap-2 rounded-full bg-amber-800 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-amber-900"
             >
               Start free trial
               <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -162,7 +166,7 @@ export function LandingFooter({
               Powered by CateringMS
             </a>
           ) : (
-            <p>Made for South African caterers 🇿🇦</p>
+            <p>Made for catering teams</p>
           )}
         </div>
       </div>

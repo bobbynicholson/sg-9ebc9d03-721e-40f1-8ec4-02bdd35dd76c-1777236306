@@ -1,13 +1,8 @@
 import { useEffect } from "react";
-import { useRouter } from "next/router";
 import Head from "next/head";
-import dynamic from "next/dynamic";
-
-const PricingPage = dynamic(() => import("../pricing"), { ssr: false });
+import PricingPage from "../pricing";
 
 export default function UKPricingPage() {
-  const router = useRouter();
-
   useEffect(() => {
     // Ensure we're on the UK pricing path
     if (typeof window !== "undefined") {
@@ -31,7 +26,7 @@ export default function UKPricingPage() {
         <link rel="alternate" hrefLang="x-default" href="https://cateringms.com/pricing" />
       </Head>
       
-      <PricingPage />
+      <PricingPage initialRegion="uk" />
     </>
   );
 }
