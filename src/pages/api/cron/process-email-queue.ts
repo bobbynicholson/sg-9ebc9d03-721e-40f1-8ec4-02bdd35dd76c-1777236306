@@ -115,6 +115,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       sent: transactional.sent + followups.sent,
       failed: transactional.failed + followups.failed,
       turnedOff: (transactional.turnedOff || 0) + (followups.turnedOff || 0),
+      skippedPastEvent: (transactional.skippedPastEvent || 0) + (followups.skippedPastEvent || 0),
     };
   } catch (e: any) {
     console.error("[cron/process-email-queue] drain failed:", e);
@@ -128,6 +129,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     source: auth.source,
     processed: result.processed,
     sent: result.sent, failed: result.failed, turned_off: result.turnedOff,
+    skipped_past_event: result.skippedPastEvent,
   });
   return res.status(200).json({
     ok: true,
@@ -135,6 +137,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     sent: result.sent,
     failed: result.failed,
     turned_off: result.turnedOff,
+    skipped_past_event: result.skippedPastEvent,
   });
 }
 

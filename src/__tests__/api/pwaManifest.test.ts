@@ -19,7 +19,7 @@ test("company manifest uses a real tenant launch path and same-origin square PNG
   await handler({ method: "GET", query: { slug: "company-a" } } as never, res as never);
   expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "application/manifest+json; charset=utf-8");
   const manifest = JSON.parse(res.send.mock.calls[0][0]);
-  expect(manifest).toMatchObject({ name: "Company A", id: "/pwa/company-a", start_url: "/company-a/login", scope: "/", display: "standalone", theme_color: "#f21f07" });
+  expect(manifest).toMatchObject({ name: "Company A", id: "/pwa/company-a", start_url: "/company-a/login", scope: "/", display: "standalone", launch_handler: { client_mode: "navigate-existing" }, theme_color: "#f21f07" });
   expect(manifest.background_color).toBe("#f21f07");
   expect(manifest.icons).toEqual([192, 512].map(size => expect.objectContaining({ src: expect.stringContaining(`/api/pwa/icon?slug=company-a&size=${size}`), sizes: `${size}x${size}`, type: "image/png", purpose: "any" })));
 });
@@ -65,6 +65,9 @@ test("company renames refresh icon URLs without changing the manifest location o
 });
 test.each(["/company-a/login", "/company-a/client/login", "/company-a/account/settings", "/company-a/team-portal/driver/dashboard", "/auth/install?company=company-a"]) ("install metadata is enabled before or after auth on %s", path => {
   expect(pwaRouteInfo(path).enabled).toBe(true);
+});
+test("company-admin deep links from email stay inside the installed app scope", () => {
+  expect(pwaRouteInfo("/company-a/admin/orders?orderId=o1&amendment=a1").enabled).toBe(true);
 });
 test("public marketing stays outside the install shell", () => { expect(pwaRouteInfo("/pricing").enabled).toBe(false); });
 test.each(["127.0.0.1", "10.0.0.1", "169.254.169.254", "172.16.0.1", "192.168.0.1", "100.64.0.1", "224.0.0.1", "::1"])("icon downloads refuse internal address %s", address => {

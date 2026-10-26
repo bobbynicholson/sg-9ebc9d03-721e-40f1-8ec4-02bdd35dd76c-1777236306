@@ -13,6 +13,46 @@
 import { emailService } from "@/services/emailService";
 import { TRANSACTIONAL_EMAIL_EVENTS, queuedEmailReference } from "./queuePolicy";
 import { resolveEmailDeliveryMode } from "./automatedEmailTemplates";
+import { hasEventDatePassed } from "@/lib/eventDateGuard";
+
+const EVENT_DATE_ORDER_REMINDERS = new Set([
+  "pre_event",
+  "kitchen_pre_event",
+  "event_tomorrow_admin_email",
+  "event_tomorrow_kitchen_email",
+  "event_shopping_lead_email",
+  "payment.deposit_reminder",
+  "outsource.pre_event_reminder",
+]);
+
+function requiresEventDateCheck(row: any): boolean {
+  return EVENT_DATE_ORDER_REMINDERS.has(String(row?.trigger_event || ""))
+    || row?.trigger_event === "quote.followup";
+}
+
+async function loadQueuedEventDateContext(supabase: any, row: any): Promise<{ eventDate: string | null; timezone: string | null }> {
+  const isQuote = row.trigger_event === "quote.followup";
+  const table = isQuote ? "quotes" : "orders";
+  const refId = row.trigger_ref_id;
+  if (!refId) return { eventDate: null, timezone: null };
+
+  const { data: record, error: recordError } = await supabase
+    .from(table)
+    .select("event_date")
+    .eq("id", refId)
+    .eq("company_id", row.company_id)
+    .maybeSingle();
+  if (recordError) throw new Error(`Event date lookup failed: ${recordError.message}`);
+
+  const { data: company, error: companyError } = await supabase
+    .from("companies")
+    .select("timezone")
+    .eq("id", row.company_id)
+    .maybeSingle();
+  if (companyError) throw new Error(`Event timezone lookup failed: ${companyError.message}`);
+
+  return { eventDate: record?.event_date || null, timezone: company?.timezone || null };
+}
 
 /**
  * The "booking confirmed" email (order.created, queued by the database
@@ -40,6 +80,8 @@ export interface DrainResult {
   failed: number;
   /** Due emails not sent because they are turned off in Email settings. */
   turnedOff?: number;
+  /** Event reminders cancelled because the event date has passed. */
+  skippedPastEvent?: number;
 }
 
 export async function drainEmailQueue(
@@ -100,6 +142,8 @@ export async function drainEmailQueue(
   let failed = 0;
   let processed = 0;
   let turnedOff = 0;
+  let skippedPastEvent = 0;
+  const eventDateContextCache = new Map<string, Promise<{ eventDate: string | null; timezone: string | null }>>();
 
   for (const candidate of due) {
     let row = candidate;
@@ -142,6 +186,24 @@ export async function drainEmailQueue(
     let sentAt: string | null = null;
     let errorMessage: string | null = null;
     try {
+      if (requiresEventDateCheck(row)) {
+        const cacheKey = `${row.trigger_event}:${row.company_id}:${row.trigger_ref_id}`;
+        let contextPromise = eventDateContextCache.get(cacheKey);
+        if (!contextPromise) {
+          contextPromise = loadQueuedEventDateContext(supabase, row);
+          eventDateContextCache.set(cacheKey, contextPromise);
+        }
+        const context = await contextPromise;
+        if (hasEventDatePassed(context.eventDate, new Date(), context.timezone)) {
+          const cancelled = await supabase
+            .from("outgoing_email_queue")
+            .update({ status: "cancelled", error_message: "Not sent: event date has passed" })
+            .eq("id", row.id).eq("company_id", row.company_id);
+          if (cancelled.error) throw new Error(`Past-event reminder could not be cancelled: ${cancelled.error.message}`);
+          skippedPastEvent += 1;
+          continue;
+        }
+      }
       // The legacy status trigger can race the direct composer send. A
       // successful quote receipt satisfies that row even if the composer
       // closed before it could complete the queued duplicate itself.
@@ -225,7 +287,13 @@ export async function drainEmailQueue(
     }
   }
 
-  return turnedOff > 0 ? { processed, sent, failed, turnedOff } : { processed, sent, failed };
+  return {
+    processed,
+    sent,
+    failed,
+    ...(turnedOff > 0 ? { turnedOff } : {}),
+    ...(skippedPastEvent > 0 ? { skippedPastEvent } : {}),
+  };
 }
 
 

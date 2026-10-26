@@ -5,6 +5,7 @@ import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { hasRecordedDepositPayment, outstandingDepositReminderAmount } from "@/lib/depositReminderAmount";
+import { hasEventDatePassed, shiftCalendarDate, tenantCalendarDate } from "@/lib/eventDateGuard";
 import {
   fetchClientPaymentSchedules,
   isPaymentReminderDue,
@@ -56,7 +57,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const sb: any = getServiceSupabase();
   try {
     const now = new Date();
-    const today = now.toISOString().slice(0, 10);
+    const utcToday = now.toISOString().slice(0, 10);
+    // Include a neighboring UTC date so local-today events are considered
+    // for tenants west of UTC; each order is filtered in its own timezone.
+    const candidateStart = shiftCalendarDate(utcToday, -1);
     const graceCutoff = new Date(now.getTime() - REMIND_AFTER_DAYS * 86_400_000).toISOString();
     const dedupCutoff = new Date(now.getTime() - REMIND_EVERY_DAYS * 86_400_000).toISOString();
 
@@ -66,7 +70,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .from("orders")
       .select("id, company_id, client_id, order_number, client_email, client_name, event_name, event_date, deposit_paid, deposit_amount, deposit_percentage, amount_paid, total_amount, created_at, status")
       .or("deposit_paid.eq.false,deposit_paid.is.null")
-      .gte("event_date", today)
+      .gte("event_date", candidateStart)
       .in("status", ["pending", "confirmed"])
       .is("deleted_at", null)
       .lte("created_at", graceCutoff)
@@ -76,10 +80,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: error.message });
       return res.status(500).json({ error: error.message });
     }
-    if (!orders || orders.length === 0) {
-      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, considered: 0, queued: 0 });
-      return res.status(200).json({ ok: true, queued: 0 });
-    }
+    const candidateOrders = (orders || []) as any[];
 
     // Cron context: no request host available, so explicit config
     // first with the canonical production domain as the backstop.
@@ -91,15 +92,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     let queued = 0;
     let skipped = 0;
+    let skippedPastEventDate = 0;
     const errors: string[] = [];
 
     // Payment reminder setting per company (Settings -> Financial).
     // Unset = off: those companies' clients get no deposit reminder.
-    const companyIds = Array.from(new Set((orders as any[]).map((o) => o.company_id).filter(Boolean)));
-    const { data: companyRows, error: companiesError } = await sb
-      .from("companies")
-      .select("id, dispatch_settings, balance_due_days, deposit_percent")
-      .in("id", companyIds);
+    const companyIds = Array.from(new Set(candidateOrders.map((o) => o.company_id).filter(Boolean)));
+    const { data: companyRows, error: companiesError } = companyIds.length
+      ? await sb
+          .from("companies")
+          .select("id, dispatch_settings, balance_due_days, deposit_percent, timezone")
+          .in("id", companyIds)
+      : { data: [], error: null };
     if (companiesError) {
       console.error("[deposit-reminder] companies fetch failed:", companiesError);
       await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: companiesError.message });
@@ -107,19 +111,31 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
     const reminderSettings = new Map<string, { reminders: PaymentReminderSettings; due: PaymentDueSettings }>();
     const depositPercentByCompany = new Map<string, number | null>();
+    const timezoneByCompany = new Map<string, string | null>();
     for (const co of (companyRows || []) as any[]) {
       reminderSettings.set(co.id, {
         reminders: readPaymentReminderSettings(co.dispatch_settings),
         due: readPaymentDueSettings(co.dispatch_settings, co.balance_due_days),
       });
       depositPercentByCompany.set(co.id, co.deposit_percent == null ? null : Number(co.deposit_percent));
+      timezoneByCompany.set(co.id, co.timezone || null);
     }
 
     // Per-client override (Contacts) wins over the company setting.
-    const clientSchedules = await fetchClientPaymentSchedules(sb, (orders as any[]).map((o) => o.client_id));
+    const clientSchedules = candidateOrders.length
+      ? await fetchClientPaymentSchedules(sb, candidateOrders.map((o) => o.client_id))
+      : new Map();
 
-    for (const order of orders as any[]) {
+    for (const order of candidateOrders) {
       try {
+        const timezone = timezoneByCompany.get(order.company_id);
+        const tenantToday = tenantCalendarDate(now, timezone);
+        if (hasEventDatePassed(order.event_date, now, timezone)) {
+          skipped += 1;
+          skippedPastEventDate += 1;
+          continue;
+        }
+
         // The unpaid deposit invoice carries the public pay token.
         // No invoice yet (generation failed at convert time) -> skip;
         // a reminder without a pay link just generates support email.
@@ -174,7 +190,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         // Company timing: only on the chosen reminder day (plus a short
         // catch-up window). The 3-day pacing gate below keeps it to one.
         const targetDate = paymentReminderTargetDate(settings.reminders, settings.due, order.event_date);
-        if (!isPaymentReminderDue(targetDate, today)) { skipped += 1; continue; }
+        if (!isPaymentReminderDue(targetDate, tenantToday)) { skipped += 1; continue; }
 
         // Pacing gate 1: nothing in the last REMIND_EVERY_DAYS days.
         const { count: recentCount } = await sb
@@ -268,15 +284,25 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       const { data: pastDue } = await sb
         .from("orders")
         .select("id, company_id, region_id, order_number, event_name, event_date, deposit_amount")
-        .eq("deposit_paid", false)
-        .lt("event_date", today)
+        .or("deposit_paid.eq.false,deposit_paid.is.null")
+        .lte("event_date", utcToday)
         .in("status", ["pending", "confirmed"])
         .is("deleted_at", null)
         .limit(300);
       if (pastDue && pastDue.length) {
+        const pastCompanyIds = Array.from(new Set((pastDue as any[]).map((o) => o.company_id).filter(Boolean)));
+        const { data: pastCompanies, error: pastCompaniesError } = await sb
+          .from("companies")
+          .select("id, timezone")
+          .in("id", pastCompanyIds);
+        if (pastCompaniesError) throw new Error(pastCompaniesError.message);
+        const pastTimezoneByCompany = new Map<string, string | null>(
+          ((pastCompanies || []) as any[]).map((company) => [company.id, company.timezone || null]),
+        );
         const { notificationService } = await import("@/services/notificationService");
         for (const o of pastDue as any[]) {
           try {
+            if (!hasEventDatePassed(o.event_date, now, pastTimezoneByCompany.get(o.company_id))) continue;
             const amt = Number(o.deposit_amount || 0);
             const amtLabel = amt > 0 ? ` of R${amt.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "";
             const sent = await notificationService.broadcastNotification(
@@ -308,17 +334,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     await recordCronHeartbeat(sb, CRON_NAME, errors.length > 0 ? "error" : "ok", {
       source: auth.source,
-      considered: orders.length,
+      considered: candidateOrders.length,
       queued,
       skipped,
+      skipped_past_event_date: skippedPastEventDate,
       escalated,
       errors_count: errors.length,
     });
     return res.status(200).json({
       ok: true,
-      considered: orders.length,
+      considered: candidateOrders.length,
       queued,
       skipped,
+      skippedPastEventDate,
       escalated,
       errors: errors.length > 0 ? errors : undefined,
     });

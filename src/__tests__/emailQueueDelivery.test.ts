@@ -4,9 +4,10 @@ import { emailService } from "@/services/emailService";
 import { queuedEmailReference } from "@/lib/email/queuePolicy";
 jest.mock("@/services/emailService", () => ({ emailService: { sendEmailDetailed: jest.fn() } }));
 
-function queueClient(rows: any[], receiptError = false) {
+function queueClient(rows: any[], receiptError = false, otherTables: Record<string, any[]> = {}) {
   const sb: any = { rpc: jest.fn() };
-  sb.from = jest.fn(() => {
+  sb.from = jest.fn((table: string) => {
+    const tableRows = table === "outgoing_email_queue" ? rows : (otherTables[table] || []);
     const filters: Array<(r: any) => boolean> = [];
     let patch: any = null;
     let size = Infinity;
@@ -20,7 +21,7 @@ function queueClient(rows: any[], receiptError = false) {
     q.update = (value: any) => { patch = value; return q; };
     function execute(single = false) {
       if (receiptError && patch?.status === "sent") return { error: { message: "database offline" }, data: null };
-      const matching = rows.filter(r => filters.every(f => f(r))).slice(0, size);
+      const matching = tableRows.filter(r => filters.every(f => f(r))).slice(0, size);
       if (patch) matching.forEach(r => Object.assign(r, patch));
       const data = matching.map(r => ({ ...r }));
       return { data: single ? data[0] || null : data, error: null };
@@ -49,6 +50,37 @@ describe("transactional queue delivery", () => {
     expect(results.reduce((n, r) => n + r.sent, 0)).toBe(1);
     expect(emailService.sendEmailDetailed).toHaveBeenCalledTimes(1);
   });
+  it("cancels a queued pre-event reminder after the event date has passed", async () => {
+    const rows = [{ ...quote, trigger_event: "pre_event", trigger_ref_id: "order-1" }];
+    const sb = queueClient(rows, false, {
+      orders: [{ id: "order-1", company_id: "company-1", event_date: "2020-01-01" }],
+      companies: [{ id: "company-1", timezone: "Africa/Johannesburg" }],
+    });
+
+    expect(await drainEmailQueue(sb, ["company-1"], { transactionalOnly: true })).toEqual({
+      processed: 1, sent: 0, failed: 0, skippedPastEvent: 1,
+    });
+    expect(rows[0]).toMatchObject({ status: "cancelled", error_message: "Not sent: event date has passed" });
+    expect(emailService.sendEmailDetailed).not.toHaveBeenCalled();
+  });
+  it.each([
+    ["payment.deposit_reminder", "orders"],
+    ["outsource.pre_event_reminder", "orders"],
+    ["quote.followup", "quotes"],
+  ])("also cancels stale %s emails", async (triggerEvent, table) => {
+    const rows = [{ ...quote, trigger_event: triggerEvent, trigger_ref_id: "event-1" }];
+    const sb = queueClient(rows, false, {
+      [table]: [{ id: "event-1", company_id: "company-1", event_date: "2020-01-01" }],
+      companies: [{ id: "company-1", timezone: "Africa/Johannesburg" }],
+    });
+
+    const options = triggerEvent === "quote.followup" ? { queueIds: ["mail-1"] } : { transactionalOnly: true };
+    expect(await drainEmailQueue(sb, ["company-1"], options)).toMatchObject({
+      sent: 0, failed: 0, skippedPastEvent: 1,
+    });
+    expect(rows[0]).toMatchObject({ status: "cancelled", error_message: "Not sent: event date has passed" });
+    expect(emailService.sendEmailDetailed).not.toHaveBeenCalled();
+  });
   it("retains the provider diagnosis and retries with a stable key", async () => {
     const rows = [{ ...quote }];
     const sb = queueClient(rows);
@@ -76,6 +108,8 @@ describe("transactional queue delivery", () => {
     expect(queuedEmailReference("quote.sent", "q")).toEqual({ quoteId: "q" });
     expect(queuedEmailReference("order.created", "o")).toEqual({ orderId: "o" });
     expect(queuedEmailReference("kitchen_pre_event", "o")).toEqual({ orderId: "o" });
+    expect(queuedEmailReference("payment.deposit_reminder", "o")).toEqual({ orderId: "o" });
+    expect(queuedEmailReference("outsource.pre_event_reminder", "o")).toEqual({ orderId: "o" });
     expect(queuedEmailReference("aftersales", "o")).toEqual({});
   });
 });

@@ -73,6 +73,9 @@ export function buildPwaManifest(branding: PwaBranding | null) {
     start_url: slug ? `/${slug}/login` : "/auth/login",
     scope: "/",
     display: "standalone",
+    // On browsers that support navigation capturing, route links opened
+    // from email into an existing installed window, preserving the deep URL.
+    launch_handler: { client_mode: "navigate-existing" },
     orientation: "any",
     // Browsers use this for the OS-generated launch splash background.
     background_color: backgroundColor,

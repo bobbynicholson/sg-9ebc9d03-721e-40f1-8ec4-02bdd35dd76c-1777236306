@@ -1,5 +1,6 @@
 import { supabase as browserSupabase } from "@/integrations/supabase/client";
 import { tenantDateTime } from "@/lib/portalTime";
+import { shiftCalendarDate } from "@/lib/eventDateGuard";
 import { notificationService } from "@/services/notificationService";
 import { emailService } from "@/services/emailService";
 import { whatsappIntegrationService } from "@/services/whatsappIntegrationService";
@@ -2365,8 +2366,10 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
   }
   if (existing && existing.length > 0) return;
 
-  const eventDate = new Date(order.event_date);
-  const eventLabel = eventDate.toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" });
+  const eventDateValue = String(order.event_date).slice(0, 10);
+  const eventLabel = new Date(`${eventDateValue}T00:00:00.000Z`).toLocaleDateString("en-ZA", {
+    timeZone: "UTC", day: "numeric", month: "long", year: "numeric",
+  });
   const firstName = String(order.client_name || "there").trim().split(" ")[0] || "there";
 
   // Wave 23.5: pre-event reminder bodies used to sign off as a
@@ -2377,12 +2380,14 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
   // confuse them). Best-effort lookup - the cron worker will still
   // send a generic body if the lookup fails.
   let tenantNameForReminders = "the team";
+  let companyRow: any = null;
   try {
-    const { data: companyRow, error: companyRowErr } = await (supabase as any)
+    const { data: companyData, error: companyRowErr } = await (supabase as any)
       .from("companies")
-      .select("company_name")
+      .select("company_name, timezone")
       .eq("id", order.company_id)
       .maybeSingle();
+    companyRow = companyData;
     if (companyRowErr) {
       console.error("[order/orderWorkflow] companies fetch failed:", companyRowErr);
     }
@@ -2390,6 +2395,7 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
   } catch {
     // fall through
   }
+  const reminderTimezone = (companyRow as any)?.timezone || null;
   const eventNameLabel = order.event_name || "your event";
 
   // Wave 50: each reminder now resolves through the central template
@@ -2398,7 +2404,7 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
   // event_one_week_reminder / event_day_before_reminder.
   const reminderDefaults = [
     {
-      offsetMs: -7 * 24 * 3600 * 1000,
+      offsetDays: 7,
       key: "week_before",
       templateType: "event_one_week_reminder",
       subject: `One week to go - ${eventNameLabel} on ${eventLabel}`,
@@ -2410,7 +2416,7 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
         `Looking forward to it.\n\n${tenantNameForReminders}`,
     },
     {
-      offsetMs: -1 * 24 * 3600 * 1000,
+      offsetDays: 1,
       key: "day_before",
       templateType: "event_day_before_reminder",
       subject: `Tomorrow's the day - ${eventNameLabel}`,
@@ -2436,10 +2442,11 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
 
   const rows: any[] = [];
   for (const r of reminderDefaults) {
-    const sendAt = new Date(eventDate.getTime() + r.offsetMs);
+    const reminderDate = shiftCalendarDate(eventDateValue, -r.offsetDays);
+    const sendAt = tenantDateTime(reminderDate, "09:00", "09:00", reminderTimezone);
     // Skip if the reminder time is already in the past (e.g. event
     // is 3 days away when the order gets confirmed).
-    if (sendAt.getTime() < Date.now()) continue;
+    if (!sendAt || sendAt.getTime() < Date.now()) continue;
     // Resolve through the template editor (tenant override -> global
     // default -> inline fallback). Never throws; on failure we still
     // queue the inline default so the cron worker keeps shipping.
@@ -2481,17 +2488,18 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
 async function ensureScheduledKitchenPreEventReminder(order: any): Promise<void> {
   if (!order?.id || !order?.company_id || !order?.event_date) return;
 
-  const eventStart = (tenantDateTime(order.event_date, order.event_time || "09:00") ?? new Date(NaN));
-  if (Number.isNaN(eventStart.getTime()) || eventStart.getTime() <= Date.now()) return;
-
   const { data: company, error: companyErr } = await (supabase as any)
     .from("companies")
-    .select("company_name, slug, kitchen_settings, kitchen_prep_lead_hours")
+    .select("company_name, slug, timezone, kitchen_settings, kitchen_prep_lead_hours")
     .eq("id", order.company_id)
     .maybeSingle();
   if (companyErr) {
     console.error("[order/orderWorkflow] companies fetch failed:", companyErr);
   }
+
+  const timezone = (company as any)?.timezone || null;
+  const eventStart = tenantDateTime(order.event_date, order.event_time || "09:00", "09:00", timezone);
+  if (!eventStart || Number.isNaN(eventStart.getTime()) || eventStart.getTime() <= Date.now()) return;
 
   const kitchenSettings = ((company as any)?.kitchen_settings || {}) as Record<string, any>;
   const configuredLeadHours = Number(

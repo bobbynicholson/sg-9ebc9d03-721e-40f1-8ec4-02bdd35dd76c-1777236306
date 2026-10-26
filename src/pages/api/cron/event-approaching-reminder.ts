@@ -35,6 +35,8 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { daysUntilEventDate, hasEventDatePassed, shiftCalendarDate } from "@/lib/eventDateGuard";
+import { tenantDateTime } from "@/lib/portalTime";
 
 const CRON_NAME = "event-approaching-reminder";
 
@@ -150,12 +152,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const sb: any = getServiceSupabase();
   const now = new Date();
-  const todayIso = now.toISOString().slice(0, 10);
-  // Horizon covers the longest lead (shopping). Same-day + day-before
-  // layers just look at how many days out each order actually is.
-  const horizonIso = new Date(now.getTime() + SHOPPING_LEAD_DAYS * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  const utcToday = now.toISOString().slice(0, 10);
+  // The query spans neighboring UTC dates so tenants east/west of UTC
+  // still get the correct local today + three-day shopping horizon.
+  const candidateStart = shiftCalendarDate(utcToday, -1);
+  const candidateEnd = shiftCalendarDate(utcToday, SHOPPING_LEAD_DAYS + 1);
 
   const { data: orders, error } = await sb
     .from("orders")
@@ -164,8 +165,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         "delivery_time, pickup_time, setup_time, prep_started_at, picked_up_at, " +
         "assigned_driver_id, comms_paused_until, venue_name, venue_address, event_name",
     )
-    .gte("event_date", todayIso)
-    .lte("event_date", horizonIso)
+    .gte("event_date", candidateStart)
+    .lte("event_date", candidateEnd)
     .in("status", ACTIVE_STATUSES)
     .is("deleted_at", null)
     .limit(1000);
@@ -176,6 +177,25 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(500).json({ error: error.message });
   }
 
+  const candidateCompanyIds = Array.from(new Set(((orders || []) as any[]).map((o) => o.company_id).filter(Boolean)));
+  const { data: companies, error: companyError } = candidateCompanyIds.length
+    ? await sb.from("companies").select("id, timezone").in("id", candidateCompanyIds)
+    : { data: [], error: null };
+  if (companyError) {
+    console.error("[cron/event-approaching-reminder] company timezone read failed:", companyError);
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: companyError.message });
+    return res.status(500).json({ error: companyError.message });
+  }
+  const timezoneByCompany = new Map<string, string | null>(
+    ((companies || []) as any[]).map((company) => [company.id, company.timezone || null]),
+  );
+  const pastEventDateSkipped = ((orders || []) as any[])
+    .filter((o) => hasEventDatePassed(o.event_date, now, timezoneByCompany.get(o.company_id))).length;
+  const ordersToProcess = ((orders || []) as any[]).filter((o) => {
+    const daysUntil = daysUntilEventDate(o.event_date, now, timezoneByCompany.get(o.company_id));
+    return daysUntil !== null && daysUntil >= 0 && daysUntil <= SHOPPING_LEAD_DAYS;
+  });
+
   const { notificationService } = await import("@/services/notificationService");
 
   // Shopping completeness per order so we never nag the kitchen about
@@ -183,7 +203,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // "Manually handled" shows up here too: whoever ticked the items off
   // (or whoever stamped prep_started_at) flips the order out of the
   // pending state, so the reminder self-suppresses.
-  const orderIds = (orders || []).map((o: any) => o.id);
+  const orderIds = ordersToProcess.map((o: any) => o.id);
   const shoppingByOrder = new Map<string, { total: number; purchased: number }>();
   if (orderIds.length > 0) {
     const { data: slRows, error: slErr } = await sb
@@ -210,7 +230,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   let skipped = 0;
   const errors: string[] = [];
 
-  for (const o of (orders || []) as any[]) {
+  for (const o of ordersToProcess as any[]) {
     try {
       // Respect an explicit comms pause window.
       if (o.comms_paused_until && new Date(o.comms_paused_until).getTime() > now.getTime()) {
@@ -231,12 +251,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       const shop = shoppingByOrder.get(o.id) || { total: 0, purchased: 0 };
       const shoppingPending = shop.total > 0 && shop.purchased < shop.total;
 
-      // Whole calendar days until the event - both parsed as UTC midnight
-      // so this is an exact integer, not a clock-time delta.
-      const daysUntil = Math.round(
-        (new Date(`${o.event_date}T00:00:00Z`).getTime() - new Date(`${todayIso}T00:00:00Z`).getTime())
-        / 86_400_000,
-      );
+      const timezone = timezoneByCompany.get(o.company_id);
+      const daysUntil = daysUntilEventDate(o.event_date, now, timezone);
+      if (daysUntil === null || daysUntil < 0) {
+        skipped += 1;
+        continue;
+      }
 
       // ---------- SHOPPING LEAD (longest runway) ----------
       // Procurement can't be last-minute, so nudge from SHOPPING_LEAD_DAYS
@@ -364,8 +384,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // ---------- SAME DAY (daysUntil === 0) ----------
       // Effective event start (mirror order-sla-monitor's fallbacks).
       const timeStr = o.event_time || o.delivery_time || o.pickup_time || o.setup_time || "12:00:00";
-      const eventStart = new Date(`${o.event_date}T${timeStr}`);
-      if (Number.isNaN(eventStart.getTime())) { skipped += 1; continue; }
+      const eventStart = tenantDateTime(o.event_date, timeStr, "12:00", timezone);
+      if (!eventStart || Number.isNaN(eventStart.getTime())) { skipped += 1; continue; }
       const minsUntilEvent = (eventStart.getTime() - now.getTime()) / 60000;
 
       // Kitchen: start prep now (within lead, prep not begun). prepBegun
@@ -395,8 +415,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // Driver: get ready to load + leave (within lead of pickup/event,
       // not yet picked up). Pickup time preferred; fall back to event.
       const pickupStr = o.pickup_time || timeStr;
-      const pickupStart = new Date(`${o.event_date}T${pickupStr}`);
-      const minsUntilPickup = Number.isNaN(pickupStart.getTime())
+      const pickupStart = tenantDateTime(o.event_date, pickupStr, "12:00", timezone);
+      const minsUntilPickup = !pickupStart || Number.isNaN(pickupStart.getTime())
         ? minsUntilEvent
         : (pickupStart.getTime() - now.getTime()) / 60000;
       const pickedUp = !!o.picked_up_at || ["in_transit", "delivered", "completed"].includes(String(o.status));
@@ -436,6 +456,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     driverPings,
     emailPings,
     skipped,
+    skipped_past_event_date: pastEventDateSkipped,
     errors_count: errors.length,
   });
 
@@ -448,6 +469,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     driverPings,
     emailPings,
     skipped,
+    skippedPastEventDate: pastEventDateSkipped,
     errors: errors.length > 0 ? errors.slice(0, 20) : undefined,
   });
 }

@@ -6,6 +6,7 @@ import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { buildPayInvoiceUrlServer } from "@/lib/customerLinksServer";
 import { hasRecordedDepositPayment, outstandingDepositReminderAmount } from "@/lib/depositReminderAmount";
+import { tenantCalendarDate } from "@/lib/eventDateGuard";
 import { reconcileCompanyInvoiceDueDates } from "@/services/invoiceDueDateService";
 import {
   fetchClientPaymentSchedules,
@@ -46,7 +47,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const sb: any = getServiceSupabase();
   try {
     const now = new Date();
-    const today = now.toISOString().slice(0, 10);
 
     // Companies that turned payment reminders on (Settings -> Financial),
     // plus companies where a client turned them on for itself (Contacts).
@@ -62,7 +62,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { data: enabledCompanies, error: companiesLoadError } = candidateIds.length
       ? await (sb as any)
           .from("companies")
-          .select("id, dispatch_settings, balance_due_days, deposit_percent")
+          .select("id, dispatch_settings, balance_due_days, deposit_percent, timezone")
           .in("id", candidateIds)
       : { data: [], error: null };
     const companiesError = companiesOnError || companiesLoadError;
@@ -73,12 +73,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
     const reminderSettings = new Map<string, { reminders: PaymentReminderSettings; due: PaymentDueSettings }>();
     const depositPercentByCompany = new Map<string, number | null>();
+    const timezoneByCompany = new Map<string, string | null>();
     for (const co of (enabledCompanies || []) as any[]) {
       reminderSettings.set(co.id, {
         reminders: readPaymentReminderSettings(co.dispatch_settings),
         due: readPaymentDueSettings(co.dispatch_settings, co.balance_due_days),
       });
       depositPercentByCompany.set(co.id, co.deposit_percent == null ? null : Number(co.deposit_percent));
+      timezoneByCompany.set(co.id, co.timezone || null);
     }
     if (reminderSettings.size === 0) {
       await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, considered: 0, queued: 0 });
@@ -138,6 +140,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           .eq("id", inv.order_id)
           .maybeSingle();
         if (!order) continue;
+        const tenantToday = tenantCalendarDate(now, timezoneByCompany.get(inv.company_id));
 
         // An unpaid deposit on an upcoming order is deposit-reminder's
         // job; skipping it here stops the client getting both emails.
@@ -173,7 +176,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         if (
           outstandingDeposit > 0.009 &&
           ["pending", "confirmed"].includes((order as any).status) &&
-          (order as any).event_date >= today
+          (order as any).event_date && String((order as any).event_date).slice(0, 10) >= tenantToday
         ) continue;
 
         // Timing: the client's own setting (Contacts) wins over the
@@ -188,7 +191,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         }
         const settings = resolvePaymentSchedule(companySettings, clientId ? clientSchedules.get(clientId) : null);
         const targetDate = paymentReminderTargetDate(settings.reminders, settings.due, (order as any).event_date);
-        if (!isPaymentReminderDue(targetDate, today)) continue;
+        if (!isPaymentReminderDue(targetDate, tenantToday)) continue;
 
         // Idempotency: skip if a balance reminder already went out for
         // this order on or after the reminder day.

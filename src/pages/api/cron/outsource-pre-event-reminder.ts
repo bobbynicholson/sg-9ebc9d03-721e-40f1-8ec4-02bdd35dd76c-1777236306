@@ -4,6 +4,8 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth, type CronAuthSource } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { hasEventDatePassed } from "@/lib/eventDateGuard";
+import { tenantDateTime } from "@/lib/portalTime";
 
 
 const CRON_NAME = "outsource-pre-event-reminder";
@@ -108,6 +110,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ ok: true, sent: 0 });
     }
 
+    const companyIds = Array.from(new Set((assignments as any[]).map((a) => a.company_id).filter(Boolean)));
+    const { data: companies, error: companiesError } = await sb
+      .from("companies")
+      .select("id, timezone")
+      .in("id", companyIds);
+    if (companiesError) {
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: authSource, error_message: companiesError.message });
+      return res.status(500).json({ error: companiesError.message });
+    }
+    const timezoneByCompany = new Map<string, string | null>(
+      ((companies || []) as any[]).map((company) => [company.id, company.timezone || null]),
+    );
+
     const sendAutomated = dryRun
       ? async (_client: any, _args: any) => ({ success: true, heldForApproval: false })
       : (await import("@/lib/email/automatedDelivery")).deliverAutomatedEmail;
@@ -158,13 +173,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           continue;
         }
 
+        const timezone = timezoneByCompany.get(a.company_id);
+        if (hasEventDatePassed((order as any).event_date, now, timezone)) {
+          skipped += 1;
+          continue;
+        }
+
         const firstName = (a.provider?.contact_person || providerName).split(" ")[0];
-        const eventWhen = (order as any).event_date
-          ? new Date(`${(order as any).event_date}T${((order as any).event_time || "12:00").slice(0, 5)}:00`)
-              .toLocaleString("en-ZA", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
+        const eventMoment = tenantDateTime((order as any).event_date, (order as any).event_time || "12:00", "12:00", timezone);
+        const displayTimeZone = timezone ? { timeZone: timezone } : {};
+        const eventWhen = eventMoment
+          ? eventMoment.toLocaleString("en-ZA", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", ...displayTimeZone })
           : "tomorrow";
         const onSite = a.required_on_site_at
-          ? new Date(a.required_on_site_at).toLocaleString("en-ZA", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+          ? new Date(a.required_on_site_at).toLocaleString("en-ZA", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", ...displayTimeZone })
           : "as agreed";
         const venue = (order as any).venue_address || "venue TBC";
         const guests = (order as any).guest_count != null ? `${(order as any).guest_count} guests` : "guest count TBC";
