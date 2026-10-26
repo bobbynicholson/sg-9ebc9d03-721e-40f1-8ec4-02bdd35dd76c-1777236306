@@ -217,6 +217,16 @@ const REMINDER_VARS: TemplateVariable[] = [
   { name: "order_number",   description: "Order reference",               example: "ORD-003829" },
 ];
 
+const DEPOSIT_REMINDER_VARS: TemplateVariable[] = [
+  { name: "first_name",     description: "Client's first name",                  example: "Bobby" },
+  { name: "event_name",     description: "Event description",                    example: "30th birthday braai" },
+  { name: "event_date",     description: "Event date",                           example: "5 May 2026" },
+  { name: "deposit_amount", description: "Deposit amount still outstanding",     example: "R 4 500.00" },
+  { name: "invoice_link",   description: "Link to the invoice payment page",     example: "https://app.example.com/pay/i/..." },
+  { name: "tenant_name",    description: "Catering brand name",                  example: "Spit Braai Delivery" },
+  { name: "order_number",   description: "Order reference",                      example: "ORD-003829" },
+];
+
 // Vars for portal / magic-link / welcome emails sent on signup or
 // invite. Subset re-used across owner welcome + staff invite + client
 // magic link so the editor surfaces the same names everywhere.
@@ -1199,6 +1209,23 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
   },
 
   // --- TRANSACTIONAL REMINDERS (cron-driven) ---
+  {
+    key: "deposit_reminder",
+    channel: "email",
+    category: "client",
+    group: "Money",
+    label: "Deposit payment reminder",
+    description: "Automatically sent when the agreed first payment is still outstanding.",
+    defaultSubject: "Deposit reminder for {{event_name}}",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `A friendly reminder that the deposit for {{event_name}} on {{event_date}} is still outstanding. ` +
+      `The remaining deposit amount is {{deposit_amount}}.\n\n` +
+      `Pay securely here: {{invoice_link}}\n\n` +
+      `Once the deposit is paid, your booking is secured. If you have already paid, please ignore this message.\n\n` +
+      `Thanks,\n{{tenant_name}}`,
+    variables: DEPOSIT_REMINDER_VARS,
+  },
   {
     key: "balance_reminder_email",
     channel: "email",

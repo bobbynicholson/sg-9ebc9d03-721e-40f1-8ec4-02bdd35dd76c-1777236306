@@ -4,6 +4,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { outstandingDepositReminderAmount } from "@/lib/depositReminderAmount";
 import {
   fetchClientPaymentSchedules,
   isPaymentReminderDue,
@@ -63,7 +64,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // keep the cron tight; the daily cadence catches the rest.
     const { data: orders, error } = await sb
       .from("orders")
-      .select("id, company_id, client_id, order_number, client_email, client_name, event_name, event_date, deposit_amount, created_at, status")
+      .select("id, company_id, client_id, order_number, client_email, client_name, event_name, event_date, deposit_amount, deposit_percentage, amount_paid, total_amount, created_at, status")
       .eq("deposit_paid", false)
       .gte("event_date", today)
       .in("status", ["pending", "confirmed"])
@@ -97,7 +98,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const companyIds = Array.from(new Set((orders as any[]).map((o) => o.company_id).filter(Boolean)));
     const { data: companyRows, error: companiesError } = await sb
       .from("companies")
-      .select("id, dispatch_settings, balance_due_days")
+      .select("id, dispatch_settings, balance_due_days, deposit_percent")
       .in("id", companyIds);
     if (companiesError) {
       console.error("[deposit-reminder] companies fetch failed:", companiesError);
@@ -105,11 +106,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(500).json({ error: companiesError.message });
     }
     const reminderSettings = new Map<string, { reminders: PaymentReminderSettings; due: PaymentDueSettings }>();
+    const depositPercentByCompany = new Map<string, number | null>();
     for (const co of (companyRows || []) as any[]) {
       reminderSettings.set(co.id, {
         reminders: readPaymentReminderSettings(co.dispatch_settings),
         due: readPaymentDueSettings(co.dispatch_settings, co.balance_due_days),
       });
+      depositPercentByCompany.set(co.id, co.deposit_percent == null ? null : Number(co.deposit_percent));
     }
 
     // Per-client override (Contacts) wins over the company setting.
@@ -128,7 +131,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         // a reminder without a pay link just generates support email.
         const { data: invoice } = await sb
           .from("invoices")
-          .select("id, public_token, balance_due, total_amount, amount_paid, status, due_date")
+          .select("id, public_token, balance_due, total_amount, amount_paid, invoice_data, status, due_date")
           .eq("order_id", order.id)
           .neq("status", "paid")
           .gt("balance_due", 0)
@@ -137,6 +140,23 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           .limit(1)
           .maybeSingle();
         if (!invoice || !(invoice as any).public_token) { skipped += 1; continue; }
+
+        // The order flag can be stale on legacy/imported rows. Verify the
+        // recorded money against the agreed first-payment amount before
+        // sending, and never ask for the entire invoice as a deposit.
+        const depositDue = outstandingDepositReminderAmount({
+          depositPaid: order.deposit_paid,
+          orderTotalAmount: order.total_amount,
+          orderAmountPaid: order.amount_paid,
+          orderDepositAmount: order.deposit_amount,
+          orderDepositPercent: order.deposit_percentage,
+          invoiceTotalAmount: invoice.total_amount,
+          invoiceAmountPaid: invoice.amount_paid,
+          invoiceBalanceDue: invoice.balance_due,
+          snapshotFirstPaymentAmount: invoice.invoice_data?.initialPaymentAmount,
+          companyDepositPercent: depositPercentByCompany.get(order.company_id),
+        });
+        if (depositDue < 0.01) { skipped += 1; continue; }
 
         // Company timing: only on the chosen reminder day (plus a short
         // catch-up window). The 3-day pacing gate below keeps it to one.
@@ -173,7 +193,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         } catch { /* keep fallback */ }
 
         const payLink = `${origin}/pay/i/${(invoice as any).public_token}`;
-        const depositDue = Number((invoice as any).balance_due || order.deposit_amount || 0);
         const firstName = String(order.client_name || "there").trim().split(/\s+/)[0] || "there";
         const eventName = order.event_name || "your event";
         const eventDateLabel = order.event_date
@@ -194,7 +213,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           body:
             `Hi {{first_name}},\n\n` +
             `Just a gentle nudge from {{tenant_name}} - the deposit for {{event_name}}` +
-            `{{event_date_phrase}} is still outstanding. Your date is only locked in once it lands.\n\n` +
+            `{{event_date_phrase}} is still outstanding. The remaining deposit amount is {{deposit_amount}}. ` +
+            `Your date is only locked in once it lands.\n\n` +
             `Pay securely here: {{invoice_link}}\n\n` +
             `Already paid by EFT? Ignore this - it can take a day to reflect. ` +
             `Anything changed on your side? Just reply to this email.\n\n` +
@@ -208,7 +228,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             event_date: eventDateLabel,
             event_date_phrase: eventDateLabel ? ` on ${eventDateLabel}` : "",
             order_number: order.order_number || order.id,
-            deposit_amount: depositDue.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            deposit_amount: `R ${depositDue.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             invoice_link: payLink,
             invoice_url: payLink,
           },

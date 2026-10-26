@@ -5,6 +5,7 @@ import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { buildPayInvoiceUrlServer } from "@/lib/customerLinksServer";
+import { outstandingDepositReminderAmount } from "@/lib/depositReminderAmount";
 import { reconcileCompanyInvoiceDueDates } from "@/services/invoiceDueDateService";
 import {
   fetchClientPaymentSchedules,
@@ -61,7 +62,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { data: enabledCompanies, error: companiesLoadError } = candidateIds.length
       ? await (sb as any)
           .from("companies")
-          .select("id, dispatch_settings, balance_due_days")
+          .select("id, dispatch_settings, balance_due_days, deposit_percent")
           .in("id", candidateIds)
       : { data: [], error: null };
     const companiesError = companiesOnError || companiesLoadError;
@@ -71,11 +72,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(500).json({ error: companiesError.message });
     }
     const reminderSettings = new Map<string, { reminders: PaymentReminderSettings; due: PaymentDueSettings }>();
+    const depositPercentByCompany = new Map<string, number | null>();
     for (const co of (enabledCompanies || []) as any[]) {
       reminderSettings.set(co.id, {
         reminders: readPaymentReminderSettings(co.dispatch_settings),
         due: readPaymentDueSettings(co.dispatch_settings, co.balance_due_days),
       });
+      depositPercentByCompany.set(co.id, co.deposit_percent == null ? null : Number(co.deposit_percent));
     }
     if (reminderSettings.size === 0) {
       await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, considered: 0, queued: 0 });
@@ -91,7 +94,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // reminder today is decided per invoice below.
     const { data: invoices, error } = await (sb as any)
       .from("invoices")
-      .select("id, company_id, order_id, total_amount, amount_paid, balance_due, due_date, public_token")
+      .select("id, company_id, order_id, total_amount, amount_paid, balance_due, due_date, public_token, invoice_data")
       .in("company_id", Array.from(reminderSettings.keys()))
       .gt("balance_due", 0)
       .is("deleted_at", null)
@@ -131,15 +134,30 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         // Pull order + client details for the email.
         const { data: order } = await (sb as any)
           .from("orders")
-          .select("id, client_id, client_email, client_name, order_number, event_name, event_date, deposit_paid, status")
+          .select("id, client_id, client_email, client_name, order_number, event_name, event_date, deposit_paid, deposit_amount, deposit_percentage, amount_paid, total_amount, status")
           .eq("id", inv.order_id)
           .maybeSingle();
         if (!order || !(order as any).client_email) continue;
 
         // An unpaid deposit on an upcoming order is deposit-reminder's
         // job; skipping it here stops the client getting both emails.
+        // Derive payment from the order and invoice amounts as well as the
+        // legacy flag so a paid deposit on an imported/older order gets a
+        // balance reminder even when deposit_paid was never synchronized.
+        const outstandingDeposit = outstandingDepositReminderAmount({
+          depositPaid: (order as any).deposit_paid,
+          orderTotalAmount: (order as any).total_amount,
+          orderAmountPaid: (order as any).amount_paid,
+          orderDepositAmount: (order as any).deposit_amount,
+          orderDepositPercent: (order as any).deposit_percentage,
+          invoiceTotalAmount: inv.total_amount,
+          invoiceAmountPaid: inv.amount_paid,
+          invoiceBalanceDue: inv.balance_due,
+          snapshotFirstPaymentAmount: (inv as any).invoice_data?.initialPaymentAmount,
+          companyDepositPercent: depositPercentByCompany.get(inv.company_id),
+        });
         if (
-          (order as any).deposit_paid === false &&
+          outstandingDeposit > 0.009 &&
           ["pending", "confirmed"].includes((order as any).status) &&
           (order as any).event_date >= today
         ) continue;

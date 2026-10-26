@@ -7,6 +7,7 @@ import {
 import { deliverAutomatedEmail, deliveryKey, skipIfTurnedOff } from "@/lib/email/automatedDelivery";
 import { drainEmailQueue } from "@/lib/email/drainQueue";
 import { emailService } from "@/services/emailService";
+import { getTemplateDefinition } from "@/lib/messageTemplates/registry";
 
 jest.mock("@/services/emailService", () => ({ emailService: { sendEmailDetailed: jest.fn() } }));
 
@@ -64,6 +65,15 @@ describe("which emails the on/off setting covers", () => {
     // Never emailed (in-app notification only), so not listed.
     expect(AUTOMATED_EMAIL_TEMPLATES.some((t) => t.key === "quote_accepted_client")).toBe(false);
     expect(AUTOMATED_EMAIL_TEMPLATES.some((t) => t.key === "stale_shopping_list_alert")).toBe(false);
+  });
+
+  it("provides an editable deposit reminder template in Email settings", () => {
+    const template = getTemplateDefinition("deposit_reminder");
+    expect(template?.defaultSubject).toContain("{{event_name}}");
+    expect(template?.defaultBody).toContain("{{deposit_amount}}");
+    expect(template?.defaultBody).toContain("{{invoice_link}}");
+    expect(template?.variables.some((variable) => variable.name === "deposit_amount")).toBe(true);
+    expect(AUTOMATED_EMAIL_TEMPLATES.some((email) => email.key === "deposit_reminder")).toBe(true);
   });
 
   it("covers emails that resolve their wording first (automationKey)", () => {

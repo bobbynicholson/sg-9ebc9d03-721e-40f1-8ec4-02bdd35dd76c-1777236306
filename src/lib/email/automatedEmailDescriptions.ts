@@ -199,7 +199,7 @@ export const AUTOMATED_EMAIL_DESCRIPTIONS: Record<string, AutomatedEmailDescript
   },
   deposit_reminder: {
     who: "The client.",
-    when: "When their deposit invoice is still unpaid, following your Payment reminders settings.",
+    when: "When some or all of the agreed deposit remains unpaid, following your Payment reminders settings.",
     ifOff: "Unpaid deposits are not chased by email.",
   },
   balance_reminder_email: {
