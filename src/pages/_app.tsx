@@ -189,7 +189,10 @@ function GlobalPWAInstallPrompt({ initialBranding }: { initialBranding: InitialB
     ? { id: company.id, slug: company.slug, companyName: company.company_name, logoUrl: company.logo_url, primaryColor: company.primary_color }
     : null;
   let branding: PwaBranding | null = initialBranding && (!routeSlug || initialBranding.slug === routeSlug) ? initialBranding : companyBrand;
-  if (liveBrand && branding?.id === liveBrand.id) branding = { ...branding, ...liveBrand };
+  const liveBrandMatches = Boolean(liveBrand && !platform && (!routeSlug || liveBrand.slug === routeSlug) && (!branding?.id || branding.id === liveBrand.id));
+  if (liveBrandMatches && liveBrand) {
+    branding = { ...branding, ...liveBrand, slug: liveBrand.slug || branding?.slug || routeSlug };
+  }
   if (routeSlug) branding = { ...branding, slug: routeSlug };
   if (!route.enabled) return null;
   return <>

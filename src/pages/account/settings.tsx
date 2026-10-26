@@ -10,6 +10,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { User, CheckCircle, Shield, Bell, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { publishBrandingUpdate } from "@/lib/branding/store";
 import { NotificationsTab } from "@/components/account/settings/NotificationsTab";
 import { PrivacyTab } from "@/components/account/settings/PrivacyTab";
 import { ProfileTab, ProfileSummaryCard } from "@/components/account/settings/ProfileTab";
@@ -34,7 +35,7 @@ function ProfileSettingsPage() {
   // company name even when profiles.company_name (a denormalised cache)
   // is out of date or never populated. Without this fallback, every
   // tenant whose cache is stale sees a blank Company Name field.
-  const { user, profile, company, updateProfile } = useAuth();
+  const { user, profile, company, companySlug, updateProfile } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -246,6 +247,16 @@ function ProfileSettingsPage() {
             variant: "destructive",
           });
         } else {
+          publishBrandingUpdate({
+            id: companyId,
+            slug: companySlug || company?.slug || undefined,
+            companyName: formData.company_name,
+          }, {
+            logoUrl: company?.logo_url ?? null,
+            primaryColor: company?.primary_color ?? null,
+            secondaryColor: company?.secondary_color ?? null,
+            accentColor: company?.accent_color ?? null,
+          });
           // Mirror the new name onto every profile in the company so
           // any UI still pulling from the cache shows the rename
           // immediately. Failure here is non-fatal - the canonical

@@ -1,7 +1,8 @@
 /** @jest-environment node */
 import handler from "@/pages/api/pwa/manifest";
+import iconHandler from "@/pages/api/pwa/icon";
 import { getPwaBranding } from "@/lib/pwa/serverBranding";
-import { buildPwaManifest, pwaIconUrl } from "@/lib/pwa/metadata";
+import { buildPwaManifest, pwaIconUrl, pwaManifestUrl } from "@/lib/pwa/metadata";
 import { pwaRouteInfo } from "@/lib/pwa/routes";
 import { isPublicIpv4, renderCompanyIcon } from "@/lib/pwa/logoImage";
 import sharp from "sharp";
@@ -39,8 +40,18 @@ test("unknown and unavailable companies never silently install another brand", a
 test("logo updates change icon URLs but retain app identity; companies remain distinct", () => {
   const changed = { ...brand, logoUrl: "https://example.com/new.png" };
   expect(pwaIconUrl(changed, 512)).not.toBe(pwaIconUrl(brand, 512));
+  expect(pwaManifestUrl(changed)).toBe(pwaManifestUrl(brand));
   expect(buildPwaManifest(changed).id).toBe(buildPwaManifest(brand).id);
   expect(buildPwaManifest({ ...brand, slug: "company-b" }).id).not.toBe(buildPwaManifest(brand).id);
+});
+test("company renames refresh icon URLs without changing the manifest location or app identity", () => {
+  const renamed = { ...brand, companyName: "Spatt Braii Delivery Company" };
+  const manifest = buildPwaManifest(renamed);
+  expect(manifest.name).toBe("Spatt Braii Delivery Company");
+  expect(manifest.short_name).toBe("Spatt Braii Delivery Company");
+  expect(pwaManifestUrl(renamed)).toBe(pwaManifestUrl(brand));
+  expect(pwaIconUrl(renamed, 192)).not.toBe(pwaIconUrl(brand, 192));
+  expect(manifest.id).toBe(buildPwaManifest(brand).id);
 });
 test.each(["/company-a/login", "/company-a/client/login", "/company-a/account/settings", "/company-a/team-portal/driver/dashboard", "/auth/install?company=company-a"]) ("install metadata is enabled before or after auth on %s", path => {
   expect(pwaRouteInfo(path).enabled).toBe(true);
@@ -55,4 +66,17 @@ test("a rectangular company logo renders as actual square PNGs without cropping"
     const output = await renderCompanyIcon(`data:image/png;base64,${input.toString("base64")}`, size);
     expect(await sharp(output).metadata()).toMatchObject({ width: size, height: size, format: "png", hasAlpha: false });
   }
+});
+test("companies without uploaded logos still get distinct branded app icons", async () => {
+  const first = await renderCompanyIcon(null, 192, "Spatt Braii Delivery Company", "#0d6b58");
+  const second = await renderCompanyIcon(null, 192, "North Shore Catering", "#2451c7");
+  expect(await sharp(first).metadata()).toMatchObject({ width: 192, height: 192, format: "png" });
+  expect(first.equals(second)).toBe(false);
+});
+test("the icon endpoint generates a tenant icon when no logo is uploaded", async () => {
+  (getPwaBranding as jest.Mock).mockResolvedValueOnce({ ...brand, logoUrl: null });
+  const res = response();
+  await iconHandler({ method: "GET", query: { slug: "company-a", size: "192", v: "tenant" } } as never, res as never);
+  expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/png");
+  expect(Buffer.isBuffer(res.send.mock.calls[0][0])).toBe(true);
 });

@@ -24,6 +24,38 @@ export function setBrandingRow(row: BrandingRow | null): void {
   listeners.forEach((l) => l(row));
 }
 
+/** Merge a branding patch without dropping fields that another editor didn't touch. */
+export function mergeBrandingRow(
+  update: Partial<BrandingRow> & Pick<BrandingRow, "id">,
+  fallback: Partial<BrandingRow> = {},
+): BrandingRow {
+  const previous = current?.id === update.id ? current : readBrandingCache(update.id);
+  return {
+    id: update.id,
+    slug: update.slug ?? previous?.slug ?? fallback.slug ?? null,
+    companyName: update.companyName !== undefined ? update.companyName : previous?.companyName ?? fallback.companyName ?? null,
+    logoUrl: update.logoUrl !== undefined ? update.logoUrl : previous?.logoUrl ?? fallback.logoUrl ?? null,
+    primaryColor: update.primaryColor !== undefined ? update.primaryColor : previous?.primaryColor ?? fallback.primaryColor ?? null,
+    secondaryColor: update.secondaryColor !== undefined ? update.secondaryColor : previous?.secondaryColor ?? fallback.secondaryColor ?? null,
+    accentColor: update.accentColor !== undefined ? update.accentColor : previous?.accentColor ?? fallback.accentColor ?? null,
+    fontBody: update.fontBody !== undefined ? update.fontBody : previous?.fontBody ?? fallback.fontBody ?? null,
+    fontDisplay: update.fontDisplay !== undefined ? update.fontDisplay : previous?.fontDisplay ?? fallback.fontDisplay ?? null,
+  };
+}
+
+/** Update the live UI and notify the tenant-branding applier after a save. */
+export function publishBrandingUpdate(
+  update: (Partial<BrandingRow> & Pick<BrandingRow, "id">) | null,
+  fallback: Partial<BrandingRow> = {},
+): void {
+  const row = update ? mergeBrandingRow(update, fallback) : null;
+  setBrandingRow(row);
+  if (row) writeBrandingCache(row, row.slug);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("branding:updated", { detail: row }));
+  }
+}
+
 export function subscribeBranding(l: Listener): () => void {
   listeners.add(l);
   return () => {

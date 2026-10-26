@@ -20,6 +20,7 @@ import {
 } from "@/lib/branding/applyBranding";
 import {
   getBrandingRow,
+  mergeBrandingRow,
   readBrandingCache,
   setBrandingRow,
   writeBrandingCache,
@@ -190,13 +191,31 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
   // page reflects the new palette without a reload.
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent<BrandingRow | null>).detail ?? null;
-      setBrandingRow(detail);
-      paint(detail);
-      if (detail) writeBrandingCache(detail);
+      const detail = (e as CustomEvent<(Partial<BrandingRow> & Pick<BrandingRow, "id">) | null>).detail ?? null;
+      const row = detail ? mergeBrandingRow(detail) : null;
+      setBrandingRow(row);
+      paint(row);
+      if (row) writeBrandingCache(row, row.slug);
+    };
+    const onStorage = (event: StorageEvent) => {
+      const active = getBrandingRow();
+      if (!active || event.key !== `cms.branding.${active.id}` || !event.newValue) return;
+      try {
+        const update = JSON.parse(event.newValue) as Partial<BrandingRow> & Pick<BrandingRow, "id">;
+        if (update.id !== active.id) return;
+        const row = mergeBrandingRow(update);
+        setBrandingRow(row);
+        paint(row);
+      } catch {
+        // Ignore malformed local cache data; the next company fetch repairs it.
+      }
     };
     window.addEventListener("branding:updated", handler);
-    return () => window.removeEventListener("branding:updated", handler);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("branding:updated", handler);
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
 
   return null;

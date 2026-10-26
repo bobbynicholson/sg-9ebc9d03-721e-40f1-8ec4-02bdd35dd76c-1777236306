@@ -40,7 +40,7 @@ import {
   type BrandingRow,
 } from "@/lib/branding/applyBranding";
 import { BRAND_FONTS, fontFamilyValue, googleFontsHref } from "@/lib/branding/fonts";
-import { clearBrandingCache } from "@/lib/branding/store";
+import { clearBrandingCache, publishBrandingUpdate } from "@/lib/branding/store";
 import { useResolvedTenantSlug, useTenantHref } from "@/lib/tenantUrl";
 import {
   arrangePaletteSuggestion,
@@ -412,8 +412,7 @@ function WhiteLabelPage() {
   }, [companyId, reloadKey]);
 
   const dispatchBrandingUpdated = useCallback((row: BrandingRow | null) => {
-    if (typeof window === "undefined") return;
-    window.dispatchEvent(new CustomEvent("branding:updated", { detail: row }));
+    publishBrandingUpdate(row);
   }, []);
 
   const persistPatch = useCallback(

@@ -65,12 +65,43 @@ async function readLogo(source: string, redirects = 0): Promise<Buffer> {
   return response.body;
 }
 
-export async function renderCompanyIcon(logoUrl: string, size: number): Promise<Buffer> {
-  const source = await readLogo(logoUrl);
-  return sharp(source, { limitInputPixels: 16_000_000 })
-    .rotate()
-    .resize(size, size, { fit: "contain", background: "#ffffff" })
-    .flatten({ background: "#ffffff" })
-    .png()
-    .toBuffer();
+function companyInitials(companyName: string): string {
+  const words = companyName.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").match(/[a-z\d]+/gi) || [];
+  const value = words.length > 1
+    ? words.slice(0, 2).map(word => Array.from(word)[0]).join("")
+    : Array.from(words[0] || "CO").slice(0, 2).join("");
+  return value.toUpperCase() || "CO";
+}
+
+async function renderCompanyInitials(companyName: string, primaryColor: string | null | undefined, size: number): Promise<Buffer> {
+  const color = primaryColor && /^#[\da-f]{6}$/i.test(primaryColor) ? primaryColor : "#d97706";
+  const initials = companyInitials(companyName || "Company");
+  const inset = Math.round(size * 0.06);
+  const radius = Math.round(size * 0.2);
+  const svg = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><rect width="${size}" height="${size}" rx="${radius}" fill="#ffffff"/><rect x="${inset}" y="${inset}" width="${size - inset * 2}" height="${size - inset * 2}" rx="${Math.round(radius * 0.8)}" fill="${color}"/><text x="50%" y="50%" dy=".04em" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-family="Arial,sans-serif" font-size="${Math.round(size * 0.36)}" font-weight="700">${initials}</text></svg>`,
+  );
+  return sharp(svg).png().toBuffer();
+}
+
+export async function renderCompanyIcon(
+  logoUrl: string | null,
+  size: number,
+  companyName = "CateringMS",
+  primaryColor?: string | null,
+): Promise<Buffer> {
+  if (!logoUrl) return renderCompanyInitials(companyName, primaryColor, size);
+  try {
+    const source = await readLogo(logoUrl);
+    return await sharp(source, { limitInputPixels: 16_000_000 })
+      .rotate()
+      .resize(size, size, { fit: "contain", background: "#ffffff" })
+      .flatten({ background: "#ffffff" })
+      .png()
+      .toBuffer();
+  } catch {
+    // Keep the tenant's app icon recognizable even when its hosted logo
+    // is temporarily unavailable or cannot be converted.
+    return renderCompanyInitials(companyName, primaryColor, size);
+  }
 }

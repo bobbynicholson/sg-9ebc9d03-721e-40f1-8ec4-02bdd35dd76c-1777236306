@@ -17,10 +17,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const branding = await getPwaBranding({ slug });
     if (!branding) return res.status(404).end();
-    if (!branding.logoUrl) return res.redirect(302, fallback);
-    const key = `${branding.logoUrl}:${size}`;
+    const key = `${branding.id || slug}:${branding.companyName || ""}:${branding.logoUrl || ""}:${branding.primaryColor || ""}:${size}`;
     const cached = cache.get(key);
-    const image = cached && cached.expires > Date.now() ? cached.image : await renderCompanyIcon(branding.logoUrl, size);
+    const image = cached && cached.expires > Date.now()
+      ? cached.image
+      : await renderCompanyIcon(branding.logoUrl || null, size, branding.companyName || "Company", branding.primaryColor);
     if (!cached || cached.expires <= Date.now()) {
       const oldestKey = cache.keys().next().value;
       if (cache.size >= 50 && oldestKey) cache.delete(oldestKey);
@@ -28,7 +29,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     res.setHeader("Content-Type", "image/png");
     res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("Cache-Control", "public, max-age=300");
+    // The versioned URL changes when the company name, logo or brand color changes.
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     if (req.method === "HEAD") return res.status(200).end();
     return res.status(200).send(image);
   } catch {

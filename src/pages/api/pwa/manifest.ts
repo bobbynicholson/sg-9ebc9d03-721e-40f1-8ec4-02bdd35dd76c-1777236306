@@ -16,7 +16,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const branding = slug || id ? await getPwaBranding({ slug, id }) : null;
     if ((slug || id) && !branding) return res.status(404).json({ error: "Company not found" });
-    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    // Keep the manifest URL stable and revalidate its contents so installed
+    // browsers can update this same app after a company branding change.
+    res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
     res.setHeader("X-Content-Type-Options", "nosniff");
     // send() preserves the manifest MIME; Next's json() resets it to application/json.
     res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");

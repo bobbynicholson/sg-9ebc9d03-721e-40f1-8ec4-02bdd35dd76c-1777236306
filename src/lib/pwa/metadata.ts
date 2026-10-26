@@ -1,6 +1,6 @@
 export type PwaBranding = {
   id?: string;
-  slug?: string;
+  slug?: string | null;
   companyName?: string | null;
   logoUrl?: string | null;
   primaryColor?: string | null;
@@ -9,19 +9,38 @@ export type PwaBranding = {
 export const isCompanySlug = (value: unknown): value is string =>
   typeof value === "string" && /^[a-z0-9][a-z0-9-]{0,99}$/.test(value);
 
+/** Stable for unchanged branding and different whenever the tenant brand changes. */
+export function pwaBrandRevision(branding: PwaBranding | null): string {
+  const source = [
+    branding?.id || "",
+    branding?.slug || "",
+    branding?.companyName || "",
+    branding?.logoUrl || "",
+    branding?.primaryColor || "",
+  ].join(":");
+  let hash = 2166136261;
+  for (let index = 0; index < source.length; index += 1) {
+    hash = Math.imul(hash ^ source.charCodeAt(index), 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
 export function pwaIconUrl(branding: PwaBranding | null, size: 180 | 192 | 512): string {
   if (!branding?.slug || !isCompanySlug(branding.slug)) {
     return `/icons/cateringms-${size === 180 ? 192 : size}.png`;
   }
-  // A logo change gives the OS a new icon URL without changing app identity.
-  const source = `${branding.logoUrl || ""}:${branding.primaryColor || ""}`;
-  let revision = 0;
-  for (let i = 0; i < source.length; i += 1) revision = (revision * 31 + source.charCodeAt(i)) | 0;
-  return `/api/pwa/icon?slug=${encodeURIComponent(branding.slug)}&size=${size}&v=${(revision >>> 0).toString(36)}`;
+  const query = new URLSearchParams({
+    slug: branding.slug,
+    size: String(size),
+    v: pwaBrandRevision(branding),
+  });
+  return `/api/pwa/icon?${query.toString()}`;
 }
 
 export function pwaManifestUrl(branding: PwaBranding | null): string {
   if (branding?.slug && isCompanySlug(branding.slug)) {
+    // Keep the manifest location stable; its contents and versioned icon URLs
+    // change with tenant branding while the installed app keeps one identity.
     return `/api/pwa/manifest?slug=${encodeURIComponent(branding.slug)}`;
   }
   return "/manifest.webmanifest";
@@ -38,7 +57,11 @@ export function buildPwaManifest(branding: PwaBranding | null) {
   const themeColor = /^#[a-f\d]{6}$/i.test(color) ? color : "#10b981";
   return {
     name,
-    short_name: Array.from(name).slice(0, 24).join(""),
+    // Keep the stored company name intact. The home screen may visually
+    // shorten it to fit, but an artificial 24-character cut loses identity.
+    short_name: name,
+    // Keep the existing per-company identity stable across brand edits so
+    // installed PWAs update in place instead of becoming a second app.
     id: slug ? `/pwa/${slug}` : "/",
     description: `${name} workspace powered by CateringMS.`,
     // The old ?company= start URL was ignored by the generic login page.

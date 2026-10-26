@@ -37,6 +37,7 @@ import { revealSection } from "@/lib/ui/revealSection";
 import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
+import { publishBrandingUpdate } from "@/lib/branding/store";
 import { toLocalISO, TENANT_TIMEZONE_CHOICES, isValidTimezone } from "@/lib/localDate";
 
 // Every IANA zone the browser knows, for the "All time zones" list.
@@ -346,6 +347,15 @@ function CompanyProfilePage() {
         .update(payload)
         .eq("id", row.id);
       if (error) throw error;
+      publishBrandingUpdate({
+        id: row.id,
+        slug: user?.company_slug || undefined,
+        companyName: row.company_name,
+        logoUrl: row.logo_url,
+      }, {
+        primaryColor: row.primary_color,
+        secondaryColor: row.secondary_color,
+      });
       toast({ title: "Saved", description: "Profile updated, nav, branded client pages and route planning all use this now." });
       refreshProfile?.();
       // CP-B: refresh the snapshot so isDirty flips back to false

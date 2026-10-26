@@ -29,23 +29,21 @@ export function PwaLoadingScreen({ initialBranding }: { initialBranding?: Initia
 
   const matchesSlug = (candidate?: { slug?: string | null } | null) =>
     Boolean(candidate && (!slug || candidate.slug === slug));
-  const cached = matchesSlug(liveBrand)
-    ? liveBrand
-    : matchesSlug(cachedBrand)
-      ? cachedBrand
-      : null;
+  const live = matchesSlug(liveBrand) ? liveBrand : null;
+  const cached = matchesSlug(cachedBrand) ? cachedBrand : null;
   const companyMatches = !slug || company?.slug === slug;
-  const name = (matchesSlug(initialBranding) ? initialBranding?.companyName : null) ||
-    cached?.companyName ||
-    (companyMatches ? company?.company_name : null) ||
-    "CateringMS";
-  const logo = (matchesSlug(initialBranding) ? initialBranding?.logoUrl : null) ||
-    cached?.logoUrl ||
-    (companyMatches ? company?.logo_url : null) ||
-    null;
-  const accentValue = (matchesSlug(initialBranding) ? initialBranding?.primaryColor : null) ||
-    cached?.primaryColor ||
-    (companyMatches ? company?.primary_color : null);
+  const hasLiveBrand = Boolean(live);
+  const name = (hasLiveBrand ? live?.companyName : null) ||
+    (matchesSlug(initialBranding) ? initialBranding?.companyName : null) ||
+    cached?.companyName || (companyMatches ? company?.company_name : null) || "CateringMS";
+  const logo = hasLiveBrand
+    ? live?.logoUrl || null
+    : (matchesSlug(initialBranding) ? initialBranding?.logoUrl : null) || cached?.logoUrl ||
+      (companyMatches ? company?.logo_url : null) || null;
+  const accentValue = hasLiveBrand
+    ? live?.primaryColor || null
+    : (matchesSlug(initialBranding) ? initialBranding?.primaryColor : null) || cached?.primaryColor ||
+      (companyMatches ? company?.primary_color : null);
   const accent = isHexColor(accentValue) ? accentValue : "#d97706";
 
   useEffect(() => setLogoLoaded(false), [logo]);
