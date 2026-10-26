@@ -31,7 +31,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { PortalShell, PortalHeader, PageWorkbench, StatTile } from "@/components/portal/ui";
 

@@ -115,7 +115,7 @@ import {
 } from "@/services/equipmentAvailabilityService";
 import { quoteIntelligenceService, KnownClientResult, ClientSnapshot } from "@/services/quoteIntelligenceService";
 import Head from "next/head";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantHref } from "@/lib/tenantUrl";

@@ -255,17 +255,18 @@ export const userManagementService = {
 
   /**
    * Get all users with their assigned departments
-   */
+  */
   async getAllUsers(companyId?: string, opts?: { excludeRoles?: string[] }): Promise<UserWithDepartments[]> {
     try {
+      // This method is only used by tenant staff-management screens. Never
+      // turn a missing company context into a platform-wide profiles scan.
+      if (!companyId) return [];
+
       let profilesQuery = supabase
         .from("profiles")
         .select("*")
+        .eq("company_id", companyId)
         .order("created_at", { ascending: false });
-
-      if (companyId) {
-        profilesQuery = profilesQuery.eq("company_id", companyId);
-      }
 
       if (opts?.excludeRoles && opts.excludeRoles.length > 0) {
         profilesQuery = profilesQuery.not("role", "in", `(${opts.excludeRoles.map((r) => `"${r}"`).join(",")})`);

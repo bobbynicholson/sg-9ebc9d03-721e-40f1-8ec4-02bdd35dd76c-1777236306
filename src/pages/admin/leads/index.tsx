@@ -40,7 +40,7 @@ import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { RegionBadge } from "@/components/admin/RegionBadge";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { leadService } from "@/services/leadService";
 import { supabase } from "@/integrations/supabase/client";
 import { ProtectedRoute } from "@/components/ProtectedRoute";

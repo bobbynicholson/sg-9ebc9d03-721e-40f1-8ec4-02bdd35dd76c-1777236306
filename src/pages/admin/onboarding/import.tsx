@@ -31,7 +31,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useToast } from "@/hooks/use-toast";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ImportWhatHappensNote } from "@/components/admin/ImportWhatHappensNote";
 import { useAuth } from "@/contexts/AuthContext";

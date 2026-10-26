@@ -1,5 +1,6 @@
 import type { AppProps } from "next/app";
-import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Fraunces, Inter } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -11,19 +12,24 @@ import { ThemeProvider } from "@/contexts/ThemeProvider";
 import { Toaster } from "@/components/ui/toaster";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { MiddlewareErrorToast } from "@/components/MiddlewareErrorToast";
-import { CommandPalette } from "@/components/CommandPalette";
 import { GlobalInternalFooter } from "@/components/GlobalInternalFooter";
 import { AdminSetupSticky } from "@/components/admin/AdminSetupSticky";
 import { PWAInstallPrompt } from "@/components/driver/PWAInstallPrompt";
 import { PwaMetadata } from "@/components/pwa/PwaMetadata";
+import { PwaRouteTransition } from "@/components/pwa/PwaRouteTransition";
 import { useBrandingRow } from "@/lib/branding/useBranding";
 import { type PwaBranding, isCompanySlug } from "@/lib/pwa/metadata";
 import { normalizeProductPath, isProductPath, pwaRouteInfo } from "@/lib/pwa/routes";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { useAuth } from "@/contexts/AuthContext";
 import { indexChatPageSections, scrollToChatHash } from "@/lib/chatbot/sectionAnchors";
 import "@/styles/globals.css";
+
+const DeferredCommandPaletteChunk = dynamic(
+  () => import("@/components/CommandPalette").then((module) => module.CommandPalette),
+  { ssr: false, loading: () => null },
+);
 
 // Warm modern display serif for marketing headings (opt-in via Tailwind's
 // `font-display`). Self-hosted by next/font - no external request, no layout
@@ -192,6 +198,44 @@ function GlobalPWAInstallPrompt({ initialBranding }: { initialBranding: InitialB
   </>;
 }
 
+function DeferredCommandPalette() {
+  const [enabled, setEnabled] = useState(false);
+  const [initialOpen, setInitialOpen] = useState(false);
+  const activatedRef = useRef(false);
+
+  useEffect(() => {
+    const activate = (open: boolean) => {
+      if (activatedRef.current) return;
+      activatedRef.current = true;
+      setInitialOpen(open);
+      setEnabled(true);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (activatedRef.current) return;
+      const isMod = event.metaKey || event.ctrlKey;
+      const isShortcut = isMod && event.key.toLowerCase() === "k";
+      const isSlash = event.key === "/" && !["INPUT", "TEXTAREA"].includes((event.target as HTMLElement)?.tagName);
+      if (!isShortcut && !isSlash) return;
+      event.preventDefault();
+      activate(true);
+    };
+    const onCustomOpen = () => activate(true);
+
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("cmdk:open", onCustomOpen as EventListener);
+    // The palette is not needed for the first paint. Keep its existing
+    // shortcuts available immediately, then load it after the page settles.
+    const idleTimer = window.setTimeout(() => activate(false), 1200);
+    return () => {
+      if (idleTimer !== undefined) window.clearTimeout(idleTimer);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("cmdk:open", onCustomOpen as EventListener);
+    };
+  }, []);
+
+  return enabled ? <DeferredCommandPaletteChunk initialOpen={initialOpen} /> : null;
+}
+
 export default function App({ Component, pageProps }: AppProps) {
   // Tenant pre-auth pages (/[company_slug]/login etc.) ship their
   // branding row via getStaticProps. Forward it to the applier so the
@@ -203,30 +247,35 @@ export default function App({ Component, pageProps }: AppProps) {
   // surfaces. Public marketing pages remain ordinary website pages, while
   // the installed CateringMS app can cover every role's workspace.
   const router = useRouter();
+  const swRegistrationStarted = useRef(false);
+  const swRegistrationInProgress = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator) || swRegistrationStarted.current || swRegistrationInProgress.current) return;
+    if (!pwaRouteInfo(router.asPath || router.pathname || "").enabled) return;
+    swRegistrationInProgress.current = true;
+
+    // Register once when someone enters an app surface. Revalidating the
+    // worker after every in-app navigation added background network work to
+    // every page change without improving the visible data on that page.
+    // A foreground check below and the browser's own navigation checks keep
+    // installed apps current.
+    const register = async () => {
+      try {
+        await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+        swRegistrationStarted.current = true;
+        swRegistrationInProgress.current = false;
+        const registration = await navigator.serviceWorker.getRegistration("/");
+        registration?.update().catch(() => {});
+      } catch (e) {
+        swRegistrationInProgress.current = false;
+        console.warn("[sw] app service worker registration failed:", e);
+      }
+    };
+    void register();
+  }, [router.asPath, router.pathname]);
+
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
-    if (!pwaRouteInfo(router.asPath || router.pathname || "").enabled) return;
-    let cancelled = false;
-    let registration: ServiceWorkerRegistration | null = null;
-
-    // Stale-PWA recovery (Callum, 2026-07-09): an installed app kept
-    // running a bundle from BEFORE a deploy - skipWaiting/claim swap
-    // the worker, but nothing reloads the already-open page, and an
-    // installed PWA restored from the app switcher never re-navigates.
-    // So a driver could sit on week-old JS and "fixed" bugs stayed
-    // broken on their phone. Recovery has two halves:
-    //   1. Re-check for a new SW aggressively: on registration, on
-    //      every route change, and every time the app returns to the
-    //      foreground (that's the moment a parked PWA wakes up).
-    //   2. When a new SW takes control (controllerchange), hard-reload
-    //      ONCE via the shared reloadForNewBuild guard so the open
-    //      page swaps onto the fresh build.
-    // controllerchange also fires on the very first SW install (page
-    // previously uncontrolled, clients.claim adopts it). Only reload
-    // when a controller got REPLACED - i.e. an old SW gave way to a
-    // new build. Tracked as a mutable flag, not a snapshot: after the
-    // first claim this page IS controlled, so a deploy landing later
-    // in the same session must still trigger the reload.
     let hadController = Boolean(navigator.serviceWorker.controller);
     const onControllerChange = () => {
       if (!hadController) {
@@ -239,31 +288,14 @@ export default function App({ Component, pageProps }: AppProps) {
 
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
-      registration?.update().catch(() => {});
+      void navigator.serviceWorker.getRegistration("/").then(registration => registration?.update()).catch(() => {});
     };
     document.addEventListener("visibilitychange", onVisible);
-
-    const register = async () => {
-      try {
-        const reg = await navigator.serviceWorker.register("/sw.js", {
-          scope: "/",
-        });
-        if (cancelled) return;
-        registration = reg;
-        // Pull updates on each route change so the app picks up
-        // a deploy without having to fully close + reopen the tab.
-        reg.update().catch(() => {});
-      } catch (e) {
-        console.warn("[sw] app service worker registration failed:", e);
-      }
-    };
-    void register();
     return () => {
-      cancelled = true;
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [router.pathname, router.asPath]);
+  }, []);
 
   // Long-lived-tab deploy detection for all app portals (Callum,
   // 2026-07-09). Phones can restore a week-old app tab without any
@@ -363,10 +395,11 @@ export default function App({ Component, pageProps }: AppProps) {
                 on marketing routes; per-page <Footer /> components
                 self-hide on internal routes so we never double up. */}
             <GlobalInternalFooter />
-            <CommandPalette />
+            <DeferredCommandPalette />
             <MiddlewareErrorToast />
             <GlobalChatAssistant />
             <GlobalPWAInstallPrompt initialBranding={initialBranding} />
+            <PwaRouteTransition initialBranding={initialBranding} />
             <AdminSetupSticky />
             {/* VersionWatcher (the "A new version is available" banner)
                 unmounted per Raj, 2026-06-12 - it nagged on every

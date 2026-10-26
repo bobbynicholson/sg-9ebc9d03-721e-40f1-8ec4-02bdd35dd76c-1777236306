@@ -29,6 +29,7 @@ import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
 
 const initialToRow = (b: InitialBranding): BrandingRow => ({
   id: b.id,
+  slug: b.slug,
   companyName: b.companyName || null,
   logoUrl: b.logoUrl,
   primaryColor: b.primaryColor,
@@ -63,6 +64,7 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
     const row = initialToRow(initialBranding);
     setBrandingRow(row);
     paint(row);
+    writeBrandingCache(row, initialBranding.slug);
     // Run once - subsequent updates flow via auth/companyId.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -106,6 +108,7 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
         const source = (fullRow || r) as Record<string, string | null | undefined>;
         const row: BrandingRow = {
           id: source.id || r.id,
+          slug: tenantSlug,
           companyName: source.company_name ?? null,
           logoUrl: source.logo_url ?? null,
           primaryColor: source.primary_color ?? null,
@@ -116,7 +119,7 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
         };
         setBrandingRow(row);
         paint(row);
-        writeBrandingCache(row);
+        writeBrandingCache(row, tenantSlug);
       })();
       return () => {
         cancelled = true;
@@ -163,6 +166,7 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
 
       const row: BrandingRow = {
         id: r.id ?? companyId,
+        slug: user?.company_slug || null,
         companyName: r.company_name ?? null,
         logoUrl: r.logo_url ?? null,
         primaryColor: r.primary_color ?? null,
@@ -173,7 +177,7 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
       };
       setBrandingRow(row);
       paint(row);
-      writeBrandingCache(row);
+      writeBrandingCache(row, user?.company_slug);
     })();
 
     return () => {

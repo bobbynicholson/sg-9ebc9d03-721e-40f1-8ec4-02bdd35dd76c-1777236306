@@ -214,25 +214,6 @@ function TeamsIndexPage() {
       const lastWeekISO = lastWeekSameDayIso();
       const next4hISO = nextHoursIso(4);
 
-      // Active staff per team. Counts role + active_role + user_departments
-      // so manager roles and cross-trained staff land in the right team
-      // bucket without collapsing their role labels elsewhere.
-      const staffRows = unwrapData(await supabase
-        .from("profiles")
-        .select("id, role, active_role, is_active")
-        .eq("company_id", companyId));
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const activeStaffRows = ((staffRows || []) as any[]).filter((s) => s.is_active !== false);
-      const staffIds = activeStaffRows.map((s) => s.id).filter(Boolean);
-      const departmentRows = staffIds.length > 0
-        ? unwrapData(await supabase
-            .from("user_departments")
-            .select("user_id, department, is_primary")
-            .in("user_id", staffIds))
-        : [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }>;
-      const staffByTeam = countTeamBuckets(activeStaffRows, departmentRows || []);
-
       // Two shift tables, two purposes:
       //   * kitchen_duty_shifts - the live duty board (per-order,
       //     `is_active`, who's currently clocked in). Used here only
@@ -262,7 +243,14 @@ function TeamsIndexPage() {
       // Separate from the week aggregate so we don't double-walk the
       // bigger payload.
       const todayStartISO = `${todayISO}T00:00:00`;
-      const [activeDuty, staffShiftsThisWeek, staffShiftsToday] = await Promise.all([
+      const [staffRowsRes, activeDuty, staffShiftsThisWeek, staffShiftsToday] = await Promise.all([
+        // Active staff per team. Counts role + active_role + user_departments
+        // so manager roles and cross-trained staff land in the right team
+        // bucket without collapsing their role labels elsewhere.
+        supabase
+          .from("profiles")
+          .select("id, role, active_role, is_active")
+          .eq("company_id", companyId),
         supabase
           .from("kitchen_duty_shifts")
           .select("id, shift_start, is_active")
@@ -279,9 +267,21 @@ function TeamsIndexPage() {
           .is("deleted_at", null)
           .gte("shift_start", todayStartISO),
       ]);
-      for (const res of [activeDuty, staffShiftsThisWeek, staffShiftsToday]) {
+      for (const res of [staffRowsRes, activeDuty, staffShiftsThisWeek, staffShiftsToday]) {
         if (res.error) throw new Error(res.error.message || "Query failed");
       }
+
+      const staffRows = unwrapData(staffRowsRes);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const activeStaffRows = ((staffRows || []) as any[]).filter((s) => s.is_active !== false);
+      const staffIds = activeStaffRows.map((s) => s.id).filter(Boolean);
+      const departmentRows = staffIds.length > 0
+        ? unwrapData(await supabase
+            .from("user_departments")
+            .select("user_id, department, is_primary")
+            .in("user_id", staffIds))
+        : [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }>;
+      const staffByTeam = countTeamBuckets(activeStaffRows, departmentRows || []);
 
       let kitchenMissingClockOut = 0;
       let kitchenClockedNow = 0;
@@ -333,7 +333,6 @@ function TeamsIndexPage() {
         .eq("event_date", todayISO)
         .not("status", "in", "(cancelled,completed)");
       if (regionFilterId) kitchenJobsQ = kitchenJobsQ.eq("region_id", regionFilterId);
-      const kitchenJobs = unwrapCount(await kitchenJobsQ);
 
       // TMS-B: comparison vs same weekday last week.
       let kitchenLastWeekQ = supabase
@@ -344,7 +343,6 @@ function TeamsIndexPage() {
         .eq("event_date", lastWeekISO)
         .not("status", "in", "(cancelled,completed)");
       if (regionFilterId) kitchenLastWeekQ = kitchenLastWeekQ.eq("region_id", regionFilterId);
-      const kitchenLastWeekJobs = unwrapCount(await kitchenLastWeekQ);
 
       // TMS-B: next imminent kitchen job - earliest event start time
       // today, by event_time order.
@@ -358,7 +356,14 @@ function TeamsIndexPage() {
         .order("event_time", { ascending: true, nullsFirst: false })
         .limit(1);
       if (regionFilterId) nextKitchenQ = nextKitchenQ.eq("region_id", regionFilterId);
-      const nextKitchen = unwrapData(await nextKitchenQ);
+      const [kitchenJobsRes, kitchenLastWeekJobsRes, nextKitchenRes] = await Promise.all([
+        kitchenJobsQ,
+        kitchenLastWeekQ,
+        nextKitchenQ,
+      ]);
+      const kitchenJobs = unwrapCount(kitchenJobsRes);
+      const kitchenLastWeekJobs = unwrapCount(kitchenLastWeekJobsRes);
+      const nextKitchen = unwrapData(nextKitchenRes);
       const nextKitchenRow = (nextKitchen?.[0] as
         | { order_number: string | null; event_name: string | null; event_time: string | null }
         | undefined) || null;
@@ -374,7 +379,32 @@ function TeamsIndexPage() {
         .is("orders.deleted_at", null)
         .eq("orders.event_date", todayISO);
       if (regionFilterId) drvAssnQ = drvAssnQ.eq("orders.region_id", regionFilterId);
-      const drvAssn = unwrapData(await drvAssnQ);
+
+      // These weekly and last-week summaries use the same company / region
+      // scope as today's assignments, but do not depend on today's rows.
+      let drvWeekQ = supabase
+        .from("driver_assignments")
+        .select("assigned_at, completed_at, orders!inner(region_id, company_id, deleted_at)")
+        .eq("company_id", companyId)
+        .is("orders.deleted_at", null)
+        .gte("assigned_at", weekStartISO);
+      if (regionFilterId) drvWeekQ = drvWeekQ.eq("orders.region_id", regionFilterId);
+
+      let driverLastWeekQ = supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .eq("event_date", lastWeekISO)
+        .not("status", "in", "(cancelled,completed)");
+      if (regionFilterId) driverLastWeekQ = driverLastWeekQ.eq("region_id", regionFilterId);
+
+      const [drvAssnRes, drvWeekRes, driverLastWeekRes] = await Promise.all([
+        drvAssnQ,
+        drvWeekQ,
+        driverLastWeekQ,
+      ]);
+      const drvAssn = unwrapData(drvAssnRes);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const drvRows = (drvAssn || []) as any[];
@@ -409,14 +439,7 @@ function TeamsIndexPage() {
 
       // TMS-B: region-scoped driver hours-this-week. Pre-fix this
       // pulled every assignment regardless of region.
-      let drvWeekQ = supabase
-        .from("driver_assignments")
-        .select("assigned_at, completed_at, orders!inner(region_id, company_id, deleted_at)")
-        .eq("company_id", companyId)
-        .is("orders.deleted_at", null)
-        .gte("assigned_at", weekStartISO);
-      if (regionFilterId) drvWeekQ = drvWeekQ.eq("orders.region_id", regionFilterId);
-      const drvWeek = unwrapData(await drvWeekQ);
+      const drvWeek = unwrapData(drvWeekRes);
       let driverHours = 0;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const a of (drvWeek || []) as any[]) {
@@ -430,23 +453,32 @@ function TeamsIndexPage() {
       // an !inner join, so we count off orders.event_date as a proxy
       // for "delivery work that day" - which matches what the
       // current-day driver count is fundamentally measuring too.
-      let driverLastWeekQ = supabase
-        .from("orders")
-        .select("id", { count: "exact", head: true })
-        .eq("company_id", companyId)
-        .is("deleted_at", null)
-        .eq("event_date", lastWeekISO)
-        .not("status", "in", "(cancelled,completed)");
-      if (regionFilterId) driverLastWeekQ = driverLastWeekQ.eq("region_id", regionFilterId);
-      const driverLastWeekJobs = unwrapCount(await driverLastWeekQ);
+      const driverLastWeekJobs = unwrapCount(driverLastWeekRes);
 
       // Shopping lists today + pending overdue
       // TMS-C: pull actual_total + estimated_total for the burn chip.
-      const shoppingToday = unwrapData(await supabase
+      const shoppingTodayQ = supabase
         .from("shopping_lists")
         .select("id, status, list_date, actual_total, estimated_total")
         .eq("company_id", companyId)
-        .eq("list_date", todayISO));
+        .eq("list_date", todayISO);
+      const shoppingOverdueQ = supabase
+        .from("shopping_lists")
+        .select("id")
+        .eq("company_id", companyId)
+        .lt("list_date", todayISO)
+        .in("status", ["pending", "draft"]);
+      const shoppingLastWeekQ = supabase
+        .from("shopping_lists")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("list_date", lastWeekISO);
+      const [shoppingTodayRes, shoppingOverdueRes, shoppingLastWeekRes] = await Promise.all([
+        shoppingTodayQ,
+        shoppingOverdueQ,
+        shoppingLastWeekQ,
+      ]);
+      const shoppingToday = unwrapData(shoppingTodayRes);
       const shoppingJobs = (shoppingToday || []).length;
       // TMS-C: shopping spend today. actual_total is the post-run
       // truth; estimated_total covers lists that are still pending.
@@ -458,20 +490,11 @@ function TeamsIndexPage() {
         shoppingBurnToday += actual > 0 ? actual : estimated;
       }
 
-      const shoppingOverdue = unwrapData(await supabase
-        .from("shopping_lists")
-        .select("id")
-        .eq("company_id", companyId)
-        .lt("list_date", todayISO)
-        .in("status", ["pending", "draft"]));
+      const shoppingOverdue = unwrapData(shoppingOverdueRes);
       const shoppingAnomalies = (shoppingOverdue || []).length;
 
       // TMS-B: comparison - shopping lists same weekday last week.
-      const shoppingLastWeek = unwrapCount(await supabase
-        .from("shopping_lists")
-        .select("id", { count: "exact", head: true })
-        .eq("company_id", companyId)
-        .eq("list_date", lastWeekISO));
+      const shoppingLastWeek = unwrapCount(shoppingLastWeekRes);
 
       // TMS-B: next imminent shopping run - the earliest pending
       // or in_progress list today. shopping_lists has no time
@@ -484,14 +507,32 @@ function TeamsIndexPage() {
       // the scheduled kickoff; status flips to in_progress / completed.
       // We can finally surface real anomalies (overdue, planned_end
       // past with status != completed) and real next-imminent.
-      const cleaningJobsRows = unwrapData(await supabase
+      const cleaningTodayQ = supabase
         .from("cleaning_jobs")
         .select("id, status, planned_start, planned_end")
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .gte("planned_start", todayISO + "T00:00:00")
         .lt("planned_start", todayISO + "T23:59:59")
-        .order("planned_start", { ascending: true }));
+        .order("planned_start", { ascending: true });
+      const cleaningLastWeekQ = supabase
+        .from("cleaning_jobs")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .gte("planned_start", lastWeekISO + "T00:00:00")
+        .lt("planned_start", lastWeekISO + "T23:59:59");
+      const handoverPendingQ = supabase
+        .from("cleaning_event_handovers")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .in("status", ["expected", "in_progress"]);
+      const [cleaningTodayRes, cleaningLastWeekRes, handoverPendingRes] = await Promise.all([
+        cleaningTodayQ,
+        cleaningLastWeekQ,
+        handoverPendingQ,
+      ]);
+      const cleaningJobsRows = unwrapData(cleaningTodayRes);
       const cleaningTodayRows = (cleaningJobsRows || []) as Array<{
         id: string; status: string; planned_start: string | null; planned_end: string | null;
       }>;
@@ -512,24 +553,14 @@ function TeamsIndexPage() {
       ) || null;
 
       // Comparison vs same weekday last week for cleaning.
-      const cleaningLastWeek = unwrapCount(await supabase
-        .from("cleaning_jobs")
-        .select("id", { count: "exact", head: true })
-        .eq("company_id", companyId)
-        .is("deleted_at", null)
-        .gte("planned_start", lastWeekISO + "T00:00:00")
-        .lt("planned_start", lastWeekISO + "T23:59:59"));
+      const cleaningLastWeek = unwrapCount(cleaningLastWeekRes);
 
       // TMS-C (task #205, 2026-05-24): unread handover notes badge.
       // cleaning_event_handovers carries status='expected' (created
       // but not yet reviewed) or 'in_progress'. Either state means
       // the operator should still take a look. status='complete' or
       // 'cancelled' falls out of the badge.
-      const handoverPending = unwrapCount(await supabase
-        .from("cleaning_event_handovers")
-        .select("id", { count: "exact", head: true })
-        .eq("company_id", companyId)
-        .in("status", ["expected", "in_progress"]));
+      const handoverPending = unwrapCount(handoverPendingRes);
 
       // TMS-D (task #206, 2026-05-24): sales + outsource team
       // metrics. Both are valid profiles.role values; both have
@@ -588,11 +619,30 @@ function TeamsIndexPage() {
       // section below the team tiles). Counts open hire orders +
       // overdue picks - same shape as the existing HireInPanel
       // overdue logic.
-      const hireInOpenRows = unwrapData(await supabase
+      const hireInOpenQ = supabase
         .from("equipment_hire_orders")
         .select("id, status, expected_pickup_date, total_cost")
         .eq("company_id", companyId)
-        .in("status", ["draft", "confirmed", "picked_up"]));
+        .in("status", ["draft", "confirmed", "picked_up"]);
+
+      // TMS-B: cross-team risk - events in the next 4 hours with no
+      // accepted driver. Pulls confirmed orders + their assignment
+      // status. Anything with no assignment OR all assignments
+      // rejected/declined surfaces.
+      let riskQ = supabase
+        .from("orders")
+        .select("id, order_number, event_name, event_time, event_date, status, driver_assignments(status)")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .eq("event_date", todayISO)
+        .in("status", ["confirmed", "preparing", "ready"])
+        // event_time is a time-of-day - we filter by the 4h window
+        // client-side because postgres time-arithmetic via JS is awkward.
+        .order("event_time", { ascending: true });
+      if (regionFilterId) riskQ = riskQ.eq("region_id", regionFilterId);
+
+      const [hireInOpenRes, riskRowsRes] = await Promise.all([hireInOpenQ, riskQ]);
+      const hireInOpenRows = unwrapData(hireInOpenRes);
       const hireInOpen = (hireInOpenRows || []) as Array<{
         status: string; expected_pickup_date: string | null; total_cost: number | null;
       }>;
@@ -610,22 +660,7 @@ function TeamsIndexPage() {
       setHireInOverdue(overdueAccum);
       setHireInBurn(burnAccum);
 
-      // TMS-B: cross-team risk - events in the next 4 hours with no
-      // accepted driver. Pulls confirmed orders + their assignment
-      // status. Anything with no assignment OR all assignments
-      // rejected/declined surfaces.
-      let riskQ = supabase
-        .from("orders")
-        .select("id, order_number, event_name, event_time, event_date, status, driver_assignments(status)")
-        .eq("company_id", companyId)
-        .is("deleted_at", null)
-        .eq("event_date", todayISO)
-        .in("status", ["confirmed", "preparing", "ready"])
-        // event_time is a time-of-day - we filter by the 4h window
-        // client-side because postgres time-arithmetic via JS is awkward.
-        .order("event_time", { ascending: true });
-      if (regionFilterId) riskQ = riskQ.eq("region_id", regionFilterId);
-      const riskRows = unwrapData(await riskQ);
+      const riskRows = unwrapData(riskRowsRes);
 
       const nextWindowMs = new Date(next4hISO).getTime();
       const nowFloor = Date.now();

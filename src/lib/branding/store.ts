@@ -43,10 +43,29 @@ export function readBrandingCache(companyId: string): BrandingRow | null {
   }
 }
 
-export function writeBrandingCache(row: BrandingRow): void {
+/** Find a previously visited tenant's public brand without waiting for auth. */
+export function readBrandingCacheForSlug(slug: string): BrandingRow | null {
+  if (typeof window === "undefined" || !slug) return null;
+  try {
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+      if (!key?.startsWith("cms.branding.")) continue;
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+      const row = JSON.parse(raw) as BrandingRow;
+      if (row.slug === slug) return row;
+    }
+  } catch {
+    /* Storage is optional; auth and the workspace remain usable without it. */
+  }
+  return null;
+}
+
+export function writeBrandingCache(row: BrandingRow, slug?: string | null): void {
   if (typeof window === "undefined" || !row.id) return;
   try {
-    window.localStorage.setItem(cacheKey(row.id), JSON.stringify(row));
+    const cached = { ...row, slug: slug || row.slug || null };
+    window.localStorage.setItem(cacheKey(row.id), JSON.stringify(cached));
   } catch {
     /* quota; noop */
   }

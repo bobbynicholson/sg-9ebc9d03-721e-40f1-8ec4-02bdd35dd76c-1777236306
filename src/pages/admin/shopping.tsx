@@ -301,7 +301,7 @@ function SmartShoppingPage() {
       const [outlookRes, invRes, demandRes, supRes, linksRes, creepRes, receiptsRes] = await Promise.all([
         supabase
           .from("inventory_demand_outlook")
-          .select("*")
+          .select("inventory_item_id, item_name, category, unit_of_measure, current_stock, minimum_stock, reorder_quantity, demand_next_7_days, demand_next_14_days, demand_next_30_days, projected_stock_after_7_days, shortfall_next_7_days, upcoming_order_count, status")
           .eq("company_id", companyId),
         supabase
           .from("inventory_items")
@@ -1012,7 +1012,7 @@ function SmartShoppingPage() {
       // Refresh outlook so the row's new stock is reflected.
       const { data } = await supabase
         .from("inventory_demand_outlook")
-        .select("*")
+        .select("inventory_item_id, item_name, category, unit_of_measure, current_stock, minimum_stock, reorder_quantity, demand_next_7_days, demand_next_14_days, demand_next_30_days, projected_stock_after_7_days, shortfall_next_7_days, upcoming_order_count, status")
         .eq("company_id", companyId);
       setOutlook((data || []) as OutlookRow[]);
     } catch (e: unknown) {
@@ -1166,7 +1166,7 @@ function SmartShoppingPage() {
     // refresh outlook
     const { data } = await supabase
       .from("inventory_demand_outlook")
-      .select("*")
+      .select("inventory_item_id, item_name, category, unit_of_measure, current_stock, minimum_stock, reorder_quantity, demand_next_7_days, demand_next_14_days, demand_next_30_days, projected_stock_after_7_days, shortfall_next_7_days, upcoming_order_count, status")
       .eq("company_id", companyId);
     setOutlook((data || []) as OutlookRow[]);
   };

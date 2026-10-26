@@ -136,11 +136,27 @@ export function WaiterServicePanel({ onSummary }: { onSummary?: (summary: Waiter
       const lookback = new Date();
       lookback.setDate(lookback.getDate() - 7);
       const lookbackIso = toLocalISO(lookback);
-      const { data: attRows, error: attErr } = await (supabase as any)
+      const attendanceQuery = (supabase as any)
         .from("event_attendance")
         .select("id, order_id, arrived_at, setup_started_at, guests_arrived_at, service_started_at, service_ended_at, event_complete_at, equipment_returned_at, notes")
         .eq("company_id", user.company_id)
         .eq("waiter_id", user.id);
+      // The compatibility lookup does not depend on the attendance rows;
+      // request it alongside them to remove one network wait from the queue.
+      const legacyOrdersQuery = (supabase as any)
+        .from("orders")
+        .select("id, order_number, event_name, event_date, event_time, venue_name, venue_address, guest_count, client_name, status, equipment_return_method, collection_next_day, requires_waiter, waiter_service_required")
+        .eq("company_id", user.company_id)
+        .eq("assigned_driver_id", user.id)
+        .gte("event_date", lookbackIso)
+        .lte("event_date", horizonIso)
+        .or("requires_waiter.eq.true,waiter_service_required.eq.true")
+        .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"])
+        .order("event_date", { ascending: true });
+      const [{ data: attRows, error: attErr }, { data: legacyDriverServiceOrders }] = await Promise.all([
+        attendanceQuery,
+        legacyOrdersQuery,
+      ]);
       if (attErr) throw attErr;
 
       const attendanceByOrder: Record<string, Attendance> = {};
@@ -168,16 +184,6 @@ export function WaiterServicePanel({ onSummary }: { onSummary?: (summary: Waiter
       // Compatibility: older waiter jobs were implied by a driver
       // assignment plus requires_waiter before event_attendance became
       // the canonical assignment table.
-      const { data: legacyDriverServiceOrders } = await (supabase as any)
-        .from("orders")
-        .select("id, order_number, event_name, event_date, event_time, venue_name, venue_address, guest_count, client_name, status, equipment_return_method, collection_next_day, requires_waiter, waiter_service_required")
-        .eq("company_id", user.company_id)
-        .eq("assigned_driver_id", user.id)
-        .gte("event_date", lookbackIso)
-        .lte("event_date", horizonIso)
-        .or("requires_waiter.eq.true,waiter_service_required.eq.true")
-        .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"])
-        .order("event_date", { ascending: true });
       (legacyDriverServiceOrders || []).forEach((order: any) => {
         if (!orderMap.has(order.id)) orderMap.set(order.id, order as AssignedOrder);
       });

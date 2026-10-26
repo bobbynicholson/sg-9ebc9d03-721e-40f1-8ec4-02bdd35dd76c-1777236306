@@ -65,7 +65,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { RegionBadge } from "@/components/admin/RegionBadge";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { quoteService } from "@/services/quoteService";
 import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import { QuoteSendDialog, type QuoteSendDialogQuote } from "@/components/billing/QuoteSendDialog";
@@ -915,21 +915,27 @@ function AdminQuotesInner() {
         : 0;
       const HALF_HOUR_MS = 30 * 60 * 1000;
       if (Date.now() - last > HALF_HOUR_MS) {
-        try {
-          const todayIso = toLocalISO(new Date());
-          await (supabase as any)
-            .from("quotes")
-            .update({ status: "expired" })
-            .eq("company_id", user.company_id)
-            .in("status", ["sent"])
-            .lt("valid_until", todayIso)
-            .is("deleted_at", null);
-          if (typeof window !== "undefined") {
-            window.localStorage.setItem(throttleKey, String(Date.now()));
+        // Expiring stale quotes is a consistency backstop, not a
+        // prerequisite for showing the list. Run it alongside the list
+        // fetch so a slow update cannot hold the whole page behind it.
+        void (async () => {
+          try {
+            const todayIso = toLocalISO(new Date());
+            const { error } = await (supabase as any)
+              .from("quotes")
+              .update({ status: "expired" })
+              .eq("company_id", user.company_id)
+              .in("status", ["sent"])
+              .lt("valid_until", todayIso)
+              .is("deleted_at", null);
+            if (error) throw error;
+            if (typeof window !== "undefined") {
+              window.localStorage.setItem(throttleKey, String(Date.now()));
+            }
+          } catch {
+            /* non-blocking - the derive helper still tags the row */
           }
-        } catch {
-          /* non-blocking - the derive helper still tags the row */
-        }
+        })();
       }
       let fetched: Quote[];
       try {
@@ -943,43 +949,44 @@ function AdminQuotesInner() {
       }
       if (cancelled) return;
       setQuotes(fetched);
+      // Quotes are the primary page content. Reveal them before the
+      // optional follow-up and email status lookups finish.
+      setLoading(false);
 
       // Order hydration runs in its own effect (see below) so the
       // realtime quote refresh and any local mutation that flips a
       // quote into "converted" stays in sync without rewiring this
       // load path.
 
-      // Pull every auto-email row associated with this company's
-      // quotes. trigger_event names start with 'quote.' for the
-      // quote-driven automations, but we keep this loose so any
-      // future trigger_event prefix tied to a quote_id still surfaces.
-      try {
-        const quoteIds = fetched.map((q) => q.id);
-        if (quoteIds.length > 0) {
-          const { data: queueRows } = await supabase
-            .from("outgoing_email_queue")
-            .select("trigger_ref_id, status, subject, sent_at, created_at, trigger_event")
-            .eq("company_id", user.company_id)
-            .in("trigger_ref_id", quoteIds);
-          if (!cancelled) setAutoEmailRows(queueRows || []);
-        }
-      } catch (err) {
-        // Non-fatal - the page still works without auto-email
-        // visibility, just without the "Auto follow-up sent 2d ago"
-        // line on each row.
-        console.warn("[quotes] auto-email queue fetch failed", err);
-      }
-
-      // Follow-up log - per-quote audit trail of FU1 / FU2 / FU3
-      // sends. Drives the traffic-light pill on the row + decides
-      // which sequence position the Send-follow-up button is for.
-      try {
-        const ids = fetched.map((q) => q.id);
-        const byQuote = await loadFollowupLogsForQuotes(ids);
-        if (!cancelled) setFollowupLogs(byQuote);
-      } catch (err) {
-        console.warn("[quotes] followup log fetch failed", err);
-      }
+      const quoteIds = fetched.map((q) => q.id);
+      // Both enrichments depend on the quote IDs, but not on each other.
+      // Run them together so the second lookup does not add another wait.
+      await Promise.all([
+        (async () => {
+          try {
+            if (quoteIds.length > 0) {
+              const { data: queueRows } = await supabase
+                .from("outgoing_email_queue")
+                .select("trigger_ref_id, status, subject, sent_at, created_at, trigger_event")
+                .eq("company_id", user.company_id)
+                .in("trigger_ref_id", quoteIds);
+              if (!cancelled) setAutoEmailRows(queueRows || []);
+            }
+          } catch (err) {
+            // Non-fatal - the page still works without auto-email
+            // visibility, just without the follow-up status on each row.
+            console.warn("[quotes] auto-email queue fetch failed", err);
+          }
+        })(),
+        (async () => {
+          try {
+            const byQuote = await loadFollowupLogsForQuotes(quoteIds);
+            if (!cancelled) setFollowupLogs(byQuote);
+          } catch (err) {
+            console.warn("[quotes] followup log fetch failed", err);
+          }
+        })(),
+      ]);
 
       if (!cancelled) setLoading(false);
     })();

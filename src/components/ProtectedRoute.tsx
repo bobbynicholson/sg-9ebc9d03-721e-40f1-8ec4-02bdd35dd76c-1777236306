@@ -6,6 +6,7 @@ import { UserRole } from "@/types/app";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, Loader2, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PwaLoadingScreen } from "@/components/pwa/PwaLoadingScreen";
 import { authService } from "@/services/authService";
 import { profileService } from "@/services/profileService";
 import { normalizeRoleValue, uniqueRoles } from "@/lib/roleDerivation";
@@ -153,17 +154,7 @@ export function ProtectedRoute({
 
   // Show loading state
   if (loading || isChecking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-        <Card className="w-full max-w-md border-0 shadow-lg">
-          <CardContent className="p-12 text-center">
-            <Loader2 className="w-12 h-12 mx-auto mb-4 text-blue-600 animate-spin" />
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">Loading...</h3>
-            <p className="text-slate-600">Verifying your credentials</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <PwaLoadingScreen />;
   }
 
   // Show unauthorized message

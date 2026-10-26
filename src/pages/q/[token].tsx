@@ -48,6 +48,7 @@ import { buildCompanyTermsPath } from "@/lib/companyLegal";
 // client gets the "Tell us why -> Confirm" flow with a note before
 // each action. Quote mode skips the payout step (no money to move).
 import { CancellationWizard } from "@/components/cancellation/CancellationWizard";
+import { QuoteItemsEditor, type MenuLine, type EquipLine } from "@/components/quote/QuoteItemsEditor";
 import { toLocalISO } from "@/lib/localDate";
 import { isPastCalendarDate } from "@/lib/quotes/revisionLifecycle";
 import { QuoteProgress } from "@/components/quotes/QuoteProgress";
@@ -246,6 +247,8 @@ export default function PublicQuotePage() {
   const [changesOpen, setChangesOpen] = useState(false);
   const [changesName, setChangesName] = useState("");
   const [changesMessage, setChangesMessage] = useState("");
+  const [changesMenuItems, setChangesMenuItems] = useState<MenuLine[] | null>(null);
+  const [changesEquipItems, setChangesEquipItems] = useState<EquipLine[] | null>(null);
   const [changesSubmitting, setChangesSubmitting] = useState(false);
   const [changesError, setChangesError] = useState<string | null>(null);
   const [changesSent, setChangesSent] = useState(false);
@@ -426,14 +429,40 @@ export default function PublicQuotePage() {
 
   const handleSubmitChanges = async () => {
     if (!token) return;
-    const message = changesMessage.trim();
+    const itemsTouched = changesMenuItems !== null || changesEquipItems !== null;
+    let message = changesMessage.trim();
     if (message.length < 10) {
-      setChangesError("Please give us at least 10 characters so we know what to change.");
-      return;
+      if (itemsTouched) {
+        message = "Please update my quote to the menu and equipment selections I've set below.";
+      } else {
+        setChangesError("Please give us at least 10 characters so we know what to change.");
+        return;
+      }
     }
+    const menuItems = (changesMenuItems || []).filter((line) => line.quantity > 0).map((line) => ({
+      menu_item_id: line.menu_item_id,
+      item_name: line.item_name,
+      unit_price: line.unit_price,
+      quantity: line.quantity,
+      category: line.category || null,
+    }));
+    const equipmentItems = (changesEquipItems || []).filter((line) => line.quantity > 0).map((line) => ({
+      equipment_id: line.equipment_id,
+      name: line.name,
+      unit_price: line.unit_price,
+      quantity: line.quantity,
+    }));
     setChangesSubmitting(true);
     setChangesError(null);
-    const res = await submitChangeRequest({ token, message, submitterName: changesName.trim() || quote?.client_name || null });
+    const res = await submitChangeRequest({
+      token,
+      message,
+      submitterName: changesName.trim() || quote?.client_name || null,
+      requestedChanges: {
+        menu_items: changesMenuItems !== null ? menuItems : null,
+        equipment_items: changesEquipItems !== null ? equipmentItems : null,
+      },
+    });
     setChangesSubmitting(false);
     if (!res.ok) {
       setChangesError(res.error || "Could not send your message, please try again.");
@@ -1223,7 +1252,7 @@ export default function PublicQuotePage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => { setChangesOpen(true); setChangesError(null); setAcceptOpen(false); setAcceptError(null); }}
+                        onClick={() => { setChangesOpen(true); setChangesError(null); setChangesMenuItems(null); setChangesEquipItems(null); setAcceptOpen(false); setAcceptError(null); }}
                         className="gap-1.5 text-stone-700"
                       >
                         <MessageSquare className="w-4 h-4" />
@@ -1359,7 +1388,7 @@ export default function PublicQuotePage() {
                         {!changesSent && !changesOpen && (
                           <Button
                             variant="outline"
-                            onClick={() => { setChangesOpen(true); setChangesError(null); setAcceptOpen(false); setAcceptError(null); }}
+                            onClick={() => { setChangesOpen(true); setChangesError(null); setChangesMenuItems(null); setChangesEquipItems(null); setAcceptOpen(false); setAcceptError(null); }}
                             className="gap-1.5 px-6 border-stone-300 hover:bg-stone-50"
                             size="lg"
                           >
@@ -1444,6 +1473,21 @@ export default function PublicQuotePage() {
                     </div>
 
                     <div className="space-y-3">
+                      <div>
+                        <p className="text-xs font-medium text-stone-700 mb-1.5">Adjust your items (optional)</p>
+                        <p className="text-[11px] text-stone-500 mb-2">
+                          Add or remove menu and equipment items, or change quantities. {companyName} will confirm the final price.
+                        </p>
+                        <QuoteItemsEditor
+                          token={token as string}
+                          menuInit={quote.menu_items}
+                          equipInit={quote.equipment_items}
+                          currencyFmt={fmtMoney}
+                          primary={company?.primary_color || "#b45309"}
+                          onChange={(menu, equip) => { setChangesMenuItems(menu); setChangesEquipItems(equip); }}
+                        />
+                      </div>
+
                       <div>
                         <label htmlFor="changes-message" className="text-xs font-medium text-stone-700">
                           What would you like changed?

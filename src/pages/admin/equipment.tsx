@@ -58,7 +58,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePricingMode } from "@/hooks/usePricingMode";
 import { toExVat, toIncVat } from "@/lib/vatMath";
 import { useToast } from "@/hooks/use-toast";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import {
   equipmentManagementService,
   buyVsRentRecommendation,

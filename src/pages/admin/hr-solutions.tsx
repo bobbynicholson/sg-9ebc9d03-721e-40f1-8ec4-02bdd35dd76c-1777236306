@@ -59,7 +59,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { formatZAR } from "@/lib/formatters";
 import { canAccessFinance } from "@/lib/authGuards";
 import { captureException } from "@/lib/observability";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { teamBucketsForUser } from "@/lib/teamRoleBuckets";
 import {
   Users, Clock, Calendar, TrendingUp, Award, FileText,

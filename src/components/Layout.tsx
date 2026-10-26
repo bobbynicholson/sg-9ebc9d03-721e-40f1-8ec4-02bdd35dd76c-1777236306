@@ -6,6 +6,7 @@ import { Footer } from "@/components/Footer";
 import { TrialExpiryBanner } from "@/components/TrialExpiryBanner";
 import { PageWorkbench } from "@/components/portal/ui";
 import { PaymentSetupBanner } from "@/components/billing/PaymentSetupBanner";
+import { PwaLoadingScreen } from "@/components/pwa/PwaLoadingScreen";
 
 interface LayoutProps {
   children: ReactNode;
@@ -28,14 +29,7 @@ export function Layout({
 
   // Show loading state while auth is initializing
   if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+    return <PwaLoadingScreen />;
   }
 
   const maxWidthClasses = {

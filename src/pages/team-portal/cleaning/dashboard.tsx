@@ -22,7 +22,7 @@ import { RecentDamagesStrip } from "@/components/cleaning/RecentDamagesStrip";
 import { unitsInActiveCleaning } from "@/services/cleaningJobsService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -204,10 +204,14 @@ function CleaningDashboardInner() {
     // refreshes swap the data in place without blanking the board.
     if (!hasLoadedRef.current) setLoadingEquipment(true);
     try {
-      const { data: equipmentData, error: equipmentErr } = await supabase
-        .from("equipment")
-        .select("id, name, condition, quantity, available_quantity")
-        .eq("company_id", user.company_id);
+      const [equipmentResult, cleaningUnitsMap] = await Promise.all([
+        supabase
+          .from("equipment")
+          .select("id, name, condition, quantity, available_quantity")
+          .eq("company_id", user.company_id),
+        unitsInActiveCleaning(supabase as any, user.company_id),
+      ]);
+      const { data: equipmentData, error: equipmentErr } = equipmentResult;
       if (equipmentErr) throw equipmentErr;
 
       // Wave 41 Phase 2: cleaning_jobs is now the source of truth
@@ -215,8 +219,6 @@ function CleaningDashboardInner() {
       // boolean flag on the equipment). Falls back gracefully if
       // the company hasn't started using cleaning_jobs yet - the
       // map will simply be empty.
-      const cleaningUnitsMap = await unitsInActiveCleaning(supabase as any, user.company_id);
-
       const rows: EquipmentRow[] = (equipmentData || []).map((eq: any) => {
         const inCleaning = cleaningUnitsMap.get(eq.id) || 0;
         // Subtract active-cleaning units from nominal availability

@@ -143,7 +143,7 @@ function PublicHolidaysAdmin() {
       // Pull globals + this tenant's customs in one fetch.
       const { data, error } = await supabase
         .from("public_holidays")
-        .select("*")
+        .select("id, company_id, date, name, is_recurring, notes")
         .or(`company_id.is.null,company_id.eq.${companyId}`)
         .order("date", { ascending: true });
       if (error) throw error;

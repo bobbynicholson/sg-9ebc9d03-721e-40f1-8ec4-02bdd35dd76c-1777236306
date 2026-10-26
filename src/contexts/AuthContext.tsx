@@ -79,6 +79,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // until first hydration succeeds and after sign-out, so failed
   // hydrations retry on the next auth event.
   const hydratedSessionKeyRef = useRef<string | null>(null);
+  const hydratingSessionKeyRef = useRef<string | null>(null);
+  const hydrationRequestRef = useRef(0);
 
   useEffect(() => {
     // Dev shortcut. Only honoured outside production builds. The
@@ -315,10 +317,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const sessionKey = session?.user?.id
       ? `${session.user.id}:${String((session.user.user_metadata as any)?.last_company_slug || "")}`
       : null;
-    if (sessionKey && sessionKey === hydratedSessionKeyRef.current) {
+    if (sessionKey && (
+      sessionKey === hydratedSessionKeyRef.current ||
+      sessionKey === hydratingSessionKeyRef.current
+    )) {
       return;
     }
 
+    const hydrationRequest = ++hydrationRequestRef.current;
+    if (sessionKey) hydratingSessionKeyRef.current = sessionKey;
     setLoading(true);
     setError(null);
 
@@ -326,8 +333,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         // Fetch user profile
         const userProfile = await profileService.getProfile(session.user.id);
+        if (hydrationRequest !== hydrationRequestRef.current) return;
         
         if (userProfile) {
+          // Resolve role access while company and client membership data load.
+          // These requests are independent; waiting for the company first
+          // added a full network round-trip to every cold app launch.
+          const departmentLookup = supabase
+            .from("user_departments")
+            .select("department, is_primary")
+            .eq("user_id", session.user.id)
+            .order("is_primary", { ascending: false });
+
           // Fetch company if user has company_id
           let userCompany = null;
 
@@ -496,11 +513,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
 
-          const { data: departmentRows, error: departmentError } = await supabase
-            .from("user_departments")
-            .select("department, is_primary")
-            .eq("user_id", session.user.id)
-            .order("is_primary", { ascending: false });
+          const { data: departmentRows, error: departmentError } = await departmentLookup;
           if (departmentError) {
             console.error("[AuthContext] user_departments fetch failed:", departmentError);
           }
@@ -563,6 +576,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             created_at: session.user.created_at,
           };
 
+          if (hydrationRequest !== hydrationRequestRef.current) return;
           setUser(authenticatedUser);
           // Clean the profile's full_name the same way we cleaned
           // the authenticatedUser above — so profile?.full_name
@@ -582,14 +596,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // + user + role context. No-op when Sentry isn't wired in;
           // becomes live the moment SENTRY_DSN lands. See
           // src/lib/observability.ts.
-          try {
-            const { setGlobalTags } = await import("@/lib/observability");
+          void import("@/lib/observability").then(({ setGlobalTags }) => {
             setGlobalTags({
               companyId: userProfile.company_id || null,
               userId: session.user.id,
               role: derivedRoles.activeRole,
             });
-          } catch { /* non-fatal */ }
+          }).catch(() => {});
         }
       } else {
         setUser(null);
@@ -599,16 +612,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setActiveRole(UserRole.CLIENT);
         hydratedSessionKeyRef.current = null;
 
-        try {
-          const { setGlobalTags } = await import("@/lib/observability");
+        void import("@/lib/observability").then(({ setGlobalTags }) => {
           setGlobalTags({ companyId: null, userId: null, role: null });
-        } catch { /* non-fatal */ }
+        }).catch(() => {});
       }
     } catch (err) {
       console.error("Auth error:", err);
-      setError(err instanceof Error ? err.message : "Authentication error");
+      if (hydrationRequest === hydrationRequestRef.current) {
+        setError(err instanceof Error ? err.message : "Authentication error");
+      }
     } finally {
-      setLoading(false);
+      if (hydrationRequest === hydrationRequestRef.current) {
+        hydratingSessionKeyRef.current = null;
+        setLoading(false);
+      }
     }
   };
 

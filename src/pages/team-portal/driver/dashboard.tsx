@@ -44,7 +44,7 @@ import { DriverPageShell } from "@/components/driver/DriverPageShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { PortalCard } from "@/components/portal/ui";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -336,7 +336,7 @@ function DriverDashboardInner() {
       // Wave 46 T5 - pull client_phone + special_instructions so the
       // driver doesn't get stuck at a locked venue with no number
       // to call, and sees any "back gate, ring up first" notes.
-      const { data: assignments, error: assignmentsError } = await supabase
+      const assignmentsQuery = supabase
         .from("driver_assignments")
         .select(`
           id,
@@ -371,7 +371,35 @@ function DriverDashboardInner() {
         .gte("orders.event_date", collectionGraceISO)
         .lte("orders.event_date", horizonISO)
         .order("assigned_at", { ascending: false });
+      // These reads are independent. Waiting for assignments before
+      // requesting direct legacy assignments added a full network round-trip
+      // to every driver dashboard load (including realtime refreshes).
+      const directOrdersQuery = supabase
+        .from("orders")
+        .select("id, order_number, client_name, client_phone, venue_address, venue_lat, venue_lng, guest_count, event_time, event_date, status, pickup_time, delivery_distance_km, special_instructions, driver_acknowledged_at")
+        .eq("company_id", user.company_id)
+        .is("deleted_at", null)
+        .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id},secondary_driver_id.eq.${user.id}`)
+        .in("status", ["confirmed", "preparing", "ready", "in_transit"])
+        .gte("event_date", todayISO)
+        .lte("event_date", horizonISO)
+        .order("event_date", { ascending: true });
+      const completedTodayQuery = supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", user.company_id)
+        .is("deleted_at", null)
+        .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id},secondary_driver_id.eq.${user.id}`)
+        .in("status", ["delivered", "completed"])
+        .eq("event_date", todayISO);
 
+      const [assignmentsResult, directOrdersResult, completedTodayResult] = await Promise.all([
+        assignmentsQuery,
+        directOrdersQuery,
+        completedTodayQuery,
+      ]);
+      const { data: assignments, error: assignmentsError } = assignmentsResult;
+      const { data: directOrders, error: ordersError } = directOrdersResult;
       if (assignmentsError) {
         // Pre-restructure this early-returned after a console.error,
         // leaving the driver staring at an empty "No deliveries"
@@ -380,20 +408,6 @@ function DriverDashboardInner() {
         setJobsError(assignmentsError.message || "We couldn't load your assigned jobs.");
         return;
       }
-
-      // Also get orders directly assigned to driver. Catering orders may
-      // have either `driver_id` (legacy) or `assigned_driver_id` (current
-      // dispatch flow) populated, so we OR across both columns.
-      const { data: directOrders, error: ordersError } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("company_id", user.company_id)
-        .is("deleted_at", null)
-        .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id},secondary_driver_id.eq.${user.id}`)
-        .in("status", ["confirmed", "preparing", "ready", "in_transit"])
-        .gte("event_date", todayISO)
-        .lte("event_date", horizonISO)
-        .order("event_date", { ascending: true });
 
       if (ordersError) {
         console.error("Error loading orders:", ordersError);
@@ -454,22 +468,9 @@ function DriverDashboardInner() {
 
       setJobs(uniqueJobs);
 
-      // Today's completed/delivered count. The two queries above only
-      // load in-flight statuses, so it must come from its own query or
-      // "Completed today" is stuck at 0.
-      try {
-        const { count: doneCount } = await supabase
-          .from("orders")
-          .select("id", { count: "exact", head: true })
-          .eq("company_id", user.company_id)
-          .is("deleted_at", null)
-          .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id},secondary_driver_id.eq.${user.id}`)
-          .in("status", ["delivered", "completed"])
-          .eq("event_date", todayISO);
-        setCompletedTodayCount(doneCount || 0);
-      } catch (countErr) {
-        console.warn("[driver dashboard] completed-today count failed:", countErr);
-      }
+      // Today's completed/delivered count is independent of active jobs,
+      // so resolve it in the same parallel request batch.
+      setCompletedTodayCount(completedTodayResult.count || 0);
 
       // Auto-acknowledge any unacked assignments. Opening the driver
       // app IS the acknowledgement - the audit gap was "admin doesn't

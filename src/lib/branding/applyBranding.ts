@@ -14,6 +14,8 @@ import { fontFamilyValue, googleFontsHref } from "./fonts";
 
 export interface BrandingRow {
   id: string;
+  /** Tenant slug lets the installed app restore its brand before auth finishes. */
+  slug?: string | null;
   companyName: string | null;
   logoUrl: string | null;
   primaryColor: string | null;

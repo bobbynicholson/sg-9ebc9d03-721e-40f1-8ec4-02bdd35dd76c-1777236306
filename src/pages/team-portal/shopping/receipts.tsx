@@ -16,7 +16,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantHref } from "@/lib/tenantUrl";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { ReceiptScanner } from "@/components/shopping/ReceiptScanner";
 
 

@@ -96,7 +96,7 @@ import {
   CancellationReviewDrawer,
 } from "@/components/admin/orders/AmendmentReviewDrawer";
 import { Footer } from "@/components/Footer";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { orderService } from "@/services/orderService";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -1001,6 +1001,9 @@ function OrderProcessDashboard() {
         allOrders = await orderService.getAllOrders(companyId);
       }
       setOrders(allOrders as unknown as AppOrder[]);
+      // The order rows are the primary content. Reveal them now while the
+      // amount history and timeline enrichment continue in the background.
+      setLoading(false);
       if (localAmountChanges) {
         setAmountChangesByOrder(localAmountChanges);
       } else {
@@ -1034,26 +1037,6 @@ function OrderProcessDashboard() {
         setAllShiftsByOrder(new Map());
         setStaffProfilesById(new Map());
         return;
-      }
-
-      // Pull email_automation_log rows for these orders so the cards
-      // can surface "post-event review sent / queued / not yet"
-      // without a per-card extra round trip.
-      try {
-        const orderIds = allOrders.map((o: any) => o.id);
-        if (orderIds.length > 0) {
-          const { data: logs } = await supabase
-            .from("email_automation_log")
-            .select("order_id, template_type, status, sent_at")
-            .in("order_id", orderIds);
-          setAutoEmailMap(summariseAutoEmailsByOrder(logs || []));
-        } else {
-          setAutoEmailMap(new Map());
-        }
-      } catch (err) {
-        // Non-fatal - the cards still render without automation
-        // status, just without the extra chips.
-        console.warn("[orders] email_automation_log fetch failed", err);
       }
 
       // Wave 25: batch-fetch the related rows that drive the new
@@ -1341,6 +1324,7 @@ function OrderProcessDashboard() {
           );
           const invoicesByOrder = bucket(invoicesRes.data as any[] | null);
           const emailLogByOrder = bucket(emailLogRes.data as any[] | null);
+          setAutoEmailMap(summariseAutoEmailsByOrder((emailLogRes.data as any[] | null) || []));
           const deliveryShiftsByOrder = bucket(
             deliveryShiftsRes.data as any[] | null,
           );

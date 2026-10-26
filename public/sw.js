@@ -21,25 +21,21 @@
  * JS after a deploy.
  */
 
+// v4 (2026-10-26): keep first install light. Preloading full role
+// dashboards delayed activation and competed with the page that the
+// person was opening. Only the sign-in fallback and small brand assets
+// are precached; visited static chunks are still cached at runtime.
+//
 // v3 (2026-07-11): the authenticated app kept running a pre-deploy
 // bundle for DAYS - skipWaiting/claim swap the worker but nothing
 // reloads an already-open PWA, so fixes never reached his phone. The
 // version bump drops every v1 cache, and _app.tsx now listens for
 // controllerchange + re-checks for updates on tab focus and reloads
 // once, so future deploys actually land on installed PWAs.
-const CACHE_VERSION = "v3";
+const CACHE_VERSION = "v4";
 const SHELL_CACHE = `cms-app-shell-${CACHE_VERSION}`;
 const SHELL_URLS = [
   "/auth/login",
-  "/admin/platform/dashboard",
-  "/admin/dashboard",
-  "/team-portal/driver/dashboard",
-  "/team-portal/kitchen/dashboard",
-  "/team-portal/shopping/dashboard",
-  "/team-portal/cleaning/dashboard",
-  "/team-portal/waiter/dashboard",
-  "/client-portal/dashboard",
-  "/favicon.ico",
   "/icons/cateringms-192.png",
   "/icons/cateringms-512.png",
   "/manifest.webmanifest",

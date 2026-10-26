@@ -31,7 +31,7 @@ import { OrderEditDialog } from "@/components/order/OrderEditDialog";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { RebookDialog } from "@/components/client-portal/RebookDialog";
 import { AddToCalendarButton } from "@/components/client-portal/AddToCalendarButton";
 import { toLocalISO } from "@/lib/localDate";

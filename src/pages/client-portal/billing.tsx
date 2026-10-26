@@ -24,7 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { InvoiceDetailModal } from "@/components/billing/InvoiceDetailModal";
 import { PaymentModal } from "@/components/billing/PaymentModal";
 import { ReceiptDialog } from "@/components/client-portal/ReceiptDialog";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 import { getInitialInvoicePaymentAmount, resolveInvoiceFirstPaymentAmount } from "@/lib/invoiceClientView";
 import { formatClock } from "@/lib/portalTime";

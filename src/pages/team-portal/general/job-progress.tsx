@@ -10,7 +10,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { toLocalISO } from "@/lib/localDate";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { DynamicNav } from "@/components/DynamicNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalShell, PortalHeader,

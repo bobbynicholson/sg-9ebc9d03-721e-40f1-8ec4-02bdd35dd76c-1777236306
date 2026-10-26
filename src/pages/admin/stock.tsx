@@ -279,8 +279,87 @@ function StockPage() {
     const last30ISO = toLocalISO(new Date(today.getTime() - 30 * 24 * 3600 * 1000));
 
     try {
+      // These seven source reads depend only on the same company, region and
+      // date window. Resolve them together so the stock page waits for one
+      // network round-trip instead of serially waiting on every data source.
+      const bookingsSelect = regionFilterId
+        ? "id, booked_from, booked_until, quantity, status, equipment_id, equipment:equipment_id(id, name), orders!inner(region_id)"
+        : "id, booked_from, booked_until, quantity, status, equipment_id, equipment:equipment_id(id, name)";
+      let bookingsQ = supabase
+        .from("equipment_bookings")
+        .select(bookingsSelect)
+        .eq("company_id", companyId)
+        .gte("booked_from", todayISO)
+        .lte("booked_from", horizonISO)
+        .neq("status", "cancelled")
+        .order("booked_from", { ascending: true });
+      if (regionFilterId) bookingsQ = bookingsQ.eq("orders.region_id", regionFilterId);
+
+      const hireSelect = regionFilterId
+        ? "id, expected_pickup_date, expected_return_date, status, supplier_name, equipment_name, quantity, orders!inner(region_id)"
+        : "id, expected_pickup_date, expected_return_date, status, supplier_name, equipment_name, quantity";
+      let hireQ = supabase
+        .from("equipment_hire_orders")
+        .select(hireSelect)
+        .eq("company_id", companyId)
+        .in("status", ["draft", "ordered", "confirmed", "in-transit"])
+        .order("expected_pickup_date", { ascending: true, nullsFirst: false });
+      if (regionFilterId) hireQ = hireQ.eq("orders.region_id", regionFilterId);
+
+      const outlookQ = supabase
+        .from("inventory_demand_outlook")
+        .select("inventory_item_id, item_name, current_stock, demand_next_7_days, shortfall_next_7_days, status, unit_of_measure")
+        .eq("company_id", companyId)
+        .gt("shortfall_next_7_days", 0)
+        .order("shortfall_next_7_days", { ascending: false })
+        .limit(20);
+
+      const orderSelect = regionFilterId
+        ? "id, event_date, status, client_name, region_id"
+        : "id, event_date, status, client_name";
+      let ordersQ = supabase
+        .from("orders")
+        .select(orderSelect)
+        .eq("company_id", companyId)
+        .in("status", ["confirmed", "preparing", "ready"])
+        .gte("event_date", todayISO)
+        .lte("event_date", horizonISO)
+        .is("deleted_at", null)
+        .order("event_date", { ascending: true });
+      if (regionFilterId) ordersQ = ordersQ.eq("region_id", regionFilterId);
+
+      const transactionsQ = supabase
+        .from("inventory_transactions")
+        .select("inventory_item_id, transaction_type, quantity, created_at")
+        .eq("company_id", companyId)
+        .gte("created_at", last30ISO)
+        .in("transaction_type", ["usage", "adjustment"]);
+      const wastageQ = supabase
+        .from("inventory_transactions")
+        .select("inventory_item_id, quantity")
+        .eq("company_id", companyId)
+        .eq("transaction_type", "waste")
+        .gte("created_at", last30ISO);
+
+      const [
+        lowItems,
+        bookingsResult,
+        hireResult,
+        outlookResult,
+        ordersResult,
+        transactionsResult,
+        wastageResult,
+      ] = await Promise.all([
+        inventoryService.getLowStockItems(companyId),
+        bookingsQ,
+        hireQ,
+        outlookQ,
+        ordersQ,
+        transactionsQ,
+        wastageQ,
+      ]);
+
       // Low stock
-      const lowItems = await inventoryService.getLowStockItems(companyId);
       type LowItem = { id: string; item_name: string; current_stock: number | null; minimum_stock: number | null; unit_of_measure?: string | null; region_id?: string | null; is_shared?: boolean; preferred_supplier_id?: string | null };
       const filteredLow = (regionFilterId
         ? lowItems.filter((i) => {
@@ -297,21 +376,7 @@ function StockPage() {
       setLowStock({ count: filteredLow.length, top5: top5Low });
 
       // Equipment commitments next Nd
-      const bookingsSelect = regionFilterId
-        ? "id, booked_from, booked_until, quantity, status, equipment_id, equipment:equipment_id(id, name), orders!inner(region_id)"
-        : "id, booked_from, booked_until, quantity, status, equipment_id, equipment:equipment_id(id, name)";
-      let bookingsQ = supabase
-        .from("equipment_bookings")
-        .select(bookingsSelect)
-        .eq("company_id", companyId)
-        .gte("booked_from", todayISO)
-        .lte("booked_from", horizonISO)
-        .neq("status", "cancelled")
-        .order("booked_from", { ascending: true });
-      if (regionFilterId) {
-        bookingsQ = bookingsQ.eq("orders.region_id", regionFilterId);
-      }
-      const { data: bookingRows, error: bookingsErr } = await bookingsQ;
+      const { data: bookingRows, error: bookingsErr } = bookingsResult;
       // Core tile - a silent failure here zeroes the Equipment tile
       // and the feed, so fail loud into the error banner.
       if (bookingsErr) throw bookingsErr;
@@ -371,19 +436,7 @@ function StockPage() {
       // page, kept the door open to leak finance data to non-finance
       // roles). The cost lives on /admin/shopping where the role gate
       // already enforces visibility.
-      const hireSelect = regionFilterId
-        ? "id, expected_pickup_date, expected_return_date, status, supplier_name, equipment_name, quantity, orders!inner(region_id)"
-        : "id, expected_pickup_date, expected_return_date, status, supplier_name, equipment_name, quantity";
-      let hireQ = supabase
-        .from("equipment_hire_orders")
-        .select(hireSelect)
-        .eq("company_id", companyId)
-        .in("status", ["draft", "ordered", "confirmed", "in-transit"])
-        .order("expected_pickup_date", { ascending: true, nullsFirst: false });
-      if (regionFilterId) {
-        hireQ = hireQ.eq("orders.region_id", regionFilterId);
-      }
-      const { data: hireRows, error: hireErr } = await hireQ;
+      const { data: hireRows, error: hireErr } = hireResult;
       if (hireErr) throw hireErr;
       type HireRow = {
         id: string; expected_pickup_date: string | null; expected_return_date: string | null;
@@ -419,14 +472,7 @@ function StockPage() {
       // STK-B: inventory_demand_outlook view computes shortfall against
       // upcoming order demand. Status enum lists 'critical', 'warning'
       // etc; we take only those with a real next-7-day shortfall.
-      const outlookQ = supabase
-        .from("inventory_demand_outlook")
-        .select("inventory_item_id, item_name, current_stock, demand_next_7_days, shortfall_next_7_days, status, unit_of_measure")
-        .eq("company_id", companyId)
-        .gt("shortfall_next_7_days", 0)
-        .order("shortfall_next_7_days", { ascending: false })
-        .limit(20);
-      const { data: outlookRows, error: outlookErr } = await outlookQ;
+      const { data: outlookRows, error: outlookErr } = outlookResult;
       if (outlookErr) {
         console.warn("[admin/stock] demand outlook query failed:", outlookErr);
         failedSections.push("stockout risk");
@@ -454,22 +500,7 @@ function StockPage() {
       // (from outlook) and pending hire-ins. Composite readiness pct =
       // 100 - (shorts + pending hire-ins clamped). Operators get one
       // gauge per event so a "70% ready Friday" event jumps out.
-      const orderSelect = regionFilterId
-        ? "id, event_date, status, client_name, region_id"
-        : "id, event_date, status, client_name";
-      let ordersQ = supabase
-        .from("orders")
-        .select(orderSelect)
-        .eq("company_id", companyId)
-        .in("status", ["confirmed", "preparing", "ready"])
-        .gte("event_date", todayISO)
-        .lte("event_date", horizonISO)
-        .is("deleted_at", null)
-        .order("event_date", { ascending: true });
-      if (regionFilterId) {
-        ordersQ = ordersQ.eq("region_id", regionFilterId);
-      }
-      const { data: orderRows, error: ordersErr } = await ordersQ;
+      const { data: orderRows, error: ordersErr } = ordersResult;
       if (ordersErr) {
         console.warn("[admin/stock] upcoming orders query failed:", ordersErr);
         failedSections.push("event readiness");
@@ -524,12 +555,7 @@ function StockPage() {
       // can't keep up. Count adjustment + usage events that pushed
       // stock under minimum in the last 30 days.
       type TxnRow = { inventory_item_id: string; transaction_type: string; quantity: number; created_at: string | null };
-      const { data: txnRows, error: txnErr } = await supabase
-        .from("inventory_transactions")
-        .select("inventory_item_id, transaction_type, quantity, created_at")
-        .eq("company_id", companyId)
-        .gte("created_at", last30ISO)
-        .in("transaction_type", ["usage", "adjustment"]);
+      const { data: txnRows, error: txnErr } = transactionsResult;
       if (txnErr) {
         console.warn("[admin/stock] transactions query failed:", txnErr);
         failedSections.push("re-order trend");
@@ -647,12 +673,7 @@ function StockPage() {
       // "you wrote off 8kg of brisket" so the operator can investigate
       // storage / portioning / shelf-life issues.
       type WasteRow = { inventory_item_id: string; quantity: number };
-      const { data: wasteRows, error: wasteErr } = await supabase
-        .from("inventory_transactions")
-        .select("inventory_item_id, quantity")
-        .eq("company_id", companyId)
-        .eq("transaction_type", "waste")
-        .gte("created_at", last30ISO);
+      const { data: wasteRows, error: wasteErr } = wastageResult;
       if (wasteErr) {
         console.warn("[admin/stock] wastage query failed:", wasteErr);
         failedSections.push("wastage");

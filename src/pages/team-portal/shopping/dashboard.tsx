@@ -40,7 +40,7 @@ import {
   Printer, RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { UserRole } from "@/types/app";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ShoppingPageShell, SHOPPING_HERO_CHIP } from "@/components/shopping/ShoppingPageShell";

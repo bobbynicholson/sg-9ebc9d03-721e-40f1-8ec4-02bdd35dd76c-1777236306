@@ -26,7 +26,7 @@ import driverService from "@/services/driverService";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { Footer } from "@/components/Footer";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import dynamic from "next/dynamic";
 import { OrderDetailsPanel } from "@/components/tracking/OrderDetailsPanel";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";

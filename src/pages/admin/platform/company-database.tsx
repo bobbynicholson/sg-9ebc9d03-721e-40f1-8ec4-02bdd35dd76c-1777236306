@@ -61,6 +61,7 @@ function CompanyDatabasePage() {
   const router = useRouter();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
+  const [countsLoading, setCountsLoading] = useState(true);
   // Silent-failure audit: a failed load used to toast once and then show
   // an empty "No companies found" table. Persist the error instead.
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -202,13 +203,15 @@ function CompanyDatabasePage() {
   const loadCompanies = async () => {
     try {
       setLoading(true);
+      setCountsLoading(true);
       setLoadError(null);
       let companiesData: any[] | null = null;
       let error: any = null;
       const primaryResult = await supabase
         .from("companies")
         .select(`
-          *,
+          id, company_name, slug, owner_id, email, phone, address_line1,
+          city, country, subscription_status, trial_ends_at, created_at,
           profiles!companies_owner_id_fkey(full_name)
         `)
         .is("deleted_at", null)
@@ -223,7 +226,7 @@ function CompanyDatabasePage() {
       if (error) {
         const fallbackResult = await supabase
           .from("companies")
-          .select("*")
+          .select("id, company_name, slug, owner_id, email, phone, address_line1, city, country, subscription_status, trial_ends_at, created_at")
           .is("deleted_at", null)
           .order("created_at", { ascending: false });
         companiesData = fallbackResult.data as any[] | null;
@@ -231,6 +234,18 @@ function CompanyDatabasePage() {
       }
 
       if (error) throw error;
+
+      // The company list is the main task on this page. Render it as soon
+      // as it arrives; platform-wide user and order counts can finish after.
+      const baseCompanies = (companiesData || []).map((company: any) => ({
+        ...company,
+        company_slug: company.slug || company.company_slug || "",
+        owner_name: company.profiles?.full_name || "Unknown",
+        total_users: 0,
+        total_orders: 0,
+      }));
+      setCompanies(baseCompanies as Company[]);
+      setLoading(false);
 
       // Enhance with per-tenant user/order counts. Two grouped queries
       // across every company id instead of the old per-company head
@@ -289,6 +304,7 @@ function CompanyDatabasePage() {
       });
     } finally {
       setLoading(false);
+      setCountsLoading(false);
     }
   };
 
@@ -462,7 +478,7 @@ function CompanyDatabasePage() {
       // Load company users
       const { data: users, error } = await supabase
         .from("profiles")
-        .select("*")
+        .select("id, email, full_name, active_role")
         .eq("company_id", company.id)
         .order("created_at", { ascending: false });
 
@@ -607,7 +623,7 @@ function CompanyDatabasePage() {
           />
           <StatTile
             label="Users"
-            value={companies.reduce((sum, c) => sum + (c.total_users || 0), 0)}
+            value={countsLoading ? "…" : companies.reduce((sum, c) => sum + (c.total_users || 0), 0)}
             hint="Across every company"
             icon={Users}
           />
@@ -765,10 +781,10 @@ function CompanyDatabasePage() {
                         <TableCell>
                           <div className="flex items-center gap-1 text-sm text-slate-700 dark:text-slate-300">
                             <Users className="w-3 h-3" />
-                            {company.total_users}
+                            {countsLoading ? "…" : company.total_users}
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm text-slate-700 dark:text-slate-300">{company.total_orders}</TableCell>
+                        <TableCell className="text-sm text-slate-700 dark:text-slate-300">{countsLoading ? "…" : company.total_orders}</TableCell>
                         <TableCell className="text-sm text-slate-600 dark:text-slate-400">
                           {new Date(company.created_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
                         </TableCell>

@@ -23,7 +23,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { KitchenPageShell, KITCHEN_HERO_CHIP } from "@/components/kitchen/KitchenPageShell";
 import { PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { CleaningScheduleDialog } from "@/components/kitchen/CleaningScheduleDialog";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { KitchenServiceFAB } from "@/components/kitchen/KitchenServiceFAB";
 import { KitchenStaffTileBoard } from "@/components/kitchen/KitchenStaffTileBoard";
 import { ManagerWorkModeCard } from "@/components/portal/ManagerWorkModeCard";

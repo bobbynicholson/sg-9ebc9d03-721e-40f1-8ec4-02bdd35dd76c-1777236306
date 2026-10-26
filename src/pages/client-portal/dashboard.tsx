@@ -43,7 +43,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { ClientNav } from "@/components/navigation/ClientNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { RebookDialog } from "@/components/client-portal/RebookDialog";
 import { RequestEditsDialog } from "@/components/client-portal/RequestEditsDialog";
 import { OrderClientChatPanel } from "@/components/chat/OrderClientChatPanel";
@@ -573,7 +573,60 @@ function ClientPortalDashboardInner() {
           return;
         }
 
-        const { data, error } = await q;
+        // These datasets share only the resolved tenant/client identity, so
+        // fetch them together instead of making clients wait through four
+        // consecutive database round-trips. Feedback remains a second wave
+        // because it depends on the order IDs returned below.
+        const baseQuotes = supabase
+          .from("quotes")
+          .select(
+            "id, public_token, quote_number, quote_name, status, total, total_amount, event_date, event_time, sent_at, valid_until",
+          )
+          .eq("company_id", tenantCompanyId)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false });
+
+        let quotesQuery = baseQuotes;
+        if (clientIds.length > 0 && normEmail) {
+          quotesQuery = quotesQuery.or(
+            `client_id.in.(${clientIds.join(",")}),client_email.eq.${normEmail}`,
+          );
+        } else if (clientIds.length > 0) {
+          quotesQuery = quotesQuery.in("client_id", clientIds);
+        } else if (normEmail) {
+          quotesQuery = quotesQuery.eq("client_email", normEmail);
+        }
+
+        const baseInvoices = (supabase as any)
+          .from("invoices")
+          .select("id, status, balance_due, total_amount, due_date")
+          .eq("company_id", tenantCompanyId)
+          .is("deleted_at", null)
+          .in("status", ["sent", "partially_paid", "overdue"])
+          .gt("balance_due", 0);
+        const invoicesQuery = clientIds.length > 0
+          ? baseInvoices.in("client_id", clientIds)
+          : baseInvoices.in("client_id", ["00000000-0000-0000-0000-000000000000"]);
+
+        const basePaid = (supabase as any)
+          .from("invoices")
+          .select("id, invoice_number, order_id, paid_at")
+          .eq("company_id", tenantCompanyId)
+          .is("deleted_at", null)
+          .eq("status", "paid")
+          .not("paid_at", "is", null)
+          .order("paid_at", { ascending: false });
+        const paidQuery = clientIds.length > 0
+          ? basePaid.in("client_id", clientIds)
+          : basePaid.in("client_id", ["00000000-0000-0000-0000-000000000000"]);
+
+        const [orderResult, quoteResult, invoicesResult, paidResult] = await Promise.all([
+          q,
+          quotesQuery,
+          invoicesQuery,
+          paidQuery,
+        ]);
+        const { data, error } = orderResult;
         if (error) console.error("Client dashboard load failed:", error);
         const rows = (data as Omit<Order, "rating">[]) || [];
 
@@ -604,30 +657,8 @@ function ClientPortalDashboardInner() {
         }));
         if (!cancelled) setOrders(merged);
 
-        // Quotes for this client. Same union pattern as orders --
-        // catering teams send quotes by email before sign-up so we
-        // need to catch orphan rows (NULL client_id) too. Filtered
-        // to non-deleted, tenant-scoped, ordered newest first.
-        const baseQuotes = supabase
-          .from("quotes")
-          .select(
-            "id, public_token, quote_number, quote_name, status, total, total_amount, event_date, event_time, sent_at, valid_until",
-          )
-          .eq("company_id", tenantCompanyId)
-          .is("deleted_at", null)
-          .order("created_at", { ascending: false });
-
-        let quotesQuery = baseQuotes;
-        if (clientIds.length > 0 && normEmail) {
-          quotesQuery = quotesQuery.or(
-            `client_id.in.(${clientIds.join(",")}),client_email.eq.${normEmail}`,
-          );
-        } else if (clientIds.length > 0) {
-          quotesQuery = quotesQuery.in("client_id", clientIds);
-        } else if (normEmail) {
-          quotesQuery = quotesQuery.eq("client_email", normEmail);
-        }
-        const { data: quoteRows } = await quotesQuery;
+        // Quotes and invoice summaries were fetched beside the orders above.
+        const { data: quoteRows } = quoteResult;
         if (!cancelled) {
           setQuotes(((quoteRows as PortalQuote[]) || []));
         }
@@ -638,29 +669,7 @@ function ClientPortalDashboardInner() {
         // of the page. Failure is best-effort - tile stays at 0
         // rather than blocking the dashboard.
         try {
-          const baseInvoices = (supabase as any)
-            .from("invoices")
-            .select("id, status, balance_due, total_amount, due_date")
-            .eq("company_id", tenantCompanyId)
-            .is("deleted_at", null)
-            // "Client owes something" set: sent (unpaid),
-            // partially_paid (balance owed), overdue (past due_date).
-            // TIGHTEN I.98: also gate on balance_due > 0 to match
-            // useAdminLiveCounts + /admin/invoices. Catches the rare
-            // race where status hasn't flipped off "partially_paid"
-            // but balance_due was reconciled to 0.
-            .in("status", ["sent", "partially_paid", "overdue"])
-            .gt("balance_due", 0);
-          let invoicesQuery = baseInvoices;
-          // invoices link to a client via client_id only (no client_email
-          // column), so scope by the resolved tenant client ids. With no
-          // client record there are no matchable invoices -> force empty.
-          if (clientIds.length > 0) {
-            invoicesQuery = invoicesQuery.in("client_id", clientIds);
-          } else {
-            invoicesQuery = invoicesQuery.in("client_id", ["00000000-0000-0000-0000-000000000000"]);
-          }
-          const { data: invoiceRows } = await invoicesQuery;
+          const { data: invoiceRows } = invoicesResult;
           if (!cancelled) {
             const todayMS = Date.now();
             const rows = (invoiceRows || []) as Array<{ id: string; status: string; balance_due: number | null; total_amount: number | null; due_date: string | null }>;
@@ -692,22 +701,7 @@ function ClientPortalDashboardInner() {
         // Best-effort - if this fails the dashboard still works,
         // the Receipt link just doesn't appear.
         try {
-          const basePaid = (supabase as any)
-            .from("invoices")
-            .select("id, invoice_number, order_id, paid_at")
-            .eq("company_id", tenantCompanyId)
-            .is("deleted_at", null)
-            .eq("status", "paid")
-            .not("paid_at", "is", null)
-            .order("paid_at", { ascending: false });
-          let paidQuery = basePaid;
-          // Same as above: invoices match by client_id only (no client_email).
-          if (clientIds.length > 0) {
-            paidQuery = paidQuery.in("client_id", clientIds);
-          } else {
-            paidQuery = paidQuery.in("client_id", ["00000000-0000-0000-0000-000000000000"]);
-          }
-          const { data: paidRows } = await paidQuery;
+          const { data: paidRows } = paidResult;
           if (!cancelled) {
             const rows = (paidRows || []) as Array<{
               id: string;

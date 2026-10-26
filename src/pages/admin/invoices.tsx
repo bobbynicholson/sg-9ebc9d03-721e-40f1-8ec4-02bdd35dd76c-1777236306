@@ -872,58 +872,69 @@ function InvoicesPageInner() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("invoices")
-        .select(`
-          *,
-          orders (
-            order_number,
-            event_name,
-            client_name,
-            client_email,
-            client_phone,
-            event_date,
-            event_time,
-            venue_address,
-            guest_count,
-            subtotal,
-            tax_amount,
-            total_amount,
-            client_id,
-            quote_id,
-            region_id,
-            clients (
+      const companySettingsRequest = (async () => {
+        try {
+          const { data, error } = await (supabase as any)
+            .from("companies")
+            .select("dispatch_settings")
+            .eq("id", user.company_id)
+            .maybeSingle();
+          if (error) throw error;
+          return data;
+        } catch (termsError) {
+          console.warn("[invoices] company payment terms could not be loaded:", termsError);
+          return null;
+        }
+      })();
+      const [invoiceResult, companySettings] = await Promise.all([
+        supabase
+          .from("invoices")
+          .select(`
+            *,
+            orders (
+              order_number,
+              event_name,
               client_name,
-              email,
-              phone,
-              tax_number,
-              payment_terms
+              client_email,
+              client_phone,
+              event_date,
+              event_time,
+              venue_address,
+              guest_count,
+              subtotal,
+              tax_amount,
+              total_amount,
+              client_id,
+              quote_id,
+              region_id,
+              clients (
+                client_name,
+                email,
+                phone,
+                tax_number,
+                payment_terms
+              )
             )
-          )
-        `)
-        .eq("company_id", user.company_id)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false });
+          `)
+          .eq("company_id", user.company_id)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false }),
+        companySettingsRequest,
+      ]);
 
-      if (error) throw error;
-      const rows = (data || []) as any[];
+      if (invoiceResult.error) throw invoiceResult.error;
+      const rows = (invoiceResult.data || []) as any[];
       // Never let a failed/blocked company-settings lookup re-enable a
       // legacy client's Net-X payment term in the preview. The shared
       // company default is always available locally; the lookup below can
       // replace it with the tenant's saved custom wording.
-      const defaultTerms = configuredPaymentTerms(null);
-      for (const invoice of rows) invoice.companyPaymentTerms = defaultTerms;
-      try {
-        const { data: companySettings, error: companySettingsError } = await (supabase as any).from("companies")
-          .select("dispatch_settings")
-          .eq("id", user.company_id)
-          .maybeSingle();
-        if (companySettingsError) throw companySettingsError;
-        const fallbackTerms = configuredPaymentTerms(companySettings?.dispatch_settings);
-        for (const invoice of rows) invoice.companyPaymentTerms = fallbackTerms;
-      } catch (termsError) {
-        console.warn("[invoices] company payment terms could not be loaded:", termsError);
-      }
+      const fallbackTerms = configuredPaymentTerms(companySettings?.dispatch_settings);
+      for (const invoice of rows) invoice.companyPaymentTerms = fallbackTerms;
+      setAllInvoices(rows);
+      setLoadError(null);
+      // Payment-term history is secondary to the invoice list. Keep the
+      // page useful while its audit indicators finish loading.
+      setLoading(false);
       try {
         const changeIds = rows.flatMap((invoice) => [invoice.id, invoice.order_id].filter(Boolean));
         const changes = await loadLatestDocumentAmountChanges(supabase, user.company_id, changeIds);
@@ -933,8 +944,7 @@ function InvoicesPageInner() {
       } catch (changeError) {
         console.warn("[invoices] amount change history could not be loaded:", changeError);
       }
-      setAllInvoices(rows);
-      setLoadError(null);
+      setAllInvoices([...rows]);
     } catch (error: any) {
       setLoadError(dbErrorMessage(error, { entity: "invoice" }));
       toast({

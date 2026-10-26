@@ -194,13 +194,26 @@ function KitchenDutyRosterPageInner() {
     setLoading(true);
     setLoadError(null);
     try {
-      const { data: activeShifts, error: activeErr } = await supabase
-        .from("kitchen_duty_shifts")
-        .select("*")
-        .eq("company_id", user.company_id)
-        .eq("is_active", true)
-        .order("shift_start", { ascending: false })
-        .returns<Shift[]>();
+      const weekAgoIso = new Date(Date.now() - 7 * 86400000).toISOString();
+      const [activeResult, recentResult] = await Promise.all([
+        supabase
+          .from("kitchen_duty_shifts")
+          .select("*")
+          .eq("company_id", user.company_id)
+          .eq("is_active", true)
+          .order("shift_start", { ascending: false })
+          .returns<Shift[]>(),
+        supabase
+          .from("kitchen_duty_shifts")
+          .select("*")
+          .eq("company_id", user.company_id)
+          .eq("is_active", false)
+          .gte("shift_end", weekAgoIso)
+          .order("shift_end", { ascending: false })
+          .limit(200)
+          .returns<Shift[]>(),
+      ]);
+      const { data: activeShifts, error: activeErr } = activeResult;
       if (activeErr) throw activeErr;
 
       // Data-consistency fix (2026-07-02): the recent fetch used to be
@@ -209,16 +222,7 @@ function KitchenDutyRosterPageInner() {
       // silently under-reported weekly hours. Fetch the full 7-day
       // window (covers the Sunday-start week the stat uses) so the
       // tiles and the grouped list walk the same complete array.
-      const weekAgoIso = new Date(Date.now() - 7 * 86400000).toISOString();
-      const { data: recentShifts, error: recentErr } = await supabase
-        .from("kitchen_duty_shifts")
-        .select("*")
-        .eq("company_id", user.company_id)
-        .eq("is_active", false)
-        .gte("shift_end", weekAgoIso)
-        .order("shift_end", { ascending: false })
-        .limit(200)
-        .returns<Shift[]>();
+      const { data: recentShifts, error: recentErr } = recentResult;
       if (recentErr) throw recentErr;
 
       setActive(activeShifts || []);

@@ -46,7 +46,7 @@ export function buildPwaManifest(branding: PwaBranding | null) {
     scope: "/",
     display: "standalone",
     orientation: "any",
-    background_color: "#ffffff",
+    background_color: "#f8fafc",
     theme_color: themeColor,
     categories: ["business", "productivity"],
     icons: ([192, 512] as const).map(size => ({

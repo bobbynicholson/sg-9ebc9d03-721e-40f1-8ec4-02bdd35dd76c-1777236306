@@ -290,7 +290,6 @@ function RegionsPage() {
           staffRes,
           orderRes,
           mtdOrderRes,
-          mtdRevenueRes,
           openQuoteRes,
         ] = await Promise.all([
           // Command-centre audit (2026-07-02): exclude client profiles
@@ -319,16 +318,12 @@ function RegionsPage() {
           // tenants whose orders weren't all cancelled. Switched to
           // .neq("status","cancelled") which is what we wanted on the
           // orders table.
+          // One bounded projection supports the exact count, revenue
+          // total and radius/hours checks below. This replaces separate
+          // count, revenue and post-count detail requests per region.
           (supabase as any)
             .from("orders")
-            .select("id", { count: "exact", head: true })
-            .eq("region_id", r.id)
-            .is("deleted_at", null)
-            .gte("event_date", mtdStartIso)
-            .neq("status", "cancelled"),
-          (supabase as any)
-            .from("orders")
-            .select("total_amount")
+            .select("total_amount, venue_lat, venue_lng, event_time", { count: "exact" })
             .eq("region_id", r.id)
             .is("deleted_at", null)
             .gte("event_date", mtdStartIso)
@@ -347,7 +342,7 @@ function RegionsPage() {
             .is("deleted_at", null)
             .in("status", ["draft", "sent"]),
         ]);
-        for (const res of [staffRes, orderRes, mtdOrderRes, mtdRevenueRes, openQuoteRes]) {
+        for (const res of [staffRes, orderRes, mtdOrderRes, openQuoteRes]) {
           if ((res as any)?.error) {
             enrichFailures += 1;
             console.warn(`[regions] branch stat query failed for ${r.name}:`, (res as any).error);
@@ -357,7 +352,8 @@ function RegionsPage() {
         const orderCount = orderRes?.count;
         const mtdOrderCount = mtdOrderRes?.count;
         const openQuoteCount = openQuoteRes?.count;
-        const mtdRevenue = (mtdRevenueRes?.data || []).reduce(
+        const mtdOrderRows = (mtdOrderRes?.data || []) as any[];
+        const mtdRevenue = mtdOrderRows.reduce(
           (sum: number, row: any) => sum + Number(row?.total_amount || 0),
           0,
         );
@@ -374,42 +370,31 @@ function RegionsPage() {
         let outOfRadius = 0;
         let outOfHours = 0;
         if (r.lat != null && r.lng != null && r.delivery_radius_km != null) {
-          try {
-            const { data: rows } = await (supabase as any)
-              .from("orders")
-              .select("venue_lat,venue_lng,event_time")
-              .eq("region_id", r.id)
-              .is("deleted_at", null)
-              .gte("event_date", mtdStartIso)
-              .neq("status", "cancelled");
-            const earthR = 6371; // km
-            const toRad = (d: number) => (d * Math.PI) / 180;
-            const haversine = (lat1: number, lng1: number, lat2: number, lng2: number) => {
-              const dLat = toRad(lat2 - lat1);
-              const dLng = toRad(lng2 - lng1);
-              const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-              return 2 * earthR * Math.asin(Math.sqrt(a));
-            };
-            const hhmm = (t: string | null | undefined) => {
-              if (!t) return null;
-              const m = /^(\d{1,2}):(\d{2})/.exec(t);
-              if (!m) return null;
-              return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
-            };
-            const opStart = hhmm(r.operating_hours_start);
-            const opEnd = hhmm(r.operating_hours_end);
-            for (const row of ((rows as any[]) || [])) {
-              if (row.venue_lat != null && row.venue_lng != null) {
-                const km = haversine(Number(r.lat), Number(r.lng), Number(row.venue_lat), Number(row.venue_lng));
-                if (km > Number(r.delivery_radius_km)) outOfRadius += 1;
-              }
-              if (opStart != null && opEnd != null) {
-                const t = hhmm(row.event_time);
-                if (t != null && (t < opStart || t > opEnd)) outOfHours += 1;
-              }
+          const earthR = 6371; // km
+          const toRad = (d: number) => (d * Math.PI) / 180;
+          const haversine = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+            const dLat = toRad(lat2 - lat1);
+            const dLng = toRad(lng2 - lng1);
+            const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+            return 2 * earthR * Math.asin(Math.sqrt(a));
+          };
+          const hhmm = (t: string | null | undefined) => {
+            if (!t) return null;
+            const m = /^(\d{1,2}):(\d{2})/.exec(t);
+            if (!m) return null;
+            return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+          };
+          const opStart = hhmm(r.operating_hours_start);
+          const opEnd = hhmm(r.operating_hours_end);
+          for (const row of mtdOrderRows) {
+            if (row.venue_lat != null && row.venue_lng != null) {
+              const km = haversine(Number(r.lat), Number(r.lng), Number(row.venue_lat), Number(row.venue_lng));
+              if (km > Number(r.delivery_radius_km)) outOfRadius += 1;
             }
-          } catch (e) {
-            console.warn("[regions] radius/hours stats failed:", e);
+            if (opStart != null && opEnd != null) {
+              const t = hhmm(row.event_time);
+              if (t != null && (t < opStart || t > opEnd)) outOfHours += 1;
+            }
           }
         }
 

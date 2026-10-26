@@ -10,7 +10,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { formatLocalTime } from "@/lib/localFormat";
 import dynamic from "next/dynamic";
 import { ClientNav } from "@/components/navigation/ClientNav";

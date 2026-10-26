@@ -434,7 +434,7 @@ function AdminInventory() {
     if (!companyId) return;
     const { data, error } = await supabase
       .from("inventory_demand_outlook")
-      .select("*")
+      .select("inventory_item_id, item_name, current_stock, demand_next_7_days, projected_stock_after_7_days, status")
       .eq("company_id", companyId)
       .returns<Record<string, unknown>[]>();
     if (error) {

@@ -117,10 +117,10 @@ const badgeTone: Record<DataResult["badge"], string> = {
  * pull up the right order / client / lead by typing two characters of their
  * name from anywhere in the app.
  */
-export function CommandPalette() {
+export function CommandPalette({ initialOpen = false }: { initialOpen?: boolean }) {
   const router = useRouter();
   const { profile, user } = useAuth();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const [term, setTerm] = useState("");
   const [recent, setRecent] = useState<string[]>([]);
   const [data, setData] = useState<DataResult[]>([]);

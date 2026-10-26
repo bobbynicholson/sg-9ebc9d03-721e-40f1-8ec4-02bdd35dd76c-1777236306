@@ -11,7 +11,7 @@ import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { supabase } from "@/integrations/supabase/client";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";

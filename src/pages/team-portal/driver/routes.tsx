@@ -41,7 +41,7 @@ import { DriverPageShell } from "@/components/driver/DriverPageShell";
 import { DriverDetailsDisclosure } from "@/components/driver/DriverDetailsDisclosure";
 import { PortalCard, PortalCardHeader } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { routeOptimizationService, OptimizedRoute, DeliveryStop } from "@/services/routeOptimizationService";
 import driverService from "@/services/driverService";
 import { notificationService } from "@/services/notificationService";

@@ -26,7 +26,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ReceiptScanner } from "@/components/shopping/ReceiptScanner";
 import { useTenantHref } from "@/lib/tenantUrl";

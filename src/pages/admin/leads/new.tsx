@@ -22,7 +22,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { resolveDefaultRegionId } from "@/lib/defaultRegion";
 import { leadService } from "@/services/leadService";
 import { LEAD_EVENT_TYPE_LABELS } from "@/lib/leadEventTypes";

@@ -19,7 +19,7 @@ import { toLocalISO } from "@/lib/localDate";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { ChatBot } from "@/components/ChatBot";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import Head from "next/head";
 import {
   Route,
