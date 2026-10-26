@@ -4,7 +4,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
-import { outstandingDepositReminderAmount } from "@/lib/depositReminderAmount";
+import { hasRecordedDepositPayment, outstandingDepositReminderAmount } from "@/lib/depositReminderAmount";
 import {
   fetchClientPaymentSchedules,
   isPaymentReminderDue,
@@ -64,8 +64,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // keep the cron tight; the daily cadence catches the rest.
     const { data: orders, error } = await sb
       .from("orders")
-      .select("id, company_id, client_id, order_number, client_email, client_name, event_name, event_date, deposit_amount, deposit_percentage, amount_paid, total_amount, created_at, status")
-      .eq("deposit_paid", false)
+      .select("id, company_id, client_id, order_number, client_email, client_name, event_name, event_date, deposit_paid, deposit_amount, deposit_percentage, amount_paid, total_amount, created_at, status")
+      .or("deposit_paid.eq.false,deposit_paid.is.null")
       .gte("event_date", today)
       .in("status", ["pending", "confirmed"])
       .is("deleted_at", null)
@@ -120,12 +120,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     for (const order of orders as any[]) {
       try {
-        if (!order.client_email) { skipped += 1; continue; }
-        const companySettings = reminderSettings.get(order.company_id);
-        if (!companySettings) { skipped += 1; continue; }
-        const settings = resolvePaymentSchedule(companySettings, clientSchedules.get(order.client_id));
-        if (settings.reminders.mode === "off") { skipped += 1; continue; }
-
         // The unpaid deposit invoice carries the public pay token.
         // No invoice yet (generation failed at convert time) -> skip;
         // a reminder without a pay link just generates support email.
@@ -139,24 +133,43 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           .order("created_at", { ascending: true })
           .limit(1)
           .maybeSingle();
-        if (!invoice || !(invoice as any).public_token) { skipped += 1; continue; }
 
-        // The order flag can be stale on legacy/imported rows. Verify the
-        // recorded money against the agreed first-payment amount before
-        // sending, and never ask for the entire invoice as a deposit.
-        const depositDue = outstandingDepositReminderAmount({
+        // The order flag can be stale or unset on legacy/imported rows.
+        // Reconcile it from recorded order/invoice payments for future flows.
+        const paymentInput = {
           depositPaid: order.deposit_paid,
           orderTotalAmount: order.total_amount,
           orderAmountPaid: order.amount_paid,
           orderDepositAmount: order.deposit_amount,
           orderDepositPercent: order.deposit_percentage,
-          invoiceTotalAmount: invoice.total_amount,
-          invoiceAmountPaid: invoice.amount_paid,
-          invoiceBalanceDue: invoice.balance_due,
-          snapshotFirstPaymentAmount: invoice.invoice_data?.initialPaymentAmount,
+          invoiceTotalAmount: invoice?.total_amount,
+          invoiceAmountPaid: invoice?.amount_paid,
+          invoiceBalanceDue: invoice?.balance_due,
+          snapshotFirstPaymentAmount: invoice?.invoice_data?.initialPaymentAmount,
           companyDepositPercent: depositPercentByCompany.get(order.company_id),
-        });
+        };
+        if (order.deposit_paid !== true && hasRecordedDepositPayment(paymentInput)) {
+          const { error: flagError } = await sb
+            .from("orders")
+            .update({ deposit_paid: true })
+            .eq("id", order.id)
+            .or("deposit_paid.eq.false,deposit_paid.is.null");
+          if (flagError) {
+            console.warn("[deposit-reminder] could not sync deposit_paid flag:", order.id, flagError.message);
+            errors.push(`order ${order.id}: deposit_paid flag sync failed: ${flagError.message}`);
+          }
+        }
+
+        // Never ask for the entire invoice as a deposit.
+        const depositDue = outstandingDepositReminderAmount(paymentInput);
         if (depositDue < 0.01) { skipped += 1; continue; }
+
+        if (!order.client_email) { skipped += 1; continue; }
+        const companySettings = reminderSettings.get(order.company_id);
+        if (!companySettings) { skipped += 1; continue; }
+        const settings = resolvePaymentSchedule(companySettings, clientSchedules.get(order.client_id));
+        if (settings.reminders.mode === "off") { skipped += 1; continue; }
+        if (!invoice || !(invoice as any).public_token) { skipped += 1; continue; }
 
         // Company timing: only on the chosen reminder day (plus a short
         // catch-up window). The 3-day pacing gate below keeps it to one.

@@ -21,6 +21,32 @@ function money(value: PaymentAmountSource): number {
   return Number.isFinite(amount) ? Math.max(0, amount) : 0;
 }
 
+function agreedFirstPaymentAmount(input: DepositReminderAmountInput): number {
+  const totalAmount = money(input.invoiceTotalAmount) || money(input.orderTotalAmount);
+  if (totalAmount <= 0) return 0;
+
+  return resolveInvoiceFirstPaymentAmount({
+    totalAmount,
+    orderDepositAmount: input.orderDepositAmount,
+    snapshotFirstPaymentAmount: input.snapshotFirstPaymentAmount,
+    orderDepositPercent: input.orderDepositPercent,
+    companyDepositPercent: input.companyDepositPercent,
+    defaultDepositPercent: 50,
+  });
+}
+
+function recordedPayments(input: DepositReminderAmountInput): number {
+  return Math.max(money(input.orderAmountPaid), money(input.invoiceAmountPaid));
+}
+
+/** True when either recorded paid total covers the agreed first payment. */
+export function hasRecordedDepositPayment(input: DepositReminderAmountInput): boolean {
+  const agreedDeposit = agreedFirstPaymentAmount(input);
+  if (agreedDeposit <= 0) return false;
+
+  return Math.max(0, agreedDeposit - recordedPayments(input)) < 0.01;
+}
+
 /**
  * Return only the amount still needed to satisfy the agreed first payment.
  * Order and invoice paid totals are both considered because imported and
@@ -30,19 +56,10 @@ export function outstandingDepositReminderAmount(input: DepositReminderAmountInp
   if (input.depositPaid === true) return 0;
 
   const totalAmount = money(input.invoiceTotalAmount) || money(input.orderTotalAmount);
-  if (totalAmount <= 0) return 0;
-
-  const agreedDeposit = resolveInvoiceFirstPaymentAmount({
-    totalAmount,
-    orderDepositAmount: input.orderDepositAmount,
-    snapshotFirstPaymentAmount: input.snapshotFirstPaymentAmount,
-    orderDepositPercent: input.orderDepositPercent,
-    companyDepositPercent: input.companyDepositPercent,
-    defaultDepositPercent: 50,
-  });
+  const agreedDeposit = agreedFirstPaymentAmount(input);
   if (agreedDeposit <= 0) return 0;
 
-  const paidToDate = Math.max(money(input.orderAmountPaid), money(input.invoiceAmountPaid));
+  const paidToDate = recordedPayments(input);
   const remainingDeposit = Math.max(0, agreedDeposit - paidToDate);
   if (remainingDeposit < 0.01) return 0;
 

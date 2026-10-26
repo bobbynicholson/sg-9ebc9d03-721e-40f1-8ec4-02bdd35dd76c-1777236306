@@ -5,7 +5,7 @@ import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { buildPayInvoiceUrlServer } from "@/lib/customerLinksServer";
-import { outstandingDepositReminderAmount } from "@/lib/depositReminderAmount";
+import { hasRecordedDepositPayment, outstandingDepositReminderAmount } from "@/lib/depositReminderAmount";
 import { reconcileCompanyInvoiceDueDates } from "@/services/invoiceDueDateService";
 import {
   fetchClientPaymentSchedules,
@@ -137,14 +137,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           .select("id, client_id, client_email, client_name, order_number, event_name, event_date, deposit_paid, deposit_amount, deposit_percentage, amount_paid, total_amount, status")
           .eq("id", inv.order_id)
           .maybeSingle();
-        if (!order || !(order as any).client_email) continue;
+        if (!order) continue;
 
         // An unpaid deposit on an upcoming order is deposit-reminder's
         // job; skipping it here stops the client getting both emails.
         // Derive payment from the order and invoice amounts as well as the
         // legacy flag so a paid deposit on an imported/older order gets a
         // balance reminder even when deposit_paid was never synchronized.
-        const outstandingDeposit = outstandingDepositReminderAmount({
+        const paymentInput = {
           depositPaid: (order as any).deposit_paid,
           orderTotalAmount: (order as any).total_amount,
           orderAmountPaid: (order as any).amount_paid,
@@ -155,7 +155,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           invoiceBalanceDue: inv.balance_due,
           snapshotFirstPaymentAmount: (inv as any).invoice_data?.initialPaymentAmount,
           companyDepositPercent: depositPercentByCompany.get(inv.company_id),
-        });
+        };
+        if ((order as any).deposit_paid !== true && hasRecordedDepositPayment(paymentInput)) {
+          const { error: flagError } = await (sb as any)
+            .from("orders")
+            .update({ deposit_paid: true })
+            .eq("id", (order as any).id)
+            .or("deposit_paid.eq.false,deposit_paid.is.null");
+          if (flagError) {
+            console.warn("[balance-reminder] could not sync deposit_paid flag:", (order as any).id, flagError.message);
+            errors.push(`order ${(order as any).id}: deposit_paid flag sync failed: ${flagError.message}`);
+          }
+        }
+        if (!(order as any).client_email) continue;
+
+        const outstandingDeposit = outstandingDepositReminderAmount(paymentInput);
         if (
           outstandingDeposit > 0.009 &&
           ["pending", "confirmed"].includes((order as any).status) &&

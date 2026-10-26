@@ -1,4 +1,7 @@
-import { outstandingDepositReminderAmount } from "@/lib/depositReminderAmount";
+import {
+  hasRecordedDepositPayment,
+  outstandingDepositReminderAmount,
+} from "@/lib/depositReminderAmount";
 
 describe("outstanding deposit reminder amount", () => {
   const base = {
@@ -29,6 +32,31 @@ describe("outstanding deposit reminder amount", () => {
       invoiceAmountPaid: 3158.25,
       invoiceBalanceDue: 3158.25,
     })).toBe(0);
+  });
+
+  it("recognizes recorded payments from either the order or invoice so the flag can be repaired", () => {
+    expect(hasRecordedDepositPayment({
+      ...base,
+      depositPaid: false,
+      orderAmountPaid: 0,
+      invoiceAmountPaid: 3158.25,
+    })).toBe(true);
+  });
+
+  it("does not repair the flag when recorded payments are below the agreed deposit", () => {
+    expect(hasRecordedDepositPayment({
+      ...base,
+      depositPaid: false,
+      orderAmountPaid: 3015.16,
+      invoiceAmountPaid: 3015.16,
+    })).toBe(false);
+  });
+
+  it("does not infer a paid deposit without a known order or invoice total", () => {
+    expect(hasRecordedDepositPayment({
+      depositPaid: false,
+      orderAmountPaid: 9999,
+    })).toBe(false);
   });
 
   it("does not send when the deposit-paid flag is set", () => {
