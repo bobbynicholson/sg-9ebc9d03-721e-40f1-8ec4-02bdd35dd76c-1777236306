@@ -6,7 +6,7 @@ import { EASE } from "@/components/motion/marketing";
 // Exported so the page <Head> builds its FAQPage JSON-LD from the same source
 // of truth - the schema and the visible answers can never drift apart.
 export const FAQS = [
-  { question: "How long does it take to set up?", answer: "Most businesses are fully operational within 2-3 hours. We provide guided onboarding, video tutorials, and dedicated support to get you started quickly." },
+  { question: "How long does setup take?", answer: "It depends on how much menu and booking information you add. Start with your company details, then add quotes and orders as you need them. You can also import bookings from PDFs or spreadsheets." },
   { question: "Do I need technical skills to use this?", answer: "Not at all. The platform is designed for caterers, not tech experts. If you can use WhatsApp, you can use our system. We've made everything intuitive and simple." },
   { question: "What if my team isn't tech-savvy?", answer: "Our mobile apps are incredibly simple. Drivers tap a button to start jobs, kitchen staff see clear prep lists, clients track orders visually. Everyone picks it up in minutes." },
   { question: "Can I scale to multiple locations?", answer: "Absolutely. Our multi-region feature lets you launch new kitchens, teams, and operations across South Africa with one-click setup. Head office manages sales, regions handle fulfillment." },

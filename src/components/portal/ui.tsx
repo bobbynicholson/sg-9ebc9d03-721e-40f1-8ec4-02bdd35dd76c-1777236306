@@ -1,11 +1,9 @@
 import * as React from "react";
 import { ArrowUpRight, ArrowDownRight, Route } from "lucide-react";
-import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { getNavigationRefForPath } from "@/lib/chatbot/navigation";
-import { indexChatPageSections } from "@/lib/chatbot/sectionAnchors";
 
 // Desk-panel shadow: layered and soft. A crisp 1px contact line plus a
 // wide low-alpha ambient makes panels feel physically seated on the
@@ -40,28 +38,13 @@ export function PortalShell({
   return (
     <div
       className={cn(
-        "relative min-h-screen w-full max-w-full min-w-0 overflow-x-hidden bg-[linear-gradient(180deg,#e9edf3_0%,#f6f8fb_320px,#f6f8fb_100%)] dark:bg-[linear-gradient(180deg,#020617_0%,#0f172a_320px,#0f172a_100%)]",
+        "relative min-h-screen w-full max-w-full min-w-0 overflow-x-hidden bg-slate-50 dark:bg-slate-950",
         className,
       )}
     >
       <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-slate-950/10 dark:bg-white/10"
-      />
-      {/* Brand wash: a soft top band in the tenant's colours so every
-          page opens with a hint of their identity, fading to neutral
-          before the content grid starts. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[linear-gradient(180deg,rgb(var(--brand-primary-rgb)/0.055),rgb(var(--brand-secondary-rgb)/0.02)_60%,transparent)] dark:opacity-20"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(60%_120%_at_18%_0%,rgba(255,255,255,0.65),transparent_70%)] dark:hidden"
-      />
-      <div
         className={cn(
-          "relative z-0 w-full min-w-0 px-4 py-6 sm:px-6 sm:py-8 lg:px-9",
+          "relative z-0 w-full min-w-0 px-4 py-5 sm:px-6 sm:py-6 lg:px-9",
           width === "narrow" ? "mx-auto max-w-3xl" : "max-w-none",
         )}
       >
@@ -71,21 +54,12 @@ export function PortalShell({
   );
 }
 
-/** Page header: title + optional subtitle, leading icon tile, and actions.
+/** Page header: title, optional subtitle, icon, actions and live status chips.
  *
- * `variant="hero"` swaps the underlined text header for a full-width command
- * band. Two appearances:
- * - `"brand"` (default on tenant surfaces): the band is PAINTED in the
- *   tenant's own colours - a primary→secondary gradient (the admin-chosen
- *   white-label palette) with a soft contrast scrim so white type stays
- *   legible on any brand hue. No fixed dark slate anywhere.
- * - `"dark"` (default on /admin/platform): the slate-950 command band that
- *   pairs with the super-admin forced-dark rail.
- * When `appearance` is omitted it resolves from the route: only the
- * super-admin platform pages get the dark slate band; every tenant surface
- * (company admin, account, team and client portals) carries the tenant
- * brand band. Actions render inside a scoped `dark` class so shadcn
- * outline/ghost controls pick dark styling on the band automatically.
+ * `variant="hero"` provides the compact title band shared by operational
+ * pages. It uses a neutral dark surface for readable chips and actions while
+ * keeping tenant branding in the accent rule and portal navigation.
+ * `appearance` lets platform pages use a deeper surface than company pages.
  * `meta` is an optional chip row under the subtitle (live counts, badges). */
 export function PortalHeader({
   title,
@@ -103,8 +77,7 @@ export function PortalHeader({
   actions?: React.ReactNode;
   className?: string;
   variant?: "default" | "hero";
-  /** Hero band paint: "brand" = tenant colours, "dark" = slate command
-   *  band. Defaults by route (platform → dark, everything else → brand). */
+  /** "brand" is the company workspace tone; "dark" is the platform tone. */
   appearance?: "brand" | "dark";
   meta?: React.ReactNode;
 }) {
@@ -117,51 +90,29 @@ export function PortalHeader({
     return (
       <header
         className={cn(
-          "relative mb-5 overflow-hidden rounded-2xl border px-5 py-5 text-white sm:px-6",
+          "relative mb-4 overflow-hidden rounded-xl border px-4 py-4 text-white sm:px-5",
           isBrand
-            ? "border-white/15 bg-[linear-gradient(130deg,rgb(var(--brand-primary-rgb)),rgb(var(--brand-secondary-rgb)))]"
+            ? "border-slate-800 bg-slate-900"
             : "border-slate-800 bg-slate-950",
-          SOFT_SHADOW,
+          "shadow-sm",
           className,
         )}
       >
-        {isBrand ? (
-          <>
-            {/* Contrast scrim: deepens the tenant colour just enough for
-                white type without ever reading as a dark header. */}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.14),rgba(2,6,23,0.32))]"
-            />
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_150%_at_0%_0%,rgba(255,255,255,0.16),transparent_55%)]"
-            />
-          </>
-        ) : (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_150%_at_0%_0%,rgb(var(--brand-primary-rgb)/0.30),transparent_55%),radial-gradient(110%_140%_at_100%_0%,rgb(var(--brand-secondary-rgb)/0.18),transparent_60%)]"
-          />
-        )}
-        <div
+        <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/20"
+          className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-[rgb(var(--brand-primary-rgb))]"
         />
-        {/* Compact band: title, one-line purpose and status chips on the
-            left, page actions on the same row at desktop widths. */}
-        {/* Portal rails appear at lg, so retain a stacked header until xl.
-            This prevents title/action compression in the reduced workspace
-            beside the admin sidebar. */}
+        {/* Keep page actions beside the title when the content area allows;
+            below that, stack them so labels stay readable. */}
         <div className="relative flex w-full min-w-0 flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex min-w-0 flex-1 items-start gap-3.5">
             {Icon && (
-              <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white shadow-sm backdrop-blur-sm">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-white">
                 <Icon className="h-5 w-5" aria-hidden="true" />
               </span>
             )}
             <div className="min-w-0">
-              <h1 className="font-brand-display max-w-full break-words text-balance text-2xl font-semibold leading-tight tracking-tight sm:text-[1.75rem]">
+              <h1 className="font-brand-display max-w-full break-words text-balance text-xl font-semibold leading-tight tracking-tight sm:text-2xl">
                 {title}
               </h1>
               {subtitle && (
@@ -175,12 +126,12 @@ export function PortalHeader({
                 </p>
               )}
               {meta && (
-                <div className="mt-3 flex flex-wrap items-center gap-2">{meta}</div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">{meta}</div>
               )}
             </div>
           </div>
           {actions && (
-            <div className="dark flex max-w-full shrink-0 flex-wrap items-center justify-start gap-2 xl:max-w-[55%] xl:justify-end [&_button]:h-9 [&_button]:px-3 [&_button]:text-sm">
+            <div className="dark flex max-w-full shrink-0 flex-wrap items-center justify-start gap-2 xl:max-w-[60%] xl:justify-end [&_button]:h-9 [&_button]:px-3 [&_button]:text-sm">
               {actions}
             </div>
           )}
@@ -382,13 +333,6 @@ export function PageWorkbench({
 }) {
   const router = useRouter();
   const pathname = router.pathname || "";
-  useEffect(() => {
-    const run = () => { indexChatPageSections(); };
-    run();
-    const observer = new MutationObserver(run);
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, [pathname]);
   const surface = routeSurface(pathname);
   const segments = visibleRouteSegments(pathname);
   const tenantAdmin = surface.scope === "Admin";
@@ -404,22 +348,22 @@ export function PageWorkbench({
       data-chat-ref={getNavigationRefForPath(pathname) || undefined}
       data-chat-target-type="page"
       className={cn(
-        "!mb-5 flex w-full min-w-0 items-center justify-between gap-3 text-xs",
+        "!mb-4 flex w-full min-w-0 items-center justify-between gap-3 text-xs",
         className,
       )}
     >
-      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden rounded-full border border-slate-200/90 bg-white/80 px-3 py-1.5 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/70">
-        <Route className="h-3.5 w-3.5 shrink-0 text-brand-primary/70" aria-hidden="true" />
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5 font-medium text-slate-600 dark:text-slate-300">
+      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden font-medium text-slate-600 dark:text-slate-400">
+        <Route className="h-3.5 w-3.5 shrink-0 text-brand-primary/80" aria-hidden="true" />
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="truncate">{surface.scope}</span>
           {parent && <span className="text-slate-300 dark:text-slate-600">/</span>}
           {parent && <span className="truncate">{parent}</span>}
           <span className="text-slate-300 dark:text-slate-600">/</span>
-          <span className="truncate font-semibold text-slate-950 dark:text-white">{page}</span>
+          <span aria-current="page" className="truncate font-semibold text-slate-900 dark:text-white">{page}</span>
         </div>
       </div>
       {!tenantAdmin && (
-        <span className="hidden shrink-0 rounded-full border border-slate-200/90 bg-white/80 px-3 py-1.5 font-medium uppercase tracking-wider text-slate-400 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-500 sm:inline-flex">
+        <span className="hidden shrink-0 font-medium text-slate-600 dark:text-slate-400 sm:inline-flex">
           {surface.area}
         </span>
       )}
@@ -495,7 +439,7 @@ export function PortalOverview({
         const Icon = item.icon;
         const tone = item.tone || "neutral";
         return (
-          <div key={index} className={cn("min-w-0 rounded-lg border border-l-2 px-3 py-2.5", OVERVIEW_TONES[tone])}>
+          <div key={index} className={cn("min-w-0 rounded-lg border border-l px-3 py-2.5", OVERVIEW_TONES[tone])}>
             <div className="flex items-center gap-2">
               {Icon && <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />}
               <p className="truncate text-xs font-semibold">{item.label}</p>

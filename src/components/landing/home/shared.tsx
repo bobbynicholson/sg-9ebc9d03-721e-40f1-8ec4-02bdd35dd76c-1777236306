@@ -18,7 +18,7 @@ export const PHONE_TEL = "+27836525755";
 // shared marketing tokens) because the rest of the site stays on the cooler
 // violet/slate palette - only the landing page wears the warm catering skin.
 export const warmCard = `group relative h-full overflow-hidden rounded-2xl border border-stone-200/80 bg-white shadow-sm transition-[transform,box-shadow,border-color] duration-300 ${EASE} hover:-translate-y-1 hover:border-amber-200/80 hover:shadow-[0_24px_60px_-24px_rgba(120,53,15,0.30)]`;
-export const amberBtn = `h-12 rounded-full bg-gradient-to-b from-amber-500 to-amber-600 px-8 text-base font-semibold text-white shadow-lg shadow-amber-700/25 hover:from-amber-500 hover:to-amber-700 hover:shadow-xl hover:shadow-amber-700/30 ${btnPress}`;
+export const amberBtn = `h-12 rounded-full bg-gradient-to-b from-amber-700 to-amber-800 px-8 text-base font-semibold text-white shadow-lg shadow-amber-900/25 hover:from-amber-800 hover:to-amber-900 hover:shadow-xl hover:shadow-amber-900/30 ${btnPress}`;
 export const chip = `inline-flex items-center justify-center rounded-xl shadow-sm transition-transform duration-300 ${EASE} group-hover:scale-105`;
 export const heroOutlineBtn = `h-12 w-full rounded-full border-white/40 bg-white/10 text-base font-semibold text-white hover:border-white/60 hover:bg-white/15 sm:w-auto ${btnPress}`;
 

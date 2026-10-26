@@ -159,7 +159,7 @@ export default function SecurityPage() {
                 <StaggerItem className="mx-auto mt-9 flex max-w-md flex-col items-stretch justify-center gap-3 sm:max-w-none sm:flex-row sm:items-center">
                   <Button
                     size="lg"
-                    className={`group h-12 w-full rounded-full bg-gradient-to-b from-amber-500 to-amber-600 px-8 text-base font-semibold text-white shadow-lg shadow-amber-700/25 hover:from-amber-500 hover:to-amber-700 hover:shadow-xl hover:shadow-amber-700/30 sm:w-auto ${btnPress}`}
+                    className={`group h-12 w-full rounded-full bg-gradient-to-b from-amber-700 to-amber-800 px-8 text-base font-semibold text-white shadow-lg shadow-amber-900/25 hover:from-amber-800 hover:to-amber-900 hover:shadow-xl hover:shadow-amber-900/30 sm:w-auto ${btnPress}`}
                     asChild
                   >
                     <Link href="/company-signup">

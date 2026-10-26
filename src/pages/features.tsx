@@ -352,7 +352,7 @@ export default function FeaturesPage() {
                 <Link href="/company-signup" className="w-full sm:w-auto">
                   <Button
                     size="lg"
-                    className={`h-12 w-full rounded-full bg-gradient-to-b from-amber-500 to-amber-600 px-8 text-base font-semibold text-white shadow-lg shadow-amber-700/25 hover:from-amber-500 hover:to-amber-700 hover:shadow-xl hover:shadow-amber-700/30 sm:w-auto ${btnPress}`}
+                    className={`h-12 w-full rounded-full bg-gradient-to-b from-amber-700 to-amber-800 px-8 text-base font-semibold text-white shadow-lg shadow-amber-900/25 hover:from-amber-800 hover:to-amber-900 hover:shadow-xl hover:shadow-amber-900/30 sm:w-auto ${btnPress}`}
                   >
                     Start Free Trial
                     <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -450,7 +450,7 @@ export default function FeaturesPage() {
                         {feature.link && (
                           <Link href={feature.link}>
                             <Button
-                              className={`w-full bg-amber-500 font-semibold text-white shadow-lg hover:bg-amber-600 hover:shadow-xl ${btnPress}`}
+                              className={`w-full bg-amber-700 font-semibold text-white shadow-lg hover:bg-amber-800 hover:shadow-xl ${btnPress}`}
                               size="lg"
                             >
                               Learn More
@@ -482,7 +482,7 @@ export default function FeaturesPage() {
               <Link href="/company-signup" className="w-full sm:w-auto">
                 <Button
                   size="lg"
-                  className={`h-12 w-full rounded-full bg-gradient-to-b from-amber-500 to-amber-600 px-9 text-base font-semibold text-white shadow-lg shadow-amber-700/25 hover:from-amber-500 hover:to-amber-700 hover:shadow-xl hover:shadow-amber-700/30 sm:w-auto ${btnPress}`}
+                  className={`h-12 w-full rounded-full bg-gradient-to-b from-amber-700 to-amber-800 px-9 text-base font-semibold text-white shadow-lg shadow-amber-900/25 hover:from-amber-800 hover:to-amber-900 hover:shadow-xl hover:shadow-amber-900/30 sm:w-auto ${btnPress}`}
                 >
                   Start Your Free Trial Now
                   <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -499,7 +499,7 @@ export default function FeaturesPage() {
               </Link>
             </div>
             <p className="mt-6 text-xs text-stone-500 sm:text-sm">
-              No credit card required · Cancel anytime · Setup in under 3 hours
+              No credit card required · Cancel anytime · 14-day free trial
             </p>
           </Reveal>
         </section>
@@ -552,7 +552,7 @@ export default function FeaturesPage() {
                 <Link href="/company-signup" className="w-full sm:w-auto">
                   <Button
                     size="lg"
-                    className={`h-12 w-full rounded-full bg-amber-500 px-8 text-base font-semibold text-white shadow-xl hover:bg-amber-600 sm:w-auto ${btnPress}`}
+                    className={`h-12 w-full rounded-full bg-amber-700 px-8 text-base font-semibold text-white shadow-xl hover:bg-amber-800 sm:w-auto ${btnPress}`}
                   >
                     Get Started Free
                     <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -631,7 +631,7 @@ export default function FeaturesPage() {
                   <Link href="/company-signup" className="inline-block w-full sm:w-auto">
                     <Button
                       size="lg"
-                      className={`h-12 w-full rounded-full bg-amber-500 px-9 text-base font-semibold text-white shadow-xl hover:bg-amber-600 sm:w-auto ${btnPress}`}
+                      className={`h-12 w-full rounded-full bg-amber-700 px-9 text-base font-semibold text-white shadow-xl hover:bg-amber-800 sm:w-auto ${btnPress}`}
                     >
                       Start Your Free Trial
                       <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />

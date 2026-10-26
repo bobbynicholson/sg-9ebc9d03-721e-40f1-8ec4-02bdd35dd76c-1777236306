@@ -28,7 +28,7 @@ export function MenuSection() {
                 <Photo src={dish.img} alt={dish.name} gradient={dish.gradient} className="aspect-[5/4] w-full" zoom>
                   <div className="absolute inset-0 bg-gradient-to-t from-stone-900/70 via-stone-900/10 to-transparent" />
                   {dish.popular && (
-                    <span className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-white shadow-md">
+                    <span className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-amber-700 px-3 py-1 text-xs font-semibold text-white shadow-md">
                       <Star className="h-3 w-3 fill-white" /> Popular
                     </span>
                   )}

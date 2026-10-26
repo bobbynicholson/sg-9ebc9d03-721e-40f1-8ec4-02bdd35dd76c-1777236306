@@ -1,13 +1,12 @@
 import {
   LayoutDashboard, FileText, Calendar, ChefHat, Truck, Users, BarChart3,
-  Plus, Search, ArrowUpRight, MapPin, Check, Bell,
+  Plus, Search, ArrowUpRight, MapPin, Bell,
 } from "lucide-react";
 
 /**
  * A realistic, hand-built CateringMS admin dashboard mock for the landing
- * hero - the "this is serious software" centrepiece. Pure CSS/SVG (no
- * screenshots), so it's crisp at any size and fast. All figures are
- * illustrative. Decorative only - aria-hidden so screen readers skip it.
+ * hero. Pure CSS/SVG (no screenshots), so it stays crisp and fast. Figures
+ * and event names are illustrative sample data, labeled for visitors.
  */
 
 const NAV = [
@@ -45,9 +44,11 @@ const toneMap: Record<string, string> = {
 
 export function ProductPreview() {
   return (
-    <div aria-hidden className="relative mx-auto w-full max-w-5xl">
+    <div role="img" aria-label="Illustrative CateringMS dashboard preview with sample revenue and event data" className="relative mx-auto w-full max-w-5xl">
       {/* Glow behind the window */}
       <div className="pointer-events-none absolute -inset-x-10 -top-10 bottom-0 -z-10 bg-[radial-gradient(50%_50%_at_50%_40%,rgba(245,158,11,0.25),transparent)] blur-2xl" />
+
+      <p className="mb-3 text-right text-xs font-medium text-stone-300">Illustrative preview · sample data</p>
 
       {/* App window */}
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-white shadow-[0_40px_120px_-30px_rgba(0,0,0,0.7)] ring-1 ring-black/5">
@@ -102,7 +103,7 @@ export function ProductPreview() {
                   <Bell className="h-4 w-4 text-stone-400" />
                   <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500" />
                 </div>
-                <div className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-b from-amber-500 to-amber-600 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-sm">
+                <div className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-b from-amber-700 to-amber-800 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-sm">
                   <Plus className="h-3.5 w-3.5" /> New quote
                 </div>
               </div>
@@ -190,33 +191,6 @@ export function ProductPreview() {
         </div>
       </div>
 
-      {/* Floating live-status cards */}
-      <div className="absolute -left-3 top-24 hidden animate-[floaty_5s_ease-in-out_infinite] sm:block motion-reduce:animate-none">
-        <div className="flex items-center gap-2.5 rounded-xl border border-stone-200 bg-white px-3 py-2.5 shadow-xl">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-primary/15">
-            <Check className="h-4 w-4 text-brand-primary" />
-          </span>
-          <div className="leading-tight">
-            <p className="text-[11px] font-semibold text-stone-900">Quote accepted</p>
-            <p className="text-[10px] text-stone-400">Naidoo Wedding · R 92,400</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="absolute -right-3 bottom-16 hidden animate-[floaty_6s_ease-in-out_infinite_0.8s] sm:block motion-reduce:animate-none">
-        <div className="flex items-center gap-2.5 rounded-xl border border-stone-200 bg-white px-3 py-2.5 shadow-xl">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-100">
-            <Truck className="h-4 w-4 text-amber-600" />
-          </span>
-          <div className="leading-tight">
-            <p className="text-[11px] font-semibold text-stone-900">Driver en route</p>
-            <p className="inline-flex items-center gap-1 text-[10px] text-stone-400">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-primary motion-reduce:animate-none" />
-              Khumalo 40th · ETA 12 min
-            </p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

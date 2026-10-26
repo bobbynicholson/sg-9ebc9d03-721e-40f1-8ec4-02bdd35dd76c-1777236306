@@ -127,9 +127,20 @@ function GlobalChatAssistant() {
     if (!isProductRoute || typeof document === "undefined") return;
     const syncSections = () => { indexChatPageSections(); };
     syncSections();
-    const observer = new MutationObserver(syncSections);
+    let scheduledFrame: number | undefined;
+    const scheduleSync = () => {
+      if (scheduledFrame !== undefined) return;
+      scheduledFrame = window.requestAnimationFrame(() => {
+        scheduledFrame = undefined;
+        syncSections();
+      });
+    };
+    const observer = new MutationObserver(scheduleSync);
     observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (scheduledFrame !== undefined) window.cancelAnimationFrame(scheduledFrame);
+    };
   }, [isProductRoute, path]);
 
   // A hash can arrive before a tab/section has mounted during a client-side

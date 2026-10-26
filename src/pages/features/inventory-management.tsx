@@ -77,7 +77,7 @@ export default function InventoryManagementPage() {
                 <Link href="/company-signup" className="w-full sm:w-auto">
                   <Button
                     size="lg"
-                    className={`group h-12 w-full rounded-full bg-gradient-to-b from-amber-500 to-amber-600 px-8 text-base font-semibold text-white shadow-lg shadow-amber-700/25 hover:from-amber-500 hover:to-amber-700 hover:shadow-xl hover:shadow-amber-700/30 sm:w-auto ${btnPress}`}
+                    className={`group h-12 w-full rounded-full bg-gradient-to-b from-amber-700 to-amber-800 px-8 text-base font-semibold text-white shadow-lg shadow-amber-900/25 hover:from-amber-800 hover:to-amber-900 hover:shadow-xl hover:shadow-amber-900/30 sm:w-auto ${btnPress}`}
                   >
                     Start Free Trial
                     <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -184,7 +184,7 @@ export default function InventoryManagementPage() {
                 <Link href="/company-signup" className="w-full sm:w-auto">
                   <Button
                     size="lg"
-                    className={`group h-12 w-full rounded-full bg-gradient-to-b from-amber-500 to-amber-600 px-9 text-base font-semibold text-white shadow-lg shadow-amber-700/25 hover:from-amber-500 hover:to-amber-700 sm:w-auto ${btnPress}`}
+                    className={`group h-12 w-full rounded-full bg-gradient-to-b from-amber-700 to-amber-800 px-9 text-base font-semibold text-white shadow-lg shadow-amber-900/25 hover:from-amber-800 hover:to-amber-900 sm:w-auto ${btnPress}`}
                   >
                     Start Saving Money Today
                     <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />

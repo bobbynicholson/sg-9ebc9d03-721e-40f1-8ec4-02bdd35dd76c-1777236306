@@ -396,7 +396,7 @@ export default function PricingPage() {
             </div>
 
             <p className="mt-6 text-sm text-stone-400">
-              No credit card required · Cancel anytime · Setup in under 3 hours
+              No credit card required · Cancel anytime · 14-day free trial
             </p>
           </div>
         </Reveal>

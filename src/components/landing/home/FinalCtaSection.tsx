@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Phone, Check } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Reveal } from "@/components/motion/Reveal";
 import {
@@ -7,14 +7,12 @@ import {
   Photo,
   amberBtn,
   heroOutlineBtn,
-  PHONE_DISPLAY,
-  PHONE_TEL,
 } from "./shared";
 
 const ASSURANCES = [
   "No credit card required",
   "Cancel anytime",
-  "Setup in under 3 hours",
+  "14-day free trial",
   "Dedicated support included",
 ];
 
@@ -42,18 +40,24 @@ export function FinalCtaSection() {
           </p>
 
           <div className="mx-auto mt-9 flex max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
-            <Link href="/company-signup" className="w-full sm:w-auto">
-              <Button size="lg" className={`group w-full px-9 sm:w-auto ${amberBtn}`}>
-                Get Your Free Quote
+            <Button
+              asChild
+              size="lg"
+              className={`group w-full px-9 sm:w-auto ${amberBtn}`}
+            >
+              <Link href="/company-signup">
+                Start free trial
                 <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
-              </Button>
-            </Link>
-            <a href={`tel:${PHONE_TEL}`} className="w-full sm:w-auto">
-              <Button size="lg" variant="outline" className={`px-9 ${heroOutlineBtn}`}>
-                <Phone className="h-5 w-5" />
-                Call {PHONE_DISPLAY}
-              </Button>
-            </a>
+              </Link>
+            </Button>
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className={`px-9 ${heroOutlineBtn}`}
+            >
+              <Link href="/demo">Explore the demo</Link>
+            </Button>
           </div>
 
           <div className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-3 text-sm text-stone-300">

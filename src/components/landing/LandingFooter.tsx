@@ -133,13 +133,13 @@ export function LandingFooter({
           <div className="mt-14 flex flex-col items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-6 sm:flex-row sm:items-center">
             <div>
               <p className="font-display text-xl font-semibold text-white">Ready to win your next booking?</p>
-              <p className="mt-1 text-sm text-stone-400">Start free - no credit card, set up in under 3 hours.</p>
+            <p className="mt-1 text-sm text-stone-400">Start with a 14-day free trial. No credit card required.</p>
             </div>
             <Link
               href="/company-signup"
-              className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-b from-amber-500 to-amber-600 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-amber-700/20 transition-[transform,box-shadow] duration-150 ease-standard hover:shadow-lg active:scale-[0.97]"
+              className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-b from-amber-700 to-amber-800 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-amber-900/20 transition-[transform,box-shadow] duration-150 ease-standard hover:from-amber-800 hover:to-amber-900 hover:shadow-lg active:scale-[0.97]"
             >
-              Get Your Free Quote
+              Start free trial
               <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
           </div>

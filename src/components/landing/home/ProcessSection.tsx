@@ -12,7 +12,7 @@ const WORKFLOW = [
 
 export function ProcessSection() {
   return (
-    <section className="bg-stone-100 py-20 md:py-28">
+    <section id="process" className="scroll-mt-24 bg-stone-100 py-20 md:py-28">
       <div className="mx-auto max-w-7xl px-4">
         <SectionHeader
           title="From first enquiry to repeat booking"
