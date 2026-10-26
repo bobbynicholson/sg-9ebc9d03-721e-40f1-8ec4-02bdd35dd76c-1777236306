@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { IosInstallGuide } from "@/components/pwa/IosInstallGuide";
 import { BrowserInstallGuide } from "@/components/pwa/BrowserInstallGuide";
 import { isInstalledApp, isIosDevice } from "@/lib/pwa/environment";
-import { pwaInstallUrl } from "@/lib/pwa/metadata";
+import { pwaInstallUrl, shouldOpenCompanyInstallPage } from "@/lib/pwa/metadata";
 
 const DISMISS_KEY = "cateringmsPwaInstallDismissedAt:v2";
 const QUIET_MS = 14 * 24 * 3600 * 1000;
@@ -79,8 +79,18 @@ export function PWAInstallPrompt({ appName = "CateringMS", companySlug, inline =
     setDismissed(true);
   };
 
+  const opensCompanyGuide = shouldOpenCompanyInstallPage(inline, companySlug);
+
   async function activateInstall() {
     if (installing) return;
+    // The install event may have been raised while the browser was still
+    // using a generic manifest from an earlier app page. A tenant install
+    // must start from its server-rendered branded page so the browser reads
+    // the correct name, icon, launch URL and splash metadata together.
+    if (shouldOpenCompanyInstallPage(inline, companySlug)) {
+      window.location.assign(installPath);
+      return;
+    }
     const prompt = deferredRef.current;
     if (!prompt || ios) { setStepsOpen(true); return; }
     setInstalling(true); setError("");
@@ -125,12 +135,12 @@ export function PWAInstallPrompt({ appName = "CateringMS", companySlug, inline =
       {error && <p role="alert" className="mt-3 text-sm text-red-800">{error}</p>}
       {ios ? <IosInstallGuide appName={appName} installPath={installPath} /> : <>
         {(deferred || !stepsOpen) && <Button type="button" disabled={installing} className="mt-4 min-h-11 w-full whitespace-normal bg-brand-primary text-white hover:bg-brand-primary/90" onClick={() => void activateInstall()}>
-          <Download className="h-4 w-4" />{installing ? "Opening install prompt..." : deferred ? `Install ${appName}` : "Show installation steps"}
+          <Download className="h-4 w-4" />{installing ? (opensCompanyGuide ? "Opening company install guide..." : "Opening install prompt...") : deferred ? (opensCompanyGuide ? `Open ${appName} install guide` : `Install ${appName}`) : opensCompanyGuide ? `Open ${appName} install guide` : "Show installation steps"}
         </Button>}
         {deferred || !stepsOpen ? <button
           ref={trackRef} type="button" disabled={installing}
           className="relative mt-4 h-12 w-full touch-none select-none overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset ring-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary disabled:opacity-60"
-          aria-label={deferred ? `Install ${appName}; slide right or tap` : "Show browser install steps; slide right or tap"}
+          aria-label={opensCompanyGuide ? `Open ${appName} install guide; slide right or tap` : deferred ? `Install ${appName}; slide right or tap` : "Show browser install steps; slide right or tap"}
           onClick={event => {
             if (event.detail !== 0 && suppressClick.current) { suppressClick.current = false; return; }
             void activateInstall();
@@ -161,7 +171,7 @@ export function PWAInstallPrompt({ appName = "CateringMS", companySlug, inline =
           onPointerCancel={() => { suppressClick.current = true; resetGesture(); }}
           onLostPointerCapture={resetGesture}
           onBlur={resetGesture}>
-          <span className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1 pl-8 text-sm font-semibold text-slate-700">{installing ? "Opening install prompt..." : deferred ? "Slide right to install" : "Slide for install steps"}<ChevronRight className="h-4 w-4" /></span>
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1 pl-8 text-sm font-semibold text-slate-700">{installing ? (opensCompanyGuide ? "Opening company install guide..." : "Opening install prompt...") : opensCompanyGuide ? "Slide right to open company guide" : deferred ? "Slide right to install" : "Slide for install steps"}<ChevronRight className="h-4 w-4" /></span>
           <span aria-hidden="true" className="pointer-events-none absolute left-1 top-1 flex h-10 w-10 items-center justify-center rounded-full bg-brand-primary text-white" style={{ transform: `translateX(${dragX}px)`, transition: dragging ? "none" : "transform 180ms ease-out" }}><Download className="h-5 w-5" /></span>
         </button> : <div className="mt-4 space-y-3">
           <BrowserInstallGuide appName={appName} />

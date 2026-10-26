@@ -2,7 +2,7 @@
 import handler from "@/pages/api/pwa/manifest";
 import iconHandler from "@/pages/api/pwa/icon";
 import { getPwaBranding } from "@/lib/pwa/serverBranding";
-import { buildPwaManifest, pwaIconUrl, pwaManifestUrl } from "@/lib/pwa/metadata";
+import { buildPwaManifest, pwaIconUrl, pwaManifestUrl, shouldOpenCompanyInstallPage } from "@/lib/pwa/metadata";
 import { pwaRouteInfo } from "@/lib/pwa/routes";
 import { isPublicIpv4, renderCompanyIcon } from "@/lib/pwa/logoImage";
 import sharp from "sharp";
@@ -20,7 +20,17 @@ test("company manifest uses a real tenant launch path and same-origin square PNG
   expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "application/manifest+json; charset=utf-8");
   const manifest = JSON.parse(res.send.mock.calls[0][0]);
   expect(manifest).toMatchObject({ name: "Company A", id: "/pwa/company-a", start_url: "/company-a/login", scope: "/", display: "standalone", theme_color: "#f21f07" });
+  expect(manifest.background_color).toBe("#f21f07");
   expect(manifest.icons).toEqual([192, 512].map(size => expect.objectContaining({ src: expect.stringContaining(`/api/pwa/icon?slug=company-a&size=${size}`), sizes: `${size}x${size}`, type: "image/png", purpose: "any" })));
+});
+test("generic apps keep the neutral launch background when no company color exists", () => {
+  expect(buildPwaManifest(null).background_color).toBe("#f8fafc");
+  expect(buildPwaManifest({ ...brand, primaryColor: "invalid" }).background_color).toBe("#f8fafc");
+});
+test("company install prompts open the server-rendered branded install page", () => {
+  expect(shouldOpenCompanyInstallPage(false, "company-a")).toBe(true);
+  expect(shouldOpenCompanyInstallPage(true, "company-a")).toBe(false);
+  expect(shouldOpenCompanyInstallPage(false, undefined)).toBe(false);
 });
 test("HEAD has manifest headers without a JSON body", async () => {
   const res = response(); await handler({ method: "HEAD", query: {} } as never, res as never);

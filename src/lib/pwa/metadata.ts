@@ -50,11 +50,16 @@ export function pwaInstallUrl(slug?: string | null): string {
   return slug && isCompanySlug(slug) ? `/auth/install?company=${encodeURIComponent(slug)}` : "/auth/install";
 }
 
+export function shouldOpenCompanyInstallPage(inline: boolean, companySlug?: string): boolean {
+  return !inline && Boolean(companySlug && isCompanySlug(companySlug));
+}
+
 export function buildPwaManifest(branding: PwaBranding | null) {
   const slug = branding?.slug && isCompanySlug(branding.slug) ? branding.slug : null;
   const name = branding?.companyName?.trim() || "CateringMS";
   const color = branding?.primaryColor || "";
   const themeColor = /^#[a-f\d]{6}$/i.test(color) ? color : "#10b981";
+  const backgroundColor = /^#[a-f\d]{6}$/i.test(color) ? color : "#f8fafc";
   return {
     name,
     // Keep the stored company name intact. The home screen may visually
@@ -69,7 +74,8 @@ export function buildPwaManifest(branding: PwaBranding | null) {
     scope: "/",
     display: "standalone",
     orientation: "any",
-    background_color: "#f8fafc",
+    // Browsers use this for the OS-generated launch splash background.
+    background_color: backgroundColor,
     theme_color: themeColor,
     categories: ["business", "productivity"],
     icons: ([192, 512] as const).map(size => ({
