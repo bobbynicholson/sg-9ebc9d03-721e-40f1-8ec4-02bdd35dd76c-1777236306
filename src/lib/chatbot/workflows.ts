@@ -42,6 +42,24 @@ const CLIENT = ["client"];
 
 export const WORKFLOW_DEFINITIONS: WorkflowDefinition[] = [
   {
+    id: "duplicate-order-invoice",
+    label: "Invoice a rebooked order",
+    description: "Create the new booking's invoice and correctly account for any deposit carried over from the cancelled booking.",
+    keywords: [
+      "invoice for duplicate order", "invoice for duplicated order", "duplicate order invoice",
+      "invoice for the new order", "invoice for new order", "invoice for rebooked order",
+      "invoice for new booking", "duplicate booking invoice", "duplicated booking invoice",
+      "create payment request for order", "rebook cancelled order", "rebook cancelled booking",
+      "new order after cancellation",
+    ],
+    roles: ADMIN,
+    steps: [
+      { id: "open-rebooked-order", title: "Open the new duplicated order", description: "In Orders, find the new copy and verify its event date, client, and total before billing.", ref: "admin.orders.list" },
+      { id: "check-cancellation-settlement", title: "Check how the original deposit was settled", description: "The duplicate starts as a fresh unpaid order; its original invoice and payment history stay with the cancelled order. If cancellation issued store credit, do not record the same deposit again as a new payment: send the new invoice and the client can apply available store credit through its payment link. If the deposit was refunded, request payment normally. If money was retained without store credit being issued, reconcile the cancellation before requesting more money.", ref: "admin.order-finance" },
+      { id: "create-rebooked-invoice", title: "Create and send the new payment request", description: "In the new order's Finance section, choose Create payment request, review the invoice and email, then send. If an invoice already exists, choose Send payment request. Quote acceptance is not needed for a duplicated order.", ref: "admin.order-finance" },
+    ],
+  },
+  {
     id: "sales-lead-to-invoice",
     label: "Lead to confirmed event",
     description: "Move a new enquiry through qualification, quoting, confirmation, and billing.",
