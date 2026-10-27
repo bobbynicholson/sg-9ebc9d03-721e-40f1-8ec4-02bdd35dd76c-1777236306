@@ -101,6 +101,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .gt("balance_due", 0)
       .is("deleted_at", null)
       .neq("status", "paid")
+      // Draft = not sent to the client yet (e.g. a duplicated order).
+      .neq("status", "draft")
       .limit(1000);
     if (error) {
       console.error("[balance-reminder] invoices fetch failed:", error);

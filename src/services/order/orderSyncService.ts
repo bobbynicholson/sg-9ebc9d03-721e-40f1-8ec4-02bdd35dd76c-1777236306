@@ -21,6 +21,7 @@ import { fetchMenuCategories, sortByCourse } from "@/lib/menuCourses";
 import { reconcileCompanyInvoiceDueDates } from "@/services/invoiceDueDateService";
 import { recordDocumentAmountChange } from "@/services/documentAmountChanges";
 import { hydratePublicInvoiceLines } from "@/lib/publicInvoiceLines";
+import { DUPLICATE_ORDER_QUOTE_SOURCE, loadQuoteMirrorFields } from "@/services/order/duplicateOrderDocuments";
 
 const FALLBACK_TAX_RATE = 0.15; // SA VAT default
 
@@ -248,10 +249,13 @@ export async function syncOrderArtifacts(
     //    quote as immutable removes that whole class of bug.
     const quote_id: string | null = (order as any).quote_id || null;
     let quoteIsAccepted = false;
+    // A duplicated order's quote was made from the order, not signed by
+    // the client, so it keeps following order edits even though accepted.
+    let quoteFollowsOrder = false;
     if (quote_id) {
       const { data: quoteRow, error: quoteRowErr } = await sb
         .from("quotes")
-        .select("status, accepted_at")
+        .select("status, accepted_at, external_source")
         .eq("id", quote_id)
         .maybeSingle();
       if (quoteRowErr) {
@@ -260,8 +264,9 @@ export async function syncOrderArtifacts(
       quoteIsAccepted =
         ((quoteRow as any)?.status === "accepted") ||
         !!(quoteRow as any)?.accepted_at;
+      quoteFollowsOrder = (quoteRow as any)?.external_source === DUPLICATE_ORDER_QUOTE_SOURCE;
     }
-    if (quote_id && !quoteIsAccepted) {
+    if (quote_id && (!quoteIsAccepted || quoteFollowsOrder)) {
       const categoryById = await fetchMenuCategories(sb, (items || []).map((it: any) => it.menu_item_id));
       const menuItemsJsonb = sortByCourse((items || []).map((it: any) => ({
         id: it.id,
@@ -287,6 +292,10 @@ export async function syncOrderArtifacts(
         };
       });
 
+      // Write every field the quote->order trigger copies back, from the
+      // order as it now stands, so that copy-back changes nothing.
+      const mirrorFields = quoteFollowsOrder ? await loadQuoteMirrorFields(sb, orderId) : {};
+
       await sb.from("quotes").update({
         client_name: (order as any).client_name,
         client_company_name: (order as any).client_company_name || null,
@@ -302,6 +311,7 @@ export async function syncOrderArtifacts(
         tax: tax_amount,
         total_amount,
         total: total_amount,
+        ...mirrorFields,
       } as any).eq("id", quote_id);
     }
 

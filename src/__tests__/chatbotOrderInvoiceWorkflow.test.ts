@@ -16,6 +16,8 @@ describe("chatbot: invoice a duplicated rebooked order", () => {
     expect(workflow.steps[1].description).toContain("original invoice and payment history stay with the cancelled order");
     expect(workflow.steps[1].description).toContain("do not record the same deposit again as a new payment");
     expect(workflow.steps[1].description).toContain("apply available store credit through its payment link");
+    expect(workflow.steps[2].description).toContain("draft invoice; nothing is emailed yet");
+    expect(workflow.steps[2].description).toContain("Send payment request");
     expect(workflow.steps[2].description).toContain("Create payment request");
     expect(workflow.steps[2].description).toContain("Quote acceptance is not needed");
   });

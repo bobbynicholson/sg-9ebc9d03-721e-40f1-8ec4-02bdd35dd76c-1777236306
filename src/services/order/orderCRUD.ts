@@ -28,7 +28,10 @@ import { supabase } from "@/integrations/supabase/client";
 export async function duplicateOrder(
   sourceOrderId: string,
   newEventDate: string,
-): Promise<{ success: true; data: any } | { success: false; error: string }> {
+): Promise<
+  | { success: true; data: any; documents: import("@/services/order/duplicateOrderDocuments").DuplicateOrderDocumentsResult }
+  | { success: false; error: string }
+> {
   try {
     const { data: src, error: readErr } = await supabase
       .from("orders")
@@ -98,6 +101,12 @@ export async function duplicateOrder(
       console.warn("[duplicateOrder] order_items clone failed (non-blocking):", itemsErr);
     }
 
+    // The copy gets its own quote and an unsent draft invoice, so it is
+    // never left with an invoice but no quote. The order itself is kept
+    // even if either fails; the dialog tells the admin what is missing.
+    const { createDuplicateOrderDocuments } = await import("@/services/order/duplicateOrderDocuments");
+    const documents = await createDuplicateOrderDocuments(supabase, newId, s.quote_id || null);
+
     // Lifecycle backfill so the new order shows up correctly in
     // contacts / leads / quote / invoice scaffolding. Same path
     // createOrder uses.
@@ -110,7 +119,7 @@ export async function duplicateOrder(
       }
     })();
 
-    return { success: true, data: inserted };
+    return { success: true, data: inserted, documents };
   } catch (error: any) {
     console.error("[duplicateOrder] failed:", error);
     return { success: false, error: error?.message || "Duplicate failed" };

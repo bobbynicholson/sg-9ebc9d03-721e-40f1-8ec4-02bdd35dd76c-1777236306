@@ -70,10 +70,19 @@ export function DuplicateOrderDialog({
         });
         return;
       }
-      toast({
-        title: "Order duplicated",
-        description: `New order ${(res.data as any).order_number} created on ${duplicateDate}.`,
-      });
+      const { documents } = res as Extract<typeof res, { success: true }>;
+      if (documents.problems.length > 0) {
+        toast({
+          title: "Order duplicated - check the quote and invoice",
+          description: `New order ${(res.data as any).order_number} created on ${duplicateDate}. ${documents.problems.join(" ")}`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Order duplicated",
+          description: `New order ${(res.data as any).order_number} created on ${duplicateDate} with its quote and a draft invoice. Nothing was emailed; open the order and choose Send payment request when it's ready.`,
+        });
+      }
       onOpenChange(false);
       onDuplicated();
     } finally {
@@ -89,7 +98,8 @@ export function DuplicateOrderDialog({
           <DialogDescription>
             Pick the event date for the new copy. Everything else (client, menu,
             equipment, total) carries over and you can tweak the duplicate after
-            it lands.
+            it lands. The copy gets its own quote and a draft invoice that is not
+            emailed until you send it.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">

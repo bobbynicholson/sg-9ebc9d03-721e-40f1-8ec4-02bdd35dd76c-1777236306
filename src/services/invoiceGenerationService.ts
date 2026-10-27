@@ -711,6 +711,7 @@ export async function createInvoiceRecord(
   orderId: string,
   companyId: string,
   client?: SupabaseLike,
+  opts?: { draft?: boolean },
 ): Promise<{ success: boolean; invoiceId?: string; error?: string }> {
   const supabase = resolveClient(client);
   try {
@@ -733,7 +734,7 @@ export async function createInvoiceRecord(
       currency: String(invoiceData.currencyCode || "ZAR").toUpperCase(),
       amount_paid: invoiceData.depositPaid,
       balance_due: invoiceData.balanceDue,
-      status: invoiceData.balanceDue > 0 ? "sent" : "paid",
+      status: opts?.draft ? "draft" : invoiceData.balanceDue > 0 ? "sent" : "paid",
       invoice_data: invoiceData as any,
     };
 
@@ -776,6 +777,9 @@ export async function ensureInvoiceForOrder(
      *  the assumption they were settled in the old system - not true for
      *  upcoming imported events that still owe money. */
     force?: boolean;
+    /** Save a new invoice as an unsent draft and email nobody (duplicated
+     *  orders). The admin sends it later with "Send payment request". */
+    draft?: boolean;
   },
 ): Promise<{ success: boolean; invoiceId?: string; alreadyExisted?: boolean; skipped?: string; error?: string }> {
   const supabase = resolveClient(client);
@@ -900,7 +904,7 @@ export async function ensureInvoiceForOrder(
     if (!built.success || !built.data) {
       return { success: false, error: built.error || "Could not build invoice data" };
     }
-    const created = await createInvoiceRecord(built.data, orderId, companyId, supabase);
+    const created = await createInvoiceRecord(built.data, orderId, companyId, supabase, { draft: opts?.draft });
     if (!created.success) {
       return { success: false, error: created.error };
     }
@@ -938,7 +942,7 @@ export async function ensureInvoiceForOrder(
     // Client-facing comms. Await this so invoices.sent_at is stamped
     // before quote acceptance returns; the helper catches its own email
     // and notification failures so a bad config does not undo the invoice.
-    if (created.invoiceId) {
+    if (created.invoiceId && !opts?.draft) {
       await notifyClientOfInvoiceIssued(orderId, companyId, created.invoiceId, built.data, supabase, opts?.origin);
     }
 

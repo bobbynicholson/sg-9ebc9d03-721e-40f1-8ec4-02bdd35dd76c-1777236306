@@ -144,6 +144,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           .select("id, public_token, balance_due, total_amount, amount_paid, invoice_data, status, due_date")
           .eq("order_id", order.id)
           .neq("status", "paid")
+          // Draft = not sent to the client yet (e.g. a duplicated order).
+          .neq("status", "draft")
           .gt("balance_due", 0)
           .is("deleted_at", null)
           .order("created_at", { ascending: true })

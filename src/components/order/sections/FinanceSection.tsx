@@ -404,8 +404,31 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
         onOpenChange={setSendRequestOpen}
         companyId={companyId}
         invoice={invoice}
-        onSent={() => {
+        onSent={async (sentInvoice) => {
           toast({ title: "Payment request sent", description: "The client received the latest paid and remaining amounts." });
+          // A duplicated order's invoice starts as an unsent draft. Mark it
+          // sent (same as Admin > Invoices) so reminders start; sent_at
+          // stops the "sent but never emailed" retry from emailing again.
+          if (String(sentInvoice.status || "") !== "draft") return;
+          const { setInvoiceStatus } = await import("@/services/order/invoiceStatus");
+          const statusRes = await setInvoiceStatus(sentInvoice.id, "sent", {
+            client: supabase,
+            reason: "Payment request sent from the order",
+          });
+          const { error: stampErr } = await (supabase as any)
+            .from("invoices")
+            .update({ sent_at: new Date().toISOString() })
+            .eq("id", sentInvoice.id);
+          if (!statusRes.success || stampErr) {
+            toast({
+              title: "Email sent, but the invoice is still marked Draft",
+              description: `${statusRes.error || stampErr?.message || "Unknown error"}. Refresh the order; do not send again or the client gets a duplicate.`,
+              variant: "destructive",
+            });
+            return;
+          }
+          setInvoice((current) => (current && current.id === sentInvoice.id ? { ...current, status: "sent" } : current));
+          emitOrderUpdated(orderId, "finance-payment-request-sent");
         }}
       />
       <MarkPaidDialog
