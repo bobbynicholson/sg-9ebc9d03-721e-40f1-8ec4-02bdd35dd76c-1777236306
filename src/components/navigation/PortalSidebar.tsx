@@ -124,10 +124,12 @@ export interface PortalSidebarConfig {
    *  Used by the platform (super admin) portal to visually separate the
    *  SaaS command centre from tenant surfaces.
    *
-   *  "brand" uses deep neutral chrome with a restrained primary-to-
-   *  secondary edge accent. The tenant logo and selected palette remain
-   *  visible without turning the full navigation surface into a gradient.
-   *  Repaints live when branding changes because it reads the --brand-*-rgb vars.
+   *  "brand" paints the rail, mobile top bar and drawer in the TENANT'S
+   *  own colours (a primary→secondary gradient from the white-label
+   *  palette, softly deepened for contrast) with white-glass rows - the
+   *  same command-centre structure as the platform rail, but wearing the
+   *  colours the admin chose instead of fixed slate. Repaints live when
+   *  branding changes because it reads the --brand-*-rgb vars.
    *  Default: follow theme. */
   appearance?: "light" | "dark" | "brand";
 }
@@ -185,11 +187,14 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   const collapseKey = `${config.role}Nav-collapsed`;
   const forceDark = config.appearance === "dark";
   const forceBrand = config.appearance === "brand";
-  // Keep navigation calm and readable; the small brand edge and active
-  // controls carry the tenant palette without competing with page content.
-  const BRAND_SURFACE = "bg-slate-900";
-  // Brand rails use white interactive states so every admin-selected hue
-  // keeps readable contrast.
+  // Brand rail paint: tenant primary→secondary gradient under a soft
+  // slate scrim so white type is legible on ANY admin-chosen hue while
+  // the surface still clearly reads as the brand colour (never generic
+  // dark). Written as full literals so Tailwind JIT emits them.
+  const BRAND_SURFACE =
+    "bg-[linear-gradient(180deg,rgba(2,6,23,0.28),rgba(2,6,23,0.44)),linear-gradient(170deg,rgb(var(--brand-primary-rgb)),rgb(var(--brand-secondary-rgb)))]";
+  // On the brand rail the config's brand-tinted hover/search classes are
+  // tone-on-tone (invisible); swap them for white-glass equivalents.
   const searchAccent = forceBrand
     ? "bg-white/10 hover:bg-white/15 text-white"
     : config.searchAccent;
@@ -568,12 +573,6 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
         )}
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
-        {forceBrand && (
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-[linear-gradient(90deg,rgb(var(--brand-primary-rgb)),rgb(var(--brand-secondary-rgb)))]"
-          />
-        )}
         <div className="flex items-center justify-between gap-2 px-4 py-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Sheet open={open} onOpenChange={setOpen}>
@@ -606,7 +605,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                   className={cn(
                     "flex-shrink-0 border-b px-4 py-3",
                     forceBrand
-                      ? "border-white/15 bg-white/[0.04]"
+                      ? "border-white/15 bg-white/10"
                       : "border-slate-200 bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.07),rgb(var(--portal-accent-rgb)/0.02))] dark:border-slate-700 dark:bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.12),transparent)]",
                   )}
                   style={{ paddingTop: "max(1rem, env(safe-area-inset-top, 1rem))" }}
@@ -689,12 +688,6 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           isCollapsed ? "lg:w-20" : "lg:w-72 xl:w-80",
         )}
       >
-        {forceBrand && (
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 left-0 z-10 w-0.5 bg-[linear-gradient(180deg,rgb(var(--brand-primary-rgb)),rgb(var(--brand-secondary-rgb)))]"
-          />
-        )}
         <div className="flex flex-col flex-1 min-h-0">
           {/* Brand wash: the header block opens with a soft tint of the
               portal's lead colour (tracks white-label re-theming via the
@@ -704,7 +697,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             className={cn(
               "flex flex-col gap-3 border-b px-4 py-3",
               forceBrand
-                ? "border-white/15 bg-white/[0.04]"
+                ? "border-white/15 bg-white/10"
                 : "border-slate-200 bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.07),rgb(var(--portal-accent-rgb)/0.02))] dark:border-slate-700 dark:bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.12),transparent)]",
             )}
           >

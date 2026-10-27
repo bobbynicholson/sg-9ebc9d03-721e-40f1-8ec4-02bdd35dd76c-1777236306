@@ -38,10 +38,25 @@ export function PortalShell({
   return (
     <div
       className={cn(
-        "relative min-h-screen w-full max-w-full min-w-0 overflow-x-hidden bg-slate-50 dark:bg-slate-950",
+        "relative min-h-screen w-full max-w-full min-w-0 overflow-x-hidden bg-[linear-gradient(180deg,#e9edf3_0%,#f6f8fb_320px,#f6f8fb_100%)] dark:bg-[linear-gradient(180deg,#020617_0%,#0f172a_320px,#0f172a_100%)]",
         className,
       )}
     >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-slate-950/10 dark:bg-white/10"
+      />
+      {/* Brand wash: a soft top band in the tenant's colours so every
+          page opens with a hint of their identity, fading to neutral
+          before the content grid starts. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[linear-gradient(180deg,rgb(var(--brand-primary-rgb)/0.055),rgb(var(--brand-secondary-rgb)/0.02)_60%,transparent)] dark:opacity-20"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(60%_120%_at_18%_0%,rgba(255,255,255,0.65),transparent_70%)] dark:hidden"
+      />
       <div
         className={cn(
           "relative z-0 w-full min-w-0 px-4 py-5 sm:px-6 sm:py-6 lg:px-9",
@@ -57,9 +72,13 @@ export function PortalShell({
 /** Page header: title, optional subtitle, icon, actions and live status chips.
  *
  * `variant="hero"` provides the compact title band shared by operational
- * pages. It uses a neutral dark surface for readable chips and actions while
- * keeping tenant branding in the accent rule and portal navigation.
- * `appearance` lets platform pages use a deeper surface than company pages.
+ * pages. Two appearances:
+ * - `"brand"` (default on tenant surfaces): the band is PAINTED in the
+ *   tenant's own colours - a primary→secondary gradient (the admin-chosen
+ *   white-label palette) with a soft contrast scrim so white type stays
+ *   legible on any brand hue. No fixed dark slate anywhere.
+ * - `"dark"` (default on /admin/platform): the slate-950 command band that
+ *   pairs with the super-admin forced-dark rail.
  * `meta` is an optional chip row under the subtitle (live counts, badges). */
 export function PortalHeader({
   title,
@@ -92,15 +111,34 @@ export function PortalHeader({
         className={cn(
           "relative mb-4 overflow-hidden rounded-xl border px-4 py-4 text-white sm:px-5",
           isBrand
-            ? "border-slate-800 bg-slate-900"
+            ? "border-white/15 bg-[linear-gradient(130deg,rgb(var(--brand-primary-rgb)),rgb(var(--brand-secondary-rgb)))]"
             : "border-slate-800 bg-slate-950",
           "shadow-sm",
           className,
         )}
       >
-        <span
+        {isBrand ? (
+          <>
+            {/* Contrast scrim: deepens the tenant colour just enough for
+                white type without ever reading as a dark header. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.14),rgba(2,6,23,0.32))]"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_150%_at_0%_0%,rgba(255,255,255,0.16),transparent_55%)]"
+            />
+          </>
+        ) : (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_150%_at_0%_0%,rgb(var(--brand-primary-rgb)/0.30),transparent_55%),radial-gradient(110%_140%_at_100%_0%,rgb(var(--brand-secondary-rgb)/0.18),transparent_60%)]"
+          />
+        )}
+        <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-[rgb(var(--brand-primary-rgb))]"
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/20"
         />
         {/* Keep page actions beside the title when the content area allows;
             below that, stack them so labels stay readable. */}
