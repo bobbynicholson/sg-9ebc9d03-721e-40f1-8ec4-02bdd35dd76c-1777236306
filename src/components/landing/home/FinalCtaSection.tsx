@@ -26,6 +26,7 @@ export function FinalCtaSection() {
           alt=""
           gradient="from-amber-700 via-stone-900 to-stone-950"
           className="absolute inset-0"
+          sizes="100vw"
         />
         <div className="absolute inset-0 bg-stone-950/70" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_60%_at_50%_0%,rgba(245,158,11,0.28),transparent)]" />

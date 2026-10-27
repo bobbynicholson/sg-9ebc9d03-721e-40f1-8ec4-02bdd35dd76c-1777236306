@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/authContextCore";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

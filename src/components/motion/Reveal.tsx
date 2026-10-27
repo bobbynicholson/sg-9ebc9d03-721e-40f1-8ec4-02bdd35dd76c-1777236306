@@ -1,61 +1,110 @@
-import {
-  motion,
-  useReducedMotion,
-  type HTMLMotionProps,
-  type Variants,
-} from "framer-motion";
-import { type ReactNode } from "react";
+import { useEffect, useRef, type HTMLAttributes, type ReactNode, type RefObject } from "react";
 
 /**
- * Shared scroll-reveal primitives for the marketing site, encoding the
- * emil-design-eng motion philosophy:
+ * Shared scroll-reveal primitives for the marketing site.
  *
- *   - Custom ease-out curve (the built-in CSS easings are too weak).
- *   - Enter animations only (ease-out feels responsive). Reveals fire once
- *     so scrolling back up doesn't re-trigger them.
- *   - Never animate from scale(0) / from nothing -- a small translate +
- *     opacity reads as "settling into place", not "appearing from the void".
- *   - prefers-reduced-motion: keep the opacity fade (it aids comprehension),
- *     drop the movement.
+ *   - Content is always VISIBLE in the server HTML. Nothing waits for
+ *     JavaScript to be readable, so the largest paint never waits on the
+ *     bundle and visitors without JS see the full page.
+ *   - After hydration, only elements that are still below the fold are
+ *     hidden and then settle in (opacity + small translate, <= 400ms, the
+ *     site-wide ease) the first time they scroll into view. Reveals fire once.
+ *   - prefers-reduced-motion: no reveal at all, the content just stays put.
+ *   - CSS-only animation (see [data-reveal] in globals.css) - no animation
+ *     library ships with marketing pages.
  *
  * Keep these for marketing/explanatory surfaces. Do NOT sprinkle them across
  * the dashboard -- frequently-seen UI should be crisp and still.
  */
 
-// Strong ease-out -- matches --ease-out in globals.css.
-const EASE_OUT = [0.23, 1, 0.32, 1] as const;
+type DivProps = Omit<HTMLAttributes<HTMLDivElement>, "children">;
+
+/**
+ * Hides `ref`'s element if it is below the fold at hydration, then calls
+ * `onShow` once it scrolls into view (`onShow` may return the longest
+ * transition delay it set, in seconds). State lives in the element's data
+ * attributes so no re-render is needed.
+ */
+export function useRevealOnScroll<T extends HTMLElement>(
+  ref: RefObject<T | null>,
+  attr: "reveal" | "stagger",
+  onShow?: (el: T) => number | void,
+) {
+  const onShowRef = useRef(onShow);
+  onShowRef.current = onShow;
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof window === "undefined" || typeof IntersectionObserver === "undefined") return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+
+    let cleanupTimer: number | undefined;
+    let placed = false;
+    // Once the entrance has played, hand the element back to its own styles
+    // (hover transitions, transforms) with no leftover reveal delay.
+    const settle = () => {
+      delete el.dataset[attr];
+      el.style.transitionDelay = "";
+      el.querySelectorAll<HTMLElement>("[data-reveal-item]").forEach((item) => {
+        item.style.transitionDelay = "";
+      });
+    };
+    const io = new IntersectionObserver(
+      (entries) => {
+        // The first callback reports where the element sits after hydration.
+        // Reading it here (not via getBoundingClientRect) avoids forcing a
+        // synchronous layout per element while the page is still loading.
+        if (!placed) {
+          placed = true;
+          const entry = entries[entries.length - 1];
+          // Already on screen (or scrolled past): leave it exactly as rendered.
+          if (entry.boundingClientRect.top < window.innerHeight) {
+            io.disconnect();
+            return;
+          }
+          el.dataset[attr] = "pending";
+          return;
+        }
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        io.disconnect();
+        const longestDelay = onShowRef.current?.(el) || 0;
+        el.dataset[attr] = "shown";
+        cleanupTimer = window.setTimeout(settle, longestDelay * 1000 + 450);
+      },
+      { rootMargin: "0px 0px -80px 0px" },
+    );
+    io.observe(el);
+    return () => {
+      io.disconnect();
+      if (cleanupTimer !== undefined) window.clearTimeout(cleanupTimer);
+      settle();
+    };
+  }, [ref, attr]);
+}
 
 // Reveal whole sections / single elements as they scroll into view.
 export function Reveal({
   children,
-  className,
   delay = 0,
   y = 18,
+  style,
   ...rest
 }: {
   children: ReactNode;
-  className?: string;
   /** Stagger entrance by this many seconds. */
   delay?: number;
   /** Travel distance in px before settling. */
   y?: number;
-} & Omit<HTMLMotionProps<"div">, "children">) {
-  const reduce = useReducedMotion();
+} & DivProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  useRevealOnScroll(ref, "reveal", (el) => {
+    el.style.transitionDelay = `${delay}s`;
+    return delay;
+  });
   return (
-    <motion.div
-      className={className}
-      initial={{ opacity: 0, y: reduce ? 0 : y }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-80px" }}
-      transition={{
-        duration: reduce ? 0.3 : 0.55,
-        ease: EASE_OUT,
-        delay: reduce ? 0 : delay,
-      }}
-      {...rest}
-    >
+    <div ref={ref} style={{ ...style, ["--reveal-y" as string]: `${y}px` }} {...rest}>
       {children}
-    </motion.div>
+    </div>
   );
 }
 
@@ -63,67 +112,40 @@ export function Reveal({
 // lists, and card rows feeling alive without everything popping at once.
 export function Stagger({
   children,
-  className,
   delayChildren = 0,
   gap = 0.06,
   ...rest
 }: {
   children: ReactNode;
-  className?: string;
   delayChildren?: number;
   /** Seconds between each child (30-80ms is the sweet spot). */
   gap?: number;
-} & Omit<HTMLMotionProps<"div">, "children">) {
-  const reduce = useReducedMotion();
+} & DivProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  useRevealOnScroll(ref, "stagger", (el) => {
+    const items = el.querySelectorAll<HTMLElement>("[data-reveal-item]");
+    items.forEach((item, i) => {
+      item.style.transitionDelay = `${delayChildren + i * gap}s`;
+    });
+    return delayChildren + Math.max(0, items.length - 1) * gap;
+  });
   return (
-    <motion.div
-      className={className}
-      initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, margin: "-80px" }}
-      variants={{
-        hidden: {},
-        show: {
-          transition: {
-            staggerChildren: reduce ? 0 : gap,
-            delayChildren: reduce ? 0 : delayChildren,
-          },
-        },
-      }}
-      {...rest}
-    >
+    <div ref={ref} {...rest}>
       {children}
-    </motion.div>
+    </div>
   );
 }
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 18 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: EASE_OUT } },
-};
-
-const itemVariantsReduced: Variants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { duration: 0.3 } },
-};
 
 // Child of <Stagger>. Inherits the cascade timing from its parent.
 export function StaggerItem({
   children,
-  className,
   ...rest
 }: {
   children: ReactNode;
-  className?: string;
-} & Omit<HTMLMotionProps<"div">, "children">) {
-  const reduce = useReducedMotion();
+} & DivProps) {
   return (
-    <motion.div
-      className={className}
-      variants={reduce ? itemVariantsReduced : itemVariants}
-      {...rest}
-    >
+    <div data-reveal-item="" {...rest}>
       {children}
-    </motion.div>
+    </div>
   );
 }

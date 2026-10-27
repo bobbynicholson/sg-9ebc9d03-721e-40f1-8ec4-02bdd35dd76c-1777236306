@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, ArrowRight } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { hasSupabaseSessionHint } from "@/lib/auth/sessionHint";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
 import { EASE, btnPress } from "@/components/motion/marketing";
 
@@ -28,8 +28,11 @@ export default function PricingPage({ initialRegion = "za" }: { initialRegion?: 
   const [loggedIn, setLoggedIn] = useState(false);
 
   useEffect(() => {
-    supabase.auth
-      .getSession()
+    // Only browsers that may hold a session load the auth client to confirm
+    // it; anonymous visitors skip the download entirely.
+    if (!hasSupabaseSessionHint()) return;
+    import("@/integrations/supabase/client")
+      .then(({ supabase }) => supabase.auth.getSession())
       .then(({ data }) => setLoggedIn(!!data.session))
       .catch(() => {});
   }, []);

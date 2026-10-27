@@ -68,6 +68,7 @@ export function TestimonialsSection() {
                       alt={testimonial.author}
                       gradient="from-amber-300 to-orange-400"
                       className="h-12 w-12 shrink-0 rounded-full"
+                      sizes="48px"
                     />
                     <div>
                       <p className="font-semibold text-white">{testimonial.author}</p>

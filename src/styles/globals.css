@@ -130,6 +130,60 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--brand-font-display, inherit);
   }
+
+  /* Touch / press feel, site-wide. Every selector sits inside :where() so
+     it has zero specificity: any Tailwind utility on an element (its own
+     transition, transform, focus ring) still wins, and elements that are
+     positioned with a transform utility keep it while pressed. */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  :where(a, button, [role="button"], [role="menuitem"], [role="tab"], summary, label[for]) {
+    touch-action: manipulation;
+  }
+  :where(button, [role="button"], [role="menuitem"]) {
+    transition: transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      opacity 140ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      background-color 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  :where(button, [role="button"], [role="menuitem"]):where(:active):where(:not(:disabled, [aria-disabled="true"])) {
+    transform: scale(0.97);
+  }
+  /* Fallback keyboard focus ring for elements that don't style their own
+     (components with focus-visible:ring-* utilities keep theirs). */
+  :where(a, button, [role="button"], [role="menuitem"], [role="tab"], input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid rgb(var(--brand-primary-rgb) / 0.6);
+    outline-offset: 2px;
+  }
+}
+
+/* Marketing scroll reveals (components/motion/Reveal.tsx). Elements are
+   visible by default; JS only adds data-reveal / data-stagger to ones still
+   below the fold after hydration, so the server HTML never hides content. */
+[data-reveal],
+[data-stagger] [data-reveal-item] {
+  transition: opacity 400ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 400ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+[data-reveal="pending"],
+[data-stagger="pending"] [data-reveal-item] {
+  opacity: 0;
+  transform: translateY(var(--reveal-y, 18px));
+}
+
+/* Respect the visitor's reduced-motion setting everywhere. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  :where(button, [role="button"], [role="menuitem"]):active {
+    transform: none !important;
+  }
 }
 
 /* Wave 70.44 -- shared print utilities.
@@ -350,6 +404,13 @@
   input[type="email"],
   input[type="tel"],
   input[type="number"],
+  input[type="search"],
+  input[type="password"],
+  input[type="url"],
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  input:not([type]),
   textarea,
   select {
     font-size: 16px !important;

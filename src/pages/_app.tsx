@@ -1,35 +1,23 @@
 import type { AppProps } from "next/app";
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import { Fraunces, Inter } from "next/font/google";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { TenantBrandingApplier } from "@/components/TenantBrandingApplier";
-import { PortalTimeSync } from "@/components/PortalTimeSync";
 import type { InitialBranding } from "@/lib/branding/serverBrandingForSlug";
-import { RegionFilterProvider } from "@/contexts/RegionFilterContext";
 import { ThemeProvider } from "@/contexts/ThemeProvider";
-import { Toaster } from "@/components/ui/toaster";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { MiddlewareErrorToast } from "@/components/MiddlewareErrorToast";
-import { GlobalInternalFooter } from "@/components/GlobalInternalFooter";
-import { AdminSetupSticky } from "@/components/admin/AdminSetupSticky";
-import { PWAInstallPrompt } from "@/components/driver/PWAInstallPrompt";
-import { PwaMetadata } from "@/components/pwa/PwaMetadata";
-import { PwaRouteTransition } from "@/components/pwa/PwaRouteTransition";
-import { useBrandingRow } from "@/lib/branding/useBranding";
-import { type PwaBranding, isCompanySlug } from "@/lib/pwa/metadata";
 import { normalizeProductPath, isProductPath, pwaRouteInfo } from "@/lib/pwa/routes";
-import { AppErrorBoundary } from "@/components/AppErrorBoundary";
-import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
-import { useAuth } from "@/contexts/AuthContext";
-import { indexChatPageSections, scrollToChatHash } from "@/lib/chatbot/sectionAnchors";
+import { isMarketingPath } from "@/lib/marketingRoutes";
+import { MarketingShell } from "@/components/app/MarketingShell";
 import "@/styles/globals.css";
 
-const DeferredCommandPaletteChunk = dynamic(
-  () => import("@/components/CommandPalette").then((module) => module.CommandPalette),
-  { ssr: false, loading: () => null },
-);
+// Two shells. Public marketing pages get a light one (no Supabase client,
+// no portal widgets) so they load fast; every other page gets the full app
+// shell, loaded as its own chunk and still server-rendered exactly as before.
+// The import() must be written inline in dynamic() so Next records the
+// chunk during server render and loads it before hydrating app pages.
+const ProductShell = dynamic(() => import("@/components/app/ProductShell"));
+const loadProductShell = () => import("@/components/app/ProductShell");
 
 // Warm modern display serif for marketing headings (opt-in via Tailwind's
 // `font-display`). Self-hosted by next/font - no external request, no layout
@@ -37,7 +25,9 @@ const DeferredCommandPaletteChunk = dynamic(
 const fraunces = Fraunces({
   subsets: ["latin"],
   weight: ["500", "600", "700"],
-  style: ["normal", "italic"],
+  // Upright only: no page sets display text in italic, and the italic file
+  // was a third font download on every page.
+  style: ["normal"],
   variable: "--font-display",
   display: "swap",
 });
@@ -89,165 +79,6 @@ function reloadForNewBuild() {
   } catch {
     /* never let recovery itself throw */
   }
-}
-
-/**
- * The assistant belongs to the authenticated product shell, not to a short
- * list of hand-picked pages. A few legacy pages still mount their own
- * assistant; the DOM check keeps the transition from rendering two launchers
- * while those page-level mounts are gradually consolidated.
- */
-function GlobalChatAssistant() {
-  const router = useRouter();
-  const { user } = useAuth();
-  const [useGlobalAssistant, setUseGlobalAssistant] = useState(false);
-  const path = (router.asPath || "").split(/[?#]/)[0].replace(/^\/[^/]+(?=\/(?:admin|team-portal|client-portal|account)(?:\/|$))/, "");
-  const isProductRoute = ["/admin", "/team-portal", "/client-portal", "/account", "/super-admin"].some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
-
-  useEffect(() => {
-    if (!user?.id || !isProductRoute || typeof document === "undefined") {
-      setUseGlobalAssistant(false);
-      return;
-    }
-    // Existing page-level instances are already committed by the time this
-    // shell effect runs. If a future page adds one, the observer also catches
-    // it before a second launcher is left behind.
-    const sync = () => setUseGlobalAssistant(!document.querySelector("[data-chatbot-root]:not([data-chatbot-global])"));
-    sync();
-    const observer = new MutationObserver(sync);
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, [user?.id, isProductRoute, path]);
-
-  // Index semantic headings and marked business regions globally so legacy
-  // product pages receive the same section-level navigation as newer pages
-  // that mount PageWorkbench. Explicit data-chat-section refs remain the
-  // stable names; ordinary headings receive deterministic local anchors.
-  useEffect(() => {
-    if (!isProductRoute || typeof document === "undefined") return;
-    const syncSections = () => { indexChatPageSections(); };
-    syncSections();
-    let scheduledFrame: number | undefined;
-    const scheduleSync = () => {
-      if (scheduledFrame !== undefined) return;
-      scheduledFrame = window.requestAnimationFrame(() => {
-        scheduledFrame = undefined;
-        syncSections();
-      });
-    };
-    const observer = new MutationObserver(scheduleSync);
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => {
-      observer.disconnect();
-      if (scheduledFrame !== undefined) window.cancelAnimationFrame(scheduledFrame);
-    };
-  }, [isProductRoute, path]);
-
-  // A hash can arrive before a tab/section has mounted during a client-side
-  // navigation. Re-index and retry briefly so chatbot links land on the exact
-  // page section even when the target is rendered asynchronously.
-  useEffect(() => {
-    if (!isProductRoute || typeof window === "undefined") return;
-    let cancelled = false;
-    let retryTimer: number | undefined;
-    let attempts = 0;
-
-    const clearRetry = () => {
-      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
-      retryTimer = undefined;
-    };
-    const syncAndScroll = () => {
-      if (cancelled) return;
-      indexChatPageSections();
-      if (scrollToChatHash()) return;
-      if (!window.location.hash || attempts >= 20) return;
-      attempts += 1;
-      retryTimer = window.setTimeout(syncAndScroll, 75);
-    };
-    const start = () => {
-      clearRetry();
-      attempts = 0;
-      window.requestAnimationFrame(syncAndScroll);
-    };
-
-    start();
-    router.events.on("routeChangeComplete", start);
-    router.events.on("hashChangeComplete", start);
-    window.addEventListener("hashchange", start);
-    return () => {
-      cancelled = true;
-      clearRetry();
-      router.events.off("routeChangeComplete", start);
-      router.events.off("hashChangeComplete", start);
-      window.removeEventListener("hashchange", start);
-    };
-  }, [isProductRoute, path, router]);
-
-  if (!useGlobalAssistant || !user) return null;
-  return <ChatBot global userRole={user.active_role || user.role} companyId={user.company_id || user.user_metadata?.company_id} />;
-}
-
-function GlobalPWAInstallPrompt({ initialBranding }: { initialBranding: InitialBranding | null }) {
-  const router = useRouter();
-  const { company } = useAuth();
-  const liveBrand = useBrandingRow();
-  const route = pwaRouteInfo(router.asPath || router.pathname || "");
-  const querySlug = router.query.company_slug || (route.installPage ? router.query.company : undefined);
-  // The URL is authoritative; a platform user can browse another tenant.
-  const routeSlug = route.tenantSlug || (isCompanySlug(querySlug) ? querySlug : "");
-  const platform = normalizeProductPath(router.asPath || "").startsWith("/admin/platform");
-  const companyBrand: PwaBranding | null = company && (!routeSlug || company.slug === routeSlug) && !platform
-    ? { id: company.id, slug: company.slug, companyName: company.company_name, logoUrl: company.logo_url, primaryColor: company.primary_color }
-    : null;
-  let branding: PwaBranding | null = initialBranding && (!routeSlug || initialBranding.slug === routeSlug) ? initialBranding : companyBrand;
-  const liveBrandMatches = Boolean(liveBrand && !platform && (!routeSlug || liveBrand.slug === routeSlug) && (!branding?.id || branding.id === liveBrand.id));
-  if (liveBrandMatches && liveBrand) {
-    branding = { ...branding, ...liveBrand, slug: liveBrand.slug || branding?.slug || routeSlug };
-  }
-  if (routeSlug) branding = { ...branding, slug: routeSlug };
-  if (!route.enabled) return null;
-  return <>
-    <PwaMetadata branding={branding} />
-    {route.showPrompt && <PWAInstallPrompt appName={branding?.companyName || "CateringMS"} companySlug={branding?.slug} />}
-  </>;
-}
-
-function DeferredCommandPalette() {
-  const [enabled, setEnabled] = useState(false);
-  const [initialOpen, setInitialOpen] = useState(false);
-  const activatedRef = useRef(false);
-
-  useEffect(() => {
-    const activate = (open: boolean) => {
-      if (activatedRef.current) return;
-      activatedRef.current = true;
-      setInitialOpen(open);
-      setEnabled(true);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (activatedRef.current) return;
-      const isMod = event.metaKey || event.ctrlKey;
-      const isShortcut = isMod && event.key.toLowerCase() === "k";
-      const isSlash = event.key === "/" && !["INPUT", "TEXTAREA"].includes((event.target as HTMLElement)?.tagName);
-      if (!isShortcut && !isSlash) return;
-      event.preventDefault();
-      activate(true);
-    };
-    const onCustomOpen = () => activate(true);
-
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("cmdk:open", onCustomOpen as EventListener);
-    // The palette is not needed for the first paint. Keep its existing
-    // shortcuts available immediately, then load it after the page settles.
-    const idleTimer = window.setTimeout(() => activate(false), 1200);
-    return () => {
-      if (idleTimer !== undefined) window.clearTimeout(idleTimer);
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("cmdk:open", onCustomOpen as EventListener);
-    };
-  }, []);
-
-  return enabled ? <DeferredCommandPaletteChunk initialOpen={initialOpen} /> : null;
 }
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -391,38 +222,42 @@ export default function App({ Component, pageProps }: AppProps) {
     };
   }, []);
 
+  // On a marketing page, start downloading the app shell the moment a
+  // visitor shows intent to leave for the app (hovering, focusing or
+  // touching a link into it), and at the latest when that navigation
+  // starts - so "Sign in" and friends render without waiting for it.
+  const onMarketingPage = isMarketingPath(router.pathname);
+  useEffect(() => {
+    if (!onMarketingPage) return;
+    const warm = () => { void loadProductShell().catch(() => {}); };
+    const onIntent = (event: Event) => {
+      const link = (event.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!link || link.origin !== window.location.origin || isMarketingPath(link.pathname)) return;
+      warm();
+    };
+    const onRouteStart = (url: string) => {
+      if (!isMarketingPath(url)) warm();
+    };
+    document.addEventListener("pointerover", onIntent, { passive: true });
+    document.addEventListener("touchstart", onIntent, { passive: true });
+    document.addEventListener("focusin", onIntent);
+    router.events.on("routeChangeStart", onRouteStart);
+    return () => {
+      document.removeEventListener("pointerover", onIntent);
+      document.removeEventListener("touchstart", onIntent);
+      document.removeEventListener("focusin", onIntent);
+      router.events.off("routeChangeStart", onRouteStart);
+    };
+  }, [onMarketingPage, router.events]);
+
+  const page = <Component {...pageProps} />;
   return (
     <div className={`${fraunces.variable} ${inter.variable}`}>
       <NoIndexMeta />
       <ThemeProvider>
-        <AuthProvider>
-          <TenantBrandingApplier initialBranding={initialBranding} />
-          {/* Company time zone + 12/24-hour format for every page. */}
-          <PortalTimeSync />
-          <RegionFilterProvider>
-            <AppErrorBoundary>
-              <Component {...pageProps} />
-            </AppErrorBoundary>
-            {/* Wave 70.26 - slim internal footer mounted globally
-                so every admin / team-portal / client-portal page
-                shows it, branded to the active tenant. Self-hides
-                on marketing routes; per-page <Footer /> components
-                self-hide on internal routes so we never double up. */}
-            <GlobalInternalFooter />
-            <DeferredCommandPalette />
-            <MiddlewareErrorToast />
-            <GlobalChatAssistant />
-            <GlobalPWAInstallPrompt initialBranding={initialBranding} />
-            <PwaRouteTransition initialBranding={initialBranding} />
-            <AdminSetupSticky />
-            {/* VersionWatcher (the "A new version is available" banner)
-                unmounted per Raj, 2026-06-12 - it nagged on every
-                deploy during active development. Component + the
-                /api/version endpoint remain; remount here if stale
-                bundles become a support problem again. */}
-            <Toaster />
-          </RegionFilterProvider>
-        </AuthProvider>
+        {onMarketingPage
+          ? <MarketingShell>{page}</MarketingShell>
+          : <ProductShell initialBranding={initialBranding}>{page}</ProductShell>}
       </ThemeProvider>
     </div>
   );

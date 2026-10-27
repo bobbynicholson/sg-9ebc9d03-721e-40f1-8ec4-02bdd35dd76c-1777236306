@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Building2, LoaderCircle } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/authContextCore";
 import { useBrandingRow } from "@/lib/branding/useBranding";
 import { readBrandingCacheForSlug } from "@/lib/branding/store";
 import type { InitialBranding } from "@/lib/branding/serverBrandingForSlug";

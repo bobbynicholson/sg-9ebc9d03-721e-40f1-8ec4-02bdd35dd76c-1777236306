@@ -1,14 +1,69 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { ArrowRight, ChefHat, ChevronDown, LogOut, Menu, Settings, User, X } from "lucide-react";
+import { ArrowRight, ChefHat, Menu, Moon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useAuth } from "@/contexts/AuthContext";
-import { RegionSwitcher } from "@/components/RegionSwitcher";
-import { RoleSwitcher } from "@/components/RoleSwitcher";
-import { ThemeSwitch } from "@/components/ThemeSwitch";
+import { useAuth } from "@/contexts/authContextCore";
+import { useAfterIdle } from "@/hooks/useAfterIdle";
 import { UserRole } from "@/types/app";
+
+// The header is on every public page, so its dropdown/tooltip-based controls
+// load after the page instead of in its first bundle: once the browser is
+// idle, or straight away when someone points at, focuses or touches one.
+// Each placeholder is the exact markup the control renders on the server, so
+// nothing moves when the real one takes over.
+function RegionSwitcherPlaceholder() {
+  return (
+    <Button variant="ghost" size="icon" className="relative group">
+      <span className="text-2xl">🇿🇦</span>
+      <span className="sr-only">Change region</span>
+      <div className="absolute bottom-full mb-2 hidden group-hover:block px-2 py-1 bg-gray-800 text-white text-xs rounded-md">
+        South Africa
+      </div>
+    </Button>
+  );
+}
+function ThemeSwitchPlaceholder() {
+  return (
+    <Button variant="ghost" size="icon" disabled className="h-11 w-11 cursor-not-allowed opacity-60" aria-label="Theme switching">
+      <Moon className="h-5 w-5 text-slate-500" />
+    </Button>
+  );
+}
+const RegionSwitcher = dynamic(
+  () => import("@/components/RegionSwitcher").then((module) => module.RegionSwitcher),
+  { ssr: false, loading: RegionSwitcherPlaceholder },
+);
+const ThemeSwitch = dynamic(
+  () => import("@/components/ThemeSwitch").then((module) => module.ThemeSwitch),
+  { ssr: false, loading: ThemeSwitchPlaceholder },
+);
+
+function LoadWhenIdle({ placeholder, children }: { placeholder: ReactNode; children: ReactNode }) {
+  const idle = useAfterIdle();
+  const [wanted, setWanted] = useState(false);
+  if (idle || wanted) return <>{children}</>;
+  const want = () => setWanted(true);
+  return (
+    <span className="contents" onPointerEnter={want} onFocus={want} onTouchStart={want}>
+      {placeholder}
+    </span>
+  );
+}
+
+function HeaderSwitchers() {
+  return (
+    <>
+      <LoadWhenIdle placeholder={<RegionSwitcherPlaceholder />}><RegionSwitcher /></LoadWhenIdle>
+      <LoadWhenIdle placeholder={<ThemeSwitchPlaceholder />}><ThemeSwitch /></LoadWhenIdle>
+    </>
+  );
+}
+const LandingAccountMenu = dynamic(
+  () => import("./LandingAccountMenu").then((module) => module.LandingAccountMenu),
+  { ssr: false, loading: () => null },
+);
 
 function getDashboardPath(role: UserRole, companySlug?: string) {
   const adminPath = companySlug ? "/" + companySlug + "/admin/dashboard" : "/admin/dashboard";
@@ -92,35 +147,9 @@ export function LandingHeader() {
         </div>
 
         <div className="hidden shrink-0 items-center gap-2 lg:flex">
-          <RegionSwitcher />
-          <ThemeSwitch />
+          <HeaderSwitchers />
           {user ? (
-            <>
-              <RoleSwitcher variant="compact" showLabel={false} />
-              <Button asChild className="rounded-full bg-amber-800 px-5 font-semibold text-white hover:bg-amber-900">
-                <Link href={dashboardPath}>Dashboard</Link>
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="gap-2 rounded-full text-stone-700 hover:bg-stone-100">
-                    <User className="h-4 w-4" aria-hidden="true" />
-                    <span className="hidden xl:inline">{user.email}</span>
-                    <ChevronDown className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem asChild>
-                    <Link href="/account/settings" className="flex cursor-pointer items-center">
-                      <Settings className="mr-2 h-4 w-4" aria-hidden="true" /> Account settings
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-rose-600">
-                    <LogOut className="mr-2 h-4 w-4" aria-hidden="true" /> Sign out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
+            <LandingAccountMenu email={user.email} dashboardPath={dashboardPath} onSignOut={handleSignOut} />
           ) : (
             <>
               <Button asChild variant="ghost" className="rounded-full text-stone-700 hover:bg-stone-100">
@@ -157,8 +186,7 @@ export function LandingHeader() {
             </Link>
           ))}
           <div className="mt-2 flex items-center justify-between gap-3 border-t border-stone-200 pt-4">
-            <RegionSwitcher />
-            <ThemeSwitch />
+            <HeaderSwitchers />
           </div>
           {user ? (
             <div className="grid grid-cols-1 gap-2 pt-3">

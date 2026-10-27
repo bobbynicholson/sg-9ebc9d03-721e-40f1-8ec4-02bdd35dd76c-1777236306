@@ -1,62 +1,22 @@
-import { createContext, useContext, ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { createClient } from "@/lib/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import type { Tables } from "@/integrations/supabase/types";
 import { UserRole } from "@/types/app";
 import { profileService } from "@/services/profileService";
-import { prewarmCompanyTemplates } from "@/services/messageTemplateService";
 import { deriveUserRoles } from "@/lib/roleDerivation";
 import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
+import { AuthContext, type AuthContextType, type AuthenticatedUser } from "./authContextCore";
 
 type Company = Tables<"companies">;
 type DbProfile = Tables<"profiles">;
 
-export type AuthenticatedUser = {
-  id: string;
-  email: string;
-  full_name: string;
-  role: UserRole;
-  active_role: string;
-  avatar_url?: string;
-  currency: string;
-  company_id?: string;
-  company_name?: string;
-  company_slug?: string;
-  phone_number?: string;
-  user_metadata?: {
-    company_id?: string;
-    company_slug?: string;
-    full_name?: string;
-    avatar_url?: string;
-    [key: string]: unknown;
-  };
-  app_metadata?: {
-    provider?: string;
-    [key: string]: unknown;
-  };
-  aud?: string;
-  created_at?: string;
-  updated_at?: string;
-};
-
-interface AuthContextType {
-  user: AuthenticatedUser | null;
-  profile: DbProfile | null;
-  company: Company | null;
-  companySlug: string | null;
-  loading: boolean;
-  error: string | null;
-  userRoles: UserRole[];
-  activeRole: string;
-  switchRole: (newRole: UserRole) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<{ user: unknown; error: { message: string } | null }>;
-  signUp: (email: string, password: string, metadata: Record<string, unknown>) => Promise<{ user: unknown; error: { message: string } | null }>;
-  signOut: () => Promise<void>;
-  updateProfile: (updates: Partial<DbProfile>) => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// The context object, its types and useAuth live in authContextCore so
+// light public pages can read auth without bundling the Supabase client.
+// Re-exported here so every existing import keeps working.
+export type { AuthenticatedUser } from "./authContextCore";
+export { useAuth } from "./authContextCore";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -464,7 +424,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // session, not on the second open. Fire-and-forget --
             // failures are non-fatal (the renderers fall back to
             // hardcoded defaults).
-            prewarmCompanyTemplates(userProfile.company_id).catch(() => {});
+            // Loaded on demand: the template registry is large and only
+            // needed after sign-in, so it stays out of every page's bundle.
+            const prewarmCompanyId = userProfile.company_id;
+            void import("@/services/messageTemplateService")
+              .then(({ prewarmCompanyTemplates }) => prewarmCompanyTemplates(prewarmCompanyId))
+              .catch(() => {});
           } else if (!userCompany) {
             // Company-less profiles that didn't take the client branch
             // above (e.g. role drift where the profile row isn't marked
@@ -744,10 +709,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-}

@@ -21,7 +21,7 @@ export function GallerySection() {
         {GALLERY.map((g, index) => (
           <StaggerItem key={index} className={g.span}>
             <div className="group relative h-full w-full overflow-hidden rounded-2xl shadow-sm">
-              <Photo src={g.img} alt={g.alt} gradient={g.gradient} className="h-full w-full" zoom>
+              <Photo src={g.img} alt={g.alt} gradient={g.gradient} className="h-full w-full" sizes={index === 0 ? "(min-width: 768px) 50vw, 100vw" : "(min-width: 768px) 25vw, 50vw"} zoom>
                 <div className="absolute inset-0 bg-gradient-to-t from-stone-900/60 via-stone-900/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                 <p className="absolute bottom-4 left-4 right-4 translate-y-2 text-sm font-medium text-white opacity-0 transition-[opacity,transform] duration-300 ease-standard group-hover:translate-y-0 group-hover:opacity-100">
                   {g.alt}

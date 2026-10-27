@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import { Sparkles } from "lucide-react";
 import { useBrandingRow } from "@/lib/branding/useBranding";
 import { isWhiteLabelRow } from "@/lib/branding/applyBranding";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/authContextCore";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 
 /**

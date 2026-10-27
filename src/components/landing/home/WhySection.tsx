@@ -50,6 +50,7 @@ export function WhySection() {
             alt="A chef plating dishes in a busy catering kitchen"
             gradient="from-stone-300 via-amber-200 to-stone-400"
             className="h-full min-h-[320px] w-full rounded-3xl shadow-sm lg:min-h-[520px]"
+            sizes="(min-width: 1024px) 50vw, 100vw"
           >
             <div className="absolute inset-0 bg-gradient-to-t from-stone-900/55 via-transparent to-transparent" />
             <p className="absolute bottom-6 left-6 right-6 font-display text-2xl font-medium leading-snug text-white">

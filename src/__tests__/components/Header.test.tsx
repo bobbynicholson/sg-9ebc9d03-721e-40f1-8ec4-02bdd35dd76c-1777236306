@@ -9,8 +9,8 @@ jest.mock('next/router', () => ({
   }),
 }));
 
-// Mock useAuth
-jest.mock('@/contexts/AuthContext', () => ({
+// Mock useAuth (the header reads it from the light auth core)
+jest.mock('@/contexts/authContextCore', () => ({
   useAuth: () => ({
     user: null,
     profile: null,
