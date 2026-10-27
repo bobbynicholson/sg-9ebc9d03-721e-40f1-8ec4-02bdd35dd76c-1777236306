@@ -877,7 +877,7 @@ function EmailSettingsPage() {
                         const y = H - (c.count / max) * (H - 4) - 2;
                         return (
                           <circle key={c.day} cx={x} cy={y} r={2} fill="rgb(var(--brand-primary-rgb))">
-                            <title>{c.day}: {c.count} sent</title>
+                            <title>{`${c.day}: ${c.count} sent`}</title>
                           </circle>
                         );
                       })}

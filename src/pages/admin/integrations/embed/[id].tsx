@@ -452,7 +452,7 @@ function EmbedFormCustomiser() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>{form.name} - CateringMS</title></Head>
+      <Head><title>{`${form.name} - CateringMS`}</title></Head>
       <AdminNav />
 
       <div className="admin-page-shell">

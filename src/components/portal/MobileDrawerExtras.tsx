@@ -26,7 +26,7 @@ export function MobileSearchTrigger({
     <button
       type="button"
       onClick={fire}
-      className={`w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm ${accent} transition-colors`}
+      className={`w-full min-h-11 flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm ${accent} transition-[color,background-color,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current active:scale-[0.99] motion-reduce:transform-none`}
     >
       <Search className="w-4 h-4 flex-shrink-0" />
       <span className="flex-1 text-left">{hint}</span>
@@ -70,7 +70,7 @@ export function MobileQuickActions({
               key={a.href + a.label}
               href={a.href}
               onClick={() => { a.onClick?.(); onNavigate?.(); }}
-              className="flex flex-col items-start gap-1.5 rounded-xl border border-slate-200 dark:border-white/20 dark:bg-white/5 p-3 hover:border-slate-300 hover:shadow-sm dark:hover:border-white/30 dark:hover:bg-white/10 transition-all"
+              className="flex min-h-11 flex-col items-start gap-1.5 rounded-xl border border-slate-200 p-3 transition-[border-color,background-color,box-shadow,transform] duration-150 hover:border-slate-300 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary active:scale-[0.99] motion-reduce:transform-none dark:border-white/20 dark:bg-white/5 dark:hover:border-white/30 dark:hover:bg-white/10"
             >
               <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${a.accent || "from-slate-500 to-slate-600"} flex items-center justify-center shadow-sm`}>
                 <Icon className="w-4 h-4 text-white" />

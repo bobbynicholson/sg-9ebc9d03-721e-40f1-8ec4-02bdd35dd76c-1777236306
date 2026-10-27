@@ -169,7 +169,7 @@ export default function SupportPage() {
         <Header />
         <div className="font-body mx-auto max-w-4xl px-4 py-10 text-stone-900 md:py-16">
           <Head>
-            <title>{selectedTicket.subject} - Support - CateringMS</title>
+            <title>{`${selectedTicket.subject} - Support - CateringMS`}</title>
             <meta name="robots" content="noindex, nofollow" />
           </Head>
 

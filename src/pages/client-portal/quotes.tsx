@@ -202,7 +202,7 @@ function ClientQuotesPageInner() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Quotes | {companyName}</title></Head>
+      <Head><title>{`Quotes | ${companyName}`}</title></Head>
       <ClientNav />
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">

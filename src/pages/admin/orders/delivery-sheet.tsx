@@ -102,7 +102,7 @@ function DeliverySheet() {
 
   return (
     <>
-      <Head><title>Delivery sheet - {targetDate}</title></Head>
+      <Head><title>{`Delivery sheet - ${targetDate}`}</title></Head>
       <style jsx global>{`
         @media print {
           .no-print { display: none !important; }

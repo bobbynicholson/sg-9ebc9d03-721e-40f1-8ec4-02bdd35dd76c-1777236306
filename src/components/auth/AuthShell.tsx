@@ -48,7 +48,7 @@ export function AuthShell({
   return (
     <>
     <Head>
-      <title>{brandName} | Workspace access</title>
+      <title>{`${brandName} | Workspace access`}</title>
     </Head>
     <div className="min-h-screen bg-white lg:grid lg:grid-cols-2">
       <section className="relative hidden min-h-screen flex-col justify-between bg-stone-950 p-10 text-white lg:flex xl:p-14">

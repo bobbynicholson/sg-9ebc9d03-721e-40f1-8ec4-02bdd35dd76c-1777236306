@@ -309,7 +309,7 @@ function CMSPageManagement() {
     <>
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>{editing ? (editingPage ? "Edit page" : "New page") : "Marketing pages"} - CateringMS</title>
+        <title>{`${editing ? (editingPage ? "Edit page" : "New page") : "Marketing pages"} - CateringMS`}</title>
       </Head>
 
       <div className="admin-page-shell">

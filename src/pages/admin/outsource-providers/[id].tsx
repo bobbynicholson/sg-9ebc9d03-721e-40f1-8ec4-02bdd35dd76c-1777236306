@@ -232,7 +232,7 @@ function ProviderDetail() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>{provider?.provider_name || "Provider"} - CateringMS</title></Head>
+      <Head><title>{`${provider?.provider_name || "Provider"} - CateringMS`}</title></Head>
       <AdminNav />
       <div className="admin-page-shell">
         {/* Wave 70.6 - mobile pass. admin-page-shell clears the mobile

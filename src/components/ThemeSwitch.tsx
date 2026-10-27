@@ -25,7 +25,7 @@ export function ThemeSwitch() {
             variant="ghost"
             size="icon"
             disabled
-            className="w-9 h-9 cursor-not-allowed opacity-60"
+            className="h-11 w-11 cursor-not-allowed opacity-60"
             aria-label="Theme switching"
           >
             <Moon className="h-5 w-5 text-slate-500" />

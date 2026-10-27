@@ -1033,7 +1033,7 @@ function ClientPortalDashboardInner() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>{companyName} | Your portal</title>
+        <title>{`${companyName} | Your portal`}</title>
       </Head>
       <ClientNav />
 

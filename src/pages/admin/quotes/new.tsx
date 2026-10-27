@@ -2623,7 +2623,7 @@ function NewQuotePage() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>{quoteNumber ? `${quoteNumber} - Quote` : "New quote"} - CateringMS</title>
+        <title>{`${quoteNumber ? `${quoteNumber} - Quote` : "New quote"} - CateringMS`}</title>
       </Head>
 
       <AdminNav />

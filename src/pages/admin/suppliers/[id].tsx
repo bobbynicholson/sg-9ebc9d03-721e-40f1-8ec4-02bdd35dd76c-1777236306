@@ -175,7 +175,7 @@ function SupplierDetail() {
   return (
     <>
       <NoIndexMeta />
-      <Head><title>{supplier?.supplier_name || "Supplier"} - CateringMS</title></Head>
+      <Head><title>{`${supplier?.supplier_name || "Supplier"} - CateringMS`}</title></Head>
       <AdminNav />
 
       <div className="admin-page-shell">

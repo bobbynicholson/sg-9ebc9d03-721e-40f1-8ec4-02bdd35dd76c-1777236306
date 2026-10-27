@@ -124,12 +124,10 @@ export interface PortalSidebarConfig {
    *  Used by the platform (super admin) portal to visually separate the
    *  SaaS command centre from tenant surfaces.
    *
-   *  "brand" paints the rail, mobile top bar and drawer in the TENANT'S
-   *  own colours (a primary→secondary gradient from the white-label
-   *  palette, softly deepened for contrast) with white-glass rows - the
-   *  same command-centre structure as the platform rail, but wearing the
-   *  colours the admin chose instead of fixed slate. Repaints live when
-   *  branding changes because it reads the --brand-*-rgb vars.
+   *  "brand" uses deep neutral chrome with a restrained primary-to-
+   *  secondary edge accent. The tenant logo and selected palette remain
+   *  visible without turning the full navigation surface into a gradient.
+   *  Repaints live when branding changes because it reads the --brand-*-rgb vars.
    *  Default: follow theme. */
   appearance?: "light" | "dark" | "brand";
 }
@@ -187,14 +185,11 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   const collapseKey = `${config.role}Nav-collapsed`;
   const forceDark = config.appearance === "dark";
   const forceBrand = config.appearance === "brand";
-  // Brand rail paint: tenant primary→secondary gradient under a soft
-  // slate scrim so white type is legible on ANY admin-chosen hue while
-  // the surface still clearly reads as the brand colour (never generic
-  // dark). Written as full literals so Tailwind JIT emits them.
-  const BRAND_SURFACE =
-    "bg-[linear-gradient(180deg,rgba(2,6,23,0.28),rgba(2,6,23,0.44)),linear-gradient(170deg,rgb(var(--brand-primary-rgb)),rgb(var(--brand-secondary-rgb)))]";
-  // On the brand rail the config's brand-tinted hover/search classes are
-  // tone-on-tone (invisible); swap them for white-glass equivalents.
+  // Keep navigation calm and readable; the small brand edge and active
+  // controls carry the tenant palette without competing with page content.
+  const BRAND_SURFACE = "bg-slate-900";
+  // Brand rails use white interactive states so every admin-selected hue
+  // keeps readable contrast.
   const searchAccent = forceBrand
     ? "bg-white/10 hover:bg-white/15 text-white"
     : config.searchAccent;
@@ -358,9 +353,9 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           // Wave 70.41b - overflow-hidden so long badges + descriptions
           // never bleed outside the sidebar's right edge. Matches the
           // AdminNav fix Bobby flagged on "1 gap" badge overflow.
-          // Density per dashboard best practice: ~40px rows (py-2.5), 14px
-          // labels, 20px icons. Specific transition, not `all`.
-          "group relative flex items-center gap-2.5 overflow-hidden rounded-lg border border-transparent transition-colors duration-150",
+          // Keep nav rows easy to tap while the text and icon columns stay
+          // compact. Specific transition properties avoid animating layout.
+          "group relative flex min-h-11 items-center gap-2.5 overflow-hidden rounded-lg border border-transparent transition-[color,background-color,border-color,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset active:scale-[0.99] motion-reduce:transform-none",
           footer ? "px-3 py-2 text-[13px] font-medium" : "px-3 py-2.5 text-sm font-medium",
           // Brand rail: white-glass rows (brand-tinted states would be
           // tone-on-tone against the brand-painted surface).
@@ -372,8 +367,10 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               ? "border-brand-primary/20 bg-brand-primary/[0.07] text-slate-950 shadow-sm dark:border-brand-primary/30 dark:bg-brand-primary/10 dark:text-white"
               : footer ? "text-slate-600 dark:text-slate-400" : "text-slate-700 dark:text-slate-300",
           !active && (forceBrand ? "hover:bg-white/10 hover:text-white" : config.hoverClasses),
+          forceBrand || forceDark ? "focus-visible:ring-white/80" : "focus-visible:ring-brand-primary",
           collapsed ? "justify-center" : "",
         )}
+        aria-label={collapsed ? item.title : undefined}
         title={collapsed ? item.title : ""}
       >
         {/* Icon chip: a small rounded tile behind every nav glyph. Gives the
@@ -571,6 +568,12 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
         )}
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
+        {forceBrand && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-[linear-gradient(90deg,rgb(var(--brand-primary-rgb)),rgb(var(--brand-secondary-rgb)))]"
+          />
+        )}
         <div className="flex items-center justify-between gap-2 px-4 py-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Sheet open={open} onOpenChange={setOpen}>
@@ -579,7 +582,10 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                   variant="ghost"
                   size="icon"
                   aria-label="Open navigation menu"
-                  className={forceBrand ? "text-white hover:bg-white/10 hover:text-white" : undefined}
+                  className={cn(
+                    "h-11 w-11 shrink-0",
+                    forceBrand && "text-white hover:bg-white/10 hover:text-white",
+                  )}
                 >
                   <Menu className="h-6 w-6" />
                 </Button>
@@ -600,7 +606,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                   className={cn(
                     "flex-shrink-0 border-b px-4 py-3",
                     forceBrand
-                      ? "border-white/15 bg-white/10"
+                      ? "border-white/15 bg-white/[0.04]"
                       : "border-slate-200 bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.07),rgb(var(--portal-accent-rgb)/0.02))] dark:border-slate-700 dark:bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.12),transparent)]",
                   )}
                   style={{ paddingTop: "max(1rem, env(safe-area-inset-top, 1rem))" }}
@@ -608,7 +614,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                   <Link
                     href={withSlug(config.dashboardHref)}
                     onClick={() => setOpen(false)}
-                    className="flex min-w-0 items-center gap-3"
+                    className="flex min-w-0 items-center gap-3 pr-12"
                   >
                     <LogoTile size="lg" />
                     <div className="min-w-0">
@@ -634,7 +640,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                   <Button
                     variant="ghost"
                     className={cn(
-                      "w-full justify-start",
+                      "w-full min-h-11 justify-start",
                       forceBrand
                         ? "text-white/85 hover:bg-white/10 hover:text-white"
                         : "text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white",
@@ -672,7 +678,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           // refreshed asynchronously; transition-all made the rail's
           // background, text, and borders visibly fade from the defaults to
           // the company colours after the page had already appeared.
-          "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:border-r transition-[width] duration-300 ease-out",
+          "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:border-r transition-[width] duration-200 ease-out",
           // Same descendant-selector caveat as the mobile bar: the rail's
           // own surface needs explicit dark classes when forced dark.
           forceDark
@@ -683,6 +689,12 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           isCollapsed ? "lg:w-20" : "lg:w-72 xl:w-80",
         )}
       >
+        {forceBrand && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 left-0 z-10 w-0.5 bg-[linear-gradient(180deg,rgb(var(--brand-primary-rgb)),rgb(var(--brand-secondary-rgb)))]"
+          />
+        )}
         <div className="flex flex-col flex-1 min-h-0">
           {/* Brand wash: the header block opens with a soft tint of the
               portal's lead colour (tracks white-label re-theming via the
@@ -692,7 +704,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             className={cn(
               "flex flex-col gap-3 border-b px-4 py-3",
               forceBrand
-                ? "border-white/15 bg-white/10"
+                ? "border-white/15 bg-white/[0.04]"
                 : "border-slate-200 bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.07),rgb(var(--portal-accent-rgb)/0.02))] dark:border-slate-700 dark:bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.12),transparent)]",
             )}
           >
@@ -804,7 +816,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             <Button
               variant="ghost"
               className={cn(
-                "w-full",
+                "w-full min-h-11",
                 forceBrand
                   ? "text-white/75 hover:bg-white/10 hover:text-white"
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white",
@@ -819,12 +831,12 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             </Button>
             <SignOutButton
               collapsed={isCollapsed}
-              className={signOutBrandClass}
+              className={cn("min-h-11", signOutBrandClass)}
             />
             <Button
               variant="ghost"
               className={cn(
-                "w-full",
+                "w-full min-h-11",
                 forceBrand
                   ? "text-white/75 hover:bg-white/10 hover:text-white"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800",

@@ -179,7 +179,7 @@ function KitchenTicketPage() {
 
   return (
     <>
-      <Head><title>Kitchen ticket - {order.order_number}</title></Head>
+      <Head><title>{`Kitchen ticket - ${order.order_number}`}</title></Head>
       <style jsx global>{`
         @media print {
           @page { size: A4 portrait; margin: 6mm; }

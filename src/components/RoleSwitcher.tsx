@@ -117,7 +117,8 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
           <Button
             variant="ghost"
             size="sm"
-            className="gap-2"
+            className="min-h-11 min-w-11 shrink-0 justify-center gap-2"
+            aria-label="Switch dashboard"
             disabled={switching}
           >
             {switching ? (
@@ -168,7 +169,7 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          className="gap-2 min-w-[180px] justify-between"
+          className="min-h-11 gap-2 min-w-[180px] justify-between"
           disabled={switching}
         >
           {switching ? (
