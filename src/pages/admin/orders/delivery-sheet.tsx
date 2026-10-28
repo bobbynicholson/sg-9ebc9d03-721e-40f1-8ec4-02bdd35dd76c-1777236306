@@ -40,6 +40,8 @@ interface OrderRow {
   special_instructions: string | null;
   assigned_driver: { full_name: string | null } | null;
   assigned_vehicle: { plate: string | null; nickname: string | null } | null;
+  /** Waiters on the booking (event_attendance), added after the orders read. */
+  waiter_names?: string[];
 }
 
 const fmtTime = (t: string | null): string => (t ? t.slice(0, 5) : "TBC");
@@ -73,7 +75,23 @@ function DeliverySheet() {
           .eq("event_date", targetDate)
           .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered"])
           .order("event_time", { ascending: true });
-        if (!cancelled) setOrders((data || []) as OrderRow[]);
+        const rows = (data || []) as OrderRow[];
+        // Waiters ride with the driver, so the sheet names them too.
+        if (rows.length) {
+          const { data: attendance, error: attendanceErr } = await (supabase as any)
+            .from("event_attendance")
+            .select("order_id, waiter:waiter_id ( full_name )")
+            .in("order_id", rows.map((r) => r.id));
+          if (attendanceErr) console.error("[delivery-sheet] event_attendance fetch failed:", attendanceErr);
+          const byOrder = new Map<string, string[]>();
+          for (const a of (attendance || []) as any[]) {
+            const list = byOrder.get(a.order_id) || [];
+            list.push(a.waiter?.full_name || "Assigned");
+            byOrder.set(a.order_id, list);
+          }
+          for (const r of rows) r.waiter_names = byOrder.get(r.id) || [];
+        }
+        if (!cancelled) setOrders(rows);
       } catch {
         if (!cancelled) setOrders([]);
       } finally {
@@ -178,6 +196,7 @@ function DeliverySheet() {
                             {o.pickup_time && <span>pickup {fmtTime(o.pickup_time)}</span>}
                             <span className="capitalize bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">{o.status?.replace(/_/g, " ")}</span>
                             {driverName && <span>Driver: {driverName}</span>}
+                            {!!o.waiter_names?.length && <span>{o.waiter_names.length > 1 ? "Waiters" : "Waiter"}: {o.waiter_names.join(", ")}</span>}
                             {vehicle && <span>Vehicle: {vehicle}</span>}
                             {o.client_phone && <span className="tabular-nums">{o.client_phone}</span>}
                           </div>
