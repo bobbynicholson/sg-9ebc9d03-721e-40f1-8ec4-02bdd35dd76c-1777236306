@@ -24,7 +24,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const [fields, files] = await form.parse(req);
     const invoiceId = String(fields.invoice_id?.[0] || "").trim();
     const publicToken = String(fields.public_token?.[0] || "").trim();
-    const claimedAmount = Number(fields.claimed_amount?.[0] || 0);
+    // What the client says they transferred. It can be more than the balance
+    // (they paid too much); the claim itself is capped below.
+    const transferredAmount = Number(fields.claimed_amount?.[0] || 0);
+    let claimedAmount = transferredAmount;
     const paidDate = String(fields.claimed_paid_at?.[0] || "").trim();
     const clientNote = String(fields.notes?.[0] || "").trim().slice(0, 500);
     const file = files.proof?.[0];
@@ -45,9 +48,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .select("id, company_id, order_id, currency, invoice_number, balance_due, invoice_data")
       .eq("id", invoiceId).eq("public_token", publicToken).is("deleted_at", null).maybeSingle();
     if (!invoice) return res.status(404).json({ error: "Invoice not found" });
-    if (claimedAmount - Number(invoice.balance_due || 0) > 0.01) {
-      return res.status(400).json({ error: "Claimed amount cannot exceed the invoice balance" });
-    }
+    // A client who transferred more than the balance claims the balance; the
+    // full amount is kept on the claim so the team, when confirming, chooses
+    // to keep the extra as client credit or refund it (verify-claim).
+    const reportedExtra = Number((transferredAmount - Number(invoice.balance_due || 0)).toFixed(2));
+    if (reportedExtra > 0.01) claimedAmount = Number(Number(invoice.balance_due || 0).toFixed(2));
     const publicPayment = await getInvoicePublicAvailability(sb, invoice);
     if (publicPayment.availability.online_available) {
       return res.status(409).json({ error: "EFT confirmation is unavailable while online payment is enabled" });
@@ -82,12 +87,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       imageBase64: proofBytes.toString("base64"),
       imageMime: file.mimetype || "application/octet-stream",
       invoiceNumber: invoice.invoice_number,
-      amount: claimedAmount,
+      amount: transferredAmount,
       currency: publicPayment.currency,
       recipient: bankDetails.holder || company?.company_name || undefined,
     });
     const { error: assessmentError } = await sb.from("payments")
-      .update({ payment_proof_ai_assessment: assessment, payment_proof_ai_analyzed_at: assessment.status === "not_analyzed" ? null : new Date().toISOString() })
+      .update({
+        payment_proof_ai_assessment: assessment,
+        payment_proof_ai_analyzed_at: assessment.status === "not_analyzed" ? null : new Date().toISOString(),
+        ...(reportedExtra > 0.01 && !claim.deduped ? { gateway_response: { client_reported_amount: transferredAmount } } : {}),
+      } as any)
       .eq("id", claim.payment_id)
       .eq("company_id", invoice.company_id);
     if (assessmentError) console.error("[claim-eft-proof] could not store proof screening:", assessmentError);

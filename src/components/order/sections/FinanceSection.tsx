@@ -63,6 +63,19 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
   const [money, setMoney] = useState<OrderMoney | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [invoice, setInvoice] = useState<InvoiceSendDialogInvoice | null>(null);
+  // Store credit the client holds (e.g. an earlier overpayment), so the team
+  // remembers to use it on this order.
+  const [clientCredit, setClientCredit] = useState(0);
+  useEffect(() => {
+    const invoiceId = (invoice as any)?.id;
+    if (!invoiceId) { setClientCredit(0); return; }
+    let cancelled = false;
+    fetch(`/api/admin/invoices/${invoiceId}/apply-credit`)
+      .then((r) => r.json().catch(() => ({})))
+      .then((j: any) => { if (!cancelled) setClientCredit(j?.ok ? Number(j.available) || 0 : 0); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [(invoice as any)?.id, (invoice as any)?.balance_due]);
   const [sendRequestOpen, setSendRequestOpen] = useState(false);
   const [creatingRequest, setCreatingRequest] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -88,7 +101,7 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
 
         const { data: invoiceData } = await (supabase as any)
           .from("invoices")
-          .select("id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status")
+          .select("id, client_id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status")
           .eq("order_id", orderId)
           .is("deleted_at", null)
           .in("status", ["draft", "sent", "overdue", "partially_paid", "paid"])
@@ -148,7 +161,7 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
       if (oData) setMoney(oData as OrderMoney);
       const { data: invoiceData } = await (supabase as any)
         .from("invoices")
-        .select("id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status")
+        .select("id, client_id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status")
         .eq("order_id", orderId)
         .is("deleted_at", null)
         .in("status", ["draft", "sent", "overdue", "partially_paid", "paid"])
@@ -230,7 +243,7 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
         if (!result.success || !result.invoiceId) throw new Error(result.error || "Could not prepare the invoice to record the payment against.");
         const { data } = await (supabase as any)
           .from("invoices")
-          .select("id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status, sent_at")
+          .select("id, client_id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status, sent_at")
           .eq("id", result.invoiceId)
           .maybeSingle();
         if (!data) throw new Error("Invoice was created but could not be loaded.");
@@ -243,6 +256,7 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
         total_amount: Number(inv.total_amount ?? total) || 0,
         balance_due: Number(inv.balance_due ?? outstanding) || 0,
         order_id: orderId,
+        client_id: (inv as any).client_id ?? null,
       });
     } catch (error: any) {
       toast({ title: "Could not record a payment", description: error?.message || "Please try again.", variant: "destructive" });
@@ -272,7 +286,7 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
       }
       const { data: createdInvoice, error } = await (supabase as any)
         .from("invoices")
-        .select("id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status, sent_at")
+        .select("id, client_id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status, sent_at")
         .eq("id", result.invoiceId)
         .maybeSingle();
       if (error || !createdInvoice) throw new Error(error?.message || "Invoice was created but could not be loaded.");
@@ -375,6 +389,12 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
             </div>
           )}
 
+          {outstanding > 0 && clientCredit > 0 && (
+            <p className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3 text-sm text-slate-700">
+              This client has <strong>{fmtZAR.format(clientCredit)}</strong> credit. Use it from <strong>Record payment</strong>; the client can also use it themselves on their payment link.
+            </p>
+          )}
+
           {outstanding > 0 && (
             <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3 ${inSidePanel ? "lg:flex-col lg:items-stretch" : ""}`}>
               <div>
@@ -394,6 +414,16 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
                   Record payment
                 </Button>
               </div>
+            </div>
+          )}
+
+          {outstanding <= 0 && invoice && (
+            <div className="flex flex-col gap-2 rounded-lg border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-slate-600">Fully paid. If the client sent money on top (for example paid twice), record it here as credit or a refund.</p>
+              <Button type="button" size="sm" variant="outline" onClick={openRecordPayment} disabled={preparingPayment}>
+                <Banknote className="w-4 h-4 mr-2" />
+                Record extra payment
+              </Button>
             </div>
           )}
         </div>

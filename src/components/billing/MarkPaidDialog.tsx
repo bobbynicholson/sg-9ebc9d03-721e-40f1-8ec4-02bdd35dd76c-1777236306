@@ -93,6 +93,13 @@ const METHOD_OPTIONS: Array<{ value: string; label: string; hint: string }> = [
   { value: "manual", label: "Other / Manual adjustment", hint: "Catch-all for anything that doesn't fit above." },
 ];
 
+function newUuid(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) =>
+      (Number(c) ^ (Math.random() * 16) >> (Number(c) / 4)).toString(16));
+}
+
 function todayIso(): string {
   const d = new Date();
   return d.toISOString().slice(0, 10);
@@ -102,7 +109,12 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
 
-  const defaultAmount = Number(invoice?.balance_due ?? invoice?.total_amount ?? 0);
+  // Kept in state: using the client's credit lowers it while the dialog is open.
+  const [balanceDue, setBalanceDue] = useState<number>(Number(invoice?.balance_due ?? invoice?.total_amount ?? 0));
+  const defaultAmount = balanceDue;
+  // Nothing is owed: anything recorded now is money on top (paid twice,
+  // paid after settling) and must go to client credit or a refund.
+  const alreadyPaid = !!invoice && defaultAmount <= 0.005;
   const defaultReference = invoice?.invoice_number || "";
 
   const [amount, setAmount] = useState<string>(defaultAmount.toFixed(2));
@@ -111,6 +123,11 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
   const [dateReceived, setDateReceived] = useState<string>(todayIso());
   const [note, setNote] = useState<string>("");
   const [saving, setSaving] = useState<boolean>(false);
+  const [extraHandling, setExtraHandling] = useState<"credit" | "refund" | null>(null);
+  // The client's store credit, usable against this invoice from here.
+  const [creditAvailable, setCreditAvailable] = useState<number>(0);
+  const [creditRequestId, setCreditRequestId] = useState<string>("");
+  const [applyingCredit, setApplyingCredit] = useState<boolean>(false);
   // One duplicate-protection key per opening of the dialog. A double
   // click or retry of the same submission reuses it (recorded once);
   // the next payment on the same invoice gets a fresh key. The
@@ -122,16 +139,60 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
   // amount from the last opened invoice would prefill the next dialog.
   useEffect(() => {
     if (!open || !invoice) return;
-    setAmount(Number(invoice.balance_due ?? invoice.total_amount ?? 0).toFixed(2));
+    const owed = Number(invoice.balance_due ?? invoice.total_amount ?? 0);
+    setBalanceDue(owed);
+    setAmount(owed > 0.005 ? owed.toFixed(2) : "");
     setPaymentMethod("bank_transfer");
     setReference(invoice.invoice_number || "");
     setDateReceived(todayIso());
     setNote("");
+    setExtraHandling(null);
     setAttemptKey(typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
     setSaving(false);
+    setCreditAvailable(0);
+    setCreditRequestId(newUuid());
+    if (invoice.client_id && owed > 0.005) {
+      fetch(`/api/admin/invoices/${invoice.id}/apply-credit`)
+        .then((r) => r.json().catch(() => ({})))
+        .then((j) => { if ((j as any)?.ok) setCreditAvailable(Number((j as any).available) || 0); })
+        .catch(() => undefined);
+    }
   }, [open, invoice?.id, invoice?.balance_due, invoice?.invoice_number]);
+
+  const creditUsable = Number(Math.min(creditAvailable, defaultAmount).toFixed(2));
+  const useCredit = async () => {
+    if (!invoice || creditUsable <= 0) return;
+    setApplyingCredit(true);
+    try {
+      const resp = await fetch(`/api/admin/invoices/${invoice.id}/apply-credit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: creditUsable, requestId: creditRequestId }),
+      });
+      const json = (await resp.json().catch(() => ({}))) as any;
+      if (!resp.ok) {
+        toast({ title: "Credit not used", description: json?.error || `Request failed (${resp.status})`, variant: "destructive" });
+        return;
+      }
+      const used = Number(json.used) || 0;
+      const left = Math.max(0, Number(json.balanceDue) || 0);
+      setCreditAvailable((c) => Math.max(0, Number((c - used).toFixed(2))));
+      setCreditRequestId(newUuid());
+      setBalanceDue(left);
+      setAmount(left > 0.005 ? left.toFixed(2) : "");
+      if (left <= 0.005) {
+        toast({ title: "Invoice paid with client credit", description: `${formatMoney(used)} of ${clientName}'s credit settled ${invoiceNumber || "the invoice"}.` });
+        onPaid();
+        onOpenChange(false);
+        return;
+      }
+      toast({ title: `${formatMoney(used)} credit used`, description: `${formatMoney(left)} still to record as a payment.` });
+    } finally {
+      setApplyingCredit(false);
+    }
+  };
 
   const clientName = invoice?.orders?.clients?.client_name || "Client";
   const invoiceNumber = invoice?.invoice_number || "";
@@ -140,17 +201,21 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
   const quoteId = invoice?.orders?.quote_id || "";
 
   const amountNum = Number(amount);
-  const amountValid = Number.isFinite(amountNum) && amountNum > 0 && amountNum <= defaultAmount + 0.01;
-  const overpayment = amountNum > defaultAmount + 0.01;
+  const overpayment = Number.isFinite(amountNum) && amountNum > defaultAmount + 0.01;
+  const extraAmount = overpayment ? Number((amountNum - defaultAmount).toFixed(2)) : 0;
+  // A client who paid more than owed: the team chooses what happens to the
+  // extra (client credit or refund) instead of being blocked.
+  const amountValid = Number.isFinite(amountNum) && amountNum > 0 && (!overpayment || !!extraHandling);
   const partialPayment = amountValid && amountNum < defaultAmount - 0.01;
+  const canKeepCredit = !!invoice?.client_id;
 
   const handleSubmit = async () => {
     if (!invoice) return;
     if (!amountValid) {
       toast({
-        title: overpayment ? "Amount too high" : "Amount required",
+        title: overpayment ? "Choose what happens to the extra" : "Amount required",
         description: overpayment
-          ? `Outstanding balance is ${formatMoney(defaultAmount)}. Reduce the amount.`
+          ? `The client paid ${formatMoney(extraAmount)} more than the ${formatMoney(defaultAmount)} owed. Keep it as client credit or refund it.`
           : "Enter the amount you received.",
         variant: "destructive",
       });
@@ -167,6 +232,7 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
           paymentMethod,
           reference: reference.trim() || null,
           idempotencyKey: attemptKey || null,
+          extraHandling: overpayment ? extraHandling : null,
           // Server uses processed_at=NOW(); the operator-chosen date
           // lands in the audit note for traceability when bookkeeping
           // backdates an EFT received last week.
@@ -187,12 +253,24 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
       }
 
       const status = (json as any)?.invoiceStatus || "paid";
-      toast({
-        title: status === "paid" ? "Invoice marked paid" : "Partial payment recorded",
-        description: status === "paid"
-          ? `${formatMoney(amountNum)} recorded against ${invoiceNumber || invoice.id.slice(0, 8)}.`
-          : `${formatMoney(amountNum)} received. ${formatMoney((json as any)?.balanceDue || 0)} still outstanding.`,
-      });
+      const extraWarning = (json as any)?.extraWarning as string | null | undefined;
+      if (extraWarning) {
+        toast({ title: "Payment recorded, extra not saved", description: extraWarning, variant: "destructive" });
+      } else if (overpayment) {
+        toast({
+          title: "Invoice marked paid",
+          description: extraHandling === "credit"
+            ? `${formatMoney(amountNum)} received. ${formatMoney(extraAmount)} kept as credit for ${clientName}'s next booking.`
+            : `${formatMoney(amountNum)} received. A ${formatMoney(extraAmount)} refund is waiting on Refunds & Credits to be paid out.`,
+        });
+      } else {
+        toast({
+          title: status === "paid" ? "Invoice marked paid" : "Partial payment recorded",
+          description: status === "paid"
+            ? `${formatMoney(amountNum)} recorded against ${invoiceNumber || invoice.id.slice(0, 8)}.`
+            : `${formatMoney(amountNum)} received. ${formatMoney((json as any)?.balanceDue || 0)} still outstanding.`,
+        });
+      }
 
       onPaid();
       onOpenChange(false);
@@ -209,10 +287,10 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
         <DialogHeader>
           <DialogTitle className="flex items-start gap-2 pr-7 text-base sm:items-center sm:text-lg">
             <CheckCircle2 className="w-5 h-5 text-brand-primary" />
-            Record payment for {invoiceNumber || "invoice"}
+            {alreadyPaid ? `Record extra payment for ${invoiceNumber || "invoice"}` : `Record payment for ${invoiceNumber || "invoice"}`}
           </DialogTitle>
           <DialogDescription>
-            {clientName} &middot; outstanding {formatMoney(defaultAmount)}
+            {clientName} &middot; {alreadyPaid ? "already fully paid. Use this for money the client sent on top, e.g. paid twice." : <>outstanding {formatMoney(defaultAmount)}</>}
             {invoice.orders?.event_date && (
               <> &middot; event {invoice.orders.event_date}</>
             )}
@@ -285,11 +363,11 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
                 step={0.01}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className={overpayment ? "border-rose-300" : ""}
+                className={overpayment ? "border-amber-300" : ""}
               />
               {overpayment && (
-                <p className="text-[10px] text-rose-700">
-                  Exceeds outstanding {formatMoney(defaultAmount)}.
+                <p className="text-[10px] text-amber-700">
+                  {alreadyPaid ? "Nothing is owed on this invoice." : `${formatMoney(extraAmount)} more than the ${formatMoney(defaultAmount)} owed.`}
                 </p>
               )}
               {partialPayment && (
@@ -312,6 +390,53 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
               </Select>
             </div>
           </div>
+
+          {creditUsable > 0 && (
+            <div className="flex flex-col gap-2 rounded-md border border-brand-primary/20 bg-brand-primary/5 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-slate-700">
+                {clientName} has <strong>{formatMoney(creditAvailable)}</strong> client credit.
+              </p>
+              <Button type="button" variant="outline" size="sm" onClick={useCredit} disabled={applyingCredit || saving}>
+                {applyingCredit ? "Using credit..." : `Use ${formatMoney(creditUsable)} credit on this invoice`}
+              </Button>
+            </div>
+          )}
+
+          {overpayment && (
+            <fieldset className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-3">
+              <legend className="px-1 text-sm font-semibold text-slate-900">
+                {alreadyPaid
+                  ? <>Nothing is owed, so all <strong>{formatMoney(extraAmount)}</strong> is extra. What should happen to it?</>
+                  : <>The client paid <strong>{formatMoney(extraAmount)}</strong> extra. What should happen to it?</>}
+              </legend>
+              <label className={`flex items-start gap-2 text-sm ${canKeepCredit ? "cursor-pointer text-slate-800" : "cursor-not-allowed text-slate-400"}`}>
+                <input
+                  type="radio"
+                  name="mp-extra"
+                  className="mt-0.5 h-4 w-4 accent-brand-primary"
+                  checked={extraHandling === "credit"}
+                  disabled={!canKeepCredit}
+                  onChange={() => setExtraHandling("credit")}
+                />
+                <span>
+                  <strong>Keep it as client credit</strong>, used on their next booking.
+                  {!canKeepCredit && " (Not available: this invoice has no client record.)"}
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-2 text-sm text-slate-800">
+                <input
+                  type="radio"
+                  name="mp-extra"
+                  className="mt-0.5 h-4 w-4 accent-brand-primary"
+                  checked={extraHandling === "refund"}
+                  onChange={() => setExtraHandling("refund")}
+                />
+                <span>
+                  <strong>Refund it to the client</strong>. A refund is added to Refunds &amp; Credits for you to pay out.
+                </span>
+              </label>
+            </fieldset>
+          )}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
@@ -357,8 +482,17 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving} className="w-full sm:w-auto">
             Cancel
           </Button>
+          {overpayment && !extraHandling && (
+            <p className="text-xs text-amber-800 sm:mr-auto sm:self-center">Choose what happens to the extra {formatMoney(extraAmount)} to record this payment.</p>
+          )}
           <Button onClick={handleSubmit} disabled={saving || !amountValid} className="w-full bg-brand-primary hover:bg-brand-primary/90 sm:w-auto">
-            {saving ? "Recording..." : partialPayment ? "Record partial payment" : "Record payment"}
+            {saving
+              ? "Recording..."
+              : overpayment && extraHandling === "credit"
+                ? `Record payment and keep ${formatMoney(extraAmount)} as credit`
+                : overpayment && extraHandling === "refund"
+                  ? `Record payment and refund ${formatMoney(extraAmount)}`
+                  : partialPayment ? "Record partial payment" : "Record payment"}
           </Button>
         </DialogFooter>
       </DialogContent>

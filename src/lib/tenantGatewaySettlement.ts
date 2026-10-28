@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** Service-only settlement of authenticated provider callbacks/API history. */
+import { recordOverpaymentExtra } from "@/lib/payments/overpaymentExtra";
 export type TenantGatewayProvider = "payfast" | "yoco" | "stripe";
 export class TenantGatewaySettlementError extends Error {
   constructor(message: string, public statusCode = 400) {
@@ -41,8 +42,52 @@ export async function applyVerifiedPayment(admin: any, payment: VerifiedPayment,
     // a failed payment. The guarded reminder/overdue jobs retry the repair.
     console.error("[gateway-settlement] balance due-date refresh failed:", error);
   }
+  if (!data.duplicate && Number(data.overpayment_amount) > 0.01 && data.invoice_id) {
+    await queueGatewayOverpaymentRefund(admin, payment, data);
+  }
   return data as { order: any | null; duplicate: boolean; payment_id: string; invoice_id: string | null;
     order_id: string | null; amount_paid: number; balance_due: number; overpayment_amount: number };
+}
+/**
+ * A gateway settled more than the invoice balance (rare: checkout caps the
+ * amount). The money is recorded in full; queue a pending refund for the
+ * extra on Refunds & Credits so it is never left as an unexplained surplus.
+ * Capped at this payment's own amount and net of refunds already open, so a
+ * webhook retry or an earlier overpayment never queues it twice.
+ * Best effort: the settlement has committed and must not fail here.
+ */
+async function queueGatewayOverpaymentRefund(admin: any, payment: VerifiedPayment, data: any) {
+  try {
+    let q = admin.from("payments").select("amount")
+      .eq("company_id", payment.companyId)
+      .eq("payment_type", "refund")
+      .in("payment_status", ["pending", "processing", "failed"]);
+    q = data.order_id ? q.or(`invoice_id.eq.${data.invoice_id},order_id.eq.${data.order_id}`) : q.eq("invoice_id", data.invoice_id);
+    const { data: open, error } = await q;
+    if (error) throw error;
+    const openAmount = (open || []).reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0);
+    const extra = Number(Math.min(payment.amount, Math.max(0, Number(data.overpayment_amount) - openAmount)).toFixed(2));
+    if (extra <= 0.01) return;
+    const { data: invoice } = await admin.from("invoices").select("invoice_number, client_id, order_id")
+      .eq("id", data.invoice_id).maybeSingle();
+    const saved = await recordOverpaymentExtra(admin, {
+      companyId: payment.companyId,
+      clientId: invoice?.client_id ?? null,
+      orderId: invoice?.order_id ?? data.order_id ?? null,
+      invoiceId: data.invoice_id,
+      invoiceNumber: invoice?.invoice_number ?? null,
+      extra,
+      received: payment.amount,
+      owed: Number((payment.amount - extra).toFixed(2)),
+      handling: "refund",
+      currency: String(payment.currency || "ZAR").toUpperCase(),
+      userId: null,
+      key: `gateway-overpayment:${data.payment_id}`,
+    });
+    if (saved.error) console.error("[gateway-settlement] overpayment refund not queued:", saved.error);
+  } catch (error) {
+    console.error("[gateway-settlement] overpayment refund not queued:", error);
+  }
 }
 export async function settleTenantGatewayPayment(input: VerifiedPayment & { admin: any; paymentAttempt?: any }) {
   const { admin, paymentAttempt, ...values } = input;

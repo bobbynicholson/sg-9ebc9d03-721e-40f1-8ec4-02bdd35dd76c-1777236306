@@ -33,6 +33,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { notifyInvoicePaid } from "@/services/payments/notifyInvoicePaid";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { extraNotSavedMessage, parseExtraHandling, recordOverpaymentExtra } from "@/lib/payments/overpaymentExtra";
 
 
 const ALLOWED_ROLES = new Set([
@@ -112,24 +113,42 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(500).json({ error: dbErrorMessage(readErr) });
     }
     if (!invoice) return res.status(404).json({ error: "Invoice not found in your company" });
-    if ((invoice as any).status === "paid") {
-      return res.status(409).json({ error: "Invoice is already fully paid" });
+    const isPaid = (invoice as any).status === "paid";
+    // A paid invoice can still take money the client sent again or on top
+    // (e.g. paid twice by mistake), but only as credit or a refund.
+    if (isPaid && !parseExtraHandling(body.extraHandling)) {
+      return res.status(409).json({ error: "Invoice is already fully paid. To record money the client sent on top, choose to keep it as credit or refund it." });
     }
 
-    const defaultAmount = Number((invoice as any).balance_due ?? (invoice as any).total_amount ?? 0);
+    const defaultAmount = isPaid ? 0 : Number((invoice as any).balance_due ?? (invoice as any).total_amount ?? 0);
     const amount = typeof rawAmount === "number" && Number.isFinite(rawAmount) && rawAmount > 0
       ? Number(rawAmount.toFixed(2))
       : defaultAmount;
     if (!Number.isFinite(amount) || amount <= 0) {
       return res.status(400).json({ error: "Amount must be greater than zero" });
     }
-    if (amount > defaultAmount + 0.01) {
-      // Allow exact match but reject overpayment so the operator gets a
-      // clear toast instead of a silent credit-balance creation.
+    // A client who pays more than is owed: the operator must say what
+    // happens to the extra, so it is never silently lost or silently kept.
+    //   credit -> the invoice takes what is owed; the extra becomes store
+    //             credit (credit_issue) the client can use next time.
+    //   refund -> the full amount received is recorded (it is in the bank)
+    //             and a pending refund for the extra goes to Refunds &
+    //             Credits, the same way an order reduced after payment is
+    //             handled in refresh-from-order.
+    const extra = Number((amount - defaultAmount).toFixed(2));
+    const extraHandling = parseExtraHandling(body.extraHandling);
+    if (extra > 0.01 && !extraHandling) {
       return res.status(400).json({
-        error: `Amount R ${amount.toFixed(2)} exceeds outstanding balance R ${defaultAmount.toFixed(2)}`,
+        error: `Amount R ${amount.toFixed(2)} is more than the outstanding R ${defaultAmount.toFixed(2)}. Choose whether to keep the extra R ${extra.toFixed(2)} as client credit or refund it.`,
       });
     }
+    if (extra > 0.01 && extraHandling === "credit" && !(invoice as any).client_id) {
+      return res.status(400).json({
+        error: "This invoice has no client record, so the extra can't be kept as credit. Choose to refund it instead.",
+      });
+    }
+    const handlesExtra = extra > 0.01 && !!extraHandling;
+    const invoiceAmount = handlesExtra && extraHandling === "credit" ? defaultAmount : amount;
 
     let admin: any;
     try {
@@ -164,22 +183,26 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       ? `manual-${attemptKey}`
       : `manual-${user.id.slice(0, 8)}-${Date.now()}`;
 
-    const { data: rpcData, error: rpcErr } = await admin.rpc("record_invoice_payment", {
-      p_invoice_id: invoiceId,
-      p_amount: amount,
-      p_payment_method: paymentMethod,
-      p_transaction_id: transactionId,
-      p_company_id: companyId,
-      p_client_id: (invoice as any).client_id ?? null,
-      p_currency: currency,
-      p_gateway_provider: paymentMethod === "card" ? "manual_card" : "manual",
-    });
-    if (rpcErr) {
-      console.error("[admin/invoices/mark-paid] RPC failed:", rpcErr);
-      return res.status(500).json({ error: dbErrorMessage(rpcErr) });
+    // Nothing goes on the invoice when it was already paid and the whole
+    // amount is kept as credit; only the credit is written below.
+    let rpcResult: { idempotent?: boolean; payment_id?: string } = {};
+    if (invoiceAmount > 0) {
+      const { data: rpcData, error: rpcErr } = await admin.rpc("record_invoice_payment", {
+        p_invoice_id: invoiceId,
+        p_amount: invoiceAmount,
+        p_payment_method: paymentMethod,
+        p_transaction_id: transactionId,
+        p_company_id: companyId,
+        p_client_id: (invoice as any).client_id ?? null,
+        p_currency: currency,
+        p_gateway_provider: paymentMethod === "card" ? "manual_card" : "manual",
+      });
+      if (rpcErr) {
+        console.error("[admin/invoices/mark-paid] RPC failed:", rpcErr);
+        return res.status(500).json({ error: dbErrorMessage(rpcErr) });
+      }
+      rpcResult = (rpcData || {}) as { idempotent?: boolean; payment_id?: string };
     }
-
-    const rpcResult = (rpcData || {}) as { idempotent?: boolean; payment_id?: string };
     const { data: invoiceAfter } = await admin
       .from("invoices")
       .select("id, status, amount_paid, balance_due")
@@ -208,6 +231,42 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       if (refErr) console.warn("[admin/invoices/mark-paid] reference stamp failed:", refErr);
     }
 
+    // Record what happens to the extra. The payment above is already in, so
+    // a failure here is reported back for the team to add by hand rather
+    // than failing the whole payment.
+    let extraPaymentId: string | null = null;
+    let extraWarning: string | null = null;
+    if (handlesExtra && extraHandling) {
+      const saved = await recordOverpaymentExtra(admin, {
+        companyId,
+        clientId: (invoice as any).client_id ?? null,
+        orderId: (invoice as any).order_id ?? null,
+        invoiceId,
+        invoiceNumber: (invoice as any).invoice_number ?? null,
+        extra,
+        received: amount,
+        owed: defaultAmount,
+        handling: extraHandling,
+        currency,
+        userId: user.id,
+        key: `${transactionId}:overpayment-${extraHandling}`,
+      });
+      if (saved.error) {
+        console.error("[admin/invoices/mark-paid] overpayment record failed:", saved.error);
+        extraWarning = extraNotSavedMessage(extra, extraHandling);
+        // Nothing at all was recorded when the whole amount was meant as credit.
+        if (invoiceAmount <= 0) return res.status(500).json({ error: `Could not save the R ${extra.toFixed(2)} as client credit. Nothing was recorded; please try again.` });
+      } else {
+        extraPaymentId = saved.id;
+        // Credit-only retry of a submission already saved: no second audit or email.
+        if (saved.existed && invoiceAmount <= 0) {
+          return res.status(200).json({ ok: true, duplicate: true, amountPaid: (invoiceAfter as any)?.amount_paid ?? 0,
+            balanceDue: (invoiceAfter as any)?.balance_due ?? 0, invoiceStatus: (invoiceAfter as any)?.status ?? "paid",
+            extraAmount: extra, extraHandling, extraWarning: null });
+        }
+      }
+    }
+
     // Read back the updated invoice so the client can refresh state
     // optimistically without re-fetching the whole list.
     const updated = invoiceAfter;
@@ -229,6 +288,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           payment_method: paymentMethod,
           reference,
           note,
+          ...(handlesExtra ? {
+            amount_owed: defaultAmount,
+            extra_amount: extra,
+            extra_handling: extraHandling,
+            extra_payment_id: extraPaymentId,
+          } : {}),
         },
       });
     } catch (auditErr) {
@@ -253,6 +318,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       amountPaid: (updated as any)?.amount_paid ?? amount,
       balanceDue: (updated as any)?.balance_due ?? 0,
       invoiceStatus: (updated as any)?.status ?? "paid",
+      ...(handlesExtra ? { extraAmount: extra, extraHandling, extraWarning } : {}),
     });
   } catch (err: any) {
     console.error("[admin/invoices/mark-paid] crashed:", err);

@@ -38,6 +38,9 @@ interface PendingClaim {
   notes: string | null;
   created_at: string;
   payment_proof_path?: string | null;
+  /** client_reported_amount: what the client says they transferred when it
+   *  was more than the balance (the claim itself is capped at the balance). */
+  gateway_response?: { client_reported_amount?: number } | null;
   payment_proof_ai_assessment?: {
     status: "consistent" | "needs_review" | "not_analyzed";
     model: string | null;
@@ -89,6 +92,7 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
   const [bankStatementVerified, setBankStatementVerified] = useState(false);
   const [rejectingClaim, setRejectingClaim] = useState<PendingClaim | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [extraHandling, setExtraHandling] = useState<"credit" | "refund" | null>(null);
 
   const companyId = user?.company_id;
 
@@ -115,7 +119,7 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
     const { data, error } = await supabase
       .from("payments")
       .select(
-        "id, amount, payment_reference, payment_date, notes, created_at, payment_proof_path, payment_proof_ai_assessment, " +
+        "id, amount, payment_reference, payment_date, notes, created_at, payment_proof_path, payment_proof_ai_assessment, gateway_response, " +
         "invoices:invoice_id ( id, invoice_number, total_amount, balance_due ), " +
         "clients:client_id ( client_name, email )"
       )
@@ -146,17 +150,26 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
           action,
           reason: reason || undefined,
           bank_statement_verified: action === "confirm" ? bankChecked : undefined,
+          extra_handling: action === "confirm" && claimExtra(claim) > 0 ? extraHandling : undefined,
         }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error || "Verify failed");
 
-      toast({
-        title: action === "confirm" ? "Marked paid" : "Claim rejected",
-        description: action === "confirm"
-          ? `${claim.invoices?.invoice_number || "Invoice"} updated. Client notified.`
-          : "Client has been notified to fix the reference and try again.",
-      });
+      const extra = claimExtra(claim);
+      if (body?.extraWarning) {
+        toast({ title: "Payment confirmed, extra not saved", description: body.extraWarning, variant: "destructive" });
+      } else {
+        toast({
+          title: action === "confirm" ? "Marked paid" : "Claim rejected",
+          description: action === "confirm"
+            ? `${claim.invoices?.invoice_number || "Invoice"} updated. Client notified.${extra > 0
+              ? extraHandling === "credit" ? ` ${fmt.format(extra)} kept as client credit.` : ` A ${fmt.format(extra)} refund is waiting on Refunds & Credits.`
+              : ""}`
+            : "Client has been notified to fix the reference and try again.",
+        });
+      }
+      setExtraHandling(null);
       setRejectingClaim(null);
       setRejectReason("");
       setConfirmingClaim(null);
@@ -203,7 +216,7 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
                   key={c.id}
                   claim={c}
                   acting={actingId === c.id}
-                  onConfirm={() => { setConfirmingClaim(c); setBankStatementVerified(false); }}
+                  onConfirm={() => { setConfirmingClaim(c); setBankStatementVerified(false); setExtraHandling(null); }}
                   onReject={() => setRejectingClaim(c)}
                   highlight={isTarget}
                   rowRef={isTarget ? targetRowRef : undefined}
@@ -231,6 +244,22 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
           {confirmingClaim && (
             <div className="space-y-4 text-sm text-slate-700">
               <p>Invoice <strong>{confirmingClaim.invoices?.invoice_number || "unknown"}</strong>, claim {fmt.format(confirmingClaim.amount)}.</p>
+              {claimExtra(confirmingClaim) > 0 && (
+                <fieldset className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-3">
+                  <legend className="px-1 font-semibold text-slate-900">
+                    The client says they transferred <strong>{fmt.format(Number(confirmingClaim.gateway_response?.client_reported_amount))}</strong>, which is <strong>{fmt.format(claimExtra(confirmingClaim))}</strong> more than owed. What should happen to the extra?
+                  </legend>
+                  <label className="flex cursor-pointer items-start gap-2">
+                    <input type="radio" name="claim-extra" className="mt-0.5 h-4 w-4 accent-brand-primary" checked={extraHandling === "credit"} onChange={() => setExtraHandling("credit")} />
+                    <span><strong>Keep it as client credit</strong>, used on their next booking.</span>
+                  </label>
+                  <label className="flex cursor-pointer items-start gap-2">
+                    <input type="radio" name="claim-extra" className="mt-0.5 h-4 w-4 accent-brand-primary" checked={extraHandling === "refund"} onChange={() => setExtraHandling("refund")} />
+                    <span><strong>Refund it to the client</strong>. A refund is added to Refunds &amp; Credits for you to pay out.</span>
+                  </label>
+                  <p className="text-xs text-amber-900">Check the bank statement shows the full {fmt.format(Number(confirmingClaim.gateway_response?.client_reported_amount))}.</p>
+                </fieldset>
+              )}
               <label className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3">
                 <input type="checkbox" checked={bankStatementVerified} onChange={(event) => setBankStatementVerified(event.target.checked)} className="mt-0.5" />
                 <span>I checked our bank statement and verified that this payment reached our account.</span>
@@ -239,7 +268,7 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
                 <Button variant="outline" className="flex-1" onClick={() => { setConfirmingClaim(null); setBankStatementVerified(false); }} disabled={actingId !== null}>
                   Cancel
                 </Button>
-                <Button className="flex-1 bg-brand-primary hover:bg-brand-primary/90" onClick={() => act(confirmingClaim, "confirm", undefined, true)} disabled={!bankStatementVerified || actingId !== null}>
+                <Button className="flex-1 bg-brand-primary hover:bg-brand-primary/90" onClick={() => act(confirmingClaim, "confirm", undefined, true)} disabled={!bankStatementVerified || actingId !== null || (claimExtra(confirmingClaim) > 0 && !extraHandling)}>
                   {actingId ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
                   Confirm received
                 </Button>
@@ -352,6 +381,11 @@ function ClaimRow({
           <Badge className="bg-blue-100 text-blue-800 border-blue-200">
             {fmt.format(claim.amount)}
           </Badge>
+          {claimExtra(claim) > 0 && (
+            <Badge className="bg-amber-100 text-amber-900 border-amber-200">
+              Client says they paid {fmt.format(Number(claim.gateway_response?.client_reported_amount))} ({fmt.format(claimExtra(claim))} extra)
+            </Badge>
+          )}
         </div>
         <div className="text-xs text-slate-600 mt-1 space-y-0.5">
           <div>
@@ -425,4 +459,12 @@ function ClaimRow({
       </div>
     </div>
   );
+}
+
+/** Amount the client says they transferred on top of this claim (0 if none). */
+function claimExtra(claim: PendingClaim): number {
+  const reported = Number(claim.gateway_response?.client_reported_amount);
+  if (!Number.isFinite(reported)) return 0;
+  const extra = Number((reported - Number(claim.amount || 0)).toFixed(2));
+  return extra > 0.01 ? extra : 0;
 }

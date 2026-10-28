@@ -2796,6 +2796,22 @@ function InvoicesPageInner() {
                           <span className="hidden sm:inline">Record payment</span>
                         </Button>
                       )}
+                      {/* Paid invoices can still receive money on top (paid
+                          twice, paid after settling); the dialog asks
+                          whether that becomes client credit or a refund. */}
+                      {invoice.status === "paid" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setMarkPaidInvoice(invoice as MarkPaidDialogInvoice)}
+                          title="The client sent money after this invoice was paid - keep it as credit or refund it"
+                          aria-label="Record extra payment for this paid invoice"
+                          className="gap-1.5 text-slate-600"
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span className="hidden sm:inline">Record extra payment</span>
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"

@@ -337,6 +337,13 @@ export default function InvoicePaymentPage() {
   const [returnPaymentStatus, setReturnPaymentStatus] = useState<"idle" | "checking" | "pending" | "refreshing" | "succeeded" | "failed" | "expired">("idle");
   const [eftClaimedPublic, setEftClaimedPublic] = useState(false);
   const [proofFile, setProofFile] = useState<File | null>(null);
+  // What the client actually transferred. May be more than the balance; the
+  // company then keeps the extra as credit or refunds it.
+  const [eftTransferred, setEftTransferred] = useState<string>("");
+  // EFT payers can spend their store credit first and transfer the rest.
+  const [usingEftCredit, setUsingEftCredit] = useState(false);
+  const [eftCreditUsed, setEftCreditUsed] = useState(0);
+  const eftCreditRequest = useRef<{ amount: number; id: string } | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
@@ -716,7 +723,8 @@ export default function InvoicePaymentPage() {
       const body = new FormData();
       body.append("invoice_id", invoice.id);
       body.append("public_token", token);
-      body.append("claimed_amount", String(payNow || invoice.balance_due));
+      const transferred = Number(eftTransferred);
+      body.append("claimed_amount", String(Number.isFinite(transferred) && transferred > 0 ? Number(transferred.toFixed(2)) : (payNow || invoice.balance_due)));
       body.append("proof", proofFile);
       const response = await fetch("/api/payments/claim-eft-proof", {
         method: "POST",
@@ -774,6 +782,59 @@ export default function InvoicePaymentPage() {
   const companyName = company.company_name || "Your caterer";
   const paymentCurrency = String(invoice.payment_currency || "ZAR").toUpperCase();
   const fmtMoney = { format: (n: number) => formatInvoiceMoney(n, paymentCurrency) };
+
+  const eftCreditUsable = Math.round(Math.min(creditAvailable, Number(invoice.balance_due) || 0) * 100) / 100;
+  async function useCreditBeforeEft() {
+    if (!invoice || eftCreditUsable <= 0) return;
+    // Same id on a retry of the same amount, so the credit is spent once.
+    if (!eftCreditRequest.current || eftCreditRequest.current.amount !== eftCreditUsable) {
+      eftCreditRequest.current = { amount: eftCreditUsable, id: crypto.randomUUID() };
+    }
+    setUsingEftCredit(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/payments/use-credit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invoice_id: invoice.id, public_token: invoice.public_token, amount: eftCreditUsable, request_id: eftCreditRequest.current.id }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result?.ok) throw new Error(result?.error || "Your credit could not be used. Please try again.");
+      eftCreditRequest.current = null;
+      setEftCreditUsed((used) => Math.round((used + (Number(result.used) || 0)) * 100) / 100);
+      setCreditAvailable(Number(result.creditLeft) || 0);
+      setCreditMaxApplicable(Math.min(Number(result.creditLeft) || 0, Number(result.balanceDue) || 0));
+      setApplyCredit(false);
+      setEftTransferred("");
+      setInvoice((current) => current ? { ...current, balance_due: Number(result.balanceDue), status: result.invoiceStatus || current.status,
+        amount_paid: Math.round((Number(current.amount_paid || 0) + (Number(result.used) || 0)) * 100) / 100 } : current);
+    } catch (creditError: any) {
+      setError(creditError?.message || "Your credit could not be used. Please try again.");
+    } finally {
+      setUsingEftCredit(false);
+    }
+  }
+  // Shown above the bank details wherever EFT is offered.
+  const eftCreditBox = eftCreditUsable > 0 && !eftClaimedPublic && !invoice.eft_claims?.some((claim) => claim.payment_status === "pending") ? (
+    <div className="mt-4 rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3 text-sm text-stone-700">
+      <p>
+        You have <strong>{fmtMoney.format(creditAvailable)}</strong> credit with {companyName}.
+        {eftCreditUsable >= Number(invoice.balance_due)
+          ? " It covers the whole amount, so you don't need to transfer anything."
+          : ` Use it first and you only transfer ${fmtMoney.format(Number(invoice.balance_due) - eftCreditUsable)}.`}
+      </p>
+      <Button type="button" size="sm" className="mt-2 bg-brand-primary hover:opacity-90" onClick={useCreditBeforeEft} disabled={usingEftCredit || processing}>
+        {usingEftCredit ? "Using your credit..." : `Use my ${fmtMoney.format(eftCreditUsable)} credit first`}
+      </Button>
+    </div>
+  ) : eftCreditUsed > 0 ? (
+    <p className="mt-4 rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3 text-sm text-stone-700">
+      {fmtMoney.format(eftCreditUsed)} of your credit was used.{" "}
+      {Number(invoice.balance_due) > 0.005
+        ? <>Please transfer <strong>{fmtMoney.format(Number(invoice.balance_due))}</strong>.</>
+        : <>This invoice is now fully paid.</>}
+    </p>
+  ) : null;
   const onlineProviderName = invoice.payment_options?.provider === "payfast"
     ? "PayFast"
     : invoice.payment_options?.provider === "yoco"
@@ -1292,6 +1353,7 @@ export default function InvoicePaymentPage() {
                           </p>
                         </div>
                       </div>
+                      {hasBankDetails && eftCreditBox}
                       {hasBankDetails ? (
                         <div className="mt-4 rounded-lg border border-amber-200 bg-white p-4 text-sm">
                           <p className="mb-2 font-semibold text-stone-900">EFT payment details</p>
@@ -1311,6 +1373,24 @@ export default function InvoicePaymentPage() {
                       {hasBankDetails && (
                         <div className="mt-4 rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3">
                           <p className="text-sm text-stone-700">After making the transfer, confirm it here so the team can match it to this invoice.</p>
+                          <label className="mt-3 block text-xs font-medium text-stone-600">
+                            Amount you transferred
+                            <input
+                              type="number"
+                              min={0}
+                              step={0.01}
+                              inputMode="decimal"
+                              value={eftTransferred}
+                              placeholder={(payNow || invoice.balance_due).toFixed(2)}
+                              onChange={(event) => setEftTransferred(event.target.value)}
+                              className="mt-1 block w-full rounded-md border border-stone-300 px-3 py-2 text-base"
+                            />
+                          </label>
+                          {Number(eftTransferred) > invoice.balance_due + 0.01 && (
+                            <p className="mt-1 text-xs text-stone-600">
+                              That is {fmtMoney.format(Number(eftTransferred) - invoice.balance_due)} more than the {fmtMoney.format(invoice.balance_due)} owed. {companyName} will keep the extra as credit for you or refund it.
+                            </p>
+                          )}
                           <label className="mt-3 block text-xs font-medium text-stone-600">
                             Payment confirmation (PDF, JPG, PNG or WEBP; max 8 MB) - required
                             <input type="file" required accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setProofFile(event.target.files?.[0] || null)} className="mt-1 block w-full text-xs" />
@@ -1504,6 +1584,7 @@ export default function InvoicePaymentPage() {
                   {hasBankDetailsToDisplay && !paymentNotConfigured && (
                     <div className="mt-2 p-4 rounded-lg border border-stone-200 bg-stone-50">
                       <p className="text-sm font-semibold text-stone-900 mb-2">Or pay by EFT</p>
+                      {eftCreditBox}
                       <div className="space-y-1 text-sm">
                         <div className="grid grid-cols-2 gap-2">
                           <span className="text-stone-500">Bank:</span>
