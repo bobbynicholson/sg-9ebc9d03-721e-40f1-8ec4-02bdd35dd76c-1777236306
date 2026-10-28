@@ -58,6 +58,10 @@ const inter = Inter({
 // would eat a driver's unsaved photo. Deferred reloads retry on a 3s
 // interval until the moment is safe.
 const RELOAD_GUARD_KEY = "__sw_update_reload_at";
+// Module scope so the once-a-minute cap survives the effect re-running on
+// every page change.
+let lastBuildCheckAt = 0;
+
 function reloadForNewBuild() {
   try {
     const last = Number(sessionStorage.getItem(RELOAD_GUARD_KEY) || 0);
@@ -163,11 +167,10 @@ export default function App({ Component, pageProps }: AppProps) {
     const buildId = (window as unknown as { __NEXT_DATA__?: { buildId?: string } }).__NEXT_DATA__?.buildId;
     if (!buildId || buildId === "development") return;
     const STALE_RELOAD_KEY = "__stale_build_reload_at";
-    let lastCheck = 0;
     const check = async () => {
       if (document.visibilityState !== "visible") return;
-      if (Date.now() - lastCheck < 60_000) return; // at most once a minute
-      lastCheck = Date.now();
+      if (Date.now() - lastBuildCheckAt < 60_000) return; // at most once a minute
+      lastBuildCheckAt = Date.now();
       try {
         const res = await fetch(`/_next/static/${buildId}/_buildManifest.js`, { cache: "no-store" });
         if (res.status === 400 || res.status === 404 || res.status === 410) {
@@ -182,14 +185,21 @@ export default function App({ Component, pageProps }: AppProps) {
     };
     const onVis = () => { void check(); };
     document.addEventListener("visibilitychange", onVis);
+    // Someone who keeps working in the app never leaves it, so the
+    // focus check above never runs for them. Also check right after
+    // each page change: a reload then lands on the page they just
+    // opened, before they have typed anything (same once-a-minute cap).
+    const onPageChanged = () => { void check(); };
+    router.events.on("routeChangeComplete", onPageChanged);
     // Fallback ticker for tabs that stay visible for days on a
     // wall-mounted dispatch screen.
     const ticker = window.setInterval(() => { void check(); }, 15 * 60_000);
     return () => {
       document.removeEventListener("visibilitychange", onVis);
+      router.events.off("routeChangeComplete", onPageChanged);
       window.clearInterval(ticker);
     };
-  }, [router.pathname, router.asPath]);
+  }, [router.pathname, router.asPath, router.events]);
 
   // Post-deploy stale-bundle recovery. After a new deploy the old JS
   // chunk files are removed; a tab still holding the previous build

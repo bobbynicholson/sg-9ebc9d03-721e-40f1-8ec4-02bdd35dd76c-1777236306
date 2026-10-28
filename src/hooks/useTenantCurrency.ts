@@ -14,6 +14,38 @@ import { CURRENCY_CONFIG, type CurrencyCode } from "@/lib/currencyUtils";
  * re-query Supabase. Cache invalidates when companyId changes.
  */
 const cache = new Map<string, CurrencyCode>();
+// One read per tenant even when many components mount at once: the cache
+// above only fills after the first answer, so a page with ten money
+// widgets used to send ten identical companies requests.
+const inflight = new Map<string, Promise<CurrencyCode>>();
+
+function fetchTenantCurrency(companyId: string): Promise<CurrencyCode> {
+  const pending = inflight.get(companyId);
+  if (pending) return pending;
+  const request = (async () => {
+    try {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("currency")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (error) {
+        console.error("[useTenantCurrency] companies fetch failed:", error);
+        return DEFAULT;
+      }
+      const raw = (data as any)?.currency as string | undefined;
+      const next: CurrencyCode = raw && raw in CURRENCY_CONFIG ? (raw as CurrencyCode) : DEFAULT;
+      cache.set(companyId, next);
+      return next;
+    } catch {
+      return DEFAULT;
+    } finally {
+      inflight.delete(companyId);
+    }
+  })();
+  inflight.set(companyId, request);
+  return request;
+}
 
 export interface TenantCurrency {
   code: CurrencyCode;
@@ -51,28 +83,11 @@ export function useTenantCurrency(
       return;
     }
     let cancelled = false;
-    (async () => {
-      try {
-        const { data, error } = await supabase
-          .from("companies")
-          .select("currency")
-          .eq("id", companyId)
-          .maybeSingle();
-        if (error) {
-          console.error("[useTenantCurrency] companies fetch failed:", error);
-        }
-        if (cancelled) return;
-        const raw = (data as any)?.currency as string | undefined;
-        const next: CurrencyCode =
-          raw && raw in CURRENCY_CONFIG ? (raw as CurrencyCode) : DEFAULT;
-        cache.set(companyId, next);
-        setCode(next);
-      } catch {
-        // Default already in place.
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
+    fetchTenantCurrency(companyId).then((next) => {
+      if (cancelled) return;
+      setCode(next);
+      setLoading(false);
+    });
     return () => {
       cancelled = true;
     };
