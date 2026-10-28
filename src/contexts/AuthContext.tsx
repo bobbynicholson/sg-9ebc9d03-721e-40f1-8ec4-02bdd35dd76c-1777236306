@@ -18,6 +18,43 @@ type DbProfile = Tables<"profiles">;
 export type { AuthenticatedUser } from "./authContextCore";
 export { useAuth } from "./authContextCore";
 
+// Last signed-in identity, kept on this device so a reopened app can show the
+// page straight away instead of the logo loader. It is only a head start for
+// the UI: the full profile/role lookup still runs in the background and
+// replaces it, and middleware + RLS enforce access on every request.
+const AUTH_SNAPSHOT_KEY = "cms-auth-snapshot-v1";
+const AUTH_SNAPSHOT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+interface AuthSnapshot {
+  sessionKey: string;
+  savedAt: number;
+  user: AuthenticatedUser;
+  profile: unknown;
+  company: unknown;
+  userRoles: UserRole[];
+  activeRole: UserRole;
+}
+
+function readAuthSnapshot(sessionKey: string): AuthSnapshot | null {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(AUTH_SNAPSHOT_KEY) || "null") as AuthSnapshot | null;
+    if (!parsed || parsed.sessionKey !== sessionKey) return null;
+    if (Date.now() - parsed.savedAt > AUTH_SNAPSHOT_MAX_AGE_MS) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeAuthSnapshot(snapshot: AuthSnapshot | null) {
+  try {
+    if (snapshot) window.localStorage.setItem(AUTH_SNAPSHOT_KEY, JSON.stringify(snapshot));
+    else window.localStorage.removeItem(AUTH_SNAPSHOT_KEY);
+  } catch {
+    // Storage blocked (private mode): the normal lookup still works.
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [supabase] = useState(() => createClient());
@@ -286,7 +323,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const hydrationRequest = ++hydrationRequestRef.current;
     if (sessionKey) hydratingSessionKeyRef.current = sessionKey;
-    setLoading(true);
+    // Reopened app, same user: show the page from the saved identity and
+    // refresh it in the background instead of holding the logo loader.
+    const snapshot = sessionKey && !hydratedSessionKeyRef.current ? readAuthSnapshot(sessionKey) : null;
+    if (snapshot) {
+      setUser(snapshot.user);
+      setProfile(snapshot.profile as DbProfile);
+      setCompany(snapshot.company as any);
+      setUserRoles(snapshot.userRoles);
+      setActiveRole(snapshot.activeRole);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -555,6 +604,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUserRoles(derivedRoles.roles);
           setActiveRole(derivedRoles.activeRole);
           hydratedSessionKeyRef.current = sessionKey;
+          if (sessionKey) {
+            writeAuthSnapshot({
+              sessionKey,
+              savedAt: Date.now(),
+              user: authenticatedUser,
+              profile: cleanedProfile,
+              company: userCompany,
+              userRoles: derivedRoles.roles,
+              activeRole: derivedRoles.activeRole,
+            });
+          }
 
           // Phase 6 follow-up: bind tenant tags to the observability
           // scope so every subsequent captureException carries company
@@ -576,6 +636,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUserRoles([]);
         setActiveRole(UserRole.CLIENT);
         hydratedSessionKeyRef.current = null;
+        writeAuthSnapshot(null);
 
         void import("@/lib/observability").then(({ setGlobalTags }) => {
           setGlobalTags({ companyId: null, userId: null, role: null });
@@ -657,6 +718,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    writeAuthSnapshot(null);
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
