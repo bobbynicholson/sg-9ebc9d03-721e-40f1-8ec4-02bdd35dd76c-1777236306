@@ -1703,7 +1703,7 @@ function DriverManagementPage() {
                             >
                               <Settings className="w-4 h-4" />
                             </Button>
-                            <DropdownMenu>
+                            <DropdownMenu modal={false}>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                                   <MoreVertical className="w-4 h-4" />

@@ -964,7 +964,7 @@ return (
                 <Edit className="w-4 h-4 mr-2" />
                 Edit
               </Button>
-              <DropdownMenu>
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="px-2" aria-label="More actions">
                     <MoreHorizontal className="w-4 h-4" />

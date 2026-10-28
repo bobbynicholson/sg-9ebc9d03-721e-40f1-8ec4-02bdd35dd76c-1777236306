@@ -513,7 +513,7 @@ function FormCard({
               <h3 className="font-bold text-slate-900 truncate">{form.name}</h3>
               <p className="text-xs text-slate-500 font-mono truncate">/{form.slug}</p>
             </div>
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="flex-shrink-0">
                   <MoreHorizontal className="w-4 h-4" />

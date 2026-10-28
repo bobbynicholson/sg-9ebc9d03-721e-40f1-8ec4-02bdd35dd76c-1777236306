@@ -46,7 +46,7 @@ import { VehiclePickerDialog } from "@/components/admin/dispatch/VehiclePickerDi
 import { toLocalISO, tenantToday } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
-import { emitOrderUpdated } from "@/lib/events/orderEvents";
+import { emitOrderUpdated } from "@/lib/events/orderEvents";
 import { formatClock } from "@/lib/portalTime";
 import {
   orderDriverInterestService,
@@ -1484,7 +1484,7 @@ function DispatchQueuePage() {
                       </div>
                       <div className="flex items-center justify-end gap-0.5" onClick={e => e.stopPropagation()}>
                         {order.assigned_driver_id ? (
-                          <DropdownMenu>
+                          <DropdownMenu modal={false}>
                             <DropdownMenuTrigger asChild>
                               <Button variant="outline" size="sm" className="h-8 gap-1.5">
                                 <ArrowUpRight className="w-3.5 h-3.5" />

@@ -1031,7 +1031,7 @@ function AdminInventory() {
                 <Plus className="w-4 h-4" />
                 New item
               </Button>
-              <DropdownMenu>
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-1.5">
                     <MoreHorizontal className="w-4 h-4" />
@@ -1285,7 +1285,7 @@ function AdminInventory() {
               </div>
 
               {/* Views dropdown */}
-              <DropdownMenu>
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-2">
                     <Bookmark className="w-4 h-4" />
