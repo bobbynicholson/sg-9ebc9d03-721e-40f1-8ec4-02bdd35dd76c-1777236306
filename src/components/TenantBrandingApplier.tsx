@@ -22,9 +22,11 @@ import {
   getBrandingRow,
   mergeBrandingRow,
   readBrandingCache,
+  readBrandingCacheForSlug,
   setBrandingRow,
   writeBrandingCache,
 } from "@/lib/branding/store";
+import { clearBrandPending } from "@/lib/branding/bootScript";
 import type { InitialBranding } from "@/lib/branding/serverBrandingForSlug";
 import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
 
@@ -46,6 +48,9 @@ const initialToRow = (b: InitialBranding): BrandingRow => ({
 const paint = (row: BrandingRow | null): void => {
   applyBrandingToDOM(row);
   loadBrandFonts(row);
+  // The boot script may be holding a first-visit tenant page blank until
+  // its real palette is known; the palette (or intended default) is now on.
+  clearBrandPending();
 };
 
 interface Props {
@@ -54,7 +59,7 @@ interface Props {
 
 export function TenantBrandingApplier({ initialBranding }: Props) {
   const router = useRouter();
-  const { user } = useAuth() as any;
+  const { user, loading: authLoading } = useAuth() as any;
   const companyId: string | null = user?.company_id ?? null;
   const tenantSlug = getTenantSlugFromPathname(router.asPath);
 
@@ -79,33 +84,44 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
     // default company. Resolve that slug before falling back to the signed-in
     // user's company so a deep link never paints the wrong palette first.
     if (tenantSlug) {
+      // Show this company's saved palette now; the fetch below refreshes it.
+      const cachedForSlug = readBrandingCacheForSlug(tenantSlug);
+      if (cachedForSlug && getBrandingRow()?.id !== cachedForSlug.id) {
+        setBrandingRow(cachedForSlug);
+        paint(cachedForSlug);
+      }
       (async () => {
-        const { data, error } = await (supabase.rpc as any)(
-          "get_company_branding",
-          { p_slug: tenantSlug },
-        );
+        // Read the full row by slug alongside the RPC (one round trip on a
+        // first visit instead of two, while the page is held blank). It
+        // only returns for a signed-in member of this company; otherwise
+        // the RPC id is used below as before.
+        const fullCols = "id, company_name, logo_url, primary_color, secondary_color, accent_color, brand_font_body, brand_font_display";
+        const [{ data, error }, bySlug] = await Promise.all([
+          (supabase.rpc as any)("get_company_branding", { p_slug: tenantSlug }),
+          supabase.from("companies").select(fullCols).eq("slug", tenantSlug).maybeSingle(),
+        ]);
         if (cancelled) return;
         if (error) {
           console.warn(
             "[TenantBrandingApplier] slug branding fetch failed:",
             error,
           );
+          clearBrandPending();
           return;
         }
         const r = (Array.isArray(data) ? data[0] : data) as Record<
           string,
           string | null | undefined
         > | null;
-        if (!r?.id) return;
+        if (!r?.id) { clearBrandPending(); return; }
         // The branding RPC intentionally exposes a small safe shape for
         // anonymous pages. Authenticated tenant pages still need the full
         // saved palette/font row; otherwise onboarding/white-label changes
         // can be reduced to the RPC's older primary/secondary-only shape.
-        const { data: fullRow } = await supabase
-          .from("companies")
-          .select("id, company_name, logo_url, primary_color, secondary_color, accent_color, brand_font_body, brand_font_display")
-          .eq("id", r.id)
-          .maybeSingle();
+        const fullRow = (bySlug.data as any)?.id === r.id
+          ? bySlug.data
+          : (await supabase.from("companies").select(fullCols).eq("id", r.id).maybeSingle()).data;
+        if (cancelled) return;
         const source = (fullRow || r) as Record<string, string | null | undefined>;
         const row: BrandingRow = {
           id: source.id || r.id,
@@ -128,6 +144,10 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
     }
 
     if (!companyId) {
+      // Sign-in still loading: no company yet is not "no company". Resetting
+      // here repainted the default palette over the company's colours on
+      // every app open until the user's company arrived.
+      if (authLoading) return;
       // Clear a previous tenant's colours when a platform owner returns to
       // a global page. Preserve only the SSR-seeded branding used by public
       // tenant login pages before an authenticated company exists.
@@ -184,7 +204,7 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [companyId, initialBranding, tenantSlug, user]);
+  }, [companyId, initialBranding, tenantSlug, user, authLoading]);
 
   // Live re-paint hook. White-label admin dispatches `branding:updated`
   // after a successful save (or with `null` to reset) so the running
