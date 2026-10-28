@@ -43,7 +43,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
 import { VehiclePickerDialog } from "@/components/admin/dispatch/VehiclePickerDialog";
-import { ScheduleConflictConfirm, type ScheduleConflictChoice } from "@/components/admin/dispatch/ScheduleConflictConfirm";
+import { ScheduleConflictConfirm, freeDriverAlternatives, type ScheduleConflictChoice } from "@/components/admin/dispatch/ScheduleConflictConfirm";
 import { toLocalISO, tenantToday } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
@@ -1971,6 +1971,12 @@ function DispatchQueuePage() {
 
       <ScheduleConflictConfirm
         choice={conflictPick}
+        alternatives={conflictPick ? freeDriverAlternatives(suggestions, conflictPick.driverId) : []}
+        onPickAlternative={(driverId) => {
+          const alt = suggestions.find((s) => s.driver.id === driverId);
+          setConflictPick(null);
+          void handleAssignPick(driverId, alt?.score.total, "Free driver picked instead of a busy one");
+        }}
         onChooseAnother={() => setConflictPick(null)}
         onAssignAnyway={() => {
           const pick = conflictPick;

@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Sparkles, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { dispatchService, type DispatchSuggestion } from "@/services/dispatchService";import { formatClock } from "@/lib/portalTime";
-import { ScheduleConflictConfirm, type ScheduleConflictChoice } from "@/components/admin/dispatch/ScheduleConflictConfirm";
+import { ScheduleConflictConfirm, freeDriverAlternatives, type ScheduleConflictChoice } from "@/components/admin/dispatch/ScheduleConflictConfirm";
 
 interface Props {
   open: boolean;
@@ -344,6 +344,12 @@ export function ReassignDriverDialog({
       </DialogContent>
       <ScheduleConflictConfirm
         choice={conflictPick}
+        alternatives={conflictPick ? freeDriverAlternatives(suggestions, conflictPick.driverId) : []}
+        onPickAlternative={(driverId) => {
+          const alt = suggestions.find((s) => s.driver.id === driverId);
+          setConflictPick(null);
+          void handlePick(driverId, alt?.score.total, !!alt && (!alt.capacity.ok || !alt.feasibility.ok || !alt.vehicle.ok));
+        }}
         onChooseAnother={() => setConflictPick(null)}
         onAssignAnyway={() => {
           const pick = conflictPick;
