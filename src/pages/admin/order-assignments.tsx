@@ -46,7 +46,7 @@ import { VehiclePickerDialog } from "@/components/admin/dispatch/VehiclePickerDi
 import { toLocalISO, tenantToday } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
-import { emitOrderUpdated } from "@/lib/events/orderEvents";
+import { emitOrderUpdated } from "@/lib/events/orderEvents";
 import { formatClock } from "@/lib/portalTime";
 import {
   orderDriverInterestService,
