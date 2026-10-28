@@ -55,13 +55,14 @@ export function ScheduleConflictConfirm({
           <div className="space-y-2">
             <p className="text-sm font-semibold text-slate-900">Free at this time</p>
             {alternatives.length ? alternatives.map((s) => (
-              <div key={s.driver.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-2.5">
+              <div key={s.driver.id} className="flex flex-col gap-2 rounded-lg border border-slate-200 p-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-slate-900">{s.driver.full_name}</p>
                   <p className="truncate text-xs text-slate-600">Score {s.score.total}{s.score.reasons?.length ? ` · ${s.score.reasons.slice(0, 2).join(" · ")}` : ""}</p>
                 </div>
-                <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={() => onPickAlternative(s.driver.id)}>
-                  Assign {s.driver.full_name?.split(" ")[0] || "driver"}
+                <Button type="button" size="sm" variant="outline" className="w-full shrink-0 sm:w-auto" onClick={() => onPickAlternative(s.driver.id)}>
+                  {/* Full name: a first name alone can be ambiguous ("Driver Mike" read "Assign Driver"). */}
+                  Assign {s.driver.full_name || "this driver"}
                 </Button>
               </div>
             )) : (

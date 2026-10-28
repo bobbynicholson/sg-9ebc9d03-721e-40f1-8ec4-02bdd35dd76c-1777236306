@@ -194,7 +194,9 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
     }
   };
 
-  const clientName = invoice?.orders?.clients?.client_name || "Client";
+  // Not every caller passes the client (the order page doesn't); never show a placeholder name.
+  const knownClientName = invoice?.orders?.clients?.client_name || null;
+  const clientName = knownClientName || "This client";
   const invoiceNumber = invoice?.invoice_number || "";
   const orderNumber = invoice?.orders?.order_number || "";
   const orderId = invoice?.order_id || "";
@@ -260,7 +262,7 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
         toast({
           title: "Invoice marked paid",
           description: extraHandling === "credit"
-            ? `${formatMoney(amountNum)} received. ${formatMoney(extraAmount)} kept as credit for ${clientName}'s next booking.`
+            ? `${formatMoney(amountNum)} received. ${formatMoney(extraAmount)} kept as client credit for their next booking.`
             : `${formatMoney(amountNum)} received. A ${formatMoney(extraAmount)} refund is waiting on Refunds & Credits to be paid out.`,
         });
       } else {
@@ -290,7 +292,8 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
             {alreadyPaid ? `Record extra payment for ${invoiceNumber || "invoice"}` : `Record payment for ${invoiceNumber || "invoice"}`}
           </DialogTitle>
           <DialogDescription>
-            {clientName} &middot; {alreadyPaid ? "already fully paid. Use this for money the client sent on top, e.g. paid twice." : <>outstanding {formatMoney(defaultAmount)}</>}
+            {knownClientName && <>{knownClientName} &middot; </>}
+            {alreadyPaid ? "Already fully paid. Use this for money the client sent on top, for example if they paid twice." : <>Outstanding {formatMoney(defaultAmount)}</>}
             {invoice.orders?.event_date && (
               <> &middot; event {invoice.orders.event_date}</>
             )}
@@ -365,9 +368,9 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
                 onChange={(e) => setAmount(e.target.value)}
                 className={overpayment ? "border-amber-300" : ""}
               />
-              {overpayment && (
+              {overpayment && !alreadyPaid && (
                 <p className="text-[10px] text-amber-700">
-                  {alreadyPaid ? "Nothing is owed on this invoice." : `${formatMoney(extraAmount)} more than the ${formatMoney(defaultAmount)} owed.`}
+                  {formatMoney(extraAmount)} more than the {formatMoney(defaultAmount)} owed.
                 </p>
               )}
               {partialPayment && (
@@ -403,39 +406,46 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
           )}
 
           {overpayment && (
-            <fieldset className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-3">
-              <legend className="px-1 text-sm font-semibold text-slate-900">
+            <div role="radiogroup" aria-labelledby="mp-extra-title" className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <p id="mp-extra-title" className="text-sm font-semibold text-slate-900">
                 {alreadyPaid
-                  ? <>Nothing is owed, so all <strong>{formatMoney(extraAmount)}</strong> is extra. What should happen to it?</>
-                  : <>The client paid <strong>{formatMoney(extraAmount)}</strong> extra. What should happen to it?</>}
-              </legend>
-              <label className={`flex items-start gap-2 text-sm ${canKeepCredit ? "cursor-pointer text-slate-800" : "cursor-not-allowed text-slate-400"}`}>
-                <input
-                  type="radio"
-                  name="mp-extra"
-                  className="mt-0.5 h-4 w-4 accent-brand-primary"
-                  checked={extraHandling === "credit"}
-                  disabled={!canKeepCredit}
-                  onChange={() => setExtraHandling("credit")}
-                />
-                <span>
-                  <strong>Keep it as client credit</strong>, used on their next booking.
-                  {!canKeepCredit && " (Not available: this invoice has no client record.)"}
-                </span>
-              </label>
-              <label className="flex cursor-pointer items-start gap-2 text-sm text-slate-800">
-                <input
-                  type="radio"
-                  name="mp-extra"
-                  className="mt-0.5 h-4 w-4 accent-brand-primary"
-                  checked={extraHandling === "refund"}
-                  onChange={() => setExtraHandling("refund")}
-                />
-                <span>
-                  <strong>Refund it to the client</strong>. A refund is added to Refunds &amp; Credits for you to pay out.
-                </span>
-              </label>
-            </fieldset>
+                  ? <>Nothing is owed, so all <span className="tabular-nums">{formatMoney(extraAmount)}</span> is extra. What should happen to it?</>
+                  : <>The client paid <span className="tabular-nums">{formatMoney(extraAmount)}</span> extra. What should happen to it?</>}
+              </p>
+              {([
+                { value: "credit" as const, title: "Keep it as client credit", detail: "Used on their next booking.", disabled: !canKeepCredit,
+                  note: canKeepCredit ? null : "Not available: this invoice has no client record." },
+                { value: "refund" as const, title: "Refund it to the client", detail: "Added to Refunds & Credits for you to pay out.", disabled: false, note: null },
+              ]).map((option) => {
+                const selected = extraHandling === option.value;
+                return (
+                  <label
+                    key={option.value}
+                    className={`flex min-h-11 items-start gap-3 rounded-md border bg-white p-3 text-sm transition-colors ${
+                      option.disabled ? "cursor-not-allowed border-slate-200 text-slate-400"
+                        : selected ? "cursor-pointer border-brand-primary ring-2 ring-brand-primary/20 text-slate-900"
+                        : "cursor-pointer border-slate-200 text-slate-800 hover:border-brand-primary/40"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="mp-extra"
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-brand-primary"
+                      checked={selected}
+                      disabled={option.disabled}
+                      onChange={() => setExtraHandling(option.value)}
+                    />
+                    <span className="min-w-0">
+                      <span className="block font-semibold">{option.title}</span>
+                      <span className="block text-xs text-slate-600">{option.note || option.detail}</span>
+                    </span>
+                  </label>
+                );
+              })}
+              {!extraHandling && (
+                <p className="text-xs text-amber-800">Choose one to record this payment.</p>
+              )}
+            </div>
           )}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -482,9 +492,6 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving} className="w-full sm:w-auto">
             Cancel
           </Button>
-          {overpayment && !extraHandling && (
-            <p className="text-xs text-amber-800 sm:mr-auto sm:self-center">Choose what happens to the extra {formatMoney(extraAmount)} to record this payment.</p>
-          )}
           <Button onClick={handleSubmit} disabled={saving || !amountValid} className="w-full bg-brand-primary hover:bg-brand-primary/90 sm:w-auto">
             {saving
               ? "Recording..."

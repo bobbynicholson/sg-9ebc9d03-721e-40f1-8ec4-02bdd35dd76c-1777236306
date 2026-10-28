@@ -101,7 +101,7 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
 
         const { data: invoiceData } = await (supabase as any)
           .from("invoices")
-          .select("id, client_id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status")
+          .select("id, client_id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status, payment_opening_paid")
           .eq("order_id", orderId)
           .is("deleted_at", null)
           .in("status", ["draft", "sent", "overdue", "partially_paid", "paid"])
@@ -161,7 +161,7 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
       if (oData) setMoney(oData as OrderMoney);
       const { data: invoiceData } = await (supabase as any)
         .from("invoices")
-        .select("id, client_id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status")
+        .select("id, client_id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status, payment_opening_paid")
         .eq("order_id", orderId)
         .is("deleted_at", null)
         .in("status", ["draft", "sent", "overdue", "partially_paid", "paid"])
@@ -219,6 +219,11 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
   });
   const paid = payment.amountPaid;
   const outstanding = payment.balanceDue;
+  // Money recorded as already paid when the invoice was brought into the
+  // system (imports). It is in the paid total but has no payment row, so it
+  // is listed separately or the list looks short of "Paid in full".
+  const openingPaid = Number((invoice as any)?.payment_opening_paid) || 0;
+  const overpaidBy = Math.round((Number(money?.amount_paid ?? 0) - total) * 100) / 100;
   const paymentStatus = payment.label;
   const summary = loading
     ? "Loading..."
@@ -243,7 +248,7 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
         if (!result.success || !result.invoiceId) throw new Error(result.error || "Could not prepare the invoice to record the payment against.");
         const { data } = await (supabase as any)
           .from("invoices")
-          .select("id, client_id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status, sent_at")
+          .select("id, client_id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status, sent_at, payment_opening_paid")
           .eq("id", result.invoiceId)
           .maybeSingle();
         if (!data) throw new Error("Invoice was created but could not be loaded.");
@@ -286,7 +291,7 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
       }
       const { data: createdInvoice, error } = await (supabase as any)
         .from("invoices")
-        .select("id, client_id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status, sent_at")
+        .select("id, client_id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status, sent_at, payment_opening_paid")
         .eq("id", result.invoiceId)
         .maybeSingle();
       if (error || !createdInvoice) throw new Error(error?.message || "Invoice was created but could not be loaded.");
@@ -361,10 +366,19 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
             </div>
           )}
 
-          {payments.length > 0 && (
+          {(payments.length > 0 || openingPaid > 0) && (
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">Payments</p>
               <ul className="divide-y divide-slate-100 border rounded-md">
+                {openingPaid > 0 && (
+                  <li className="p-2.5 flex items-center justify-between gap-3 text-sm">
+                    <div className="min-w-0">
+                      <p className="font-medium text-slate-900 tabular-nums">{fmtZAR.format(openingPaid)}</p>
+                      <p className="text-xs text-slate-500">Paid before this invoice was in the system</p>
+                    </div>
+                    <span className="text-[10px] uppercase tracking-wider text-brand-primary">Paid</span>
+                  </li>
+                )}
                 {payments.map((p) => (
                   <li key={p.id} className="p-2.5 flex items-center justify-between text-sm">
                     <div className="min-w-0">
@@ -417,10 +431,16 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
             </div>
           )}
 
+          {overpaidBy > 0.01 && (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              The client has paid <strong className="tabular-nums">{fmtZAR.format(overpaidBy)}</strong> more than the total. It was recorded without saying whether it is credit or a refund, so agree with the client how to settle it.
+            </p>
+          )}
+
           {outstanding <= 0 && invoice && (
-            <div className="flex flex-col gap-2 rounded-lg border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-slate-600">Fully paid. If the client sent money on top (for example paid twice), record it here as credit or a refund.</p>
-              <Button type="button" size="sm" variant="outline" onClick={openRecordPayment} disabled={preparingPayment}>
+            <div className={`flex flex-col gap-2 rounded-lg border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between ${inSidePanel ? "lg:flex-col lg:items-stretch" : ""}`}>
+              <p className="min-w-0 text-xs text-slate-600">Fully paid. If the client sent money on top (for example paid twice), record it here as credit or a refund.</p>
+              <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={openRecordPayment} disabled={preparingPayment}>
                 <Banknote className="w-4 h-4 mr-2" />
                 Record extra payment
               </Button>
