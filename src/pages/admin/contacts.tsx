@@ -1955,8 +1955,13 @@ function ClientsCRM() {
                                 )}
                                 {/* Secondary row actions live in one menu so each
                                     row stays a single line. Orders / invoices only
-                                    exist for registered clients (clientId set). */}
-                                <DropdownMenu>
+                                    exist for registered clients (clientId set).
+                                    modal={false}: Edit and Delete open dialogs from
+                                    this menu. A modal menu left the page's
+                                    pointer-events lock behind once the dialog closed
+                                    and the list reloaded, so nothing could be clicked
+                                    until a page reload. */}
+                                <DropdownMenu modal={false}>
                                   <DropdownMenuTrigger asChild>
                                     <Button
                                       variant="outline"
