@@ -82,7 +82,8 @@ function OrderDocumentInner({ id, print, forceSection }: {
             : "min-h-screen bg-slate-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0"
         }
       >
-        {!print && <PageWorkbench className="mx-4 mt-4 lg:mx-8" />}
+        {/* Padding, not margin: the bar is w-full, so side margins pushed it past the screen edge. */}
+        {!print && <div className="px-4 pt-4 lg:px-8"><PageWorkbench /></div>}
         <OrderDocument
           orderId={id}
           mode={print ? "print" : "interactive"}
