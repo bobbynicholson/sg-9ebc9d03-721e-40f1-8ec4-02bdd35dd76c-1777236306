@@ -183,6 +183,9 @@ function isCurrentSubscriptionQuestion(query: string): boolean {
 
 function isKitchenOverviewQuestion(query: string): boolean {
   const normalized = query.toLowerCase().replace(/\s+/g, " ").trim();
+  // "Kitchen event schedule" / "kitchen calendar" name a page (the kitchen
+  // calendar); let normal page matching answer those.
+  if (/\b(?:calendar|schedule)\b/.test(normalized)) return false;
   return /\b(?:how can you help|what(?:'s| is| are) my (?:work|tasks?|duties)|what do i have (?:today|to do)|today(?:'s)? work|today(?:'s)? tasks?|kitchen work|production work|upcom(?:ing|ming)|future|events?|scheduled)\b/.test(normalized);
 }
 

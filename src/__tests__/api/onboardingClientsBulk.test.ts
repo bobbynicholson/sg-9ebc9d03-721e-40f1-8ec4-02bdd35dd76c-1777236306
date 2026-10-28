@@ -62,9 +62,11 @@ test("existing clients beyond the first 1000 are still recognised as duplicates"
   expect(inserted.map((r) => r.email)).toEqual(["new@x.co.za"]);
 });
 
-test("a company name becomes the client name and the person the contact", async () => {
+// Since 70a87e11 the person stays the client name and the business is
+// stored separately as the billing company.
+test("a company is saved as the billing company and the person stays the client name", async () => {
   await post([{ company_name: "911 Service Centre", name: "Joanna", surname: "Schrenk", email: "admin@911.co.za" }]);
-  expect(inserted[0]).toMatchObject({ client_name: "911 Service Centre", client_type: "company", notes: "Contact: Joanna Schrenk" });
+  expect(inserted[0]).toMatchObject({ client_name: "Joanna Schrenk", company_name: "911 Service Centre", client_type: "company", notes: "Contact: Joanna Schrenk" });
 });
 
 test("a person without a company keeps their own name", async () => {

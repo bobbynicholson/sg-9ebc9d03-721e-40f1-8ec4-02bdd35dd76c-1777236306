@@ -33,6 +33,9 @@ const customJestConfig = {
     // contain at least one test". .next-verify/ is the commit watchdog's
     // build output; .next/ is the normal dev/build output. Neither holds
     // real tests.
+    // tmp/ holds scratch scripts and fixture renderers, not tests
+    // (test:payments already skips it).
+    '<rootDir>/tmp/',
     '<rootDir>/.next/',
     '<rootDir>/.next-verify/',
     '<rootDir>/.next-stale-ui/',

@@ -71,7 +71,8 @@ describe("chatbot page coverage audit", () => {
     const duplicateTags = taggedRefs.filter((ref, index) => taggedRefs.indexOf(ref) !== index);
     const unknownTags = taggedRefs.filter((ref) => !catalogRefs.has(ref));
     const roleCounts = Object.fromEntries(CHAT_ACCESS_ROLES.map((role) => [role, NAVIGATION_REFS.filter((item) => !item.roles || item.roles.includes(role)).length]));
-    const appSource = fs.readFileSync(path.join(PAGES_ROOT, "_app.tsx"), "utf8");
+    // Section indexing runs in the product app shell (split out of _app.tsx).
+    const appSource = fs.readFileSync(path.join(process.cwd(), "src", "components", "app", "ProductShell.tsx"), "utf8");
 
     console.log("[chatbot full coverage] explicit_tags=" + new Set(taggedRefs).size + " unknown_tags=" + unknownTags.length + " duplicate_tags=" + duplicateTags.length + " role_counts=" + JSON.stringify(roleCounts));
     expect(unknownTags).toEqual([]);

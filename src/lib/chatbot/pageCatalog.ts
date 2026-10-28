@@ -103,6 +103,7 @@ export const PAGE_NAVIGATION_REFS: ChatNavigationRef[] = [
   page("admin.outsource-providers", "Outsource providers", "/admin/outsource-providers", "Manage external service providers used for event fulfilment", ["outsource providers", "external providers", "hire in providers"], ADMIN),
   page("admin.onboarding", "Onboarding", "/admin/onboarding", "Set up company data, clients, and initial operating configuration", ["onboarding", "setup", "company setup"], ADMIN),
   page("admin.onboarding.import", "Import data", "/admin/onboarding/import", "Import initial business data into CateringMS", ["import data", "data import", "csv import"], ADMIN),
+  page("admin.document-imports", "Import quote and order PDFs", "/admin/document-imports", "Extract, match and review quote and order PDFs before bringing them into the workflow", ["import pdf", "import quote pdf", "import order pdf", "pdf import", "document import"], EMAIL_ADMINS),
   page("admin.onboarding.imports", "Import history", "/admin/onboarding/imports", "Review previous data imports and their results", ["import history", "previous imports"], ADMIN),
   page("admin.onboarding.clients", "Import clients", "/admin/onboarding/clients", "Import and validate the initial client book", ["import clients", "client import"], ADMIN),
   page("admin.onboarding.receipts", "Import receipts", "/admin/onboarding/receipts", "Import historical purchase receipts", ["import receipts", "receipt import"], ADMIN),
