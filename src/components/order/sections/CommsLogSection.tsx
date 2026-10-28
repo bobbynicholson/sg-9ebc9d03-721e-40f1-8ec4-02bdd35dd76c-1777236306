@@ -20,7 +20,10 @@ import { captureException } from "@/lib/observability";
 import { useAuth } from "@/contexts/AuthContext";
 import { canSeeOtherStaffPay } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
-import { MessageSquare, Mail, Bell, Loader2, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { MessageSquare, Mail, Bell, Loader2, CheckCircle2, AlertCircle, Clock, Eye } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { AmendmentDetailsDialog, AmendmentInlineSummary } from "./AmendmentDetailsDialog";
 
 interface Props {
   orderId: string;
@@ -37,7 +40,12 @@ interface CommsEvent {
   recipient: string | null;
   status: "sent" | "queued" | "failed" | "info";
   created_at: string;
+  /** About a client change request (amendment) on this order. */
+  aboutAmendment?: boolean;
 }
+
+const isAmendmentText = (...parts: Array<string | null | undefined>) =>
+  parts.some((p) => !!p && /amend|change request/i.test(p));
 
 function rel(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
@@ -53,6 +61,10 @@ export function CommsLogSection({ orderId, companyId, defaultOpen, forceOpen }: 
   const canSee = canSeeOtherStaffPay(user?.role as UserRole | undefined);
   const [events, setEvents] = useState<CommsEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewing, setViewing] = useState<CommsEvent | null>(null);
+  const [showAmendment, setShowAmendment] = useState<string | null>(null);
+  // Change requests on this order, so amendment messages can say what changed.
+  const [amendments, setAmendments] = useState<Array<{ id: string; proposed: any; before: any; requestedAt: number }>>([]);
 
   useEffect(() => {
     if (!canSee) { setLoading(false); return; }
@@ -88,6 +100,7 @@ export function CommsLogSection({ orderId, companyId, defaultOpen, forceOpen }: 
             recipient: n.target_role ? `→ ${n.target_role}` : null,
             status: "info",
             created_at: n.created_at,
+            aboutAmendment: isAmendmentText(n.notification_type, n.title),
           });
         }
         for (const e of (emailRes.data || []) as any[]) {
@@ -106,6 +119,21 @@ export function CommsLogSection({ orderId, companyId, defaultOpen, forceOpen }: 
         }
         merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         if (!cancelled) setEvents(merged);
+        if (merged.some((m) => m.aboutAmendment)) {
+          const { data: reqs } = await (supabase as any)
+            .from("order_amendment_requests")
+            .select("id, proposed_changes, applied_snapshot, requested_at")
+            .eq("order_id", orderId)
+            .order("requested_at", { ascending: false });
+          if (!cancelled) {
+            setAmendments(((reqs || []) as any[]).map((r) => ({
+              id: r.id,
+              proposed: r.proposed_changes,
+              before: r.applied_snapshot?.before ?? null,
+              requestedAt: new Date(r.requested_at).getTime(),
+            })));
+          }
+        }
       } catch (e: any) {
         captureException(e, { tags: { route: "/order/[id]", step: "loadCommsLog", orderId, companyId } });
       } finally {
@@ -116,6 +144,13 @@ export function CommsLogSection({ orderId, companyId, defaultOpen, forceOpen }: 
   }, [orderId, companyId, canSee]);
 
   if (!canSee) return null;
+
+  // The change request a message is about: the latest one made before it was sent.
+  const amendmentFor = (e: CommsEvent | null) => {
+    if (!e?.aboutAmendment) return null;
+    const at = new Date(e.created_at).getTime() + 60_000;
+    return amendments.find((a) => a.requestedAt <= at) || null;
+  };
 
   const failedCount = events.filter((e) => e.status === "failed").length;
   const summary = loading
@@ -172,20 +207,80 @@ export function CommsLogSection({ orderId, companyId, defaultOpen, forceOpen }: 
                     </span>
                     {e.recipient && <span className="text-xs text-slate-600 truncate">{e.recipient}</span>}
                   </div>
+                  {amendmentFor(e) && (
+                    <AmendmentInlineSummary proposed={amendmentFor(e)!.proposed} before={amendmentFor(e)!.before} max={3} />
+                  )}
                   {e.detail && (
-                    <p className={`text-xs mt-1 ${e.status === "failed" ? "text-rose-800 font-medium" : "text-slate-600"}`}>
-                      {e.detail.length > 200 ? `${e.detail.slice(0, 200)}...` : e.detail}
+                    <p className={`text-xs mt-1 line-clamp-2 break-words ${e.status === "failed" ? "text-rose-800 font-medium" : "text-slate-600"}`}>
+                      {e.detail}
                     </p>
                   )}
                 </div>
-                <span className="text-[10px] text-slate-400 tabular-nums flex-shrink-0 mt-0.5" title={new Date(e.created_at).toLocaleString("en-ZA")}>
-                  {rel(e.created_at)}
-                </span>
+                <div className="flex flex-shrink-0 flex-col items-end gap-1">
+                  <span className="text-[10px] text-slate-400 tabular-nums mt-0.5" title={new Date(e.created_at).toLocaleString("en-ZA")}>
+                    {rel(e.created_at)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setViewing(e)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                    aria-label={`Read the full message: ${e.title}`}
+                    title="Read the full message"
+                  >
+                    <Eye className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
               </li>
             );
           })}
         </ul>
       )}
+
+      <Dialog open={!!viewing} onOpenChange={(o) => { if (!o) setViewing(null); }}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="break-words pr-6">{viewing?.title}</DialogTitle>
+            <DialogDescription>
+              {viewing?.kind === "email" ? "Email" : "Team notification"}
+              {" · "}<strong className="capitalize">{viewing?.status === "info" ? "Recorded" : viewing?.status}</strong>
+              {viewing ? ` · ${new Date(viewing.created_at).toLocaleString("en-ZA")}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {viewing?.recipient && (
+            <p className="break-words text-sm text-slate-700 dark:text-slate-300">
+              <strong className="text-slate-900 dark:text-white">{viewing.kind === "email" ? "Sent to: " : "For: "}</strong>
+              {viewing.recipient.replace(/^→\s*/, "").replace(/_/g, " ")}
+            </p>
+          )}
+          {amendmentFor(viewing) && (
+            <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">What changed</p>
+              <AmendmentInlineSummary proposed={amendmentFor(viewing)!.proposed} before={amendmentFor(viewing)!.before} asList />
+            </div>
+          )}
+          {viewing?.detail ? (
+            <div className={`rounded-lg p-3 text-sm ${viewing.status === "failed" ? "bg-rose-50 text-rose-900" : "bg-slate-50 text-slate-800 dark:bg-slate-800 dark:text-slate-200"}`}>
+              <p className="mb-1 font-semibold">{viewing.status === "failed" ? "Why it failed" : "Message"}</p>
+              <p className="whitespace-pre-wrap break-words">{viewing.detail}</p>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-600">No message text was saved for this {viewing?.kind === "email" ? "email" : "notification"}.</p>
+          )}
+          {viewing?.aboutAmendment && (
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => { setShowAmendment(amendmentFor(viewing)?.id || "all"); setViewing(null); }}>
+              See the full change request
+            </Button>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <AmendmentDetailsDialog
+        open={!!showAmendment}
+        onOpenChange={(o) => { if (!o) setShowAmendment(null); }}
+        orderId={orderId}
+        companyId={companyId}
+        requestId={showAmendment && showAmendment !== "all" ? showAmendment : null}
+      />
     </CollapsibleSection>
   );
 }
