@@ -219,6 +219,26 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
   }
 
+  //    A kept quote is detached here, before the order delete. Left to
+  //    trg_revert_quote_on_order_delete, the quote update re-fires
+  //    tg_propagate_quote_edits_to_order, which writes onto the order
+  //    mid-delete and Postgres aborts it ("tuple to be deleted was
+  //    already modified"). The quote stays 'accepted', as described above.
+  if (quoteId && !purgedQuote) {
+    const { error: detachErr } = await svc
+      .from("quotes")
+      .update({ converted_to_order_id: null })
+      .eq("id", quoteId)
+      .eq("converted_to_order_id", orderId);
+    if (detachErr) {
+      console.error("[orders/purge] quote detach failed:", detachErr);
+      return res.status(500).json({
+        error: "Could not detach the order's quote, so the order was not deleted.",
+        partial_counts: counts,
+      });
+    }
+  }
+
   // 6. Finally, the order itself. CASCADE handles the long list of
   //    child tables we left alone above.
   const { error: orderDelErr } = await svc.from("orders").delete().eq("id", orderId);
