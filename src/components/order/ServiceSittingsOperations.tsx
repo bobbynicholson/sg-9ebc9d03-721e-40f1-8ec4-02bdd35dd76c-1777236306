@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatClock } from "@/lib/portalTime";
 import { emitOrderUpdated } from "@/lib/events/orderEvents";
+import { useToast } from "@/hooks/use-toast";
 import { Check, ChevronDown, Search } from "lucide-react";
 
 export type SittingOperations = {
@@ -121,6 +122,13 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const { toast } = useToast();
+  // The panel's own message sits at its top, often off screen when the team
+  // clicks Save at the bottom, so a refused save also pops up as a toast.
+  const saveFailed = (message: string) => {
+    setError(message);
+    toast({ title: "Schedule not saved", description: message, variant: "destructive" });
+  };
   const [saved, setSaved] = useState(false);
   const [saveNotice, setSaveNotice] = useState("");
   const [totalGuests, setTotalGuests] = useState(0);
@@ -166,14 +174,21 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
     setSaved(false);
   };
   async function save() {
-    if (allocated !== totalGuests || rows.some(row => !row.service_time || row.guest_count < 1)) { setError(`Set every service time and allocate exactly ${totalGuests} guests before saving.`); return; }
+    if (allocated !== totalGuests || rows.some(row => !row.service_time || row.guest_count < 1)) { saveFailed(`Set every service time and allocate exactly ${totalGuests} guests before saving.`); return; }
+    // Name the exact missing field here; the database would otherwise refuse
+    // the whole save with a general message and nobody gets assigned.
+    for (const [index, row] of rows.entries()) {
+      const collection = returnPlan === "per_sitting_collection" || (returnPlan === "final_collection" && index === rows.length - 1);
+      if (row.deliveryDriverIds.length && !row.dispatchTime) { saveFailed(`Sitting ${row.sequence_number}: set "Depart kitchen at" so the delivery driver has a trip time.`); return; }
+      if (collection && (!row.returnDate || !row.returnTime)) { saveFailed(`Sitting ${row.sequence_number}: set the equipment collection date and time, or change "Equipment returns".`); return; }
+    }
     setSaving(true); setError(""); setSaved(false);
     try {
       const response = await fetch(`/api/orders/${orderId}/service-plan`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sittings: rows, returnPlan }) });
       const result = await response.json();
       if (!response.ok || !result.ok) throw new Error(result.error || "The sitting schedule could not be saved.");
-      await load(); setSaveNotice(result.notice || "Schedule saved. Kitchen batches and driver trips updated."); setSaved(true); emitOrderUpdated(orderId, "sitting-schedule", ["prep", "driver"]); onSaved?.();
-    } catch (e: any) { setError(e.message || "Please retry saving the schedule."); }
+      await load(); setSaveNotice(result.notice || "Schedule saved. Kitchen batches and driver trips updated."); setSaved(true); toast({ title: "Schedule saved", description: result.notice || "Kitchen batches and driver trips updated." }); emitOrderUpdated(orderId, "sitting-schedule", ["prep", "driver"]); onSaved?.();
+    } catch (e: any) { saveFailed(e.message || "Please retry saving the schedule."); }
     finally { setSaving(false); }
   }
   if (loading && !rows.length) return <p className="text-sm text-slate-600" role="status">Loading service sittings…</p>;
@@ -235,7 +250,7 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
           {mayEdit && !s.persisted && index > 0 && index === rows.length - 1 && <Button type="button" variant="outline" className="mt-3" disabled={saving} onClick={() => { setRows(previous => previous.length === 2 ? [{ ...previous[0], guest_count: totalGuests }] : previous.slice(0, -1)); setSaved(false); }}>Remove unsaved sitting</Button>}
         </article>;
       })}</div>
-      {mayEdit && <div className="flex flex-wrap items-center gap-3"><Button type="button" disabled={saving || loading || allocated !== totalGuests} onClick={() => void save()}>{saving ? "Saving schedule…" : "Save sitting schedule"}</Button>{saved && <p className="text-sm text-green-800" role="status">{saveNotice}</p>}</div>}
+      {mayEdit && <div className="flex flex-wrap items-center gap-3"><Button type="button" disabled={saving || loading || allocated !== totalGuests} onClick={() => void save()}>{saving ? "Saving schedule…" : "Save sitting schedule"}</Button>{saved && <p className="text-sm text-green-800" role="status">{saveNotice}</p>}{error && <p className="text-sm font-medium text-red-800">Not saved: {error}</p>}</div>}
     </>}
   </section>;
 }

@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sparkles, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { dispatchService, type DispatchSuggestion } from "@/services/dispatchService";
-import { formatClock } from "@/lib/portalTime";
+import { dispatchService, type DispatchSuggestion } from "@/services/dispatchService";import { formatClock } from "@/lib/portalTime";
+import { ScheduleConflictConfirm, type ScheduleConflictChoice } from "@/components/admin/dispatch/ScheduleConflictConfirm";
 
 interface Props {
   open: boolean;
@@ -58,6 +58,7 @@ export function ReassignDriverDialog({
   // toggle off when the local pool is full / unavailable and the
   // dispatcher needs to borrow a driver from another branch.
   const [lendFromOtherBranches, setLendFromOtherBranches] = useState(false);
+  const [conflictPick, setConflictPick] = useState<(ScheduleConflictChoice & { driverId: string; score?: number; blocked?: boolean }) | null>(null);
 
   useEffect(() => {
     if (!open || !companyId) return;
@@ -80,17 +81,22 @@ export function ReassignDriverDialog({
     }, 200, { restrictToRegion: !lendFromOtherBranches }).then(setSuggestions).finally(() => setLoading(false));
   }, [open, companyId, order.id, lendFromOtherBranches]);
 
-  const handlePick = async (driverId: string, score?: number, blocked?: boolean) => {
+  const handlePick = async (driverId: string, score?: number, blocked?: boolean, assignAnyway = false) => {
     if (!companyId) return;
     const candidate = suggestions.find((s) => s.driver.id === driverId);
-    if (candidate?.scheduleConflict) {
-      toast({
-        title: "Choose a different driver",
-        description: candidate.scheduleConflict.reason,
-        variant: "destructive",
+    if (candidate?.scheduleConflict && !assignAnyway) {
+      // Ask rather than refuse: two nearby events can share one driver.
+      setConflictPick({
+        driverId, score, blocked,
+        driverName: candidate.driver.full_name || "This driver",
+        orderNumber: candidate.scheduleConflict.orderNumber,
+        eventTime: candidate.scheduleConflict.eventTime,
       });
       return;
     }
+    // The nearby job alone is not a gate to justify once the dispatcher
+    // has confirmed it; other gate failures still need a reason.
+    if (assignAnyway) blocked = !candidate?.capacity.ok || !candidate?.feasibility.ok || !candidate?.vehicle.ok;
     // Phase 3 #5: when the dispatcher picks a driver who has at
     // least one gate failure (capacity, feasibility, vehicle), make
     // them write a reason. Audit trail then has the "why" for the
@@ -112,7 +118,8 @@ export function ReassignDriverDialog({
         driverId,
         performedBy,
         score,
-        reason: reason.trim() || (blocked ? "Reassigned (gate override)" : "Reassigned"),
+        reason: (reason.trim() || (blocked ? "Reassigned (gate override)" : "Reassigned")) + (assignAnyway ? " (assigned anyway despite a nearby job)" : ""),
+        allowScheduleConflict: assignAnyway,
       });
       if (!r.ok) {
         const reasonText = r.reason || "The driver could not be reassigned.";
@@ -130,7 +137,9 @@ export function ReassignDriverDialog({
       // service noticed an overlap. We let the assign land (warn-and-
       // allow) but the dispatcher needs to see it, not just the admin
       // bell.
-      if (r.conflictWarning) {
+      if (r.conflictWarning && assignAnyway) {
+        toast({ title: "Driver reassigned", description: `${baseDesc}. As you chose, they now have both jobs. ${r.conflictWarning}` });
+      } else if (r.conflictWarning) {
         toast({
           title: "Driver reassigned — schedule overlap",
           description: `${baseDesc}. ${r.conflictWarning} Please review both jobs and reassign one if needed.`,
@@ -333,6 +342,15 @@ export function ReassignDriverDialog({
           </DialogClose>
         </DialogFooter>
       </DialogContent>
+      <ScheduleConflictConfirm
+        choice={conflictPick}
+        onChooseAnother={() => setConflictPick(null)}
+        onAssignAnyway={() => {
+          const pick = conflictPick;
+          setConflictPick(null);
+          if (pick) void handlePick(pick.driverId, pick.score, pick.blocked, true);
+        }}
+      />
     </Dialog>
   );
 }

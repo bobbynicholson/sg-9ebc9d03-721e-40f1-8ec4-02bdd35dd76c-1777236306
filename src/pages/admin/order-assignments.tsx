@@ -43,11 +43,11 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
 import { VehiclePickerDialog } from "@/components/admin/dispatch/VehiclePickerDialog";
+import { ScheduleConflictConfirm, type ScheduleConflictChoice } from "@/components/admin/dispatch/ScheduleConflictConfirm";
 import { toLocalISO, tenantToday } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
-import { emitOrderUpdated } from "@/lib/events/orderEvents";
-import { formatClock } from "@/lib/portalTime";
+import { emitOrderUpdated } from "@/lib/events/orderEvents";import { formatClock } from "@/lib/portalTime";
 import {
   orderDriverInterestService,
   type DriverInterestSummary,
@@ -208,6 +208,7 @@ function DispatchQueuePage() {
   const [suggestions, setSuggestions] = useState<DispatchSuggestion[]>([]);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [assignSaving, setAssignSaving] = useState(false);
+  const [conflictPick, setConflictPick] = useState<(ScheduleConflictChoice & { driverId: string; score?: number; reason?: string }) | null>(null);
 
   // Vehicle picker dialog
   const [vehicleTarget, setVehicleTarget] = useState<OrderRow | null>(null);
@@ -622,15 +623,17 @@ function DispatchQueuePage() {
     }
   };
 
-  const handleAssignPick = async (driverId: string, score?: number, reason?: string) => {
+  const handleAssignPick = async (driverId: string, score?: number, reason?: string, assignAnyway = false) => {
     const target = assignTarget;
     if (!target) return;
     const candidate = suggestions.find((s) => s.driver.id === driverId);
-    if (candidate?.scheduleConflict) {
-      toast({
-        title: "Choose a different driver",
-        description: candidate.scheduleConflict.reason,
-        variant: "destructive",
+    if (candidate?.scheduleConflict && !assignAnyway) {
+      // Ask rather than refuse: two nearby events can share one driver.
+      setConflictPick({
+        driverId, score, reason,
+        driverName: candidate.driver.full_name || "This driver",
+        orderNumber: candidate.scheduleConflict.orderNumber,
+        eventTime: candidate.scheduleConflict.eventTime,
       });
       return;
     }
@@ -642,7 +645,10 @@ function DispatchQueuePage() {
         driverId,
         performedBy: userId,
         score,
-        reason: reason ?? "Assigned from dispatch queue",
+        reason: assignAnyway
+          ? `${reason ?? "Assigned from dispatch queue"} (assigned anyway despite a nearby job)`
+          : (reason ?? "Assigned from dispatch queue"),
+        allowScheduleConflict: assignAnyway,
       });
       if (!r.ok) {
         const reason = r.reason || "";
@@ -666,7 +672,12 @@ function DispatchQueuePage() {
       // Phase 2 #4: surface a double-booking warning on warn-and-allow.
       // The assignment landed but the dispatcher needs to know they
       // just put this driver on two overlapping events.
-      if (r.conflictWarning) {
+      if (r.conflictWarning && assignAnyway) {
+        toast({
+          title: `${driverName} assigned to ${target.client_name}`,
+          description: `As you chose, ${driverName} now has both jobs. ${r.conflictWarning}`,
+        });
+      } else if (r.conflictWarning) {
         toast({
           title: `${driverName} assigned — schedule overlap`,
           description: `${r.conflictWarning} Please review both jobs and reassign one if needed.`,
@@ -1957,6 +1968,16 @@ function DispatchQueuePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ScheduleConflictConfirm
+        choice={conflictPick}
+        onChooseAnother={() => setConflictPick(null)}
+        onAssignAnyway={() => {
+          const pick = conflictPick;
+          setConflictPick(null);
+          if (pick) void handleAssignPick(pick.driverId, pick.score, pick.reason, true);
+        }}
+      />
 
       {/* Vehicle picker - per-order override + secondary vehicle. */}
       {vehicleTarget && (

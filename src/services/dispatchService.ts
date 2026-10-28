@@ -22,8 +22,7 @@ import { shiftService } from "./shiftService";
 import { supabase as browserSupabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
-import { notificationService } from "./notificationService";
-import { formatClock } from "@/lib/portalTime";
+import { notificationService } from "./notificationService";import { formatClock } from "@/lib/portalTime";
 
 // Dispatch is used by browser pages and by the server-side order cascade.
 // The server path must use service role; the browser client has no session in
@@ -768,6 +767,12 @@ export const dispatchService = {
     enforceGates?: boolean; // when true, refuse if capacity / feasibility fail. Default false (warn-and-allow).
     /** Optional: skip vehicle auto-booking when the operator wants to pick the vehicle by hand. */
     skipVehicleAutoBook?: boolean;
+    /**
+     * The dispatcher was shown the overlapping job and chose "Assign anyway"
+     * (e.g. two nearby events one driver can cover). The assignment lands
+     * with conflictWarning set instead of being refused.
+     */
+    allowScheduleConflict?: boolean;
   }): Promise<{ ok: boolean; reason?: string; vehicleNote?: string; conflictWarning?: string }> {
     // Fetch existing assignment to capture from_driver_id
       const { data: existing } = await supabase
@@ -786,9 +791,9 @@ export const dispatchService = {
     // overlapping job, so the same driver could land two events three
     // hours apart with no warning. New shape:
     //   - enforceGates=true  -> refuse on conflict (current strict)
-    //   - a time conflict is always refused. Capacity, feasibility, and
-    //     vehicle gates may still use the existing explicit override flow,
-    //     but one driver must never be assigned to overlapping events.
+    //   - a time conflict is refused unless the dispatcher confirmed
+    //     "Assign anyway" (allowScheduleConflict). A schedule we could not
+    //     read is always refused.
     let conflictWarning: string | undefined;
     if (existing) {
       if (payload.enforceGates) {
@@ -809,7 +814,10 @@ export const dispatchService = {
         ignoreOrderId: payload.orderId,
       });
       if (!conflict.ok) {
-        return { ok: false, reason: conflict.reason };
+        if (!(payload.allowScheduleConflict && conflict.conflictOrderId)) {
+          return { ok: false, reason: conflict.reason };
+        }
+        conflictWarning = conflict.reason;
       }
     }
 
