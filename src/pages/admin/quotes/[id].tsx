@@ -114,6 +114,19 @@ function AdminQuoteDetailInner() {
   // Wave 27: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
   const [quote, setQuote] = useState<Quote | null>(null);
+  // Store credit this client already holds (e.g. an earlier overpayment),
+  // so it is remembered when quoting and invoicing them again.
+  const [clientCredit, setClientCredit] = useState(0);
+  const quoteClientId = (quote as any)?.client_id as string | null | undefined;
+  useEffect(() => {
+    if (!quoteClientId) { setClientCredit(0); return; }
+    let cancelled = false;
+    fetch(`/api/admin/client-credits?clientId=${encodeURIComponent(quoteClientId)}`)
+      .then((r) => r.json().catch(() => ({})))
+      .then((j: any) => { if (!cancelled) setClientCredit(Number(j?.credits?.[quoteClientId]) || 0); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [quoteClientId]);
   const [loading, setLoading] = useState(true);
   // Command-centre audit (2026-07-02): a failed quote fetch used to
   // fall through to the "Quote not found" card (getQuote fails soft
@@ -833,6 +846,12 @@ function AdminQuoteDetailInner() {
           />
 
           <PageWorkbench />
+
+          {clientCredit > 0 && (
+            <p className="mb-4 rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3 text-sm text-slate-700">
+              This client has <strong>{fmtMoney(clientCredit)}</strong> credit with you. It isn&apos;t taken off the quote; they can use it when paying the invoice, or the team can apply it from <strong>Record payment</strong>.
+            </p>
+          )}
 
           {loading ? (
             <Card>

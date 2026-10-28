@@ -122,6 +122,22 @@ export function InvoiceSendDialog({
     return () => { cancelled = true; };
   }, [open, invoice?.id]);
 
+  // Store credit the client holds with this company (e.g. an earlier
+  // overpayment): the email tells them, so they use it when paying.
+  const [creditAvailable, setCreditAvailable] = useState(0);
+  useEffect(() => {
+    if (!open || !invoice?.id) { setCreditAvailable(0); return; }
+    let cancelled = false;
+    fetch(`/api/admin/invoices/${invoice.id}/apply-credit`)
+      .then((r) => r.json().catch(() => ({})))
+      .then((j: any) => { if (!cancelled) setCreditAvailable(j?.ok ? Number(j.available) || 0 : 0); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [open, invoice?.id]);
+  const creditLine = creditAvailable > 0
+    ? `You have ${tenantCurrency.format(creditAvailable)} credit with us. Tick "use my credit" on the payment page (or "Use my credit first" if you pay by EFT) and it comes off this amount.`
+    : "";
+
   // Resolve subject + body whenever the dialog opens for a different
   // invoice. Pre-substitution means the operator sees real values, not
   // {{merge_tag}} placeholders.
@@ -167,14 +183,14 @@ export function InvoiceSendDialog({
           const body = /paid to date/i.test(result.bodyHtml) && /remaining balance/i.test(result.bodyHtml)
             ? result.bodyHtml
             : `${result.bodyHtml}\n\nInvoice total: ${invoiceTotalLabel}\nPaid to date: ${paidToDateLabel}\nRemaining balance: ${remainingBalanceLabel}`;
-          setResolved({ subject: result.subject, body });
+          setResolved({ subject: result.subject, body: creditLine ? `${body}\n\n${creditLine}` : body });
         }
       } catch (e) {
         console.warn("[InvoiceSendDialog] template resolve failed:", e);
         if (!cancelled) {
           setResolved({
             subject: `Invoice ${invoiceNumber} ready`,
-            body: `Hi ${firstName},\n\nPayment request for ${eventLabel}.\n\nInvoice total: ${invoiceTotalLabel}\nPaid to date: ${paidToDateLabel}\nRemaining balance: ${remainingBalanceLabel}\n\nThanks.`,
+            body: `Hi ${firstName},\n\nPayment request for ${eventLabel}.\n\nInvoice total: ${invoiceTotalLabel}\nPaid to date: ${paidToDateLabel}\nRemaining balance: ${remainingBalanceLabel}${creditLine ? `\n\n${creditLine}` : ""}\n\nThanks.`,
           });
         }
       } finally {
@@ -185,7 +201,7 @@ export function InvoiceSendDialog({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, invoice?.id, companyId, templateType, payLink, liveAmountPaid, liveBalanceDue, liveTotal, totalAmount, amountLabel, invoiceTotalLabel, paidToDateLabel, remainingBalanceLabel, initialPaymentAmount, eventLabel]);
+  }, [open, invoice?.id, companyId, templateType, payLink, liveAmountPaid, liveBalanceDue, liveTotal, totalAmount, amountLabel, invoiceTotalLabel, paidToDateLabel, remainingBalanceLabel, initialPaymentAmount, eventLabel, creditLine]);
 
   if (!invoice) return null;
 

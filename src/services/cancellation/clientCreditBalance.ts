@@ -82,3 +82,36 @@ export async function getClientCreditBalance(
     lastMovementAt,
   };
 }
+
+/**
+ * Available credit for every client of a company that has any, as
+ * { clientId: amount }. Same arithmetic as getClientCreditBalance, one
+ * read for a whole list (the Contacts page badges).
+ */
+export async function getCompanyClientCredits(
+  supabase: SupabaseClient,
+  companyId: string,
+): Promise<Record<string, number>> {
+  if (!companyId) return {};
+  const { data, error } = await (supabase as any)
+    .from("payments")
+    .select("client_id, payment_type, amount")
+    .eq("company_id", companyId)
+    .not("client_id", "is", null)
+    .in("payment_type", ["credit_issue", "credit_redeem"]);
+  if (error) {
+    console.warn("[getCompanyClientCredits] read failed:", error);
+    return {};
+  }
+  const net: Record<string, number> = {};
+  for (const row of (data || []) as Array<{ client_id: string; payment_type: string; amount: number | null }>) {
+    const amt = Number(row.amount) || 0;
+    net[row.client_id] = (net[row.client_id] || 0) + (row.payment_type === "credit_issue" ? amt : -amt);
+  }
+  const out: Record<string, number> = {};
+  for (const [clientId, value] of Object.entries(net)) {
+    const available = Math.round(value * 100) / 100;
+    if (available > 0.005) out[clientId] = available;
+  }
+  return out;
+}

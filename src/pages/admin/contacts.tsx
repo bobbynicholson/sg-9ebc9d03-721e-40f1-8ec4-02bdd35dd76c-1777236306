@@ -173,6 +173,11 @@ const STATUS_META: Record<ClientStatus, {
 // clients"; that route now redirects to ?filter=clients here.
 type ContactFilter = "all" | "clients" | ClientStatus;
 
+// The last list built for a company/branch, kept in memory only (never on
+// disk). Coming back to Contacts in the same session shows it at once while
+// a fresh copy loads in the background, instead of a spinner every visit.
+const contactsMemory = new Map<string, Contact[]>();
+
 const FILTERS: Array<{ id: ContactFilter; label: string }> = [
   { id: "all",       label: "All" },
   { id: "clients",   label: "Clients" },
@@ -229,6 +234,17 @@ function ClientsCRM() {
   // mistaken for an empty book.
   const [loadError, setLoadError] = useState<string | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  // Store credit per client (overpayments kept as credit etc.), for a badge.
+  const [clientCredits, setClientCredits] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!user?.company_id) return;
+    let cancelled = false;
+    fetch("/api/admin/client-credits")
+      .then((r) => r.json().catch(() => ({})))
+      .then((j: any) => { if (!cancelled && j?.ok) setClientCredits(j.credits || {}); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [user?.company_id]);
   const [hiddenAutomatedTestRows, setHiddenAutomatedTestRows] = useState(0);
   const [search, setSearch] = useState("");
   // Wave 70.75: debounced mirror of search. The filter useMemo
@@ -439,7 +455,14 @@ function ClientsCRM() {
   // Extracted so Add/Edit/Delete can reload after writes.
   const loadContacts = useCallback(async () => {
     if (!companyId) return;
-    setLoading(true);
+    const memoryKey = `${companyId}:${regionFilterId || ""}`;
+    const remembered = contactsMemory.get(memoryKey);
+    if (remembered) {
+      setContacts(remembered);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     setLoadError(null);
     // Page through clients in 1000-row chunks. PostgREST silently caps a
     // single response at 1000 rows, so a customer who imports 5,000
@@ -954,10 +977,13 @@ function ClientsCRM() {
         }
       }
 
-      setContacts(Array.from(map.values()).sort((a, b) => {
+      const built = Array.from(map.values()).sort((a, b) => {
         const order = { urgent: 0, warm: 1, neutral: 2 };
         return order[a.suggestion.tone] - order[b.suggestion.tone];
-      }));
+      });
+      // Only a complete read is remembered, so a partial failure is never shown as the full book later.
+      if (fetchErrors.length === 0) contactsMemory.set(memoryKey, built);
+      setContacts(built);
       setLoading(false);
     // XSC-A: include regionFilterId so flipping the global region
     // picker triggers a reload through the page's useEffect chain.
@@ -1627,6 +1653,9 @@ function ClientsCRM() {
                           <div className="flex items-start justify-between gap-2 mb-1.5">
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-semibold text-slate-900 truncate">{c.name}</p>
+                              {c.clientId && clientCredits[c.clientId] > 0 && (
+                                <p className="text-xs font-semibold text-brand-primary">Credit {fmtMoney.format(clientCredits[c.clientId])}</p>
+                              )}
                               {c.companyName && <p className="break-words text-xs text-slate-600">{c.companyName}</p>}
                               <p className="text-xs text-slate-500 truncate">{c.email || c.phone || c.mobile_number || "-"}</p>
                             </div>
@@ -1750,6 +1779,11 @@ function ClientsCRM() {
                               >
                                 <div className="font-semibold text-slate-900 flex items-center gap-2">
                                   {c.name}
+                                  {c.clientId && clientCredits[c.clientId] > 0 && (
+                                    <Badge className="border-0 bg-brand-primary/10 text-[10px] font-semibold text-brand-primary" title="Store credit this client can use on their next payment">
+                                      Credit {fmtMoney.format(clientCredits[c.clientId])}
+                                    </Badge>
+                                  )}
                                   {c.companyName && <span className="block break-words text-xs font-normal text-slate-600">{c.companyName}</span>}
                                   {/* Phase 16 #4: client_type badge.
                                       Only renders for actual clients
