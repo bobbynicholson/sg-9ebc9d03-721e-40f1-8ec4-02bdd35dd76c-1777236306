@@ -6,6 +6,7 @@ import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { sendStaffAccessChangeEmails } from "@/lib/staffAccessChangeEmail";
 import { UserRole } from "@/types/app";
+import { effectiveProfileRole, canAssignTenantPrivileges } from "@/lib/roleDerivation";
 
 const ADMIN_ROLES = new Set([
   UserRole.SUPER_ADMIN,
@@ -56,12 +57,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const admin = getServiceSupabase();
     const { data: callerProfile, error: callerError } = await admin
       .from("profiles")
-      .select("id, email, full_name, role, active_role, company_id")
+      .select("id, email, full_name, role, active_role, company_id, is_active, deleted_at")
       .eq("id", callerAuth.id)
       .maybeSingle();
-    if (callerError || !callerProfile) return res.status(403).json({ error: "Caller profile not found" });
+    if (callerError || !callerProfile || callerProfile.is_active === false || callerProfile.deleted_at) return res.status(403).json({ error: "Caller profile not found" });
 
-    const callerRole = String(callerProfile.active_role || callerProfile.role || "") as UserRole;
+    const callerRole = effectiveProfileRole(callerProfile) as UserRole;
     if (!ADMIN_ROLES.has(callerRole)) return res.status(403).json({ error: "Admin access required" });
 
     const targetId = getId(req);
@@ -84,6 +85,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .maybeSingle();
     if (targetError) throw targetError;
     if (!target || target.deleted_at) return res.status(404).json({ error: "Staff user not found" });
+    if (!canAssignTenantPrivileges(callerProfile.role, requestedRoles, target.role)) {
+      return res.status(403).json({ error: "This account cannot change owner or administrator access" });
+    }
     if (String(target.role || "") === UserRole.CLIENT) return res.status(400).json({ error: "Client accounts cannot receive staff roles" });
     if (callerRole !== UserRole.SUPER_ADMIN && target.company_id !== callerProfile.company_id) {
       return res.status(403).json({ error: "Cannot change access outside your company" });

@@ -61,11 +61,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const admin = getServiceSupabase();
     const { data: profile, error: profileError } = await admin
       .from("profiles")
-      .select("id, role, active_role, company_id")
+      .select("id, role, active_role, company_id, is_active, deleted_at")
       .eq("id", authUser.id)
       .maybeSingle();
     if (profileError) throw profileError;
     if (!profile) return res.status(404).json({ error: "Your account profile could not be found." });
+    if (profile.is_active === false || profile.deleted_at) return res.status(403).json({ error: "Account access denied" });
 
     const { data: assignments, error: assignmentsError } = await admin
       .from("user_departments")

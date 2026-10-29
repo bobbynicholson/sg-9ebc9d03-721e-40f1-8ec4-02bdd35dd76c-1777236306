@@ -54,6 +54,55 @@ export function equipmentInvoiceLineFromRow(row: Record<string, any>) {
 
 type QueryClient = { from: (table: string) => any };
 
+/**
+ * Bookings usually carry no unit_price; without the quote they fell back
+ * to the catalogue rental price, so the invoice showed a different price
+ * (and line total) from the agreed quote. Take the quoted price for the
+ * same item (by equipment id, then name) when the booking has none.
+ */
+/** The order's quote equipment lines (agreed prices), loaded only when needed. */
+async function quotedEquipmentLines(
+  supabase: QueryClient,
+  orderId: string,
+  quoteId: string | null | undefined,
+  quote: Record<string, any> | null,
+): Promise<Record<string, any>[]> {
+  if (quote) return invoiceRows(quote.equipment_items);
+  let id = quoteId || null;
+  if (!id) {
+    const response = await supabase.from("orders").select("quote_id").eq("id", orderId).maybeSingle();
+    id = response.data?.quote_id || null;
+  }
+  if (!id) return [];
+  const response = await supabase.from("quotes").select("equipment_items").eq("id", id).maybeSingle();
+  return invoiceRows(response.data?.equipment_items);
+}
+
+export function withQuotedEquipmentPrices(bookings: Record<string, any>[], quoteLines: Record<string, any>[]) {
+  if (quoteLines.length === 0) return bookings;
+  const priceOf = (line: Record<string, any>) => {
+    for (const value of [line.unit_price, line.unitPrice, line.rentalPrice, line.rental_price]) {
+      if (value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value))) return Number(value);
+    }
+    return null;
+  };
+  const byId = new Map<string, number>();
+  const byName = new Map<string, number>();
+  for (const line of quoteLines) {
+    const price = priceOf(line);
+    if (price === null) continue;
+    if (line.equipment_id) byId.set(String(line.equipment_id), price);
+    const name = String(line.name || line.equipment_name || line.description || "").trim().toLowerCase();
+    if (name) byName.set(name, price);
+  }
+  return bookings.map((row) => {
+    if (row.unit_price !== null && row.unit_price !== undefined && row.unit_price !== "") return row;
+    const equipment = (Array.isArray(row.equipment) ? row.equipment[0] : row.equipment) || {};
+    const quoted = byId.get(String(row.equipment_id)) ?? byName.get(String(equipment.name || "").trim().toLowerCase());
+    return quoted === undefined ? row : { ...row, unit_price: quoted };
+  });
+}
+
 export async function hydratePublicInvoiceLines(
   supabase: QueryClient,
   invoiceData: Record<string, any>,
@@ -90,10 +139,12 @@ export async function hydratePublicInvoiceLines(
   if (needsEquipment || options.preferCurrentOrderLines) {
     let rows = invoiceRows(quote?.equipment_items);
     if (rows.length === 0 || options.preferCurrentOrderLines) {
+      // Cancelled bookings (e.g. 25cm plates swapped for 20cm) are not on
+      // the order any more and must not appear on the invoice.
       const response = await supabase.from("equipment_bookings")
-        .select("id, quantity, unit_price, equipment:equipment_id(name, rental_price, is_hire_in)")
-        .eq("order_id", orderId).order("created_at", { ascending: true });
-      const currentRows = invoiceRows(response.data);
+        .select("id, equipment_id, quantity, unit_price, equipment:equipment_id(name, rental_price, is_hire_in)")
+        .eq("order_id", orderId).neq("status", "cancelled").order("created_at", { ascending: true });
+      const currentRows = withQuotedEquipmentPrices(invoiceRows(response.data), await quotedEquipmentLines(supabase, orderId, quoteId, quote));
       if (currentRows.length > 0) rows = currentRows;
     }
     if (rows.length > 0) result.equipmentItems = rows.map(equipmentInvoiceLineFromRow);

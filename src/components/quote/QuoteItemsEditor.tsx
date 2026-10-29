@@ -109,14 +109,14 @@ export function QuoteItemsEditor({
     return () => { cancelled = true; };
   }, [token]);
 
-  // Report edits up. Skip the very first render so we don't fire before
-  // the parent has mounted its handler with stable identity.
-  const first = useRef(true);
+  // Report real edits only. StrictMode replays mount effects, so skipping
+  // just the first effect incorrectly marks untouched lines as changed.
+  const reported = useRef({ menu: menuLines, equip: equipLines });
   useEffect(() => {
-    if (first.current) { first.current = false; return; }
+    if (reported.current.menu === menuLines && reported.current.equip === equipLines) return;
+    reported.current = { menu: menuLines, equip: equipLines };
     onChange(menuLines, equipLines);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menuLines, equipLines]);
+  }, [menuLines, equipLines, onChange]);
 
   const subtotal = useMemo(
     () =>

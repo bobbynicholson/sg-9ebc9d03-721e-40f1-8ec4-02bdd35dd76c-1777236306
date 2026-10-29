@@ -1,3 +1,4 @@
+import { companyFileUrl } from "@/lib/companyFiles";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * ReconcileSlipDrawer - the bridge between AI-extracted slip lines
@@ -11,8 +12,7 @@
  * fallback). The operator confirms; we persist atomically per line.
  *
  * The image is left where the upload handler put it (imports/ bucket).
- * We stamp a signed URL as image_url so the operator can view the
- * slip from /admin/tax-purchases without bucket fiddling.
+ * image_url stores an authenticated link; access is checked on download.
  */
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -398,18 +398,9 @@ export function ReconcileSlipDrawer({
       // is known (below).
       let toStoredCost = (val: number | null | undefined): number =>
         !val || val <= 0 ? 0 : stripVat ? toExVat(Number(val), vatRate) : Number(val);
-      // 1) Best-effort signed URL of the slip image so /admin/tax-purchases
-      //    can show it. Imports bucket is private, so we sign for ~10 yrs.
+      // Keep a stable link; every download checks the current session.
       const imagePath: string | null = sourceData?.storage_path || null;
-      let imageUrl: string | null = null;
-      if (imagePath) {
-        try {
-          const { data: signed } = await supabase.storage
-            .from("imports")
-            .createSignedUrl(imagePath, 60 * 60 * 24 * 365 * 10);
-          if (signed?.signedUrl) imageUrl = signed.signedUrl;
-        } catch { /* non-fatal */ }
-      }
+      const imageUrl = imagePath ? companyFileUrl("imports", imagePath) : null;
 
       // Resolve supplier_id from vendor name (case-insensitive exact
       // match within this tenant's suppliers). Anything fuzzier the

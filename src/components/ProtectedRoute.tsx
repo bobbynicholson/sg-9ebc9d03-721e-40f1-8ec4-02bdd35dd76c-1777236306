@@ -10,6 +10,7 @@ import { PwaLoadingScreen } from "@/components/pwa/PwaLoadingScreen";
 import { authService } from "@/services/authService";
 import { profileService } from "@/services/profileService";
 import { normalizeRoleValue, uniqueRoles } from "@/lib/roleDerivation";
+import { isLocalAuthBypassEnabled } from "@/lib/localAuthBypass";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -50,16 +51,9 @@ export function ProtectedRoute({
       // client-side copy used to allow ?dev=true in any environment,
       // which let anyone open a tenant URL with that query param and
       // skip auth entirely on the client. NODE_ENV check closes that.
-      const isProd = process.env.NODE_ENV === "production";
-      const isLocalhostHost =
-        typeof window !== "undefined" &&
-        (window.location.hostname === "localhost" ||
-         window.location.hostname === "127.0.0.1");
-      // The ?dev=true bypass is only honoured on localhost, mirroring
-      // middleware.ts. Previously hasDevQueryFlag alone (on any non-prod
-      // host, e.g. a staging deploy with NODE_ENV!=production) skipped
-      // the client guard; now the dev bypass requires localhost too.
-      const isDevEnvironment = !isProd && isLocalhostHost;
+      // Keep the opt-in fixture shortcut consistent with the middleware.
+      const isDevEnvironment = typeof window !== "undefined"
+        && isLocalAuthBypassEnabled(window.location.hostname);
 
       if (isDevEnvironment) {
         console.log("🔧 DEV MODE: Bypassing ProtectedRoute auth check");

@@ -37,6 +37,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
+import { effectiveProfileRole } from "@/lib/roleDerivation";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
@@ -61,13 +62,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Resolve caller's role + company.
     const { data: profile, error: profileErr } = await (sb as any)
       .from("profiles")
-      .select("role, active_role, company_id")
+      .select("role, active_role, company_id, is_active, deleted_at")
       .eq("id", user.id)
       .maybeSingle();
-    if (profileErr || !profile) {
+    if (profileErr || !profile || profile.is_active === false || profile.deleted_at) {
       return res.status(403).json({ error: "Profile not found" });
     }
-    const role = String(profile.active_role || profile.role || "").trim();
+    const role = effectiveProfileRole(profile);
     if (!ALLOWED_ROLES.has(role)) {
       return res.status(403).json({ error: "Forbidden" });
     }

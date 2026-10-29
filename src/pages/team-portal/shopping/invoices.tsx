@@ -1,3 +1,4 @@
+import { protectedCompanyFileUrl } from "@/lib/companyFiles";
 import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Badge } from "@/components/ui/badge";
@@ -346,7 +347,7 @@ function ShoppingInvoicesPageInner() {
                   </div>
                   <div className="shrink-0">
                     {l.receipt_url ? (
-                      <a href={l.receipt_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-brand-primary transition-colors duration-150 hover:text-brand-primary/80 dark:text-brand-primary dark:hover:text-brand-primary/80">
+                      <a href={protectedCompanyFileUrl(l.receipt_url)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-brand-primary transition-colors duration-150 hover:text-brand-primary/80 dark:text-brand-primary dark:hover:text-brand-primary/80">
                         <ExternalLink className="h-3.5 w-3.5" />View receipt
                       </a>
                     ) : (

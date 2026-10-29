@@ -9,17 +9,15 @@
  *     failure is logged in email_automation_log but the user still gets
  *     their success page.
  *
- * Auth: lightweight. The caller passes the freshly-created userId +
- * companyId; we confirm that pair maps to a real profile, and then
- * send ONLY to that profile's own email (the body's `email` is
- * display-only and ignored as the recipient). This means even a forged
- * POST with a valid id pair can do nothing worse than re-send a welcome
- * to the legitimate account owner - it can't be used as an open relay
- * to mail arbitrary addresses.
+ * Auth: the account's verified session or its one-time signup capability,
+ * checked against the company's owner. The recipient always comes from
+ * the profile. Knowing a user/company ID pair does not authorise a send.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import * as React from "react";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { createPagesServerClient } from "@/lib/supabase/server";
+import { companyProvisionProofMatches } from "@/lib/companyProvisionProof";
 import { sendBrandedEmail } from "@/server/emails/sendBrandedEmail";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
 import { emailService } from "@/services/emailService";
@@ -34,6 +32,7 @@ interface Body {
   companyName?: string;
   email?: string;
   slug?: string;
+  provisionToken?: string;
 }
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -57,6 +56,23 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   } catch (e) {
     console.error("Service supabase unavailable:", e);
     return res.status(500).json({ error: "Server email config missing" });
+  }
+
+  const ssr = createPagesServerClient({ req, res });
+  let caller = (await ssr.auth.getUser()).data.user;
+  const bearer = String(req.headers.authorization || "").match(/^Bearer (.+)$/i)?.[1];
+  if (!caller && bearer) caller = (await sb.auth.getUser(bearer)).data.user;
+  if (caller && caller.id !== userId) return res.status(403).json({ error: "Account access denied" });
+  const { data: account } = await sb.auth.admin.getUserById(userId);
+  const signupProof = account?.user && companyProvisionProofMatches(account.user, body.provisionToken, Date.now(), "owner_welcome_token_hash");
+  if (caller?.id !== userId && !signupProof) return res.status(401).json({ error: "Sign in to send your welcome email" });
+  const { data: company } = await sb.from("companies").select("id, owner_id")
+    .eq("id", companyId).maybeSingle();
+  if (!company || company.owner_id !== userId) return res.status(403).json({ error: "Company access denied" });
+  async function consumeWelcomeProof() {
+    if (account?.user) await sb.auth.admin.updateUserById(userId!, {
+      user_metadata: { ...account.user.user_metadata, owner_welcome_token_hash: null },
+    });
   }
 
   const { data: profile, error: profileErr } = await sb
@@ -122,6 +138,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         legalAudience: "platform",
         _client: sb,
       } as any);
+      if (ok) await consumeWelcomeProof();
       return res.status(ok ? 200 : 502).json({ ok, via: "template" });
     }
   } catch (e) {
@@ -143,6 +160,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     legalAudience: "platform",
   });
 
+  if (result.ok) await consumeWelcomeProof();
   return res.status(result.ok ? 200 : 502).json(result);
 }
 

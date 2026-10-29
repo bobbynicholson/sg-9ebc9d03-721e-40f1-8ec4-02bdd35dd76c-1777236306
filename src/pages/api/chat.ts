@@ -1,3 +1,4 @@
+import { isLocalAuthBypassEnabled } from "@/lib/localAuthBypass";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
@@ -65,9 +66,7 @@ function isLocalDevBypass(req: NextApiRequest): boolean {
   const host = String(req.headers.host || "").split(":")[0].toLowerCase();
   const explicitDev = req.query.dev === "true"
     || req.query.dev?.[0] === "true";
-  return process.env.NODE_ENV !== "production"
-    && (host === "localhost" || host === "127.0.0.1")
-    && explicitDev;
+  return isLocalAuthBypassEnabled(host) && explicitDev;
 }
 
 function getLocalDevIdentity(): { user: { id: string }; identity: ChatIdentity } {

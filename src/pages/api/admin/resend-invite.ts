@@ -13,6 +13,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
+import { effectiveProfileRole } from "@/lib/roleDerivation";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { sendStaffInviteEmail } from "@/lib/staffInviteEmail";
@@ -33,12 +34,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const { data: callerProfile } = await ssr
       .from("profiles")
-      .select("role, active_role, company_id")
+      .select("role, active_role, company_id, is_active, deleted_at")
       .eq("id", caller.id)
       .single();
     if (!callerProfile) return res.status(403).json({ error: "Caller profile not found." });
 
-    const callerRole = (callerProfile as any).active_role || (callerProfile as any).role;
+    if (!callerProfile || callerProfile.is_active === false || callerProfile.deleted_at) return res.status(403).json({ error: "Account access denied" });
+    const callerRole = effectiveProfileRole(callerProfile);
     if (!CALLER_ROLES_ALLOWED.has(callerRole)) {
       return res.status(403).json({ error: `Forbidden: '${callerRole}' cannot resend invites.` });
     }

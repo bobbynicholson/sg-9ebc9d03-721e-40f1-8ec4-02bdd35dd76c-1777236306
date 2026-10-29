@@ -1,3 +1,4 @@
+import { isLocalAuthBypassEnabled } from "@/lib/localAuthBypass";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
@@ -160,16 +161,17 @@ export default function LoginPage() {
   }, [message, toast]);
 
   // Check if dev mode should be available
-  const showDevMode =
-    process.env.NODE_ENV !== "production" ||
-    process.env.NEXT_PUBLIC_DEV_MODE === "true";
+  const showDevMode = typeof window !== "undefined"
+    && isLocalAuthBypassEnabled(window.location.hostname);
 
   const handleDevLogin = async (userEmail: string, userRole: string) => {
+    if (!showDevMode) return;
     setLoading(true);
     setError("");
 
     try {
-      const devPassword = process.env.NEXT_PUBLIC_DEV_USER_PASSWORD || "CateringMS123!";
+      const devPassword = process.env.NEXT_PUBLIC_DEV_USER_PASSWORD;
+      if (!devPassword) throw new Error("Development login password is not configured.");
       const supabase = createClient();
       const { data: { user }, error: signInError } = await supabase.auth.signInWithPassword({
         email: userEmail,
@@ -292,7 +294,7 @@ export default function LoginPage() {
                     🔧 Dev mode active
                   </p>
                   <p className="text-xs text-amber-700 mt-1">
-                    Click a role to sign in instantly. All passwords: CateringMS123!
+                    Use a role shortcut with the configured development login credentials.
                   </p>
                 </div>
 

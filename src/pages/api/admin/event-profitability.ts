@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { isLocalAuthBypassEnabled } from "@/lib/localAuthBypass";
 
 function n(value: unknown): number {
   const result = Number(value);
@@ -31,8 +32,7 @@ export default async function handler(
     .split(":")[0]
     .toLowerCase();
   if (
-    process.env.NODE_ENV === "production" ||
-    !["localhost", "127.0.0.1"].includes(host)
+    !isLocalAuthBypassEnabled(host)
   ) {
     return res.status(404).json({ error: "Not found" });
   }

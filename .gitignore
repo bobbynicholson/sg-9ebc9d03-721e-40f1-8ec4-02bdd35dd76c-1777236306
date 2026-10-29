@@ -90,3 +90,8 @@ tmp/payment-ui-results/
 tmp/payment-targeted-tests.log
 /.next-pwa-*/
 tmp/pwa-install-audit/
+
+# Local build variants and verification artifacts (may contain company data)
+/.next-*/
+/.impeccable/review/
+/tmp/

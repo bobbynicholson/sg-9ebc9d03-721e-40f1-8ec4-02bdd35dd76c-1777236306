@@ -1,3 +1,4 @@
+import { protectedCompanyFileUrl } from "@/lib/companyFiles";
 /**
  * ReceiptsTab - the slip log and tax-deductible editor that used to
  * live on /admin/tax-purchases. Mounted as the "Receipts" tab on
@@ -762,7 +763,7 @@ function ReceiptRow({
             {receipt.image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={receipt.image_url}
+                src={protectedCompanyFileUrl(receipt.image_url)}
                 alt="Slip"
                 className="w-10 h-10 object-cover rounded border border-slate-200 shrink-0"
               />
@@ -918,7 +919,7 @@ function ReceiptRow({
 
             <div className="flex items-center justify-between pt-2 border-t border-slate-100">
               {receipt.image_url ? (
-                <a href={receipt.image_url} target="_blank" rel="noopener" className="text-xs text-blue-600 hover:underline">
+                <a href={protectedCompanyFileUrl(receipt.image_url)} target="_blank" rel="noopener" className="text-xs text-blue-600 hover:underline">
                   View slip image
                 </a>
               ) : <span />}

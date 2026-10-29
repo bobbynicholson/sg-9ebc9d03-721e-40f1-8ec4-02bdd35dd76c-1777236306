@@ -1,3 +1,4 @@
+import { protectedCompanyFileUrl } from "@/lib/companyFiles";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * ODOC Wave C: driver section - everything the driver needs in one
@@ -620,12 +621,12 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
               <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
               <span className="font-medium">POD captured</span>
               {order.pod_photo_url && (
-                <a href={order.pod_photo_url} target="_blank" rel="noopener" className="ml-auto text-xs hover:underline inline-flex items-center gap-1">
+                <a href={protectedCompanyFileUrl(order.pod_photo_url)} target="_blank" rel="noopener" className="ml-auto text-xs hover:underline inline-flex items-center gap-1">
                   <Camera className="w-3 h-3" />View photo
                 </a>
               )}
               {order.pod_signature_url && (
-                <a href={order.pod_signature_url} target="_blank" rel="noopener" className="text-xs hover:underline inline-flex items-center gap-1">
+                <a href={protectedCompanyFileUrl(order.pod_signature_url)} target="_blank" rel="noopener" className="text-xs hover:underline inline-flex items-center gap-1">
                   <MessageSquare className="w-3 h-3" />Signature
                 </a>
               )}

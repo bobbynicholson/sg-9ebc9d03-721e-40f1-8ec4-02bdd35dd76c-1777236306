@@ -1,3 +1,4 @@
+import { protectedCompanyFileUrl } from "@/lib/companyFiles";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * ODOC: client-facing delivery + driver card.
@@ -314,7 +315,7 @@ export function ClientDeliverySection({ order, defaultOpen, forceOpen, highlight
           <div className="flex items-center gap-2 text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded p-2.5">
             <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
             <span className="font-medium">Proof of delivery captured</span>
-            <a href={order.pod_photo_url} target="_blank" rel="noopener" className="ml-auto text-xs hover:underline inline-flex items-center gap-1">
+            <a href={protectedCompanyFileUrl(order.pod_photo_url)} target="_blank" rel="noopener" className="ml-auto text-xs hover:underline inline-flex items-center gap-1">
               <Camera className="w-3 h-3" />View photo
             </a>
           </div>

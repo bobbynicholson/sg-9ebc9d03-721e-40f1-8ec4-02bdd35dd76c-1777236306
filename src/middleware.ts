@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { getLandingPageForRoleString } from "@/lib/authGuards";
 import { readCachedProfile, writeCachedProfile } from "@/lib/middleware/profileCache";
 import { deriveUserRoles, normalizeRoleValue } from "@/lib/roleDerivation";
+import { isLocalAuthBypassEnabled } from "@/lib/localAuthBypass";
 
 // Routes that don't require authentication
 const PUBLIC_ROUTES = [
@@ -205,19 +206,9 @@ export async function middleware(request: NextRequest) {
   }
 
   // 🔧 DEV MODE: Skip all auth checks on localhost.
-  // This is deliberately limited to non-production builds and loopback
-  // hosts. The client AuthContext and ProtectedRoute already use the same
-  // local-only dev identity, so requiring ?dev here made normal local
-  // navigation bounce back to login as soon as a link dropped the query.
-  if (process.env.NODE_ENV !== "production") {
-    const isDevEnvironment =
-      (request.nextUrl.hostname === "localhost" ||
-       request.nextUrl.hostname === "127.0.0.1");
-
-    if (isDevEnvironment) {
-      return NextResponse.next();
-    }
-  }
+  // Only explicitly opted-in fixture development may skip authentication.
+  // Real local sessions use the same tenant checks as deployed sessions.
+  if (isLocalAuthBypassEnabled(request.nextUrl.hostname)) return NextResponse.next();
 
   let response = NextResponse.next({
     request: {

@@ -32,7 +32,8 @@
 // version bump drops every v1 cache, and _app.tsx now listens for
 // controllerchange + re-checks for updates on tab focus and reloads
 // once, so future deploys actually land on installed PWAs.
-const CACHE_VERSION = "v4";
+// v5: never retain authenticated HTML between accounts on a shared device.
+const CACHE_VERSION = "v5";
 const SHELL_CACHE = `cms-app-shell-${CACHE_VERSION}`;
 const SHELL_URLS = [
   "/auth/login",
@@ -51,7 +52,8 @@ self.addEventListener("install", (event) => {
       // a missing route doesn't poison the whole precache.
       return Promise.all(
         SHELL_URLS.map((url) =>
-          cache.add(url).catch((e) => console.warn("[sw] precache miss:", url, e)),
+          cache.add(new Request(new URL(url, self.location.origin), { credentials: "omit" }))
+            .catch((e) => console.warn("[sw] precache miss:", url, e)),
         ),
       );
     }),
@@ -106,16 +108,11 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(req)
       .then((resp) => {
-        // Cache successful HTML responses so an offline reload of
-        // the driver dashboard still paints - and the hashed
-        // static assets (JS/CSS) that HTML needs, otherwise the
-        // offline shell painted an HTML page whose chunks 404'd.
-        // Network-first keeps both fresh; the cache is only ever
-        // the offline fallback.
-        const isHtml =
-          req.destination === "document" || req.headers.get("accept")?.includes("text/html");
+        // Account-specific HTML must never be served to the next person
+        // signing in on this device. Only immutable application assets
+        // are cached; offline navigation falls back to the sign-in shell.
         const isStaticAsset = url.pathname.startsWith("/_next/static/");
-        if (resp.ok && (isHtml || isStaticAsset)) {
+        if (resp.ok && isStaticAsset) {
           const copy = resp.clone();
           caches.open(SHELL_CACHE).then((cache) => cache.put(req, copy));
         }

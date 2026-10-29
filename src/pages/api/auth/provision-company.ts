@@ -15,18 +15,16 @@
  * no new tenant could register. Doing it here with the service role
  * bypasses RLS and works whether or not email confirmation is on.
  *
- * Security (mirrors /api/emails/owner-welcome's trust model): the caller
- * passes the freshly-created userId + email. We confirm that userId maps
- * to a real auth user whose email matches the body before provisioning,
- * and we hard-bind owner_id to that userId. A forged POST can therefore
- * do nothing worse than attach a company to an account whose UUID *and*
- * email the caller already knows - it can't seize an arbitrary user or
- * escalate anyone's role. Idempotent: if the user already owns a
- * company we return it instead of creating a duplicate.
+ * Authorisation requires the account's verified session, or a short-lived
+ * secret established during that new account's signup. The signup secret
+ * is accepted only before membership exists; existing company records are
+ * returned only to their authenticated owner.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { createPagesServerClient } from "@/lib/supabase/server";
+import { companyProvisionProofMatches } from "@/lib/companyProvisionProof";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { PLATFORM_TRIAL_DAYS } from "@/lib/platformBilling";
 
@@ -39,6 +37,7 @@ interface Body {
   phone?: string;
   ownerName?: string;
   timezone?: string;
+  provisionToken?: string;
 }
 
 // Mirror of companyService helpers (kept local so the route has no
@@ -96,6 +95,23 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(403).json({ error: "User / email mismatch" });
   }
 
+  // IDs and email addresses identify an account; they do not authorise it.
+  // A fresh signup without a session may present its secret capability,
+  // bound to auth metadata and accepted only before company membership.
+  const ssr = createPagesServerClient({ req, res });
+  let caller = (await ssr.auth.getUser()).data.user;
+  const bearer = String(req.headers.authorization || "").match(/^Bearer (.+)$/i)?.[1];
+  if (!caller && bearer) caller = (await admin.auth.getUser(bearer)).data.user;
+  if (caller && caller.id !== userId) return res.status(403).json({ error: "Account access denied" });
+  const { data: profile, error: profileError } = await admin.from("profiles")
+    .select("id, company_id, is_active, deleted_at").eq("id", userId).maybeSingle();
+  if (profileError || !profile || profile.is_active === false || profile.deleted_at) {
+    return res.status(403).json({ error: "Account access denied" });
+  }
+  const verifiedOwner = caller?.id === userId;
+  const signupProof = !profile.company_id && companyProvisionProofMatches(authUserRes.user, body.provisionToken);
+  if (!verifiedOwner && !signupProof) return res.status(401).json({ error: "Sign in to finish company setup" });
+
   // 2. Idempotency: if this owner already has a company, return it
   // (handles retries after a partial failure / double submit).
   const { data: existingCompany } = await admin
@@ -105,8 +121,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     .is("deleted_at", null)
     .maybeSingle();
   if (existingCompany) {
+    if (!verifiedOwner) return res.status(401).json({ error: "Sign in to view your company" });
     return res.status(200).json({ ok: true, company: existingCompany, reused: true });
   }
+  if (profile.company_id) return res.status(409).json({ error: "This account already belongs to a company" });
 
   // 3. Build the slug. Permanent once set (trg_companies_slug_immutable
   // blocks later changes), so derive it the same way the old client
@@ -170,6 +188,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     .maybeSingle();
   if (linkErr || !linkedProfile) {
     console.warn("[auth/provision-company] profile link incomplete:", linkErr);
+  }
+
+  if (linkedProfile) {
+    // Membership prevents replay even if clearing the metadata fails.
+    await admin.auth.admin.updateUserById(userId, {
+      user_metadata: { ...authUserRes.user.user_metadata, company_provision_token_hash: null },
+    });
   }
 
   // 6. Seed the default "Main kitchen" region (non-blocking).

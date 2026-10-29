@@ -1,3 +1,4 @@
+import { protectedCompanyFileUrl } from "@/lib/companyFiles";
 import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Button } from "@/components/ui/button";
@@ -531,7 +532,7 @@ function CleaningDamagePageInner() {
                         Reported by {reporterName}{reporterRole ? ` (${reporterRole})` : ""}
                       </span>
                       {d.photo_url && (
-                        <a href={d.photo_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-brand-primary hover:underline">
+                        <a href={protectedCompanyFileUrl(d.photo_url)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-brand-primary hover:underline">
                           <ImageIcon className="w-3 h-3" /> View photo
                         </a>
                       )}

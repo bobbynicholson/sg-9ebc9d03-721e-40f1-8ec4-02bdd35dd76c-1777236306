@@ -855,10 +855,6 @@ export default function InvoicePaymentPage() {
     invoice.payment_options?.online_available === true,
     invoice.payment_options?.eft_available === true && bankDetails.available,
   );
-  // Online checkout can remain the primary action while the invoice still
-  // displays a complete EFT beneficiary alternative. Keep this distinct
-  // from `hasBankDetails`, which governs the proof-upload flow.
-  const hasBankDetailsToDisplay = bankDetails.available;
   const paymentSummary = getOrderPaymentSummary({
     totalAmount: invoice.total_amount,
     amountPaid: invoice.amount_paid,
@@ -1580,50 +1576,6 @@ export default function InvoicePaymentPage() {
                     </Button>
                   )}
 
-                  {/* Bank transfer alternative */}
-                  {hasBankDetailsToDisplay && !paymentNotConfigured && (
-                    <div className="mt-2 p-4 rounded-lg border border-stone-200 bg-stone-50">
-                      <p className="text-sm font-semibold text-stone-900 mb-2">Or pay by EFT</p>
-                      {eftCreditBox}
-                      <div className="space-y-1 text-sm">
-                        <div className="grid grid-cols-2 gap-2">
-                          <span className="text-stone-500">Bank:</span>
-                          <span className="font-medium text-stone-900">{bankDetails.name}</span>
-                        </div>
-                        {bankDetails.holder && <div className="grid grid-cols-2 gap-2">
-                          <span className="text-stone-500">Account name:</span>
-                          <span className="font-medium text-stone-900">{bankDetails.holder}</span>
-                        </div>}
-                        <div className="grid grid-cols-2 gap-2">
-                          <span className="text-stone-500">Account #:</span>
-                          <span className="font-medium text-stone-900 tabular-nums">{bankDetails.account}</span>
-                        </div>
-                        {bankDetails.branch && <div className="grid grid-cols-2 gap-2">
-                          <span className="text-stone-500">Branch code:</span>
-                          <span className="font-medium text-stone-900 tabular-nums">{bankDetails.branch}</span>
-                        </div>}
-                        {bankDetails.type && <div className="grid grid-cols-2 gap-2">
-                          <span className="text-stone-500">Account type:</span>
-                          <span className="font-medium text-stone-900 capitalize">{bankDetails.type}</span>
-                        </div>}
-                      </div>
-                      <p className="text-xs text-stone-500 mt-3">
-                        Use invoice number <strong className="text-stone-700">{invoice.invoice_number}</strong> as reference.
-                      </p>
-                      {bankDetails.instructions && <p className="text-xs text-stone-600 mt-2">{bankDetails.instructions}</p>}
-                      <div className="mt-4 rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3">
-                        <p className="text-sm text-stone-700">After transferring, email your proof of payment so the team can match it to this invoice.</p>
-                        {company.email ? (
-                          <a
-                            className="mt-2 inline-flex text-sm font-semibold text-brand-primary underline underline-offset-4"
-                            href={`mailto:${company.email}?subject=${encodeURIComponent(`EFT proof - ${invoice.invoice_number}`)}`}
-                          >
-                            Email proof to {companyName}
-                          </a>
-                        ) : null}
-                      </div>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             )}

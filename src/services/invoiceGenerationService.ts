@@ -445,6 +445,8 @@ export async function generateInvoiceData(
         .from("equipment_bookings")
         .select("id, quantity, unit_price, equipment:equipment_id(name, rental_price, is_hire_in)")
         .eq("order_id", orderId)
+        // A cancelled booking (item swapped or removed) is not on the order.
+        .neq("status", "cancelled")
         .order("created_at", { ascending: true });
       if (equipmentRowsError) {
         console.warn("[invoiceGenerationService] equipment_bookings lookup failed:", equipmentRowsError);

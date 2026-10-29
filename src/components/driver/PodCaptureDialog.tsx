@@ -1,3 +1,4 @@
+import { companyFileUrl } from "@/lib/companyFiles";
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 import { useEffect, useRef, useState } from "react";
@@ -254,7 +255,7 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
         .from("pod")
         .upload(photoPath, photoFile, { upsert: true, contentType: photoFile.type });
       if (photoErr) throw photoErr;
-      const { data: photoUrl } = supabase.storage.from("pod").getPublicUrl(photoPath);
+      const photoUrl = companyFileUrl("pod", photoPath);
 
       // Upload signature (optional but expected)
       let sigPublicUrl: string | null = null;
@@ -265,8 +266,7 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
           .from("pod")
           .upload(sigPath, sigBlob, { upsert: true, contentType: "image/png" });
         if (sigErr) throw sigErr;
-        const { data: sigUrl } = supabase.storage.from("pod").getPublicUrl(sigPath);
-        sigPublicUrl = sigUrl.publicUrl;
+        sigPublicUrl = companyFileUrl("pod", sigPath);
       }
 
       if (onCapture) {
@@ -275,7 +275,7 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
         // confirmation (stamps arrived_at_venue_at), records the POD and
         // flips to delivered in one consistent cascade.
         await onCapture({
-          photoUrl: photoUrl.publicUrl,
+          photoUrl: photoUrl,
           signatureUrl: sigPublicUrl,
           recipientName: recipientName.trim(),
         });
@@ -292,7 +292,7 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
         const { error: podErr } = await supabase
           .from("orders")
           .update({
-            pod_photo_url: photoUrl.publicUrl,
+            pod_photo_url: photoUrl,
             pod_signature_url: sigPublicUrl,
             pod_recipient_name: recipientName.trim(),
             pod_captured_at: new Date().toISOString(),
@@ -390,7 +390,7 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
                   capture="environment"
                   className="hidden"
                   onClick={onPhotoInputClick}
-                  onCancel={onPhotoInputCancel}
+                  ref={(input) => { if (input) input.oncancel = onPhotoInputCancel; }}
                   onChange={onPhotoPicked}
                 />
                 <div className="text-center">

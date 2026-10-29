@@ -1,3 +1,4 @@
+import { companyFileUrl } from "@/lib/companyFiles";
 /**
  * proactiveRestockService - shopper-initiated stock top-ups.
  *
@@ -202,8 +203,7 @@ export const proactiveRestockService = {
         console.warn("[proactiveRestockService.uploadReceipt] upload failed:", error);
         return null;
       }
-      const { data } = supabase.storage.from("imports").getPublicUrl(path);
-      return { path, url: data?.publicUrl ?? null };
+      return { path, url: companyFileUrl("imports", path) };
     } catch (e) {
       console.warn("[proactiveRestockService.uploadReceipt] crashed:", e);
       return null;

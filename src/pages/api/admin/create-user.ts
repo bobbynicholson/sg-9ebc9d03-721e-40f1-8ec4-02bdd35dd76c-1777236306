@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createPagesServerClient } from "@/lib/supabase/server";
+import { effectiveProfileRole, canAssignTenantPrivileges } from "@/lib/roleDerivation";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { withApiLogging } from "@/lib/withApiLogging";
@@ -141,16 +142,16 @@ async function handler(
 
     const { data: callerProfile, error: callerProfileErr } = await ssrClient
       .from("profiles")
-      .select("role, active_role, company_id")
+      .select("role, active_role, company_id, is_active, deleted_at")
       .eq("id", callerAuth.id)
       .single();
-    if (callerProfileErr || !callerProfile) {
+    if (callerProfileErr || !callerProfile || callerProfile.is_active === false || callerProfile.deleted_at) {
       return res.status(403).json({
         error: "Caller profile not found, contact support if this persists.",
       });
     }
 
-    const callerRole = (callerProfile as any).active_role || (callerProfile as any).role;
+    const callerRole = effectiveProfileRole(callerProfile);
     if (!CALLER_ROLES_ALLOWED.has(callerRole)) {
       return res.status(403).json({
         error: `Forbidden: your role '${callerRole}' is not allowed to create users.`,
@@ -239,6 +240,9 @@ async function handler(
       `https://${req.headers.host || "cateringms.com"}`;
 
     if (callerRole !== "super_admin") {
+      if (!canAssignTenantPrivileges(callerProfile.role, [role])) {
+        return res.status(403).json({ error: "This account cannot grant owner or administrator access" });
+      }
       if ((callerProfile as any).company_id !== company_id) {
         return res.status(403).json({ error: "Cannot create users for another company" });
       }

@@ -51,6 +51,7 @@ describe("syncInvoiceValuesFromOrder", () => {
         const builder: any = {
           select: (columns: string) => { selected = columns.split(",").map((column) => column.trim()); return builder; },
           eq: () => builder,
+          neq: () => builder,
           is: () => builder,
           order: async () => ({ data: [] }),
           maybeSingle: async () => ({ data: table === "orders" ? order : invoice, error: null }),
@@ -101,6 +102,7 @@ describe("syncInvoiceValuesFromOrder", () => {
         const builder: any = {
           select: (columns: string) => { selected = columns.split(",").map((column) => column.trim()); return builder; },
           eq: () => builder,
+          neq: () => builder,
           is: () => builder,
           order: async () => ({ data: [] }),
           maybeSingle: async () => ({ data: table === "orders" ? order : invoice, error: null }),
@@ -152,6 +154,7 @@ describe("syncInvoiceValuesFromOrder", () => {
         const builder: any = {
           select: (columns: string) => { selected = columns.split(",").map((column) => column.trim()); return builder; },
           eq: () => builder,
+          neq: () => builder,
           is: () => builder,
           order: async () => ({ data: table === "order_items"
             ? [{ item_name: "Cutlery & Crockery", description: "Plate, knife & fork", quantity: 60, unit_price: 10, line_total: 600 }]

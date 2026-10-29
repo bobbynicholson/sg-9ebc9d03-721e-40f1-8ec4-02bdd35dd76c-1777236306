@@ -5,6 +5,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { UserRole } from "@/types/app";
+import { effectiveProfileRole, canAssignTenantPrivileges } from "@/lib/roleDerivation";
 
 const ADMIN_ROLES = new Set([
   UserRole.SUPER_ADMIN,
@@ -56,12 +57,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const admin = getServiceSupabase();
     const { data: callerProfile, error: callerError } = await admin
       .from("profiles")
-      .select("id, email, full_name, role, active_role, company_id")
+      .select("id, email, full_name, role, active_role, company_id, is_active, deleted_at")
       .eq("id", callerAuth.id)
       .maybeSingle();
-    if (callerError || !callerProfile) return res.status(403).json({ error: "Caller profile not found" });
+    if (callerError || !callerProfile || callerProfile.is_active === false || callerProfile.deleted_at) return res.status(403).json({ error: "Caller profile not found" });
 
-    const callerRole = String(callerProfile.active_role || callerProfile.role || "") as UserRole;
+    const callerRole = effectiveProfileRole(callerProfile) as UserRole;
     if (!ADMIN_ROLES.has(callerRole)) return res.status(403).json({ error: "Admin access required" });
 
     const userIds = uniqueStrings(req.body?.user_ids);
@@ -80,6 +81,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (targetError) throw targetError;
 
     const targetRows = targets || [];
+    if (!canAssignTenantPrivileges(callerProfile.role, [role])
+      || targetRows.some(target => !canAssignTenantPrivileges(callerProfile.role, [role], target.role))) {
+      return res.status(403).json({ error: "This account cannot change owner or administrator access" });
+    }
     if (targetRows.length !== userIds.length) {
       return res.status(404).json({ error: "One or more selected staff users could not be found" });
     }

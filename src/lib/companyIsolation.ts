@@ -16,31 +16,34 @@ export interface CompanyContext {
  * Get company context from current user session
  */
 export async function getCompanyContext(): Promise<CompanyContext | null> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
   
-  if (!session) return null;
+  if (authError || !user) return null;
 
   const { data: profile } = await supabase
     .from("profiles")
     .select(`
       id,
+      role,
       active_role,
       company_id,
+      is_active,
+      deleted_at,
       companies!company_id!inner(
         id,
         slug
       )
     `)
-    .eq("id", session.user.id)
+    .eq("id", user.id)
     .maybeSingle();
 
-  if (!profile || !profile.companies) return null;
+  if (!profile || !profile.companies || profile.is_active === false || profile.deleted_at) return null;
 
   return {
     companyId: profile.company_id,
     companySlug: (profile.companies as any).slug,
     userId: profile.id,
-    userRole: profile.active_role,
+    userRole: profile.role === "super_admin" ? "super_admin" : profile.role,
   };
 }
 
@@ -95,6 +98,7 @@ export function withCompanyFilter<T>(
   companyId: string,
   columnName: string = "company_id"
 ) {
+  if (!companyId?.trim()) throw new Error("Company context is required");
   return query.eq(columnName, companyId);
 }
 
@@ -105,16 +109,19 @@ export async function validateCompanyMutation(
   userId: string,
   companyId: string
 ): Promise<boolean> {
+  if (!companyId) return false;
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user || user.id !== userId) return false;
   const { data: profile } = await supabase
     .from("profiles")
-    .select("company_id, active_role")
+    .select("company_id, role, is_active, deleted_at")
     .eq("id", userId)
     .maybeSingle();
 
-  if (!profile) return false;
+  if (!profile || profile.is_active === false || profile.deleted_at) return false;
 
   // Super admin can mutate any company's data
-  if (profile.active_role === "super_admin") return true;
+  if (profile.role === "super_admin") return true;
 
   // Regular users can only mutate their own company's data
   return profile.company_id === companyId;

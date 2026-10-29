@@ -1,3 +1,4 @@
+import { companyFileUrl } from "@/lib/companyFiles";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * DamageFlagForm - CLN2-I (cleaner-side slice).
@@ -217,10 +218,7 @@ export function DamageFlagForm({ onFlagged }: Props) {
             variant: "destructive",
           });
         } else {
-          const { data: pub } = supabase.storage
-            .from("equipment-damage-photos")
-            .getPublicUrl(photoPath);
-          if (pub?.publicUrl) resolvedPhotoUrl = pub.publicUrl;
+          resolvedPhotoUrl = companyFileUrl("equipment-damage-photos", photoPath);
         }
       }
 

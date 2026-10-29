@@ -526,7 +526,9 @@ export default function PublicQuotePage() {
     type: company?.bank_account_type || "",
     instructions: company?.eft_instructions || "",
   };
-  const quoteHasEftDetails = Boolean(quoteEftDetails.bank && quoteEftDetails.account);
+  const quoteHasEftDetails = !quotePaymentOptions?.online_available
+    && quotePaymentOptions?.eft_available !== false
+    && Boolean(quoteEftDetails.bank && quoteEftDetails.account);
   const quoteOnlineUnavailableMessage = quotePaymentOptions?.unavailable_reason === "currency_not_supported"
     ? `${quotePaymentProviderName || "The online provider"} cannot collect ${quoteCurrency} for this quote. ${quoteHasEftDetails ? "Use EFT below, or" : "Please"} contact ${companyName} to discuss another payment route.`
     : quotePaymentOptions?.unavailable_reason === "configuration_incomplete"
@@ -1131,7 +1133,7 @@ export default function PublicQuotePage() {
               </div>
               {quoteHasEftDetails && (
                 <div className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm">
-                  <p className="font-semibold text-stone-900">{quotePaymentOptions?.online_available ? "Or pay by EFT" : "Pay by EFT"}</p>
+                  <p className="font-semibold text-stone-900">Pay by EFT</p>
                   <p className="mt-1 text-xs text-stone-600">Use the invoice number as the reference after the invoice arrives.</p>
                   <div className="mt-2 grid grid-cols-[120px_1fr] gap-y-1">
                     <span className="text-stone-500">Bank</span><span className="font-medium text-stone-900">{quoteEftDetails.bank}</span>

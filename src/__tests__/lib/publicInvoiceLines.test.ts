@@ -6,6 +6,7 @@ function source(rows: Record<string, unknown>) {
       eq: () => ({
         maybeSingle: async () => ({ data: rows[table] || null }),
         order: async () => ({ data: rows[table] || [] }),
+        neq: () => ({ order: async () => ({ data: rows[table] || [] }) }),
       }),
     }),
   }));
@@ -56,5 +57,31 @@ it("replaces stale saved lines with the current order while retaining the invoic
   expect(result.menuItems[0]).toMatchObject({ description: "Cutlery & Crockery - Plate, knife & fork", total: 600 });
   expect(result.equipmentItems[0]).toMatchObject({ description: "Serving plates", total: 200 });
   expect(result.items).toEqual(invoiceData.items);
-  expect(db.from).not.toHaveBeenCalledWith("quotes");
+  // The quote is read only for agreed equipment prices; its lines are not used.
+  expect(result.menuItems).toHaveLength(1);
+});
+
+// ORD-918899: 25cm plates were swapped for 20cm plates (25cm booking
+// cancelled). The invoice listed both, and priced knives/forks at the
+// catalogue R1 instead of the quoted R2 because bookings carry no price.
+it("leaves out cancelled bookings and uses the quoted price for each item", async () => {
+  const neq = jest.fn(() => ({ order: async () => ({ data: [
+    { equipment_id: "e-knife", quantity: 30, unit_price: null, equipment: { name: "Stainless Steel Knife", rental_price: 1 } },
+    { equipment_id: "e-plate20", quantity: 30, unit_price: null, equipment: { name: "Plate 20cm", rental_price: 3 } },
+  ] }) }));
+  const db = { from: jest.fn((table: string) => ({ select: () => ({ eq: () => ({
+    maybeSingle: async () => ({ data: table === "orders" ? { quote_id: "q-1" }
+      : table === "quotes" ? { equipment_items: [
+        { equipment_id: "e-plate20", name: "Plate 20cm", quantity: 30, unit_price: 3 },
+        { equipment_id: "e-knife", name: "Stainless Steel Knife", quantity: 30, unit_price: 2 },
+      ] } : null }),
+    order: async () => ({ data: [] }),
+    neq,
+  }) }) })) };
+  const result = await hydratePublicInvoiceLines(db, { equipmentItems: [{ description: "Plate 25cm", total: 90 }] }, "order-1", null, { preferCurrentOrderLines: true });
+  expect(neq).toHaveBeenCalledWith("status", "cancelled");
+  expect(result.equipmentItems.map((l: any) => [l.description, l.unitPrice, l.total])).toEqual([
+    ["Stainless Steel Knife", 2, 60],
+    ["Plate 20cm", 3, 90],
+  ]);
 });

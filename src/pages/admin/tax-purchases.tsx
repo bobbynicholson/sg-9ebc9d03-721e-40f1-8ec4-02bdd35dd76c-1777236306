@@ -1,3 +1,4 @@
+import { protectedCompanyFileUrl } from "@/lib/companyFiles";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * /admin/tax-purchases - read-only accountant overview.
@@ -871,7 +872,7 @@ function SlipRow({
         </span>
         {r.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={r.image_url} alt="" className="w-9 h-9 object-cover rounded border border-slate-200 shrink-0" />
+          <img src={protectedCompanyFileUrl(r.image_url)} alt="" className="w-9 h-9 object-cover rounded border border-slate-200 shrink-0" />
         ) : (
           <div className="w-9 h-9 rounded border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center shrink-0">
             <FileText className="w-3.5 h-3.5 text-slate-400" />
@@ -917,7 +918,7 @@ function SlipRow({
         </div>
         {r.image_url && (
           <a
-            href={r.image_url}
+            href={protectedCompanyFileUrl(r.image_url)}
             target="_blank"
             rel="noopener"
             onClick={(e) => e.stopPropagation()}

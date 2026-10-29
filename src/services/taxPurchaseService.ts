@@ -1,3 +1,4 @@
+import { companyFileUrl } from "@/lib/companyFiles";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * taxPurchaseService - track tax-deductible purchases on slips so
@@ -94,7 +95,7 @@ export interface ReceiptWithItems extends PurchaseReceipt {
 const BUCKET = "purchase-receipts";
 
 /**
- * Upload a slip image to storage and return the public URL + path.
+ * Upload a slip image to storage and return the authenticated URL + path.
  * Path shape: {companyId}/{uuid}.{ext} so even if a tenant deletes
  * a receipt row, the storage object can be cleaned up by company.
  */
@@ -115,8 +116,7 @@ export async function uploadReceiptImage(args: {
     captureException(error, { tags: { service: "taxPurchase", area: "uploadReceiptImage", tenant: args.companyId } });
     return null;
   }
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return { path, url: data.publicUrl };
+  return { path, url: companyFileUrl(BUCKET, path) };
 }
 
 export async function createReceipt(args: {

@@ -1,3 +1,4 @@
+import { isLocalAuthBypassEnabled } from "@/lib/localAuthBypass";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Head from "next/head";
@@ -141,9 +142,7 @@ function EventProfitabilityPageInner() {
     setError(null);
     try {
       const localDev =
-        typeof window !== "undefined" &&
-        process.env.NODE_ENV !== "production" &&
-        ["localhost", "127.0.0.1"].includes(window.location.hostname);
+        typeof window !== "undefined" && isLocalAuthBypassEnabled(window.location.hostname);
       let orderRows: any[] = [];
       let quotesData: any[] = [];
       let shoppingData: any[] = [];

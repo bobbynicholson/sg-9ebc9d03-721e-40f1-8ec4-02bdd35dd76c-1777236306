@@ -37,8 +37,9 @@ async function setup(page, status = 'pending') {
     if (url.pathname.endsWith('/accept') && url.pathname.startsWith('/api/public/quotes/')) {
       const request = route.request().postDataJSON(); state.acceptanceRequests.push(request);
       if (state.rejectAcceptance) return route.fulfill({ status: 409, json: { ok: false, error: 'The event date is no longer available.' } });
-      state.quote = { ...state.quote, status: 'accepted', accepted_at: '2026-10-04T00:00:00Z', converted_to_order_id: orderId,
-        service_sittings: (request.serviceSittings || []).map((s, index) => ({ sequence_number: index + 1, guest_count: s.guestCount, service_time: s.serviceTime })) };
+      // Public acceptance confirms the staff-approved plan; clients cannot
+      // replace that schedule. Match the API's current contract (PRODUCT.md).
+      state.quote = { ...state.quote, status: 'accepted', accepted_at: '2026-10-04T00:00:00Z', converted_to_order_id: orderId };
       if (state.lostAcceptanceResponse) return route.fulfill({ status: 504, json: { ok: false, error: 'Response interrupted' } });
       return route.fulfill({ json: { ok: true, orderId } });
     }
@@ -76,31 +77,29 @@ test('failed acceptance keeps the quote actionable and never presents a booking 
   await expect(page.getByRole('button', { name: 'View your booking and payment' })).toHaveCount(0);
 });
 
-test('two sittings validate before acceptance and save the exact guest split and times', async ({ page }) => {
+test('acceptance confirms the displayed staff plan without client timing controls', async ({ page }) => {
   const state = await setup(page);
+  const plan = [{ sequence_number: 1, guest_count: 20, service_time: '12:00:00' }, { sequence_number: 2, guest_count: 40, service_time: '18:00:00' }];
+  state.quote.service_sittings = plan;
   await page.goto(`/q/${token}?stay=1`);
   await page.getByRole('button', { name: 'Accept this quote', exact: true }).click();
   await page.getByPlaceholder('Your full name').fill('Fixture client');
-  await page.getByLabel('Two sittings', { exact: true }).check();
-  await page.getByLabel('First guests', { exact: true }).fill('20');
-  await page.getByLabel('First time', { exact: true }).fill('12:00');
-  await page.getByRole('button', { name: 'Accept quote', exact: true }).click();
-  await expect(page.getByText('Every sitting needs a valid service time.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Serving times', { exact: true })).toBeVisible();
+  await expect(page.locator('input[type="time"],input[type="number"]')).toHaveCount(0);
   expect(state.acceptanceRequests).toHaveLength(0);
-  await page.getByLabel('Second time', { exact: true }).fill('18:00');
-  await page.getByRole('button', { name: 'Try again', exact: true }).click();
+  await page.getByRole('button', { name: 'Accept quote', exact: true }).click();
   await expect(page.getByRole('button', { name: 'View your booking and payment' })).toBeVisible();
-  expect(state.acceptanceRequests[0].serviceSittings).toEqual([{ guestCount: 20, serviceTime: '12:00' }, { guestCount: 40, serviceTime: '18:00' }]);
+  expect(state.acceptanceRequests).toEqual([{ acceptedByName: 'Fixture client' }]);
+  expect(state.quote.service_sittings).toEqual(plan);
 });
 
 test('a lost response after saving both sittings shows verified success instead of a false save error', async ({ page }) => {
   const state = await setup(page); state.lostAcceptanceResponse = true;
+  state.quote.service_sittings = [{ sequence_number: 1, guest_count: 30, service_time: '12:00:00' }, { sequence_number: 2, guest_count: 30, service_time: '18:00:00' }];
   await page.goto(`/q/${token}?stay=1`);
   await page.getByRole('button', { name: 'Accept this quote', exact: true }).click();
   await page.getByPlaceholder('Your full name').fill('Fixture client');
-  await page.getByLabel('Two sittings', { exact: true }).check();
-  await page.getByLabel('First time', { exact: true }).fill('12:00');
-  await page.getByLabel('Second time', { exact: true }).fill('18:00');
+  await expect(page.locator('input[type="time"],input[type="number"]')).toHaveCount(0);
   await page.getByRole('button', { name: 'Accept quote', exact: true }).click();
   await expect(page.getByRole('button', { name: 'View your booking and payment' })).toBeVisible();
   await expect(page.getByText('Response interrupted', { exact: true })).toHaveCount(0);
@@ -108,44 +107,45 @@ test('a lost response after saving both sittings shows verified success instead 
 });
 
 for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
-  test(`requesting two sittings validates the revised guest split at ${viewport.width}px`, async ({ page }) => {
+  test(`clients request sitting changes in notes for staff review at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
     const state = await setup(page);
     await page.goto(`/q/${token}?stay=1`);
     await page.getByRole('button', { name: 'Need a tweak', exact: true }).click();
-    await page.getByLabel('New guest count (optional)', { exact: true }).fill('100');
-    await page.getByLabel('Two sittings', { exact: true }).check();
-    await page.getByLabel('First guests', { exact: true }).fill('40');
-    await page.getByLabel('First time', { exact: true }).fill('12:00');
+    await expect(page.locator('input[type="time"],input[type="number"],input[type="date"]')).toHaveCount(0);
+    await page.getByLabel('What would you like changed?', { exact: true }).fill('Two');
     await page.getByRole('button', { name: 'Send to caterer', exact: true }).click();
-    await expect(page.getByRole('alert').filter({ hasText: 'Every sitting needs a valid service time.' })).toBeVisible();
+    await expect(page.getByRole('alert').filter({ hasText: 'Please give us at least 10 characters' })).toBeVisible();
     expect(state.changeRequests).toHaveLength(0);
-    await page.getByLabel('Second time', { exact: true }).fill('18:00');
-    await page.getByRole('group', { name: 'Serving times (optional)' }).scrollIntoViewIfNeeded();
-    await page.screenshot({ path: `tmp/quote-serving-times-${viewport.width}.png` });
+    const message = 'Please arrange two sittings for 100 guests: 40 at 12:00 and 60 at 18:00. Please confirm availability.';
+    await page.getByLabel('What would you like changed?', { exact: true }).fill(message);
+    await page.getByLabel('What would you like changed?', { exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `tmp/security/quote-change-notes-${viewport.width}.png` });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.getByRole('button', { name: 'Send to caterer', exact: true }).click();
     await expect(page.getByText("Your message has been sent. They'll usually reply within a working day.", { exact: true })).toBeVisible();
     expect(state.changeRequests).toHaveLength(1);
-    expect(state.changeRequests[0].requestedChanges).toMatchObject({ guest_count: 100, service_sittings: [{ guestCount: 40, serviceTime: '12:00' }, { guestCount: 60, serviceTime: '18:00' }] });
+    expect(state.changeRequests[0].message).toBe(message);
+    expect(state.changeRequests[0].requestedChanges).toEqual({ menu_items: null, equipment_items: null });
     expect(state.acceptanceRequests).toHaveLength(0);
   });
 }
 
-test('the approved two-sitting plan is shown and prefilled for acceptance', async ({ page }) => {
+test('the approved two-sitting plan stays visible when confirming acceptance', async ({ page }) => {
   const state = await setup(page);
   state.quote.service_sittings = [{ sequence_number: 1, guest_count: 20, service_time: '11:30:00' }, { sequence_number: 2, guest_count: 40, service_time: '18:00:00' }];
   await page.goto(`/q/${token}?stay=1`);
   await expect(page.getByText('Serving times', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Accept this quote', exact: true }).click();
-  await expect(page.getByLabel('Two sittings', { exact: true })).toBeChecked();
-  await expect(page.getByLabel('First guests', { exact: true })).toHaveValue('20');
-  await expect(page.getByLabel('First time', { exact: true })).toHaveValue('11:30');
-  await expect(page.getByLabel('Second time', { exact: true })).toHaveValue('18:00');
+  await expect(page.getByText('Serving times', { exact: true })).toBeVisible();
+  await expect(page.getByText('20 guests', { exact: true })).toBeVisible();
+  await expect(page.getByText('40 guests', { exact: true })).toBeVisible();
+  await expect(page.locator('input[type="time"],input[type="number"]')).toHaveCount(0);
   await page.getByPlaceholder('Your full name').fill('Fixture client');
   await page.getByRole('button', { name: 'Accept quote', exact: true }).click();
   await expect(page.getByRole('button', { name: 'View your booking and payment' })).toBeVisible();
-  expect(state.acceptanceRequests[0].serviceSittings).toEqual([{ guestCount: 20, serviceTime: '11:30' }, { guestCount: 40, serviceTime: '18:00' }]);
+  expect(state.acceptanceRequests[0]).toEqual({ acceptedByName: 'Fixture client' });
+  expect(state.quote.service_sittings).toEqual([{ sequence_number: 1, guest_count: 20, service_time: '11:30:00' }, { sequence_number: 2, guest_count: 40, service_time: '18:00:00' }]);
 });
 
 test('an unrelated change request leaves the existing serving plan unchanged', async ({ page }) => {
@@ -156,7 +156,8 @@ test('an unrelated change request leaves the existing serving plan unchanged', a
   await page.getByLabel('What would you like changed?', { exact: true }).fill('Please add a vegetarian dessert option.');
   await page.getByRole('button', { name: 'Send to caterer', exact: true }).click();
   await expect(page.getByText("Your message has been sent. They'll usually reply within a working day.", { exact: true })).toBeVisible();
-  expect(state.changeRequests[0].requestedChanges.service_sittings).toBeNull();
+  expect(state.changeRequests[0].requestedChanges).toEqual({ menu_items: null, equipment_items: null });
+  expect(state.quote.service_sittings).toEqual([{ sequence_number: 1, guest_count: 20, service_time: '12:00:00' }, { sequence_number: 2, guest_count: 40, service_time: '18:00:00' }]);
 });
 
 test('a verified partial payment returns automatically and shows the unpaid remainder', async ({ page }) => {

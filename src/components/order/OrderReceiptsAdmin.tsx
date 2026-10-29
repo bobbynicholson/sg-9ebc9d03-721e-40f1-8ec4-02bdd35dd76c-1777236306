@@ -1,3 +1,4 @@
+import { protectedCompanyFileUrl } from "@/lib/companyFiles";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Admin-only "Receipts for this order" block on the order doc.
@@ -110,9 +111,9 @@ export function OrderReceiptsAdmin({ orderId }: Props) {
           return (
             <li key={r.id} className="flex items-center gap-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2">
               {r.image_url ? (
-                <a href={r.image_url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0" title="View receipt image">
+                <a href={protectedCompanyFileUrl(r.image_url)} target="_blank" rel="noopener noreferrer" className="flex-shrink-0" title="View receipt image">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={r.image_url} alt={r.vendor || "Receipt"} className="h-12 w-12 rounded object-cover border border-slate-200 dark:border-slate-700" />
+                  <img src={protectedCompanyFileUrl(r.image_url)} alt={r.vendor || "Receipt"} className="h-12 w-12 rounded object-cover border border-slate-200 dark:border-slate-700" />
                 </a>
               ) : (
                 <div className="h-12 w-12 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
@@ -134,7 +135,7 @@ export function OrderReceiptsAdmin({ orderId }: Props) {
                 </div>
               </div>
               {r.image_url && (
-                <a href={r.image_url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 text-slate-400 hover:text-brand-primary" title="Open receipt">
+                <a href={protectedCompanyFileUrl(r.image_url)} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 text-slate-400 hover:text-brand-primary" title="Open receipt">
                   <ExternalLink className="h-4 w-4" />
                 </a>
               )}

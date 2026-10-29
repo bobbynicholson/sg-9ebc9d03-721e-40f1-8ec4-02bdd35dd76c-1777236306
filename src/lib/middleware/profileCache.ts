@@ -39,7 +39,7 @@ export interface CachedProfilePayload {
 }
 
 const COOKIE_NAME = "cms.mw.profile";
-const CACHE_VERSION = 3;
+const CACHE_VERSION = 4;
 const TTL_SECONDS = 300; // 5 minutes
 
 const enc = new TextEncoder();

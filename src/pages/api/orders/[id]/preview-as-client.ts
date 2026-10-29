@@ -13,6 +13,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
+import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
@@ -32,10 +33,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const { data: profile } = await ssr
       .from("profiles")
-      .select("role, active_role, company_id")
+      .select("role, active_role, company_id, is_active, deleted_at")
       .eq("id", user.id)
       .maybeSingle();
-    const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
+    if (!profile || profile.is_active === false || profile.deleted_at) {
+      return res.status(403).json({ error: "Account access denied" });
+    }
+    const role = profile.role === "super_admin" ? "super_admin"
+      : profile.active_role === "super_admin" ? "" : (profile.active_role || profile.role || "");
     if (!ADMIN_ROLES.has(role)) {
       return res.status(403).json({ error: "Admin or owner only" });
     }
@@ -68,7 +73,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       ? String((companyRow as any).slug).trim()
       : null;
 
-    const { data: tokenRow, error: mintErr } = await ssr.rpc("mint_client_order_token", {
+    const { data: tokenRow, error: mintErr } = await getServiceSupabase().rpc("mint_client_order_token", {
       p_company_id: (order as any).company_id,
       p_order_id: orderId,
       p_label: `admin-preview-${user.id.slice(0, 8)}`,

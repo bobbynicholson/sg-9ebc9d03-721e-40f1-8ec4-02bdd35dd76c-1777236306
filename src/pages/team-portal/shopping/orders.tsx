@@ -1,3 +1,4 @@
+import { companyFileUrl } from "@/lib/companyFiles";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -354,8 +355,7 @@ function ShoppingOrdersPageInner() {
             contentType: receiptFile.type || "image/jpeg",
           });
         if (upErr) throw upErr;
-        const { data: pub } = supabase.storage.from("imports").getPublicUrl(path);
-        receipt_url = pub.publicUrl;
+        receipt_url = companyFileUrl("imports", path);
       }
       const updates: Record<string, any> = {
         status: "completed",

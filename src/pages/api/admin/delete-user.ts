@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createPagesServerClient } from "@/lib/supabase/server";
+import { effectiveProfileRole, canAssignTenantPrivileges } from "@/lib/roleDerivation";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { withApiLogging } from "@/lib/withApiLogging";
@@ -41,14 +42,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const { data: callerProfile, error: callerProfileErr } = await ssrClient
       .from("profiles")
-      .select("role, active_role, company_id")
+      .select("role, active_role, company_id, is_active, deleted_at")
       .eq("id", callerAuth.id)
       .single();
     if (callerProfileErr || !callerProfile) {
       return res.status(403).json({ error: "Caller profile not found." });
     }
 
-    const callerRole = (callerProfile as any).active_role || (callerProfile as any).role;
+    if (!callerProfile || callerProfile.is_active === false || callerProfile.deleted_at) return res.status(403).json({ error: "Account access denied" });
+    const callerRole = effectiveProfileRole(callerProfile);
     if (!CALLER_ROLES_ALLOWED.has(callerRole)) {
       return res.status(403).json({ error: `Forbidden: your role '${callerRole}' is not allowed to remove users.` });
     }
@@ -78,6 +80,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(404).json({ error: "User not found." });
     }
 
+    if (!canAssignTenantPrivileges(callerProfile.role, [], target.role)) return res.status(403).json({ error: "Cannot remove this account" });
     if (callerRole !== "super_admin" && target.company_id !== (callerProfile as any).company_id) {
       return res.status(403).json({ error: "Cannot remove users from another company." });
     }

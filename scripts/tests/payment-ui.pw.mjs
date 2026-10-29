@@ -23,14 +23,14 @@ function quote() {
       bank_name:'Fixture Bank',bank_account_holder:'Fixture Caterer',bank_account_number:'123456789',bank_branch_code:'123456',
       bank_account_type:'cheque',eft_instructions:'Use the invoice number as reference.'} };
 }
-async function setup(page, { online=true, credit=0 } = {}) {
+async function setup(page, { online=true, credit=0, quotePaymentOptions } = {}) {
   let current = invoice(online), available=credit;
   const requests=[];
   await page.route('**/*', async route => {
     const url = new URL(route.request().url());
     if (url.origin !== 'http://127.0.0.1:3106') return route.abort();
     if (url.pathname.startsWith('/api/public/invoices/')) return route.fulfill({json:{invoice:current}});
-    if (url.pathname.startsWith('/api/public/quotes/') && url.pathname.endsWith('/get')) return route.fulfill({json:{ok:true,quote:quote()}});
+    if (url.pathname.startsWith('/api/public/quotes/') && url.pathname.endsWith('/get')) return route.fulfill({json:{ok:true,quote:{...quote(),...(quotePaymentOptions ? {payment_options:quotePaymentOptions} : {})}}});
     if (url.pathname==='/api/payments/credit-balance') return route.fulfill({json:{ok:true,available,maxApplicable:available}});
     if (url.pathname==='/api/payments/confirm-return') return route.fulfill({json:{ok:true,status:'pending'}});
     if (url.pathname==='/api/payments/claim-eft-proof') { requests.push({contentType:route.request().headers()['content-type']}); return route.fulfill({json:{ok:true,payment_id:'claim-fixture'}}); }
@@ -72,6 +72,24 @@ test('quote with active PayFast checkout hides the EFT option and bank details',
   await expect(page.getByText('Pay by EFT',{exact:true})).toHaveCount(0);
   await expect(page.getByText('Fixture Bank',{exact:true})).toHaveCount(0);
   await expect(page.getByText('123456789',{exact:true})).toHaveCount(0);
+});
+test('quote offers configured EFT fallback on mobile when online checkout is unavailable',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await setup(page,{quotePaymentOptions:{provider:null,online_available:false,eft_available:true}});
+  await page.goto(`/q/${token}?stay=1`);
+  await expect(page.getByText('Pay by EFT',{exact:true})).toBeVisible();
+  await expect(page.getByText('Fixture Bank',{exact:true})).toBeVisible();
+  await expect(page.getByText('123456789',{exact:true})).toBeVisible();
+  await page.getByText('Pay by EFT',{exact:true}).scrollIntoViewIfNeeded();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+  await page.screenshot({path:'tmp/security/quote-eft-fallback-mobile.png'});
+});
+test('quote hides bank details when EFT is explicitly unavailable',async({page})=>{
+  await setup(page,{quotePaymentOptions:{provider:null,online_available:false,eft_available:false}});
+  await page.goto(`/q/${token}?stay=1`);
+  await expect(page.getByText('Fixture Bank',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('123456789',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('Pay by EFT',{exact:true})).toHaveCount(0);
 });
 test('credit covering a selected partial payment shows the remaining invoice balance',async({page})=>{
   await setup(page,{credit:150});

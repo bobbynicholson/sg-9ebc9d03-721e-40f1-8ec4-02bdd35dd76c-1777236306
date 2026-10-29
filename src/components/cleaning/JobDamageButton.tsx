@@ -1,3 +1,4 @@
+import { companyFileUrl } from "@/lib/companyFiles";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * JobDamageButton - contextual "Flag damaged" entry point on a single
@@ -118,8 +119,7 @@ export function JobDamageButton({ equipmentId, equipmentName, orderId, maxQuanti
           console.error("[JobDamageButton] photo upload failed:", upErr);
           toast({ title: "Photo upload failed", description: "Saving the flag without the photo.", variant: "destructive" });
         } else {
-          const { data: pub } = supabase.storage.from("equipment-damage-photos").getPublicUrl(photoPath);
-          if (pub?.publicUrl) resolvedPhotoUrl = pub.publicUrl;
+          resolvedPhotoUrl = companyFileUrl("equipment-damage-photos", photoPath);
         }
       }
 

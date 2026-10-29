@@ -1,3 +1,4 @@
+import { protectedCompanyFileUrl } from "@/lib/companyFiles";
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 /**
@@ -676,10 +677,10 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
             )}
             <div className="grid grid-cols-2 gap-2">
               {order.pod_photo_url && (
-                <a href={order.pod_photo_url} target="_blank" rel="noopener noreferrer" className="group">
+                <a href={protectedCompanyFileUrl(order.pod_photo_url)} target="_blank" rel="noopener noreferrer" className="group">
                   <div className="aspect-square rounded-md overflow-hidden bg-white border border-brand-primary/20 relative">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={order.pod_photo_url} alt="Delivery photo" className="w-full h-full object-cover" />
+                    <img src={protectedCompanyFileUrl(order.pod_photo_url)} alt="Delivery photo" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center text-transparent group-hover:text-white text-xs font-medium">
                       <Eye className="w-4 h-4 mr-1" />
                       View
@@ -691,10 +692,10 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                 </a>
               )}
               {order.pod_signature_url && (
-                <a href={order.pod_signature_url} target="_blank" rel="noopener noreferrer" className="group">
+                <a href={protectedCompanyFileUrl(order.pod_signature_url)} target="_blank" rel="noopener noreferrer" className="group">
                   <div className="aspect-square rounded-md overflow-hidden bg-white border border-brand-primary/20 relative flex items-center justify-center p-2">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={order.pod_signature_url} alt="Signature" className="max-w-full max-h-full object-contain" />
+                    <img src={protectedCompanyFileUrl(order.pod_signature_url)} alt="Signature" className="max-w-full max-h-full object-contain" />
                   </div>
                   <p className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1">
                     <FileSignature className="w-3 h-3" /> Signature

@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { loadLatestDocumentAmountChanges } from "@/services/documentAmountChanges";
+import { isLocalAuthBypassEnabled } from "@/lib/localAuthBypass";
 
 export default async function handler(
   req: NextApiRequest,
@@ -11,8 +12,7 @@ export default async function handler(
     .toLowerCase();
   if (
     req.method !== "GET" ||
-    process.env.NODE_ENV === "production" ||
-    !["localhost", "127.0.0.1"].includes(host)
+    !isLocalAuthBypassEnabled(host)
   ) {
     return res.status(404).json({ error: "Not found" });
   }

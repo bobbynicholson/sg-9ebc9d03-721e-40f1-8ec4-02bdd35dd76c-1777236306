@@ -13,7 +13,7 @@ function database() {
       ? { id: "order-1", subtotal: 100, total_amount: 100, amount_paid: 5, event_date: "2026-10-14", clients: { client_name: "Client", email: "client@example.com" } }
       : table === "companies" ? { company_name: "Caterer", vat_registered: false } : [];
     const q: any = { then: (resolve: any) => Promise.resolve({ data, error: null }).then(resolve) };
-    q.select = q.eq = q.order = () => q;
+    q.select = q.eq = q.neq = q.order = () => q;
     q.single = async () => ({ data, error: null });
     return q;
   });

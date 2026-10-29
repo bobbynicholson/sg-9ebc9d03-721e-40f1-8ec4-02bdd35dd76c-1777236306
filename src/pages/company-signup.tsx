@@ -282,11 +282,15 @@ export default function CompanySignupPage() {
 
       // Step 1: Create auth user
       console.log("📝 Step 1: Creating auth user...");
+      const provisionToken = Array.from(crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2, "0")).join("");
+      const provisionHash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(provisionToken))), byte => byte.toString(16).padStart(2, "0")).join("");
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
           data: {
+            company_provision_token_hash: provisionHash,
+            owner_welcome_token_hash: provisionHash,
             full_name: formData.ownerName,
             // Company owners get the full company_admin role (admin is the
             // restricted, no-finance role intended for delegated managers).
@@ -324,7 +328,7 @@ export default function CompanySignupPage() {
       // Step 2: Wait for profile to be created by database trigger (with retry)
       console.log("⏳ Step 2: Waiting for profile creation...");
       try {
-        await retryProfileOperation(
+        if (authData.session) await retryProfileOperation(
           async () => {
             const { data: profileCheck, error: profileError } = await supabase
               .from("profiles")
@@ -360,8 +364,12 @@ export default function CompanySignupPage() {
 
       const provisionRes = await fetch("/api/auth/provision-company", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(authData.session?.access_token ? { Authorization: `Bearer ${authData.session.access_token}` } : {}),
+        },
         body: JSON.stringify({
+          provisionToken,
           userId,
           email: formData.email,
           companyName: formData.companyName,
@@ -401,8 +409,12 @@ export default function CompanySignupPage() {
       console.log("📧 Firing owner welcome email...");
       void fetch("/api/emails/owner-welcome", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(authData.session?.access_token ? { Authorization: `Bearer ${authData.session.access_token}` } : {}),
+        },
         body: JSON.stringify({
+          provisionToken,
           userId,
           companyId,
           ownerName: formData.ownerName,

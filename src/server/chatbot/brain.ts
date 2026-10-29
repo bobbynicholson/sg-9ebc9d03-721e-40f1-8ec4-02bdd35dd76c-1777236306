@@ -52,10 +52,10 @@ const EMBEDDING_MAX_ATTEMPTS = 3;
 export async function resolveChatIdentity(db: Db, userId: string): Promise<ChatIdentity | null> {
   const { data, error } = await db
     .from("profiles")
-    .select("id, company_id, role, active_role, full_name, email, region_id, regions_covered")
+    .select("id, company_id, role, active_role, full_name, email, region_id, regions_covered, is_active, deleted_at")
     .eq("id", userId)
     .maybeSingle();
-  if (error || !data) return null;
+  if (error || !data || data.is_active === false || data.deleted_at) return null;
   const baseRole = normalizeChatRole(data.role);
   const activeRole = String(data.active_role || "");
   // Owners and company admins remain the tenant authority even when an old
@@ -63,7 +63,7 @@ export async function resolveChatIdentity(db: Db, userId: string): Promise<ChatI
   // continue to use active_role so their live context stays role-scoped.
   const role = ["super_admin", "owner", "company_admin"].includes(baseRole)
     ? baseRole
-    : normalizeChatRole(activeRole, baseRole);
+    : activeRole === "super_admin" ? baseRole : normalizeChatRole(activeRole, baseRole);
   const isPlatformAdmin = role === "super_admin";
   return {
     userId,

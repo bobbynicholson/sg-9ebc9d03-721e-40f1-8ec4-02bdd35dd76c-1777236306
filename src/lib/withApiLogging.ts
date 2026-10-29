@@ -18,6 +18,8 @@
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import { log, type LogArea } from "@/lib/logger";
+import { blockIfCompanyUnpaid, isSubscriptionGatedRequest } from "@/lib/subscriptionApiGate";
+import { blockUnlessPlatformAdmin, isPlatformOnlyRequest } from "@/lib/platformApiGate";
 
 type ApiHandler = (
   req: NextApiRequest,
@@ -28,7 +30,8 @@ type ApiHandler = (
 
 const SENSITIVE_KEYS = new Set([
   "password", "token", "secret", "key", "passphrase",
-  "access_token", "refresh_token", "api_key", "apiKey",
+  "access_token", "refresh_token", "api_key", "apikey",
+  "provisiontoken", "provision_token",
 ]);
 
 function sanitise(body: unknown): unknown {
@@ -60,6 +63,9 @@ function areaFromUrl(url: string): LogArea {
 
 export function withApiLogging(handler: ApiHandler, areaOverride?: LogArea): ApiHandler {
   return async (req: NextApiRequest, res: NextApiResponse) => {
+    // Authenticated responses must not be reused by a shared/CDN cache.
+    // Intentionally public handlers may set their own cache policy.
+    res.setHeader("Cache-Control", "private, no-store");
     const start = Date.now();
     const area: LogArea = areaOverride ?? areaFromUrl(req.url ?? "");
     const method = req.method ?? "?";
@@ -105,6 +111,9 @@ export function withApiLogging(handler: ApiHandler, areaOverride?: LogArea): Api
     };
 
     try {
+      if (isPlatformOnlyRequest(method, url) && await blockUnlessPlatformAdmin(req, res)) return;
+      // Unpaid (expired / suspended / cancelled) companies cannot save changes.
+      if (isSubscriptionGatedRequest(method, url) && await blockIfCompanyUnpaid(req, res)) return;
       await handler(req, res);
     } catch (err: unknown) {
       const dur = Date.now() - start;

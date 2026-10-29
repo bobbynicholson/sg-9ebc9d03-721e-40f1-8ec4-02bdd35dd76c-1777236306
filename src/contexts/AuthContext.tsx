@@ -1,3 +1,4 @@
+import { isLocalAuthBypassEnabled } from "@/lib/localAuthBypass";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { createClient } from "@/lib/supabase/client";
@@ -83,12 +84,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Dev shortcut. Only honoured outside production builds. The
     // ?dev=true query escape hatch on production used to grant client-side
     // super_admin to anyone with the URL [P0-03].
-    const isDevEnvironment =
-      process.env.NODE_ENV !== "production" &&
-      typeof window !== "undefined" &&
-      (window.location.hostname === "localhost" ||
-       window.location.hostname === "127.0.0.1" ||
-       window.location.search.includes("dev=true"));
+    const isDevEnvironment = typeof window !== "undefined"
+      && isLocalAuthBypassEnabled(window.location.hostname);
 
     if (isDevEnvironment) {
       // A REAL session in the browser always wins over the dev

@@ -1,3 +1,4 @@
+import { protectedCompanyFileUrl } from "@/lib/companyFiles";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * DamageAnalytics - CLN2-I (extracted from BrokenEquipmentDashboard).
@@ -654,7 +655,7 @@ export function DamageAnalytics() {
                             <p className="mt-1 text-brand-primary dark:text-brand-primary">Resolution: {damage.resolution_notes}</p>
                           )}
                           {damage.photo_url && (
-                            <a href={damage.photo_url} target="_blank" rel="noopener noreferrer" className="inline-block text-brand-primary hover:underline">
+                            <a href={protectedCompanyFileUrl(damage.photo_url)} target="_blank" rel="noopener noreferrer" className="inline-block text-brand-primary hover:underline">
                               View photo
                             </a>
                           )}

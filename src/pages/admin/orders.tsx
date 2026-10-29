@@ -1,3 +1,4 @@
+import { isLocalAuthBypassEnabled } from "@/lib/localAuthBypass";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -830,9 +831,7 @@ function OrderProcessDashboard() {
   // without waiting for the full Orders list lifecycle.
   useEffect(() => {
     const localDev =
-      typeof window !== "undefined" &&
-      process.env.NODE_ENV !== "production" &&
-      ["localhost", "127.0.0.1"].includes(window.location.hostname);
+      typeof window !== "undefined" && isLocalAuthBypassEnabled(window.location.hostname);
     const orderId =
       typeof router.query.orderId === "string" ? router.query.orderId : null;
     const tenantSlug = localDev ? getTenantSlugFromPathname(router.asPath) : "";
@@ -956,9 +955,7 @@ function OrderProcessDashboard() {
 
   const loadOrders = async () => {
     const localDev =
-      typeof window !== "undefined" &&
-      process.env.NODE_ENV !== "production" &&
-      ["localhost", "127.0.0.1"].includes(window.location.hostname);
+      typeof window !== "undefined" && isLocalAuthBypassEnabled(window.location.hostname);
     let companyId = user?.company_id || null;
     const tenantSlug = localDev ? getTenantSlugFromPathname(router.asPath) : "";
 
