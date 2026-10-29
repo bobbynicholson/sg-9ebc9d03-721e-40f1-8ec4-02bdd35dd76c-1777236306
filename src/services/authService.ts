@@ -1,6 +1,7 @@
  
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
+import { customerLinkOrigin } from "@/lib/publicAppOrigin";
 
 export interface AuthUser {
   id: string;
@@ -21,19 +22,15 @@ export interface AuthError {
 }
 
 // Dynamic URL Helper
+// Sign-up / password-reset redirect base. Never the *.vercel.app
+// deployment host (login-protected); the tab's own origin covers local dev.
 const getURL = () => {
-  let url = process?.env?.NEXT_PUBLIC_VERCEL_URL ?? 
-           process?.env?.NEXT_PUBLIC_SITE_URL ?? 
-           'http://localhost:3000'
-  
-  if (!url) {
-    url = 'http://localhost:3000';
-  }
-  
-  url = url.startsWith('http') ? url : `https://${url}`
-  url = url.endsWith('/') ? url : `${url}/`
-  
-  return url
+  const url = customerLinkOrigin(
+    process?.env?.NEXT_PUBLIC_APP_URL,
+    process?.env?.NEXT_PUBLIC_SITE_URL,
+    typeof window !== 'undefined' ? window.location?.origin : null,
+  )
+  return url.endsWith('/') ? url : `${url}/`
 }
 
 export const authService = {

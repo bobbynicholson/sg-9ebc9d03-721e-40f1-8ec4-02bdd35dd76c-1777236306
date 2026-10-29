@@ -32,6 +32,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { notifyAdminOfEmbedLead } from "@/lib/embed/notifyAdminOfEmbedLead";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { customerLinkOrigin } from "@/lib/publicAppOrigin";
 
 
 const sha256Hex = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
@@ -125,10 +126,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       ]);
       const proto = (req.headers["x-forwarded-proto"] || "https") as string;
       const host = (req.headers["x-forwarded-host"] || req.headers.host || "") as string;
-      const appOrigin =
-        process.env.NEXT_PUBLIC_APP_URL ||
-        (process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : "") ||
-        (host ? `${proto}://${host}` : "");
+      const appOrigin = customerLinkOrigin(
+        process.env.NEXT_PUBLIC_APP_URL,
+        host ? `${proto}://${host}` : null,
+      );
       await notifyAdminOfEmbedLead(svc, {
         companyId: result.company_id,
         ownerUserId: ((company as any)?.owner_id as string | null) ?? null,

@@ -30,6 +30,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { consumeApiKeyRateLimitDb } from "@/lib/apiKeyRateLimit";
 import crypto from "node:crypto";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { customerLinkOrigin } from "@/lib/publicAppOrigin";
 
 
 const MAGIC_LINK_TTL_DAYS = 14;
@@ -108,9 +109,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ ok: true });
     }
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
-      `https://${process.env.VERCEL_URL || "cateringms.com"}`;
+    // Never the *.vercel.app deployment host (login-protected for clients).
+    const baseUrl = customerLinkOrigin(process.env.NEXT_PUBLIC_APP_URL, process.env.NEXT_PUBLIC_SITE_URL);
 
     // Find every tenant that has this email on its clients table.
     // When the caller supplied a slug, restrict to that tenant.

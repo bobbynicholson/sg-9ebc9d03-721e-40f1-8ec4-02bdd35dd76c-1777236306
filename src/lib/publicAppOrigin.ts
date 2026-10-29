@@ -34,7 +34,9 @@ export function publicAppOrigin(input: PublicAppOriginInput): string {
 
   if (isProduction) {
     const productionOrigin = asOrigin(input.vercelProductionUrl, true);
-    if (productionOrigin) return productionOrigin;
+    // A *.vercel.app host is login-protected: buyers returning from the
+    // payment provider would land on a Vercel sign-in page.
+    if (productionOrigin && !/\.vercel\.app$/i.test(new URL(productionOrigin).hostname)) return productionOrigin;
   }
 
   const vercel = input.vercelUrl?.trim();
@@ -59,5 +61,24 @@ export function publicAppOrigin(input: PublicAppOriginInput): string {
     }
   }
 
+  return DEFAULT_APP_ORIGIN;
+}
+
+/**
+ * Origin for links people open from an email, PDF, WhatsApp or the app:
+ * the first candidate that is a real domain, else https://cateringms.com.
+ * A *.vercel.app deployment host is never used: those are per-deploy and
+ * login-protected, so a customer clicking one hit a Vercel sign-in wall
+ * (balance reminders sent by the cron fell back to VERCEL_URL).
+ */
+export function customerLinkOrigin(...candidates: Array<string | null | undefined>): string {
+  for (const raw of candidates) {
+    const value = String(raw || "").trim();
+    if (!value) continue;
+    const origin = asOrigin(/^https?:\/\//i.test(value) ? value : `https://${value}`, false);
+    if (!origin) continue;
+    if (/\.vercel\.app$/i.test(new URL(origin).hostname)) continue;
+    return origin;
+  }
   return DEFAULT_APP_ORIGIN;
 }

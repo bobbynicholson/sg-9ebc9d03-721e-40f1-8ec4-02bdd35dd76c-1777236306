@@ -37,6 +37,7 @@ import {
   type RequestedCatalogueItem,
 } from "@/lib/embed/catalogueSelection";
 import { geocodeAddressServer } from "@/lib/geo/geocodeServer";
+import { customerLinkOrigin } from "@/lib/publicAppOrigin";
 
 
 /**
@@ -667,16 +668,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   //    silently dropped the email and WhatsApp legs of the fan-out.
   //    Per-form `notify_admin_email` lets the tenant turn the email
   //    leg off for noisy forms (newsletter signups etc.).
-  const appOrigin =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.NEXT_PUBLIC_VERCEL_URL
-      ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-      : "") ||
+  const appOrigin = customerLinkOrigin(
+    process.env.NEXT_PUBLIC_APP_URL,
     (() => {
       const host = req.headers["x-forwarded-host"] || req.headers.host;
       const protocol = req.headers["x-forwarded-proto"] || "https";
       return host ? `${protocol}://${host}` : "";
-    })();
+    })(),
+  );
   // MUST be awaited, not fire-and-forget. On Vercel the serverless
   // function is frozen the moment the response is returned, so a
   // `void notifyAdminOfEmbedLead(...)` promise left pending after

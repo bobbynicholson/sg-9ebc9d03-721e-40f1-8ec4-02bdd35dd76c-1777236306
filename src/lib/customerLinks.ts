@@ -22,10 +22,15 @@
  * include the slug so they route cleanly through Vercel's tenant
  * rewrite chain.
  */
+import { customerLinkOrigin } from "@/lib/publicAppOrigin";
 
 function getOrigin(): string {
-  if (typeof window !== "undefined") return window.location.origin.replace(/\/$/, "");
-  return (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
+  // A tab opened on a *.vercel.app deployment host must not put that
+  // login-protected host into links customers open.
+  return customerLinkOrigin(
+    process.env.NEXT_PUBLIC_APP_URL,
+    typeof window !== "undefined" ? window.location.origin : null,
+  );
 }
 
 /** Slug prefix path segment, eg. "/spit-braai-delivery" or "" when no

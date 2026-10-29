@@ -1445,7 +1445,7 @@ async function renderInvoicePdfAttachment(
           configuredUrl: process.env.NEXT_PUBLIC_APP_URL,
           vercelProductionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL,
           vercelUrl: process.env.VERCEL_URL,
-        })}/pay/i/${invAny.public_token}`
+        })}${company?.slug ? `/${company.slug}` : ""}/pay/i/${invAny.public_token}`
       : null,
     reference: invAny.invoice_number || null,
   });

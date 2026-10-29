@@ -35,6 +35,7 @@
  *     (the doc page normalises all of these via ROLE_TO_SECTION)
  *   - client        -> client mode (Finance hidden)
  */
+import { customerLinkOrigin } from "@/lib/publicAppOrigin";
 
 export type StaffOrderRole =
   | "kitchen_manager"
@@ -59,17 +60,12 @@ export function appBaseUrl(): string {
   // built in the browser pointed at a login wall even though the
   // operator's tab was on the real domain. Explicit config first,
   // then the tab's own origin, then the Vercel host as last resort.
-  let url =
-    process?.env?.NEXT_PUBLIC_APP_URL ??
-    process?.env?.NEXT_PUBLIC_SITE_URL ??
-    "";
-  if (!url && typeof window !== "undefined" && window.location?.origin) {
-    return window.location.origin;
-  }
-  if (!url) url = process?.env?.NEXT_PUBLIC_VERCEL_URL ?? "";
-  if (!url) return "http://localhost:3000";
-  url = url.startsWith("http") ? url : `https://${url}`;
-  return url.replace(/\/$/, "");
+  // Never a *.vercel.app deployment host (login-protected) - see
+  // customerLinkOrigin. Local development keeps its localhost origin.
+  const windowOrigin = typeof window !== "undefined" ? window.location?.origin : null;
+  const configured = process?.env?.NEXT_PUBLIC_APP_URL || process?.env?.NEXT_PUBLIC_SITE_URL || "";
+  if (!configured && !windowOrigin && process?.env?.NODE_ENV !== "production") return "http://localhost:3000";
+  return customerLinkOrigin(configured, windowOrigin);
 }
 
 /**

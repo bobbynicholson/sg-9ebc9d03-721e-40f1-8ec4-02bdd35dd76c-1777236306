@@ -5,6 +5,7 @@ import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { buildPayInvoiceUrlServer } from "@/lib/customerLinksServer";
+import { customerLinkOrigin } from "@/lib/publicAppOrigin";
 import { hasRecordedDepositPayment, outstandingDepositReminderAmount } from "@/lib/depositReminderAmount";
 import { tenantCalendarDate } from "@/lib/eventDateGuard";
 import { reconcileCompanyInvoiceDueDates } from "@/services/invoiceDueDateService";
@@ -121,15 +122,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Per-company brand name for {{tenant_name}} in the reminder body.
     // Cached so a tenant with many overdue invoices is looked up once.
     const companyNameCache = new Map<string, string>();
+    // Slug for the /{slug}/pay/i/{token} link, filled by tenantName().
+    const companySlugCache = new Map<string, string | null>();
     const tenantName = async (companyId: string): Promise<string> => {
       if (companyNameCache.has(companyId)) return companyNameCache.get(companyId) as string;
       const { data: co } = await (sb as any)
         .from("companies")
-        .select("company_name")
+        .select("company_name, slug")
         .eq("id", companyId)
         .maybeSingle();
       const name = ((co as any)?.company_name as string) || "your caterer";
       companyNameCache.set(companyId, name);
+      companySlugCache.set(companyId, ((co as any)?.slug as string) || null);
       return name;
     };
 
@@ -211,10 +215,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
         const { deliverAutomatedEmail } = await import("@/lib/email/automatedDelivery");
 
-        const invoiceLink = buildPayInvoiceUrlServer(inv.public_token) ||
-          `${process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com"}/client-portal/billing?invoiceId=${inv.id}`;
-        const formattedAmount = `R ${Number(inv.balance_due || 0).toFixed(2)}`;
         const brand = await tenantName(inv.company_id);
+        // cateringms.com/{slug}/pay/i/{token}: this cron has no request
+        // origin, and used to send the login-protected Vercel host.
+        const invoiceLink = buildPayInvoiceUrlServer(inv.public_token, { slug: companySlugCache.get(inv.company_id) }) ||
+          `${customerLinkOrigin(process.env.NEXT_PUBLIC_APP_URL)}/client-portal/billing?invoiceId=${inv.id}`;
+        const formattedAmount = `R ${Number(inv.balance_due || 0).toFixed(2)}`;
         const variables: Record<string, string> = {
           first_name: ((order as any).client_name || "there").split(" ")[0],
           client_name: (order as any).client_name || "there",

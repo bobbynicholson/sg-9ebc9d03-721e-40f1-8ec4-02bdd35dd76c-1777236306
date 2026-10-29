@@ -179,7 +179,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         requestOrigin: req.headers.origin as string | undefined,
         requestHost: req.headers.host,
         forwardedProtocol: req.headers["x-forwarded-proto"] as string | undefined,
-      })}/pay/i/${token}`,
+      })}${company.slug ? `/${company.slug}` : ""}/pay/i/${token}`,
       reference: (inv as any).invoice_number || null,
     });
 

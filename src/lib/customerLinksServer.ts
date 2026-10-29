@@ -22,6 +22,8 @@
  * the /c/order page's ExpiredLinkCard self-recovery flow.
  */
 
+import { customerLinkOrigin } from "@/lib/publicAppOrigin";
+
 /** Normalise a raw origin/host value into "https://host" form (no
  *  trailing slash). Returns "" for empty input. */
 function normalizeOrigin(raw?: string | null): string {
@@ -44,10 +46,14 @@ function normalizeOrigin(raw?: string | null): string {
  * walled customers behind a Vercel login.
  */
 function resolveOrigin(override?: string | null): string {
-  return (
-    normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL) ||
-    normalizeOrigin(override) ||
-    normalizeOrigin(process.env.NEXT_PUBLIC_VERCEL_URL || process.env.VERCEL_URL || "")
+  // Never a *.vercel.app deployment host (login-protected): the balance
+  // reminder cron has no request origin and used to fall back to
+  // VERCEL_URL, so customers got a Vercel sign-in page instead of the
+  // pay page. Without config or a real request origin: cateringms.com.
+  return customerLinkOrigin(
+    normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL),
+    normalizeOrigin(process.env.NEXT_PUBLIC_SITE_URL),
+    normalizeOrigin(override),
   );
 }
 

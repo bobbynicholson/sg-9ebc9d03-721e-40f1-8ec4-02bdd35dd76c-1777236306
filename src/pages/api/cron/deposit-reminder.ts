@@ -16,6 +16,7 @@ import {
   type PaymentDueSettings,
   type PaymentReminderSettings,
 } from "@/lib/paymentReminderSchedule";
+import { buildPayInvoiceUrlServer } from "@/lib/customerLinksServer";
 
 const CRON_NAME = "deposit-reminder";
 
@@ -214,16 +215,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
         // Tenant display name for the sign-off.
         let tenantName = "Your catering team";
+        let tenantSlug: string | null = null;
         try {
           const { data: companyRow } = await sb
             .from("companies")
-            .select("company_name")
+            .select("company_name, slug")
             .eq("id", order.company_id)
             .maybeSingle();
           if ((companyRow as any)?.company_name) tenantName = (companyRow as any).company_name;
+          tenantSlug = (companyRow as any)?.slug || null;
         } catch { /* keep fallback */ }
 
-        const payLink = `${origin}/pay/i/${(invoice as any).public_token}`;
+        // cateringms.com/{slug}/pay/i/{token}, never a Vercel deployment host.
+        const payLink = buildPayInvoiceUrlServer((invoice as any).public_token, { slug: tenantSlug })
+          || `${origin}/pay/i/${(invoice as any).public_token}`;
         const firstName = String(order.client_name || "there").trim().split(/\s+/)[0] || "there";
         const eventName = order.event_name || "your event";
         const eventDateLabel = order.event_date

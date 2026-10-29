@@ -15,6 +15,7 @@ import { lifecycleService } from "./lifecycleService";
 import { formatQuoteSubject } from "@/lib/email/subjectFormatters";
 import { notifyQuoteUpdated } from "./quote/quoteNotifications";
 import { completeQueuedQuoteEmail } from "@/lib/email/completeQueuedQuoteEmail";
+import { customerLinkOrigin } from "@/lib/publicAppOrigin";
 
 /**
  * Phase 15 #3: clone an existing quote. Mirrors duplicateOrder
@@ -637,12 +638,10 @@ export const quoteService = {
     // own origin before the raw *.vercel.app deployment host, which is
     // deploy-protected and wrong for customers. Without any origin the
     // "View quote" CTA in the email rendered with an empty href.
-    const appOrigin =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      (typeof window !== "undefined" && window.location?.origin ? window.location.origin : "") ||
-      (process.env.NEXT_PUBLIC_VERCEL_URL
-        ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-        : "");
+    const appOrigin = customerLinkOrigin(
+      process.env.NEXT_PUBLIC_APP_URL,
+      typeof window !== "undefined" ? window.location?.origin : null,
+    );
     const publicToken: string = q.public_token ?? "";
     const quoteUrl = appOrigin && publicToken
       ? companySlug

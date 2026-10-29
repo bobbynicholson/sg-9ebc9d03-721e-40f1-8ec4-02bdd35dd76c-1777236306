@@ -30,6 +30,7 @@ import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { notificationService } from "@/services/notificationService";
+import { customerLinkOrigin } from "@/lib/publicAppOrigin";
 
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -103,7 +104,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Cache company name + base URL for the per-invoice email body.
     const { data: companyRow } = await ssr
       .from("companies")
-      .select("company_name, currency")
+      .select("company_name, currency, slug")
       .eq("id", companyId)
       .maybeSingle();
     const companyName = ((companyRow as any)?.company_name as string) || "your caterer";
@@ -115,7 +116,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       "R";
     const proto = (req.headers["x-forwarded-proto"] as string) || "https";
     const host = req.headers.host || "";
-    const baseUrl = host ? `${proto}://${host}` : "";
+    // Customer link base: never a *.vercel.app deployment host (login-protected).
+    const baseUrl = customerLinkOrigin(process.env.NEXT_PUBLIC_APP_URL, host ? `${proto}://${host}` : null);
+    const slugSegment = (companyRow as any)?.slug ? `/${(companyRow as any).slug}` : "";
 
     // Resolve client emails per invoice. Some invoices link via
     // client_id, others have the email cached on the order. Pull both
@@ -193,7 +196,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             })
           : "the agreed date";
         const link = inv.public_token && baseUrl
-          ? `${baseUrl}/pay/i/${inv.public_token}`
+          ? `${baseUrl}${slugSegment}/pay/i/${inv.public_token}`
           : null;
         const firstName = String(name).split(" ")[0] || "there";
         const subject = `Friendly reminder: invoice ${inv.invoice_number || ""} - ${companyName}`;

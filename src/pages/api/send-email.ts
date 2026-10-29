@@ -506,7 +506,7 @@ async function handler(
                     requestOrigin: req.headers.origin as string | undefined,
                     requestHost: req.headers.host,
                     forwardedProtocol: req.headers["x-forwarded-proto"] as string | undefined,
-                  })}/pay/i/${invAny.public_token}`
+                  })}${company.slug ? `/${company.slug}` : ""}/pay/i/${invAny.public_token}`
                 : null,
               reference: invAny.invoice_number || null,
             });

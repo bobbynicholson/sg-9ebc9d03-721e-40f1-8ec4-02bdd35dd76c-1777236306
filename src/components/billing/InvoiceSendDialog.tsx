@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { isInvoiceFullPaymentDueByDate } from "@/lib/invoiceClientView";
 import { formatClockWithAlt } from "@/lib/portalTime";
+import { buildPayInvoiceUrl } from "@/lib/customerLinks";
 
 export interface InvoiceSendDialogInvoice {
   id: string;
@@ -114,8 +115,8 @@ export function InvoiceSendDialog({
           .maybeSingle();
         const tok = (data as any)?.public_token;
         if (!cancelled && tok) {
-          const origin = typeof window !== "undefined" ? window.location.origin : "";
-          setPayLink(`${origin}/pay/i/${tok}`);
+          // cateringms.com/{slug}/pay/i/{token}; never a Vercel deployment host.
+          setPayLink(buildPayInvoiceUrl(tok, { slug: user?.company_slug || null }) || "");
         }
       } catch { /* link stays empty; body still sends */ }
     })();
