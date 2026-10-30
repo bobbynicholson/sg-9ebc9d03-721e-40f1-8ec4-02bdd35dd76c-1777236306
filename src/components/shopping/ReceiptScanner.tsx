@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Upload, Loader2, FileImage, AlertTriangle, CheckCircle2, X,
-  Sparkles, Clock, ListChecks,
+  Sparkles, Clock, ListChecks, Camera,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -145,6 +145,7 @@ export function ReceiptScanner({
   // happened. This keeps the result visible until the next scan.
   const [scanStatus, setScanStatus] = useState<{ kind: "success" | "empty" | "error"; message: string } | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const cameraRef = useRef<HTMLInputElement | null>(null);
   // SHOP-B: monthly scan quota. Replaces the misleading hardcoded
   // "around ZAR 0.05 per batch" line that was ~80x understated.
   const [quota, setQuota] = useState<{ used: number; limit: number; remaining: number; exceeded: boolean } | null>(null);
@@ -305,10 +306,30 @@ export function ReceiptScanner({
             className="hidden"
             onChange={(e) => onPickFiles(e.target.files)}
           />
+          {/* Android only offers the camera for a plain image/* single-file
+              picker, so the camera gets its own input. Same type checks. */}
+          <input
+            ref={cameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => { onPickFiles(e.target.files); e.target.value = ""; }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => cameraRef.current?.click()}
+            disabled={busy}
+            className="w-full sm:w-auto"
+          >
+            <Camera className="w-4 h-4 mr-1.5" />
+            Take photo of receipt
+          </Button>
           <div
             role="button"
             tabIndex={0}
-            aria-label="Pick receipt files, or drop them here"
+            aria-label="Choose receipt photos from your gallery or files, or drop them here"
             onClick={() => inputRef.current?.click()}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inputRef.current?.click(); } }}
             onDragOver={(e) => { e.preventDefault(); }}
@@ -317,7 +338,7 @@ export function ReceiptScanner({
           >
             <FileImage className={`w-10 h-10 mx-auto mb-2 ${accentIcon}`} />
             <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-              Tap to take a photo or pick files
+              Tap to choose photos from your gallery or files
             </p>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
               {picked.length} of {MAX_FILES} selected
