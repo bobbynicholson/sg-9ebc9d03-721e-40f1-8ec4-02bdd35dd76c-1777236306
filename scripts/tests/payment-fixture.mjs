@@ -55,9 +55,13 @@ export async function initializePaymentFixture(db) {
     CREATE POLICY company_access_payments ON payments FOR ALL TO authenticated USING (true) WITH CHECK (true);
     CREATE POLICY company_access_invoices ON invoices FOR ALL TO authenticated USING (true) WITH CHECK (true);
     CREATE POLICY company_access_payment_gateways ON payment_gateways FOR ALL TO authenticated USING (true) WITH CHECK (true);
+    -- channels is an enum array in production; a text[] here hid a cast bug
+    -- that stopped every gateway receipt (INV-005675, Oct 2026).
+    CREATE TYPE notification_channel AS ENUM ('email','sms','whatsapp','push','in_app');
     CREATE TABLE notifications(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), company_id uuid,
       user_id uuid, recipient_id uuid, notification_type text, title text, message text, priority text, link text,
-      related_entity_type text, related_entity_id uuid, channels text[]);
+      related_entity_type text, related_entity_id uuid,
+      channels notification_channel[] DEFAULT ARRAY['in_app']::notification_channel[]);
     CREATE TABLE audit_logs(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), company_id uuid, user_id uuid, action text, entity_type text, entity_id uuid, details jsonb, created_at timestamptz DEFAULT now());
     ALTER TABLE payments ADD COLUMN refunded_at timestamptz, ADD COLUMN gateway_response jsonb;
     CREATE TABLE fault_injection(enabled boolean);
@@ -74,5 +78,6 @@ export async function initializePaymentFixture(db) {
     '20261001000000_payment_webhook_idempotency_guard.sql',
   ]) await db.exec(await readFile(new URL(`../../supabase/migrations/${file}`, import.meta.url), 'utf8'));
   await db.exec(await readFile(new URL('../../LOCAL_PAYMENT_MIGRATIONS.sql', import.meta.url),'utf8'));
+  await db.exec(await readFile(new URL('../../supabase/migrations/20261030090000_fix_payment_receipt_in_app_channels.sql', import.meta.url),'utf8'));
   await db.exec('GRANT SELECT ON public.payment_attempts TO authenticated');
 }
