@@ -61,9 +61,12 @@ export async function updateDriverLocation(
     if (curErr) throw curErr;
 
     // Append-only history. Failure here is non-fatal - "where is the
-    // driver right now" still works without the trail row.
+    // driver right now" still works without the trail row. company_id is
+    // sent explicitly: the company_fk_* relationship checks run before the
+    // table's own stamp trigger and reject a row without it.
     const { error: histErr } = await supabase.from("gps_tracking").insert({
       driver_id: driverId,
+      company_id: companyId,
       order_id: orderId ?? null,
       latitude: location.latitude,
       longitude: location.longitude,
