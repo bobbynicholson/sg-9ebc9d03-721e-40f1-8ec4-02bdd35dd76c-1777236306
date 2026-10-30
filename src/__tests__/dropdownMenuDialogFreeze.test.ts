@@ -14,6 +14,14 @@ const MENUS_THAT_OPEN_DIALOGS: Array<[string, number]> = [
   ["src/pages/admin/order-assignments.tsx", 1],
 ];
 
+describe("shared dropdown menu", () => {
+  it("is non-modal unless a menu opts in", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/components/ui/dropdown-menu.tsx"), "utf8");
+    expect(source).toMatch(/modal = false/);
+    expect(source).toMatch(/<DropdownMenuPrimitive\.Root modal=\{modal\}/);
+  });
+});
+
 describe("menus that open dialogs", () => {
   it.each(MENUS_THAT_OPEN_DIALOGS)("%s uses non-modal menus", (file, count) => {
     const source = fs.readFileSync(path.join(process.cwd(), file), "utf8");

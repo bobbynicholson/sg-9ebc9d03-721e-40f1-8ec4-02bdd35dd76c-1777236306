@@ -4,7 +4,16 @@ import { Check, ChevronRight, Circle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
-const DropdownMenu = DropdownMenuPrimitive.Root
+// Non-modal by default. A modal menu whose item opens a dialog left the
+// page's pointer-events lock behind once the dialog closed, so nothing
+// could be clicked until a reload (contacts, leads, order menus). Pass
+// modal explicitly to opt back in.
+const DropdownMenu = ({
+  modal = false,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) => (
+  <DropdownMenuPrimitive.Root modal={modal} {...props} />
+)
 
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger
 
