@@ -110,6 +110,28 @@ export async function mintOrderCustomerLink(input: MintInput): Promise<string> {
   const sluggy = slugSegment(slug);
   const fallback = `${origin}${sluggy}/c/order/${orderId}`;
 
+  // Signed-in users can't run the mint RPC (20261029140000); in the
+  // browser a server route checks the caller's company and mints it.
+  if (typeof window !== "undefined") {
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/customer-link`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.token) {
+        console.warn("[customerLinksServer] link route failed, returning tokenless URL:", json?.error || res.status);
+        return fallback;
+      }
+      return `${origin}${sluggy}/c/order/${orderId}?t=${json.token}`;
+    } catch (e: any) {
+      console.warn("[customerLinksServer] link route threw, returning tokenless URL:", e?.message || e);
+      return fallback;
+    }
+  }
+
   try {
     const { data, error } = await sb.rpc("mint_client_order_token", {
       p_company_id: companyId,
