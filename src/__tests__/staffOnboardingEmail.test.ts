@@ -27,7 +27,7 @@ describe("new-user onboarding and resend", () => {
   it.each(["kitchen_manager", "kitchen_staff", "cleaning_manager", "shopping_staff", "driver", "admin", "company_admin"])("sends an activation link and tracks pending %s users", async (role) => {
     expect(await sendStaffInviteEmail(admin, { ...args, role })).toMatchObject({ emailed: true, via: "invite_link" });
     expect(invitationQuery.insert).toHaveBeenCalledWith(expect.objectContaining({ user_id: "user", role, status: "pending" }));
-    expect(admin.auth.admin.generateLink).toHaveBeenCalledWith({ type: "recovery", email: args.email, options: { redirectTo: "https://portal.example.com/auth/reset-password?invite=1" } });
+    expect(admin.auth.admin.generateLink).toHaveBeenCalledWith({ type: "recovery", email: args.email, options: { redirectTo: "https://portal.example.com/auth/reset-password?invite=1&auth_flow=recovery" } });
     expect(emailService.sendEmailDetailed).toHaveBeenCalledWith(expect.objectContaining({
       body: expect.stringContaining("https://auth.example/verify?token=fresh"), companyId: "company", allowPlatformFallback: true, _client: admin,
     }));

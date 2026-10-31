@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
@@ -8,54 +8,68 @@ import { AuthShell } from "@/components/auth/AuthShell";
 export default function AuthCallbackPage() {
   const router = useRouter();
   const [error, setError] = useState("");
+  const initialUrlRef = useRef<string | null>(null);
+  const processedUrlRef = useRef<string | null>(null);
+  if (initialUrlRef.current === null && typeof window !== "undefined") {
+    initialUrlRef.current = window.location.href;
+  }
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const startingUrl = initialUrlRef.current || window.location.href;
+    if (processedUrlRef.current === startingUrl) return;
+    processedUrlRef.current = startingUrl;
+
     const handleAuthCallback = async () => {
       try {
-        if (typeof window !== "undefined") {
-          const hash = window.location.hash || "";
+        const initialUrl = new URL(startingUrl);
+        const initialHashParams = new URLSearchParams(initialUrl.hash.slice(1));
+        const callbackType = initialHashParams.get("type") || initialUrl.searchParams.get("type");
+        const callbackError =
+          initialHashParams.get("error_description") ||
+          initialHashParams.get("error") ||
+          initialUrl.searchParams.get("error_description") ||
+          initialUrl.searchParams.get("error");
 
-          if (hash.includes("error=")) {
-            const params = new URLSearchParams(hash.slice(1));
-            setError(
-              params.get("error_description") ||
-              params.get("error") ||
-              "Sign-in link could not be used.",
-            );
+        if (callbackError) {
+          setError(callbackError);
+          setTimeout(() => router.push("/auth/login?error=callback_failed"), 1500);
+          return;
+        }
+
+        // Let Supabase finish its automatic PKCE/hash callback handling first.
+        // A successful PKCE exchange removes `code` from the URL. Only use the
+        // manual fallback if a credential is still pending afterward.
+        await supabase.auth.getSession();
+
+        const pendingUrl = new URL(window.location.href);
+        const pendingHash = new URLSearchParams(pendingUrl.hash.slice(1));
+        const accessToken = pendingHash.get("access_token") || "";
+        const refreshToken = pendingHash.get("refresh_token") || "";
+        if (accessToken && refreshToken) {
+          const { error: setSessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (setSessionError) {
+            setError(setSessionError.message || "Sign-in link could not be used.");
             setTimeout(() => router.push("/auth/login?error=callback_failed"), 1500);
             return;
           }
+          window.history.replaceState(null, "", pendingUrl.pathname + pendingUrl.search);
+        }
 
-          if (hash.includes("access_token=")) {
-            const params = new URLSearchParams(hash.slice(1));
-            const access_token = params.get("access_token") || "";
-            const refresh_token = params.get("refresh_token") || "";
-
-            if (access_token && refresh_token) {
-              const { error: setSessionError } = await supabase.auth.setSession({
-                access_token,
-                refresh_token,
-              });
-
-              if (setSessionError) {
-                setError(setSessionError.message || "Sign-in link could not be used.");
-                setTimeout(() => router.push("/auth/login?error=callback_failed"), 1500);
-                return;
-              }
-
-              window.history.replaceState(null, "", window.location.pathname + window.location.search);
-            }
+        const pendingCodeUrl = new URL(window.location.href);
+        const pendingCode = pendingCodeUrl.searchParams.get("code");
+        if (pendingCode) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(pendingCode);
+          if (exchangeError) {
+            setError(exchangeError.message || "Sign-in code could not be used.");
+            setTimeout(() => router.push("/auth/login?error=callback_failed"), 1500);
+            return;
           }
-
-          const code = new URL(window.location.href).searchParams.get("code");
-          if (code) {
-            const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-            if (exchangeError) {
-              setError(exchangeError.message || "Sign-in code could not be used.");
-              setTimeout(() => router.push("/auth/login?error=callback_failed"), 1500);
-              return;
-            }
-          }
+          pendingCodeUrl.searchParams.delete("code");
+          window.history.replaceState(null, "", pendingCodeUrl.pathname + pendingCodeUrl.search + pendingCodeUrl.hash);
         }
 
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -71,11 +85,9 @@ export default function AuthCallbackPage() {
           const { data: { user } } = await supabase.auth.getUser();
           
           if (user) {
-            // Check URL params to see if this is a password reset
-            const hashParams = new URLSearchParams(window.location.hash.substring(1));
-            const type = hashParams.get("type");
-            
-            if (type === "recovery") {
+            // The auth client removes callback hashes after parsing them, so
+            // use the type captured from the original URL above.
+            if (callbackType === "recovery") {
               // Redirect to password reset page
               router.push("/auth/reset-password");
               return;

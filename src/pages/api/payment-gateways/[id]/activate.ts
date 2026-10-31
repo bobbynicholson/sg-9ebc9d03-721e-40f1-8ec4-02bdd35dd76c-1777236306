@@ -12,7 +12,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
-import { createPagesServerClient } from "@/lib/supabase/server";
+import { requireActiveApiProfile } from "@/lib/requireActiveApiProfile";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { paymentGatewayService } from "@/services/paymentGatewayService";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
@@ -31,23 +31,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const gatewayId = String(req.query.id || "");
     if (!gatewayId) return res.status(400).json({ error: "Gateway id is required" });
 
-    const ssr = createPagesServerClient({ req, res });
-    const { data: { user } } = await ssr.auth.getUser();
-    if (!user) return res.status(401).json({ error: "Not signed in" });
-
-    const { data: profile, error: profileErr } = await ssr
-      .from("profiles")
-      .select("role, company_id")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (profileErr) {
-      console.error("[payment-gateways/[id]/activate] profiles fetch failed:", profileErr);
-      return res.status(503).json({ error: "Could not verify payment configuration permission" });
-    }
-    const role = String(profile?.role || "");
-    if (!ADMIN_ROLES.has(role)) {
-      return res.status(403).json({ error: "Admin or owner only" });
-    }
+    const actor = await requireActiveApiProfile(req, res, ADMIN_ROLES);
+    if (!actor) return;
+    const { user, profile, role } = actor;
 
     // Super_admin may target any tenant via ?company_id=... or body.company_id;
     // tenant admins are pinned to their profile.company_id.

@@ -1,3 +1,4 @@
+import "@/lib/installLogRedaction";
 import type { AppProps } from "next/app";
 import dynamic from "next/dynamic";
 import { useEffect, useRef } from "react";

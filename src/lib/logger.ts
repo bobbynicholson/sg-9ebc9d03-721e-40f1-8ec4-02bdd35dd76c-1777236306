@@ -32,6 +32,8 @@
 
 import fs from "fs";
 import path from "path";
+import { redactLogText, redactLogValue } from "@/lib/logRedaction";
+import { installConsoleRedaction } from "@/lib/consoleRedaction";
 
 export type LogLevel = "INFO" | "WARN" | "ERROR" | "DEBUG";
 
@@ -86,20 +88,21 @@ export function initLogger(): void {
       "═".repeat(72),
       "",
     ].join("\n");
+    const safeBanner = redactLogText(banner);
 
     // Seed all.log and errors.log with the banner
-    fs.writeFileSync(path.join(_runDir, "all.log"), banner, "utf8");
-    fs.writeFileSync(path.join(_runDir, "errors.log"), banner, "utf8");
+    fs.writeFileSync(path.join(_runDir, "all.log"), safeBanner, "utf8");
+    fs.writeFileSync(path.join(_runDir, "errors.log"), safeBanner, "utf8");
 
     fs.writeFileSync(
       path.join(_runDir, "_run-info.json"),
       JSON.stringify(
-        {
+        redactLogValue({
           runNumber,
           startedAt: now.toISOString(),
           nodeEnv: process.env.NODE_ENV,
           appUrl: process.env.NEXT_PUBLIC_APP_URL,
-        },
+        }),
         null,
         2
       ),
@@ -121,7 +124,7 @@ function _write(file: string, line: string): void {
   if (!_runDir) initLogger();
   if (!_runDir) return;
   try {
-    fs.appendFileSync(path.join(_runDir, file), line + "\n", "utf8");
+    fs.appendFileSync(path.join(_runDir, file), redactLogText(line) + "\n", "utf8");
   } catch {
     /* silent - never crash the app */
   }
@@ -143,14 +146,14 @@ export function log(
       ? "  " +
         (() => {
           try {
-            return JSON.stringify(ctx);
+            return JSON.stringify(redactLogValue(ctx));
           } catch {
             return "[non-serialisable]";
           }
         })()
       : "";
 
-  const line = `[${ts}] [${level.padEnd(5)}] [${area.padEnd(10)}] ${message}${ctxStr}`;
+  const line = `[${ts}] [${level.padEnd(5)}] [${area.padEnd(10)}] ${redactLogText(message)}${ctxStr}`;
 
   _write("all.log", line);
   _write(`${area}.log`, line);
@@ -176,25 +179,6 @@ export const logger = {
 // ── Console patching ──────────────────────────────────────────────────────────
 // Mirrors ALL existing console.log/warn/error calls in the codebase to
 // all.log automatically - no per-file changes needed.
-
-let _consolePatchApplied = false;
-
-function _fmt(...args: unknown[]): string {
-  return args
-    .map((a) => {
-      if (a === null) return "null";
-      if (a === undefined) return "undefined";
-      if (typeof a === "object") {
-        try {
-          return JSON.stringify(a);
-        } catch {
-          return "[circular]";
-        }
-      }
-      return String(a);
-    })
-    .join(" ");
-}
 
 // Infer log area from the call stack so console output is routed to the
 // right persona file as well as all.log.
@@ -225,31 +209,5 @@ function _inferArea(): LogArea {
 
 export function patchConsole(): void {
   if (typeof window !== "undefined") return;
-  if (_consolePatchApplied) return;
-  _consolePatchApplied = true;
-
-  const origLog = console.log.bind(console);
-  const origInfo = (console.info ?? console.log).bind(console);
-  const origWarn = console.warn.bind(console);
-  const origError = console.error.bind(console);
-
-  console.log = (...args: unknown[]) => {
-    origLog(...args);
-    log(_inferArea(), "INFO", _fmt(...args));
-  };
-
-  console.info = (...args: unknown[]) => {
-    origInfo(...args);
-    log(_inferArea(), "INFO", _fmt(...args));
-  };
-
-  console.warn = (...args: unknown[]) => {
-    origWarn(...args);
-    log(_inferArea(), "WARN", _fmt(...args));
-  };
-
-  console.error = (...args: unknown[]) => {
-    origError(...args);
-    log(_inferArea(), "ERROR", _fmt(...args));
-  };
+  installConsoleRedaction((level, message) => log(_inferArea(), level, message));
 }

@@ -30,7 +30,7 @@
  *     URL bar reading /spit-braai-delivery/auth/callback is part of
  *     that white-label feel.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import type { GetStaticPaths, GetStaticProps } from "next";
@@ -75,10 +75,15 @@ export default function ClientAuthCallbackPage({ initialBranding }: PageProps) {
 
   const [status, setStatus] = useState<Status>("working");
   const [errorMsg, setErrorMsg] = useState<string>("");
+  const initialUrlRef = useRef<string | null>(null);
+  if (initialUrlRef.current === null && typeof window !== "undefined") {
+    initialUrlRef.current = window.location.href;
+  }
 
   useEffect(() => {
     if (!router.isReady) return;
     if (typeof company_slug !== "string") return;
+    const startingUrl = initialUrlRef.current || window.location.href;
 
     let cancelled = false;
 
@@ -98,65 +103,60 @@ export default function ClientAuthCallbackPage({ initialBranding }: PageProps) {
         //   2. Query code:       ?code=...
         //   3. Hash error:       #error=...&error_description=...
         //
-        // The @supabase/ssr browser client auto-detects (1) on load --
-        // BUT that's async and races with our getSession() below, which
-        // is exactly why the callback was reporting "no active session"
-        // even when a valid JWT sat in the URL hash. We parse and call
-        // setSession() ourselves so we never race the detector.
+        // The browser client auto-detects PKCE codes during initialization.
+        // Wait for that work before using a fallback; otherwise a valid
+        // one-time code can be exchanged twice.
         if (typeof window !== "undefined") {
-          const hash = window.location.hash || "";
+          const initialUrl = new URL(startingUrl);
+          const initialHash = initialUrl.hash || "";
 
           // Case 3 - error in the hash (e.g. expired / already-used link)
-          if (hash.includes("error=")) {
-            const params = new URLSearchParams(hash.slice(1));
+          if (initialHash.includes("error=") || initialUrl.searchParams.has("error")) {
+            const params = new URLSearchParams(initialHash.slice(1));
             const desc =
               params.get("error_description") ||
               params.get("error") ||
+              initialUrl.searchParams.get("error_description") ||
+              initialUrl.searchParams.get("error") ||
               "Sign-in link could not be used.";
             return finish("error", decodeURIComponent(desc.replace(/\+/g, " ")));
           }
 
-          // Case 1 - hash tokens. Parse and seed the session manually.
-          if (hash.includes("access_token=")) {
-            const params = new URLSearchParams(hash.slice(1));
-            const access_token = params.get("access_token") || "";
-            const refresh_token = params.get("refresh_token") || "";
-            if (access_token && refresh_token) {
-              const { error } = await supabase.auth.setSession({
-                access_token,
-                refresh_token,
-              });
-              if (error) {
-                return finish(
-                  "error",
-                  error.message || "Sign-in link could not be used.",
-                );
-              }
-              // Wipe the hash so a refresh doesn't try to re-seed the
-              // (now consumed) tokens. replaceState avoids a navigation.
-              try {
-                window.history.replaceState(
-                  null,
-                  "",
-                  window.location.pathname + window.location.search,
-                );
-              } catch {
-                /* non-fatal */
-              }
-            }
-          }
+          await supabase.auth.getSession();
 
-          // Case 2 - ?code=... in the query (PKCE flow). Exchange manually.
-          const url = new URL(window.location.href);
-          const code = url.searchParams.get("code");
-          if (code) {
-            const { error } = await supabase.auth.exchangeCodeForSession(code);
+          // Case 1 - hash tokens. PKCE initialization rejects implicit-style
+          // hash tokens, so seed the session only if they remain afterward.
+          const urlAfterInit = new URL(window.location.href);
+          const hashAfterInit = new URLSearchParams(urlAfterInit.hash.slice(1));
+          const access_token = hashAfterInit.get("access_token") || "";
+          const refresh_token = hashAfterInit.get("refresh_token") || "";
+          if (access_token && refresh_token) {
+            const { error } = await supabase.auth.setSession({ access_token, refresh_token });
             if (error) {
               return finish(
                 "error",
                 error.message || "Sign-in link could not be used.",
               );
             }
+            try {
+              window.history.replaceState(null, "", urlAfterInit.pathname + urlAfterInit.search);
+            } catch {
+              /* non-fatal */
+            }
+          }
+
+          // Case 2 - ?code=... in the query. Initialization removes a code
+          // after a successful automatic exchange; only exchange a code
+          // that is still pending.
+          const pendingCodeUrl = new URL(window.location.href);
+          const code = pendingCodeUrl.searchParams.get("code");
+          if (code) {
+            const { error } = await supabase.auth.exchangeCodeForSession(code);
+            if (error) {
+              return finish("error", error.message || "Sign-in link could not be used.");
+            }
+            pendingCodeUrl.searchParams.delete("code");
+            window.history.replaceState(null, "", pendingCodeUrl.pathname + pendingCodeUrl.search + pendingCodeUrl.hash);
           }
         }
 

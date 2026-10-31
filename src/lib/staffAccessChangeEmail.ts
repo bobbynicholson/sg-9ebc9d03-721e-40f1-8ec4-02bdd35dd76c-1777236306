@@ -41,7 +41,7 @@ export async function sendStaffAccessChangeEmails(
     const loginUrl = slug
       ? `${args.baseUrl}/${slug}/login`
       : `${args.baseUrl}/auth/login`;
-    const resetUrl = `${args.baseUrl}/auth/reset-password?invite=1`;
+    const resetUrl = `${args.baseUrl}/auth/reset-password?invite=1&auth_flow=recovery`;
     const roleList = Array.from(new Set(args.roles.map(humaniseRole))).join(", ");
     const primaryLabel = humaniseRole(args.primaryRole);
     const targetName = args.target.fullName || args.target.email || "Staff member";

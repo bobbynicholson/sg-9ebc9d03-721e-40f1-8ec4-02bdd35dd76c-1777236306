@@ -22,7 +22,7 @@ describe("formatImportLine", () => {
   it("survives a context that cannot be turned into JSON", () => {
     const loop: Record<string, unknown> = {};
     loop.self = loop;
-    expect(formatImportLine("j", "s", "m", loop)).toBe("[import job=j step=s] m  [non-serialisable]");
+    expect(formatImportLine("j", "s", "m", loop)).toBe('[import job=j step=s] m  {"self":"[Circular]"}');
   });
 });
 
@@ -59,6 +59,15 @@ describe("importLog", () => {
   it("never throws when the file logger fails", () => {
     logMock.mockImplementation(() => { throw new Error("disk full"); });
     expect(() => importLog.error("job-1", "commit.crash", "Save handler crashed")).not.toThrow();
+  });
+
+  it("redacts direct stdout/stderr and file diagnostics", () => {
+    importLog.error("job-1", "commit.crash", "Failed /tenant/q/import-token-marker", { credentials: { secretKey: "import-secret-marker" } });
+    for (const output of [err.mock.calls, logMock.mock.calls]) {
+      expect(JSON.stringify(output)).not.toContain("import-secret-marker");
+      expect(JSON.stringify(output)).not.toContain("import-token-marker");
+      expect(JSON.stringify(output)).toContain("[REDACTED]");
+    }
   });
 });
 

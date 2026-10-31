@@ -106,7 +106,7 @@ export async function sendStaffInviteEmail(
       const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
         type: "recovery",
         email: args.email,
-        options: { redirectTo: `${args.baseUrl}/auth/reset-password?invite=1` },
+        options: { redirectTo: `${args.baseUrl}/auth/reset-password?invite=1&auth_flow=recovery` },
       });
       if (!linkErr) inviteLink = linkData?.properties?.action_link || null;
       else console.warn("[staffInviteEmail] generateLink failed:", linkErr.message);

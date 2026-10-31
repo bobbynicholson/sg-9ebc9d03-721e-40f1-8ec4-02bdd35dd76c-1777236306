@@ -25,7 +25,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
-import { createPagesServerClient } from "@/lib/supabase/server";
+import { requireActiveApiProfile } from "@/lib/requireActiveApiProfile";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import {
   paymentGatewayService,
@@ -42,23 +42,9 @@ const ADMIN_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const ssr = createPagesServerClient({ req, res });
-    const { data: { user } } = await ssr.auth.getUser();
-    if (!user) return res.status(401).json({ error: "Not signed in" });
-
-    const { data: profile, error: profileErr } = await ssr
-      .from("profiles")
-      .select("role, company_id")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (profileErr) {
-      console.error("[payment-gateways/index] profiles fetch failed:", profileErr);
-      return res.status(503).json({ error: "Could not verify payment configuration permission" });
-    }
-    const role = String(profile?.role || "");
-    if (!ADMIN_ROLES.has(role)) {
-      return res.status(403).json({ error: "Admin or owner only" });
-    }
+    const actor = await requireActiveApiProfile(req, res, ADMIN_ROLES);
+    if (!actor) return;
+    const { user, profile, role } = actor;
 
     // Resolve which company we're acting on. Tenant admins are scoped
     // to their own profile.company_id. Super_admin has no company on

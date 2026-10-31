@@ -1,3 +1,4 @@
+import "@/lib/installLogRedaction";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getLandingPageForRoleString } from "@/lib/authGuards";
@@ -180,8 +181,7 @@ const shouldRedirectToRoleLanding = (pathname: string) => {
 
 // ── Middleware-level structured logging (Edge-compatible - no fs) ──────────────
 // This runs on the Edge runtime so we cannot use the file logger.
-// These console.log calls are picked up by the Node.js instrumentation
-// console patch when the page handler runs server-side.
+// Edge has its own console redaction; Node instrumentation cannot intercept it.
 function mwLog(level: "INFO" | "WARN" | "AUTH" | "DENY", message: string, ctx?: Record<string, string | null | undefined>) {
   const ctxStr = ctx ? " " + JSON.stringify(ctx) : "";
   const line = `[middleware] [${level}] ${message}${ctxStr}`;

@@ -12,7 +12,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
-import { createPagesServerClient } from "@/lib/supabase/server";
+import { requireActiveApiProfile } from "@/lib/requireActiveApiProfile";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { paymentGatewayService } from "@/services/paymentGatewayService";
 import { pingPayFastCredentials } from "@/lib/payfastService";
@@ -34,20 +34,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const gatewayId = String(req.query.id || "");
     if (!gatewayId) return res.status(400).json({ error: "Gateway id is required" });
 
-    const ssr = createPagesServerClient({ req, res });
-    const { data: { user } } = await ssr.auth.getUser();
-    if (!user) return res.status(401).json({ error: "Not signed in" });
-
-    const { data: profile, error: profileError } = await ssr
-      .from("profiles")
-      .select("role, company_id")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (profileError) return res.status(503).json({ error: "Could not verify payment configuration permission" });
-    const role = String(profile?.role || "");
-    if (!ADMIN_ROLES.has(role)) {
-      return res.status(403).json({ error: "Admin or owner only" });
-    }
+    const actor = await requireActiveApiProfile(req, res, ADMIN_ROLES);
+    if (!actor) return;
+    const { profile, role } = actor;
 
     let companyId = (profile as any)?.company_id as string | null;
     if (role === "super_admin") {

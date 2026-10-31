@@ -98,3 +98,94 @@ test("a real platform super-admin can target another company's gateway", async (
   expect(res.status).toHaveBeenCalledWith(200);
   expect(paymentGatewayService.activate).toHaveBeenCalledWith("company-2", "gateway-2", "platform-user", service);
 });
+
+const gatewayEndpoints = endpoints.slice(0, 5);
+const statusCases = [
+  { name: "disabled Admin", role: "admin", is_active: false, deleted_at: null },
+  { name: "disabled owner", role: "owner", is_active: false, deleted_at: null },
+  { name: "disabled company Admin", role: "company_admin", is_active: false, deleted_at: null },
+  { name: "disabled platform Admin", role: "super_admin", is_active: false, deleted_at: null },
+  { name: "deleted Admin with the active flag still set", role: "admin", is_active: true, deleted_at: "2026-10-31T00:00:00Z" },
+  { name: "deleted owner", role: "owner", is_active: true, deleted_at: "2026-10-31T00:00:00Z" },
+  { name: "deleted platform Admin", role: "super_admin", is_active: true, deleted_at: "2026-10-31T00:00:00Z" },
+];
+
+describe.each(statusCases)("$name with an otherwise valid Auth session", state => {
+  test.each(gatewayEndpoints)("%s denies access before any privileged operation", async (_name, handler, method) => {
+    (createPagesServerClient as jest.Mock).mockReturnValue({
+      auth: { getUser: async () => ({ data: { user: { id: "disabled-user" } } }) },
+      from: jest.fn().mockReturnValue(query({ ...state, active_role: "super_admin", company_id: "company-1" })),
+    });
+    const res = response();
+    await handler({ method, headers: {}, query: { id: "gateway-1", company_id: "company-2" }, body: {} } as never, res as never);
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ error: "Account access denied", code: "ACCOUNT_ACCESS_DENIED" });
+    expect(getServiceSupabase).not.toHaveBeenCalled();
+    expect(paymentGatewayService.listWithCredentialHints).not.toHaveBeenCalled();
+    expect(paymentGatewayService.activate).not.toHaveBeenCalled();
+    expect(paymentGatewayService.softDelete).not.toHaveBeenCalled();
+    expect(paymentGatewayService.getByIdWithCredentials).not.toHaveBeenCalled();
+    expect(res.setHeader).toHaveBeenCalledWith("Cache-Control", "private, no-store");
+  });
+});
+
+test.each(gatewayEndpoints)("%s denies a missing profile", async (_name, handler, method) => {
+  (createPagesServerClient as jest.Mock).mockReturnValue({
+    auth: { getUser: async () => ({ data: { user: { id: "orphan-user" } } }) },
+    from: jest.fn().mockReturnValue(query(null)),
+  });
+  const res = response();
+  await handler({ method, headers: {}, query: { id: "gateway-1" }, body: {} } as never, res as never);
+  expect(res.status).toHaveBeenCalledWith(403);
+  expect(getServiceSupabase).not.toHaveBeenCalled();
+});
+
+test.each(gatewayEndpoints)("%s denies a rejected Auth session before reading the profile", async (_name, handler, method) => {
+  const from = jest.fn();
+  (createPagesServerClient as jest.Mock).mockReturnValue({
+    auth: { getUser: async () => ({ data: { user: { id: "unverified-user" } }, error: { message: "invalid session" } }) }, from,
+  });
+  const res = response();
+  await handler({ method, headers: {}, query: { id: "gateway-1" }, body: {} } as never, res as never);
+  expect(res.status).toHaveBeenCalledWith(401);
+  expect(from).not.toHaveBeenCalled();
+  expect(getServiceSupabase).not.toHaveBeenCalled();
+});
+
+test.each(["admin", "owner", "company_admin"])("an active %s can read their own gateways", async role => {
+  (createPagesServerClient as jest.Mock).mockReturnValue({
+    auth: { getUser: async () => ({ data: { user: { id: "active-user" } } }) },
+    from: jest.fn().mockReturnValue(query({ role, company_id: "company-1", is_active: true, deleted_at: null })),
+  });
+  const service = {};
+  (getServiceSupabase as jest.Mock).mockReturnValue(service);
+  (paymentGatewayService.listWithCredentialHints as jest.Mock).mockResolvedValue([]);
+  const res = response();
+  await gatewaysHandler({ method: "GET", headers: {}, query: { company_id: "company-2" }, body: {} } as never, res as never);
+  expect(res.status).toHaveBeenCalledWith(200);
+  expect(paymentGatewayService.listWithCredentialHints).toHaveBeenCalledWith("company-1", service);
+});
+
+test("the same session immediately loses access after disabling and regains it after reactivation", async () => {
+  const profile = { role: "admin", company_id: "company-1", is_active: true, deleted_at: null };
+  (createPagesServerClient as jest.Mock).mockReturnValue({
+    auth: { getUser: async () => ({ data: { user: { id: "same-user" } } }) },
+    from: jest.fn().mockReturnValue(query(profile)),
+  });
+  (getServiceSupabase as jest.Mock).mockReturnValue({});
+  (paymentGatewayService.listWithCredentialHints as jest.Mock).mockResolvedValue([]);
+  const req = { method: "GET", headers: {}, query: {}, body: {} } as never;
+  const active = response();
+  await gatewaysHandler(req, active as never);
+  profile.is_active = false;
+  const disabled = response();
+  await gatewaysHandler(req, disabled as never);
+  profile.is_active = true;
+  const restored = response();
+  await gatewaysHandler(req, restored as never);
+  expect(active.status).toHaveBeenCalledWith(200);
+  expect(disabled.status).toHaveBeenCalledWith(403);
+  expect(restored.status).toHaveBeenCalledWith(200);
+  expect(paymentGatewayService.listWithCredentialHints).toHaveBeenCalledTimes(2);
+  expect(getServiceSupabase).toHaveBeenCalledTimes(2);
+});

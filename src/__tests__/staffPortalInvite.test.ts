@@ -49,7 +49,7 @@ describe("staff portal invites", () => {
     expect((await send()).status).toBe(200);
     expect(profileQuery.upsert).toHaveBeenCalledWith(expect.objectContaining({ role: "kitchen_staff", active_role: "kitchen_manager", company_id: "company" }), expect.anything());
     expect(inviteQuery.insert).toHaveBeenCalledWith(expect.objectContaining({ user_id: "user", status: "pending", email: staff.email }));
-    expect(admin.auth.admin.generateLink).toHaveBeenCalledWith(expect.objectContaining({ options: expect.objectContaining({ redirectTo: "https://portal.example.com/auth/reset-password?invite=1" }) }));
+    expect(admin.auth.admin.generateLink).toHaveBeenCalledWith(expect.objectContaining({ options: expect.objectContaining({ redirectTo: "https://portal.example.com/auth/reset-password?invite=1&auth_flow=invite" }) }));
   });
   it("returns delivery failure with the provisioned profile so the UI can offer retry", async () => {
     (sendStaffInviteEmail as jest.Mock).mockResolvedValue({ emailed: false, errorCode: "resend_other" });

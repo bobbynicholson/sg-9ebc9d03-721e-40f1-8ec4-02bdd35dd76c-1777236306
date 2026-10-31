@@ -20,6 +20,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { log, type LogArea } from "@/lib/logger";
 import { blockIfCompanyUnpaid, isSubscriptionGatedRequest } from "@/lib/subscriptionApiGate";
 import { blockUnlessPlatformAdmin, isPlatformOnlyRequest } from "@/lib/platformApiGate";
+import { redactLogUrl, redactLogValue } from "@/lib/logRedaction";
 
 type ApiHandler = (
   req: NextApiRequest,
@@ -27,21 +28,6 @@ type ApiHandler = (
   res: NextApiResponse<any>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ) => Promise<void | NextApiResponse<any>> | void;
-
-const SENSITIVE_KEYS = new Set([
-  "password", "token", "secret", "key", "passphrase",
-  "access_token", "refresh_token", "api_key", "apikey",
-  "provisiontoken", "provision_token",
-]);
-
-function sanitise(body: unknown): unknown {
-  if (!body || typeof body !== "object") return body;
-  const copy: Record<string, unknown> = { ...(body as Record<string, unknown>) };
-  for (const k of Object.keys(copy)) {
-    if (SENSITIVE_KEYS.has(k.toLowerCase())) copy[k] = "[REDACTED]";
-  }
-  return copy;
-}
 
 function areaFromUrl(url: string): LogArea {
   if (/\/api\/cron\//.test(url)) return "cron";
@@ -70,6 +56,8 @@ export function withApiLogging(handler: ApiHandler, areaOverride?: LogArea): Api
     const area: LogArea = areaOverride ?? areaFromUrl(req.url ?? "");
     const method = req.method ?? "?";
     const url = req.url ?? "?";
+    // Keep the original URL for authorization and handler behavior.
+    const logUrl = redactLogUrl(url);
     const tenant = (req.query.company_slug as string) ?? "-";
     const userId =
       (req as { user?: { id?: string } }).user?.id ??
@@ -78,11 +66,11 @@ export function withApiLogging(handler: ApiHandler, areaOverride?: LogArea): Api
 
     // Log the incoming request
     const inCtx: Record<string, unknown> = { tenant, user: userId };
-    if (req.query && Object.keys(req.query).length > 0) inCtx.query = req.query;
+    if (req.query && Object.keys(req.query).length > 0) inCtx.query = redactLogValue(req.query);
     if ((method === "POST" || method === "PUT" || method === "PATCH") && req.body) {
-      inCtx.body = sanitise(req.body);
+      inCtx.body = redactLogValue(req.body);
     }
-    log(area, "INFO", `→ ${method} ${url}`, inCtx);
+    log(area, "INFO", `→ ${method} ${logUrl}`, inCtx);
 
     // Intercept res.json to capture response status + body on errors
     const origJson = res.json.bind(res);
@@ -91,8 +79,8 @@ export function withApiLogging(handler: ApiHandler, areaOverride?: LogArea): Api
       const level =
         res.statusCode >= 500 ? "ERROR" : res.statusCode >= 400 ? "WARN" : "INFO";
       const ctx: Record<string, unknown> = { status: res.statusCode, ms: dur };
-      if (res.statusCode >= 400) ctx.response = data;
-      log(area, level, `← ${method} ${url}`, ctx);
+      if (res.statusCode >= 400) ctx.response = redactLogValue(data);
+      log(area, level, `← ${method} ${logUrl}`, ctx);
       return origJson(data);
     };
 
@@ -105,7 +93,7 @@ export function withApiLogging(handler: ApiHandler, areaOverride?: LogArea): Api
         endLogged = true;
         const dur = Date.now() - start;
         const level = res.statusCode >= 500 ? "ERROR" : res.statusCode >= 400 ? "WARN" : "INFO";
-        log(area, level, `← ${method} ${url}`, { status: res.statusCode, ms: dur });
+        log(area, level, `← ${method} ${logUrl}`, { status: res.statusCode, ms: dur });
       }
       return origEnd(...args);
     };
@@ -117,7 +105,7 @@ export function withApiLogging(handler: ApiHandler, areaOverride?: LogArea): Api
       await handler(req, res);
     } catch (err: unknown) {
       const dur = Date.now() - start;
-      log("errors", "ERROR", `✗ ${method} ${url} threw after ${dur}ms`, {
+      log("errors", "ERROR", `✗ ${method} ${logUrl} threw after ${dur}ms`, {
         tenant,
         user: userId,
         error: err instanceof Error ? err.message : String(err),

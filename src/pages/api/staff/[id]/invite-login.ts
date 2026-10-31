@@ -121,7 +121,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
     // Use the current portal's origin for both custom and shared portal hosts.
     const origin = String(req.headers.origin || `https://${req.headers.host}`).replace(/\/$/, "");
-    const finalRedirect = `${origin}/auth/reset-password?invite=1`;
+    const finalRedirect = `${origin}/auth/reset-password?invite=1&auth_flow=${authUserId ? "recovery" : "invite"}`;
 
     // Generate the activation link without sending Supabase's default
     // template - we send our own branded React-Email instead.

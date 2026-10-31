@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { formatLogArguments, redactLogException, redactLogText, redactLogValue } from "@/lib/logRedaction";
 /**
  * Error monitoring + tenant-tagged events.
  *
@@ -91,11 +92,13 @@ function _resolveSentry(): any | null {
  * the error.
  */
 export function captureException(err: unknown, ctx: CaptureContext = {}): void {
+  err = redactLogException(err);
+  ctx = redactLogValue(ctx) as CaptureContext;
   // Always console.error - keeps Vercel / dev console visibility.
   const tagSummary = ctx.tags
     ? ` [${Object.entries(ctx.tags)
         .filter(([, v]) => v != null && v !== "")
-        .map(([k, v]) => `${k}=${v}`)
+        .map(([k, v]) => `${k}=${formatLogArguments([v])}`)
         .join(" ")}]`
     : "";
   console.error(`[observability]${tagSummary}`, err);
@@ -108,7 +111,7 @@ export function captureException(err: unknown, ctx: CaptureContext = {}): void {
         if (ctx.level) scope.setLevel(ctx.level);
         if (ctx.tags) {
           for (const [k, v] of Object.entries(ctx.tags)) {
-            if (v != null) scope.setTag(k, String(v));
+            if (v != null) scope.setTag(k, formatLogArguments([v]));
           }
           if (ctx.tags.userId) scope.setUser({ id: String(ctx.tags.userId) });
         }
@@ -127,10 +130,12 @@ export function captureException(err: unknown, ctx: CaptureContext = {}): void {
  * should see in aggregate). Same tag shape as captureException.
  */
 export function captureMessage(message: string, ctx: CaptureContext = {}): void {
+  message = redactLogText(message);
+  ctx = redactLogValue(ctx) as CaptureContext;
   const tagSummary = ctx.tags
     ? ` [${Object.entries(ctx.tags)
         .filter(([, v]) => v != null && v !== "")
-        .map(([k, v]) => `${k}=${v}`)
+        .map(([k, v]) => `${k}=${formatLogArguments([v])}`)
         .join(" ")}]`
     : "";
   console.warn(`[observability]${tagSummary} ${message}`);
@@ -142,7 +147,7 @@ export function captureMessage(message: string, ctx: CaptureContext = {}): void 
         if (ctx.level) scope.setLevel(ctx.level);
         if (ctx.tags) {
           for (const [k, v] of Object.entries(ctx.tags)) {
-            if (v != null) scope.setTag(k, String(v));
+            if (v != null) scope.setTag(k, formatLogArguments([v]));
           }
           if (ctx.tags.userId) scope.setUser({ id: String(ctx.tags.userId) });
         }
@@ -166,13 +171,14 @@ export function captureMessage(message: string, ctx: CaptureContext = {}): void 
  * works fine.
  */
 export function setGlobalTags(tags: ObservabilityTags): void {
+  tags = redactLogValue(tags) as ObservabilityTags;
   const sentry = _resolveSentry();
   if (!sentry) return;
   try {
     if (tags.userId) sentry.setUser({ id: String(tags.userId) });
     for (const [k, v] of Object.entries(tags)) {
       if (k === "userId") continue;
-      if (v != null) sentry.setTag(k, String(v));
+      if (v != null) sentry.setTag(k, formatLogArguments([v]));
     }
   } catch (sentryErr) {
     console.warn("[observability] sentry setGlobalTags failed:", sentryErr);

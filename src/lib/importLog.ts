@@ -21,6 +21,7 @@
  * counts. Never pass client names, emails or phone numbers.
  */
 import { log, type LogLevel } from "@/lib/logger";
+import { redactLogText, redactLogValue } from "@/lib/logRedaction";
 
 export type ImportLogContext = Record<string, unknown>;
 
@@ -34,12 +35,12 @@ export function formatImportLine(
   let ctxStr = "";
   if (ctx && Object.keys(ctx).length > 0) {
     try {
-      ctxStr = `  ${JSON.stringify(ctx)}`;
+      ctxStr = `  ${JSON.stringify(redactLogValue(ctx))}`;
     } catch {
       ctxStr = "  [non-serialisable]";
     }
   }
-  return `[import job=${jobId || "-"} step=${step}] ${message}${ctxStr}`;
+  return redactLogText(`[import job=${jobId || "-"} step=${step}] ${message}${ctxStr}`);
 }
 
 function write(
@@ -72,5 +73,5 @@ export const importLog = {
 /** Error text for a log line: message only, capped so a stack or SQL dump can't flood the log. */
 export function errText(e: unknown): string {
   const msg = e instanceof Error ? e.message : typeof e === "string" ? e : (e as { message?: unknown } | null)?.message;
-  return String(msg ?? e ?? "unknown error").slice(0, 300);
+  return redactLogText(String(msg ?? e ?? "unknown error")).slice(0, 300);
 }

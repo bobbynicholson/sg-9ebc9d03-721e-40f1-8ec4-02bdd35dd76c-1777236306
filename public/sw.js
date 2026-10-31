@@ -53,7 +53,8 @@ self.addEventListener("install", (event) => {
       return Promise.all(
         SHELL_URLS.map((url) =>
           cache.add(new Request(new URL(url, self.location.origin), { credentials: "omit" }))
-            .catch((e) => console.warn("[sw] precache miss:", url, e)),
+            // The worker has its own console; report the fixed shell path only.
+            .catch(() => console.warn("[sw] precache miss:", url)),
         ),
       );
     }),

@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/integrations/supabase/client";
+import { authService } from "@/services/authService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +20,16 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [validatingSession, setValidatingSession] = useState(true);
+  const [canSetPassword, setCanSetPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [requestLoading, setRequestLoading] = useState(false);
+  const [requestSent, setRequestSent] = useState(false);
+  const [invalidInvite, setInvalidInvite] = useState(false);
+  const initialUrlRef = useRef<string | null>(null);
+  const processedUrlRef = useRef<string | null>(null);
+  if (initialUrlRef.current === null && typeof window !== "undefined") {
+    initialUrlRef.current = window.location.href;
+  }
   // Staff-invite mode: the link is /auth/reset-password?invite=1, sent
   // when an admin adds a new staff member. Same set-password mechanic,
   // but invite-flavoured copy and a straight-into-the-app redirect.
@@ -26,84 +37,157 @@ export default function ResetPassword() {
 
   useEffect(() => {
     if (!router.isReady) return;
-    const invite = router.query.invite === "1" || router.query.type === "invite";
-    setIsInvite(invite);
+    const currentUrl = initialUrlRef.current || (typeof window !== "undefined" ? window.location.href : "");
+    if (processedUrlRef.current === currentUrl) return;
+    processedUrlRef.current = currentUrl;
 
-    // Establish the session from the link BEFORE calling getSession.
-    // Supabase recovery/invite links arrive as #access_token=... hash
-    // tokens (or a ?code= for PKCE); the browser client auto-detects
-    // them asynchronously, which races a bare getSession() and made the
-    // page report "invalid or expired link" for valid links. Seed the
-    // session ourselves first (same pattern as the magic-link callback).
     const establish = async () => {
       try {
         if (typeof window !== "undefined") {
-          const hash = window.location.hash || "";
-          if (hash.includes("error=")) {
-            const params = new URLSearchParams(hash.slice(1));
-            const desc =
-              params.get("error_description") ||
-              params.get("error") ||
-              "This link could not be used.";
-            setError(
-              decodeURIComponent(desc.replace(/\+/g, " ")) +
-                " Please request a new link.",
-            );
+          // Capture callback details from the first render. The app-level
+          // auth provider may finish URL detection before this effect runs.
+          const url = new URL(currentUrl);
+          const hashParams = new URLSearchParams(url.hash.slice(1));
+          const invite = router.query.invite === "1" || router.query.type === "invite" || hashParams.get("type") === "invite";
+          setIsInvite(invite);
+          if (router.query.request === "1" && !invite) {
+            setCanSetPassword(false);
+            setInvalidInvite(false);
             setValidatingSession(false);
             return;
           }
-          if (hash.includes("access_token=")) {
-            const params = new URLSearchParams(hash.slice(1));
-            const access_token = params.get("access_token") || "";
-            const refresh_token = params.get("refresh_token") || "";
-            if (access_token && refresh_token) {
-              const { error: setErr } = await supabase.auth.setSession({ access_token, refresh_token });
-              if (setErr) {
-                setError("Invalid or expired link. Please request a new one.");
-                setValidatingSession(false);
-                return;
-              }
-              try {
-                window.history.replaceState(null, "", window.location.pathname + window.location.search);
-              } catch { /* non-fatal */ }
-            }
+          const accessToken = hashParams.get("access_token") || "";
+          const refreshToken = hashParams.get("refresh_token") || "";
+          const tokenHash = url.searchParams.get("token_hash") || "";
+          const code = url.searchParams.get("code") || "";
+          const authFlow = router.query.auth_flow;
+          const callbackType = url.searchParams.get("type") || hashParams.get("type") || router.query.type;
+          const tokenHashType = authFlow === "invite" || authFlow === "recovery"
+            ? authFlow
+            : callbackType === "invite" || callbackType === "recovery"
+              ? callbackType
+              : invite ? "invite" : "recovery";
+          const hasAuthCallback = Boolean(accessToken || refreshToken || tokenHash || code);
+
+          if (hashParams.has("error") || hashParams.has("error_description")) {
+            const desc =
+              hashParams.get("error_description") ||
+              hashParams.get("error") ||
+              "This link could not be used.";
+            setError(`${desc} Please request a new link.`);
+            setInvalidInvite(invite);
+            setCanSetPassword(false);
+            setValidatingSession(false);
+            window.history.replaceState(null, "", url.pathname + url.search);
+            return;
           }
-          const url = new URL(window.location.href);
-          const code = url.searchParams.get("code");
-          if (code) {
-            const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
-            if (exErr) {
-              setError("Invalid or expired link. Please request a new one.");
+
+          // createBrowserClient automatically detects PKCE codes from the URL.
+          // Wait for that initialization to finish before attempting any
+          // fallback; otherwise a valid one-time code can be exchanged twice.
+          await supabase.auth.getSession();
+
+          // The browser client handles PKCE links itself. Hash-style links are
+          // rejected by our PKCE client, so seed those only if they remain in
+          // the URL after initialization.
+          const urlAfterInit = new URL(window.location.href);
+          const hashAfterInit = new URLSearchParams(urlAfterInit.hash.slice(1));
+          const pendingAccessToken = hashAfterInit.get("access_token") || "";
+          const pendingRefreshToken = hashAfterInit.get("refresh_token") || "";
+          if (pendingAccessToken && pendingRefreshToken) {
+            const { error: setErr } = await supabase.auth.setSession({
+              access_token: pendingAccessToken,
+              refresh_token: pendingRefreshToken,
+            });
+            if (setErr) {
+              setError("This link has expired. Request a new password reset link.");
+              setInvalidInvite(invite);
+              setCanSetPassword(false);
               setValidatingSession(false);
               return;
             }
+            window.history.replaceState(null, "", urlAfterInit.pathname + urlAfterInit.search);
           }
-        }
 
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          setError(
-            invite
+          if (tokenHash) {
+            const { error: verifyError } = await supabase.auth.verifyOtp({
+              token_hash: tokenHash,
+              type: tokenHashType,
+            });
+            if (verifyError) {
+              setError("This link has expired. Request a new password reset link.");
+              setInvalidInvite(invite);
+              setCanSetPassword(false);
+              setValidatingSession(false);
+              return;
+            }
+            const urlAfterVerify = new URL(window.location.href);
+            urlAfterVerify.searchParams.delete("token_hash");
+            window.history.replaceState(null, "", urlAfterVerify.pathname + urlAfterVerify.search + urlAfterVerify.hash);
+          }
+
+          // A successful automatic PKCE exchange removes `code` from the
+          // address bar. Only retry if the code is still pending.
+          const pendingCodeUrl = new URL(window.location.href);
+          const pendingCode = pendingCodeUrl.searchParams.get("code");
+          if (pendingCode) {
+            const { error: exErr } = await supabase.auth.exchangeCodeForSession(pendingCode);
+            if (exErr) {
+              setError("This link has expired. Request a new password reset link.");
+              setInvalidInvite(invite);
+              setCanSetPassword(false);
+              setValidatingSession(false);
+              return;
+            }
+            pendingCodeUrl.searchParams.delete("code");
+            window.history.replaceState(null, "", pendingCodeUrl.pathname + pendingCodeUrl.search + pendingCodeUrl.hash);
+          }
+
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) {
+            setCanSetPassword(false);
+            setInvalidInvite(invite);
+            setError(invite
               ? "This invite link is invalid or has expired. Ask your administrator to resend it."
-              : "Invalid or expired reset link. Please request a new password reset.",
-          );
+              : hasAuthCallback
+                ? "This reset link is invalid or has expired. Enter your email below to request a new one."
+                : "");
+            setValidatingSession(false);
+            return;
+          }
+          setCanSetPassword(true);
+          setInvalidInvite(false);
           setValidatingSession(false);
-          if (!invite) setTimeout(() => router.push("/auth/login"), 3000);
-          return;
         }
-        setValidatingSession(false);
       } catch (err) {
         console.error("Session check error:", err);
         setError("Failed to validate the link. Please try again.");
+        setCanSetPassword(false);
         setValidatingSession(false);
       }
     };
 
-    establish();
-  }, [router.isReady, router.query.invite, router.query.type, router]);
+    void establish();
+  }, [router.isReady, router.asPath, router.query.auth_flow, router.query.invite, router.query.request, router.query.type]);
+
+  const handleRequestReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setRequestLoading(true);
+    try {
+      const { error: requestError } = await authService.resetPasswordForEmail(resetEmail.trim());
+      if (requestError) throw requestError;
+      setRequestSent(true);
+    } catch (err: any) {
+      setError(err?.message || "Could not send a reset link. Please try again.");
+    } finally {
+      setRequestLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canSetPassword) return;
     setError("");
     setLoading(true);
 
@@ -147,7 +231,18 @@ export default function ResetPassword() {
 
     } catch (err: any) {
       console.error("Password reset error:", err);
-      setError(err.message || "Failed to reset password. Please try again.");
+      const missingSession = err?.name === "AuthSessionMissingError" || /auth session missing/i.test(err?.message || "");
+      if (missingSession) {
+        setCanSetPassword(false);
+        setInvalidInvite(isInvite);
+        setPassword("");
+        setConfirmPassword("");
+        setError(isInvite
+          ? "This invite link has expired or lost its session. Ask your administrator to resend it."
+          : "Your reset link has expired. Enter your email below to request another one.");
+      } else {
+        setError(err.message || "Failed to reset password. Please try again.");
+      }
       setLoading(false);
     }
   };
@@ -185,6 +280,94 @@ export default function ResetPassword() {
               <p className="text-sm text-slate-500">
                 {isInvite ? "Taking you to your portal..." : "Redirecting to login page..."}
               </p>
+            </div>
+          </CardContent>
+        </Card>
+      </AuthShell>
+    );
+  }
+
+  if (invalidInvite) {
+    return (
+      <AuthShell headline="Invitation link unavailable." subcopy="This link needs to be resent before you can set a password.">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardHeader className="space-y-1 text-center">
+            <CardTitle className="font-display text-2xl font-bold text-stone-900">Invite link expired</CardTitle>
+            <CardDescription>Ask your administrator to resend your staff invitation, then open the new link from that message.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <Link href="/auth/login" className="block text-center text-sm text-amber-700 hover:text-amber-800 hover:underline">
+              Back to Login
+            </Link>
+          </CardContent>
+        </Card>
+      </AuthShell>
+    );
+  }
+
+  if (!canSetPassword) {
+    return (
+      <AuthShell headline="Recover account access." subcopy="We’ll email you a secure link to choose a new password.">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardHeader className="space-y-1 text-center">
+            <div className="flex justify-center mb-4">
+              <div className="bg-amber-100 p-3 rounded-full">
+                <Lock className="h-8 w-8 text-amber-600" />
+              </div>
+            </div>
+            <CardTitle className="font-display text-2xl font-bold text-stone-900">
+              {requestSent ? "Check your email" : "Forgot your password?"}
+            </CardTitle>
+            <CardDescription>
+              {requestSent
+                ? "If an account uses that email, a password reset link is on its way."
+                : "Enter the email address on your account and we’ll send a reset link."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            {requestSent ? (
+              <div className="flex flex-col items-center gap-4 py-2">
+                <CheckCircle2 className="h-12 w-12 text-emerald-600" />
+                <p className="text-center text-sm text-slate-600">The link will take you back here to set your new password.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleRequestReset} className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="reset-email" className="text-sm font-medium text-slate-700">Email address</label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    autoComplete="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                    disabled={requestLoading}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:opacity-95 text-white font-semibold"
+                  disabled={requestLoading}
+                >
+                  {requestLoading ? "Sending reset link..." : "Send reset link"}
+                </Button>
+              </form>
+            )}
+            <div className="mt-6 text-center">
+              <Link href="/auth/login" className="text-sm text-amber-700 hover:text-amber-800 hover:underline">
+                Back to Login
+              </Link>
             </div>
           </CardContent>
         </Card>

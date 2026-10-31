@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Next's development request/fetch traces bypass our console wrapper and
+  // expose bearer URLs. Application request logs use the shared redactor.
+  logging: false,
   serverExternalPackages: ["pdf-parse", "@napi-rs/canvas"],
   outputFileTracingIncludes: {
     "/api/document-imports/**": [
@@ -26,7 +29,7 @@ const nextConfig = {
       },
     ],
   },
-  allowedDevOrigins: ["*.daytona.work", "*.softgen.dev"],
+  allowedDevOrigins: ["localhost", "127.0.0.1", "*.daytona.work", "*.softgen.dev"],
 
   // Tenant-scoped URLs.
   //
