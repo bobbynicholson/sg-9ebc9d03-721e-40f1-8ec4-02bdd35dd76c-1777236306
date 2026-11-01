@@ -90,7 +90,8 @@ const schema = z
     message: "Pick a date first",
   });
 
-type FormValues = z.infer<typeof schema>;
+type FormInput = z.input<typeof schema>;
+type FormValues = z.output<typeof schema>;
 
 const SOURCE_OPTIONS = [
   { value: "manual_add",     label: "Direct enquiry / manual entry" },
@@ -130,7 +131,7 @@ function NewLeadInner() {
     control,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({
+  } = useForm<FormInput, any, FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: "",

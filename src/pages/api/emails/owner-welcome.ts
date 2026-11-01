@@ -1,9 +1,8 @@
 /**
  * POST /api/emails/owner-welcome
  *
- * Fires the branded "welcome to CateringMS" email after a new catering
- * company finishes signup. Called from /company-signup once the
- * profile + company rows are in. We do this server-side so:
+ * Fires the branded "welcome to CateringMS" email for a newly provisioned
+ * company owner. The send runs server-side so:
  *   - Resend keys never touch the browser bundle
  *   - The send doesn't block signup - caller fires-and-forgets, any
  *     failure is logged in email_automation_log but the user still gets

@@ -1149,8 +1149,8 @@ function generateInternalLinks(topic: string): Array<{ text: string; url: string
       context: "When mentioning solutions or ROI"
     },
     {
-      text: "Sign up for a free trial",
-      url: "/company-signup",
+      text: "Talk to our team about company setup",
+      url: "/contact",
       context: "In conclusion or call-to-action sections"
     },
     {

@@ -63,7 +63,7 @@ export const documentLineSchema = z.object({
 export type DocumentLine = z.infer<typeof documentLineSchema>;
 export const extractionSchema = z.object({
   document_type: z.enum(["quote", "order", "invoice", "other"]),
-  fields: z.record(z.object({
+  fields: z.record(z.string(), z.object({
     value: z.union([z.string().max(8000), z.number().finite(), z.null()]),
     evidence: optionalText(1000),
     page: z.number().int().min(1).max(20).nullable().default(null),
@@ -75,7 +75,7 @@ export const extractionSchema = z.object({
 });
 export type DocumentExtraction = z.infer<typeof extractionSchema>;
 export const reviewSchema = z.object({
-  fields: z.record(z.string().max(8000)),
+  fields: z.record(z.string(), z.string().max(8000)),
   items: z.array(documentLineSchema).min(1).max(DOCUMENT_IMPORT_LIMITS.items),
   region_id: z.string().uuid(),
   mode: z.enum(["draft", "historical"]).default("draft"),

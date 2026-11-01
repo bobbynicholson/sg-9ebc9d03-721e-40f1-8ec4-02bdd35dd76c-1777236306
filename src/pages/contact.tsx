@@ -256,7 +256,7 @@ export default function ContactPage() {
               ) : (
                 <Reveal>
                   <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-                    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+                    <form id="contact-form" onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
                       <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
                         <div className="space-y-2">
                           <Label htmlFor="name" className="text-sm sm:text-base">Full Name *</Label>
@@ -434,13 +434,13 @@ export default function ContactPage() {
                   <Zap className="h-7 w-7 text-amber-600" />
                   <h4 className="mb-2 mt-4 font-display text-xl font-semibold tracking-tight text-stone-900">Ready to Get Started?</h4>
                   <p className="mb-6 text-sm text-stone-700 sm:text-base">
-                    Start your 14-day free trial today. No credit card required. Full access to all features.
+                    Our platform team creates each company workspace and can help confirm the right plan and trial for your business.
                   </p>
 
                   <div className="flex flex-col gap-3">
-                    <Link href="/company-signup" className="block">
+                    <Link href="#contact-form" className="block">
                       <Button className={`h-12 w-full rounded-full bg-amber-600 text-base font-semibold text-white shadow-lg shadow-amber-700/25 hover:bg-amber-700 ${btnPress}`}>
-                        Start Free Trial
+                        Request company setup
                         <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
                       </Button>
                     </Link>

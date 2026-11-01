@@ -16,7 +16,8 @@
  *   { email: string, company_slug: string, next?: string }
  *
  * Behaviour:
- *   1. Look up the company by slug. Reject unknown slugs.
+ *   1. Look up the company by slug and require an active client contact
+ *      whose email matches the request.
  *   2. Generate a Supabase magic link with redirect to
  *      /{slug}/auth/callback?next=... (the callback page validates the
  *      slug and lands the client on /client-portal/dashboard).
@@ -32,6 +33,8 @@
  * Security notes:
  *   - Service-role key required (we mint magic links via auth.admin).
  *   - Rate limit applied per email + IP to slow down abuse.
+ *   - New client Auth accounts are created only for a matching client
+ *     contact already on file in the requested company.
  *   - The actual session creation happens in the callback page when the
  *     user clicks the link - this endpoint never authenticates anyone.
  */
@@ -39,6 +42,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { emailService } from "@/services/emailService";
 import { consumeApiKeyRateLimitWindowed } from "@/lib/apiKeyRateLimit";
+import { findClientPortalContact } from "@/lib/clientPortalAccess";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -186,6 +190,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ ok: true });
     }
 
+    // A company URL alone must not let anyone create an Auth account or
+    // client profile. Only contacts already entered by the company can use
+    // its passwordless client portal. Keep the response indistinguishable
+    // for unknown emails to prevent address enumeration.
+    const { data: clientContact, error: clientContactError } = await findClientPortalContact(
+      admin,
+      company.id,
+      cleanEmail,
+    );
+    if (clientContactError) {
+      console.warn("Magic-link: client contact lookup failed", clientContactError.message);
+      return res.status(200).json({ ok: true });
+    }
+    if (!clientContact) return res.status(200).json({ ok: true });
+
     // Build the redirect URL: /{slug}/auth/callback?next={next}
     const origin =
       process.env.NEXT_PUBLIC_SITE_URL ||
@@ -206,13 +225,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         options: { redirectTo },
       });
       if (error) {
-        // Some Supabase errors here mean "email isn't a registered user
-        // and signup is disabled". We auto-provision below if that's the
-        // case, then retry. For any other failure, fall through to the
+        // A matching client contact may not have used the portal before.
+        // Provision that Auth user through the admin API, then retry. For
+        // any other failure, fall through to the
         // privacy-safe success response so we don't leak DB state.
         const msg = String(error.message || "").toLowerCase();
         if (msg.includes("not found") || msg.includes("does not exist") || msg.includes("user not found")) {
-          // First-time client: create the auth user, then mint the link.
+          // First-time client contact: create the Auth user, then mint the link.
           // We do NOT pre-create the profiles row - that happens on the
           // callback after the user clicks the link, so a stale auth
           // user that never gets activated doesn't leave orphan rows.

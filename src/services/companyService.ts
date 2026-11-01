@@ -1,12 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import type { User, Session } from "@supabase/supabase-js";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { PLATFORM_TRIAL_DAYS } from "@/lib/platformBilling";
 
 type Company = Database["public"]["Tables"]["companies"]["Row"];
-type CompanyInsert = Database["public"]["Tables"]["companies"]["Insert"];
 type CompanyUpdate = Database["public"]["Tables"]["companies"]["Update"];
 
 export interface CompanyWithOwner extends Company {
@@ -96,128 +94,6 @@ function platformUserCreationError(
 }
 
 export const companyService = {
-  /**
-   * Create a new company (used during admin signup)
-   */
-  async createCompany(data: {
-    name: string;
-    owner_id: string;
-    email?: string;
-    phone?: string;
-    currency?: string;
-    timezone?: string;
-    status?: string;
-    company_slug?: string;
-  }): Promise<{ success: boolean; company?: Company; error?: string }> {
-    try {
-      // Companies has `slug`, not `company_slug`, and no `onboarding_completed`.
-      const slug = (data.company_slug || data.name)
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
-      // 30-day trial - matches the platform-wide policy and the figure shown
-      // in /admin/platform/trial-management. The previous 14-day window was
-      // out of step with the rest of the codebase.
-      const companyData: CompanyInsert = {
-        company_name: data.name,
-        slug,
-        owner_id: data.owner_id,
-        email: data.email,
-        phone: data.phone,
-        currency: data.currency || "ZAR",
-        timezone: data.timezone || "Africa/Johannesburg",
-        subscription_status: "trial",
-        trial_ends_at: new Date(Date.now() + PLATFORM_TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString(),
-        is_active: true,
-      } as any;
-
-      const { data: company, error } = await supabase
-        .from("companies")
-        .insert(companyData)
-        .select()
-        .single();
-
-      if (error) {
-        return {
-          success: false,
-          error: error.message
-        };
-      }
-      
-      if (!company) {
-        return {
-          success: false,
-          error: "Failed to create company"
-        };
-      }
-
-      // Seed a default region (the "Main" kitchen / branch) so every
-      // tenant has at least one regions row from day one. Lifecycle
-      // artifacts (leads, quotes, orders) carry region_id from the
-      // moment of creation, which means single-branch tenants don't
-      // need to think about regions and multi-branch tenants only
-      // create extras on top. Coords stay null until the owner sets
-      // an HQ address; useCompanyKitchens filters regions without
-      // coords, so the picker only surfaces real, deliverable origins.
-      try {
-        const regionCode = buildDefaultRegionCode(slug);
-        await supabase.from("regions").insert({
-          company_id: company.id,
-          code: regionCode,
-          name: "Main kitchen",
-          country: countryFromCurrency(company.currency),
-          currency: company.currency,
-          timezone: company.timezone,
-          is_active: true,
-        } as any);
-      } catch (seedErr) {
-        // Non-blocking. If the seed fails (e.g. unique-code clash)
-        // the tenant still works - HQ fallback in useCompanyKitchens
-        // covers them until they add a region manually.
-        console.warn("[companyService] default region seed failed (non-blocking):", seedErr);
-      }
-
-      // Send welcome email via API route
-      if (data.email) {
-        try {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("id", data.owner_id)
-            .single();
-
-          await fetch('/api/send-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              companyId: company.id,
-              to: data.email,
-              emailType: 'companyWelcome',
-              variables: {
-                companyName: data.name,
-                ownerName: profile?.full_name || "there",
-              }
-            })
-          });
-          console.log("✅ Welcome email triggered for new company:", data.email);
-        } catch (emailError) {
-          console.error("⚠️ Failed to trigger welcome email (non-blocking):", emailError);
-        }
-      }
-
-      return {
-        success: true,
-        company
-      };
-    } catch (error) {
-      console.error("Error creating company:", error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error occurred"
-      };
-    }
-  },
-
   /**
    * Get company by ID
    */
@@ -324,118 +200,6 @@ export const companyService = {
     }
   },
   
-  async createCompanyAndOwner(
-    email: string,
-    password: string,
-    fullName: string,
-    companyName: string,
-    planId: string,
-    trialDays: number = PLATFORM_TRIAL_DAYS
-  ): Promise<{ user: User; company: Company; session: Session }> {
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-          is_owner: true,
-        },
-      },
-    });
-
-    if (signUpError) {
-      console.error("Error signing up owner:", signUpError);
-      throw signUpError;
-    }
-
-    if (!signUpData.user || !signUpData.session) {
-      throw new Error("Could not create user or session.");
-    }
-    const user = signUpData.user;
-    
-    const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
-
-    const { data: company, error: companyError } = await supabase
-      .from("companies")
-      .insert([
-        {
-          owner_id: user.id,
-          company_name: companyName,
-          slug: companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-          email: email,
-          subscription_plan: planId,
-          // A.13 #3 sweep: was 'trialing' (Stripe convention) which
-          // every reader filter missed - analyticsService,
-          // financial-dashboard, TrialExpiryBanner,
-          // subscriptionService.isInTrial all compare against 'trial'.
-          // Migration 20260518740000 dropped 'trialing' from the
-          // enum so 'trial' is now the only legal value.
-          subscription_status: 'trial',
-          trial_ends_at: trialEndsAt.toISOString(),
-        } as any,
-      ])
-      .select()
-      .single();
-
-    if (companyError) {
-      console.error("Error creating company:", companyError);
-      await supabase.auth.admin.deleteUser(user.id);
-      throw companyError;
-    }
-    
-    const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          company_id: company.id,
-          role: 'company_admin',
-          active_role: 'company_admin',
-        } as any)
-        .eq('id', user.id);
-
-    if (profileError) {
-        console.error("Error updating profile with company_id:", profileError);
-    }
-
-    // Seed the default "Main kitchen" region. See companyService.createCompany
-    // for the rationale - this keeps every tenant region-aware from day one.
-    try {
-      const regionCode = buildDefaultRegionCode(company.slug);
-      await supabase.from("regions").insert({
-        company_id: company.id,
-        code: regionCode,
-        name: "Main kitchen",
-        country: countryFromCurrency(company.currency),
-        currency: company.currency,
-        timezone: company.timezone,
-        is_active: true,
-      } as any);
-    } catch (seedErr) {
-      console.warn("[companyService] default region seed failed (non-blocking):", seedErr);
-    }
-
-    // Send welcome email via API route
-    try {
-      await fetch('/api/send-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            companyId: company.id,
-            to: email,
-            emailType: 'companyWelcome',
-            variables: {
-              companyName: companyName,
-              ownerName: fullName,
-            }
-          })
-      });
-    } catch(e) {
-      console.error("Failed to trigger welcome email", e);
-    }
-    
-    return { user, company, session: signUpData.session };
-  },
-
   /**
    * Create a new company with separate owner and operations-manager logins
    * from the super-admin dashboard.
@@ -476,7 +240,6 @@ export const companyService = {
       if (ownerEmail === adminEmail) {
         return { success: false, error: "The company owner and operations manager need different email addresses so they can have separate access." };
       }
-
       // FIX (2026-06-12): chicken-and-egg. /api/admin/create-user
       // REQUIRES company_id, but the old order created the admin user
       // FIRST (no company_id yet) -> the API rejected it with "we
@@ -533,7 +296,7 @@ export const companyService = {
         throw companyError;
       }
 
-      // 2. Create separate owner and operations-manager accounts. The API
+      // Create separate owner and operations-manager accounts. The API
       // generates a temporary password and sends each person their own invite.
       const provisionUser = async (email: string, fullName: string, role: "owner" | "company_admin") => {
         let response: Response;

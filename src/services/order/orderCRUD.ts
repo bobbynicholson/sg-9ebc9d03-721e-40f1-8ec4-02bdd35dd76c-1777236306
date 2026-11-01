@@ -175,9 +175,10 @@ export async function getOrderById(orderId: string, companyId?: string) {
       .select(`
         *,
         client:clients(*),
-        order_items(*),
+        quote:quotes!orders_quote_id_fkey(public_token, quote_number),
         assigned_driver:profiles!orders_assigned_driver_id_fkey(id, full_name, email, phone),
-        assigned_chef:profiles!orders_assigned_chef_id_fkey(id, full_name, email)
+        assigned_chef:profiles!orders_assigned_chef_id_fkey(id, full_name, email),
+        assigned_vehicle:vehicles!orders_assigned_vehicle_id_fkey(id, plate, nickname, refrigerated, has_warmer, max_pax_served, capacity_kg, owner_kind, requires_two_people)
       `)
       .eq("id", orderId)
       .is("deleted_at", null);
@@ -197,18 +198,229 @@ export async function getOrderById(orderId: string, companyId?: string) {
 }
 
 /**
- * Default soft cap for getAllOrders. The /admin/orders page paginates
- * client-side; this cap stops the page from melting on a 5000-order
- * tenant. Callers that need more can pass `{ limit: N }` explicitly.
- *
- * Phase 6 follow-up audit: this function previously had no limit, no
- * range. On a mature tenant a single page load pulled every order +
- * 7 nested joins (~MB of JSON over the wire). Capping at 500 by
- * default keeps the network bill bounded; the proper fix - a
- * server-paginated list endpoint - is a separate follow-up that
- * touches the UI.
+ * Compatibility cap for callers that still need a simple array. The
+ * admin orders screen uses `getOrdersPage` so the full history is
+ * available without downloading every joined order in one request.
  */
 const DEFAULT_ORDERS_LIMIT = 500;
+
+export interface OrderPageCursor {
+  createdAt: string | null;
+  id: string;
+}
+
+export interface GetOrdersPageOpts {
+  /** Maximum rows to return. The function fetches one extra row for `hasMore`. */
+  limit?: number;
+  /** Cursor from the last row of the previous page. */
+  cursor?: OrderPageCursor | null;
+  /** Search across the order number, client name, event name and venue. */
+  search?: string | null;
+  /** Lifecycle status, `all`, or a pending-request status chip. */
+  status?: string | null;
+  /** Inclusive event-date boundaries (YYYY-MM-DD). */
+  eventDateFrom?: string | null;
+  eventDateTo?: string | null;
+  /** Optional tenant-scoped list refinements. */
+  clientId?: string | null;
+  regionId?: string | null;
+  assignedUserId?: string | null;
+}
+
+const ORDER_STATUSES = new Set([
+  "pending", "confirmed", "preparing", "ready", "in_transit",
+  "delivered", "completed", "paused", "cancelled",
+]);
+const ORDER_PAGE_ID_PATTERN = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+const ORDER_PAGE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function validateOrderPageId(value: string, label: string): string {
+  if (!ORDER_PAGE_ID_PATTERN.test(value)) throw new Error(`Invalid ${label}`);
+  return value;
+}
+
+function isValidOrderPageDate(value: string): boolean {
+  if (!ORDER_PAGE_DATE_PATTERN.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function escapeLikeTerm(value: string): string {
+  // PostgREST's quoted filter values keep commas/parentheses from changing
+  // the OR expression. Escape LIKE metacharacters as well, so a search for
+  // "%" or "_" stays literal instead of turning into a broad scan.
+  return value.replace(/[\\%_*]/g, "\\$&").replace(/"/g, "\\\"");
+}
+
+async function getPendingOrderIds(
+  table: "order_amendment_requests" | "cancellation_requests",
+  companyId: string,
+): Promise<string[]> {
+  const { data, error } = await (supabase as any)
+    .from(table)
+    .select("order_id")
+    .eq("company_id", companyId)
+    .eq("status", "pending");
+  if (error) throw error;
+  return [...new Set(
+    ((data || []) as Array<{ order_id?: string | null }>)
+      .map((row) => row.order_id)
+      .filter((id): id is string => !!id),
+  )];
+}
+
+/**
+ * Return one stable, tenant-scoped page of the orders list. Keyset
+ * pagination avoids the increasingly expensive OFFSET scans and uses
+ * the same ordering as idx_orders_company_created_at_id.
+ */
+export async function getOrdersPage(
+  companyId: string,
+  opts: GetOrdersPageOpts = {},
+) {
+  if (!companyId?.trim()) throw new Error("companyId is required to list orders");
+
+  const requestedLimit = Number.isFinite(opts.limit)
+    ? Math.floor(opts.limit as number)
+    : 50;
+  const limit = Math.max(1, Math.min(requestedLimit, 100));
+  const cursor = opts.cursor ?? null;
+  const status = (opts.status || "all").trim();
+  if (
+    status !== "all" &&
+    status !== "pending-amendments" &&
+    status !== "pending-cancellations" &&
+    !ORDER_STATUSES.has(status)
+  ) {
+    throw new Error("Invalid order status filter");
+  }
+
+  // Keep the list payload lean: line items are fetched in the readiness
+  // batch, and the detail modal fetches its category-aware items on demand.
+  let query: any = supabase
+    .from("orders")
+    .select(`
+      *,
+      client:clients(*),
+      quote:quotes!orders_quote_id_fkey(public_token, quote_number),
+      assigned_driver:profiles!orders_assigned_driver_id_fkey(id, full_name, email, phone),
+      assigned_chef:profiles!orders_assigned_chef_id_fkey(id, full_name, email),
+      assigned_vehicle:vehicles!orders_assigned_vehicle_id_fkey(id, plate, nickname, refrigerated, has_warmer, max_pax_served, capacity_kg, owner_kind, requires_two_people)
+    `)
+    .eq("company_id", companyId)
+    .is("deleted_at", null);
+
+  if (status === "pending-amendments" || status === "pending-cancellations") {
+    const ids = await getPendingOrderIds(
+      status === "pending-amendments"
+        ? "order_amendment_requests"
+        : "cancellation_requests",
+      companyId,
+    );
+    if (ids.length === 0) {
+      return { orders: [], hasMore: false, nextCursor: null };
+    }
+    query = query.in("id", ids);
+  } else if (status === "all") {
+    // Keep the long-standing default behavior: cancelled orders are
+    // reachable from the explicit Cancelled filter, not All statuses.
+    query = query.neq("status", "cancelled");
+  } else {
+    query = query.eq("status", status);
+  }
+
+  const search = String(opts.search || "").trim().slice(0, 120);
+  if (search) {
+    const pattern = `"%${escapeLikeTerm(search)}%"`;
+    const searchClauses = [
+      `client_name.ilike.${pattern}`,
+      `order_number.ilike.${pattern}`,
+      `venue_address.ilike.${pattern}`,
+      `event_name.ilike.${pattern}`,
+    ];
+    // UUID columns cannot use ILIKE. Exact UUID searches still support
+    // pasted order IDs without casting the indexed id column to text.
+    if (ORDER_PAGE_ID_PATTERN.test(search)) {
+      searchClauses.push(`id.eq.${search}`);
+    }
+    query = query.or(searchClauses.join(","));
+  }
+
+  for (const [label, value] of [
+    ["event date from", opts.eventDateFrom],
+    ["event date to", opts.eventDateTo],
+  ] as const) {
+    if (value && !isValidOrderPageDate(value)) {
+      throw new Error(`Invalid ${label}`);
+    }
+  }
+  if (opts.eventDateFrom) query = query.gte("event_date", opts.eventDateFrom);
+  if (opts.eventDateTo) query = query.lte("event_date", opts.eventDateTo);
+
+  if (opts.clientId) {
+    query = query.eq("client_id", validateOrderPageId(opts.clientId, "client id"));
+  }
+  if (opts.regionId) {
+    const regionId = validateOrderPageId(opts.regionId, "region id");
+    // Company-wide legacy rows have no region and remain visible in a
+    // selected region, matching the existing client-side filter.
+    query = query.or(`region_id.eq.${regionId},region_id.is.null`);
+  }
+  if (opts.assignedUserId) {
+    const assignedUserId = validateOrderPageId(opts.assignedUserId, "assigned user id");
+    query = query.or(
+      `assigned_chef_id.eq.${assignedUserId},assigned_driver_id.eq.${assignedUserId}`,
+    );
+  }
+
+  if (cursor) {
+    const validCursorId = ORDER_PAGE_ID_PATTERN.test(cursor.id);
+    const validCursorDate =
+      cursor.createdAt === null ||
+      (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/i.test(
+        cursor.createdAt,
+      ) && Number.isFinite(Date.parse(cursor.createdAt)));
+    if (!validCursorId || !validCursorDate) {
+      throw new Error("Invalid order page cursor");
+    }
+
+    if (cursor.createdAt === null) {
+      // created_at is nullable in the legacy schema. Nulls sort last;
+      // once a page reaches them, continue by the unique ID tie-breaker.
+      query = query.is("created_at", null).lt("id", cursor.id);
+    } else {
+      // Supabase/PostgREST's OR expression gives us the lexicographic
+      // predicate for (created_at DESC, id DESC). Include null timestamps
+      // because they are ordered after all timestamped rows.
+      query = query.or(
+        `created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id}),created_at.is.null`,
+      );
+    }
+  }
+
+  const { data, error } = await query
+    .order("created_at", { ascending: false, nullsFirst: false })
+    .order("id", { ascending: false })
+    .limit(limit + 1);
+
+  if (error) throw error;
+
+  const rows = (data || []) as any[];
+  const hasMore = rows.length > limit;
+  const orders = rows.slice(0, limit);
+  const lastOrder = orders[orders.length - 1];
+
+  return {
+    orders,
+    hasMore,
+    nextCursor: hasMore && lastOrder
+      ? {
+          createdAt: lastOrder.created_at ? String(lastOrder.created_at) : null,
+          id: String(lastOrder.id),
+        }
+      : null,
+  };
+}
 
 export interface GetAllOrdersOpts {
   /** Max rows returned. Defaults to DEFAULT_ORDERS_LIMIT. */

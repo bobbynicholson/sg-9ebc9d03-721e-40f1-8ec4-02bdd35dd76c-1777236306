@@ -7,7 +7,12 @@ import { validateCompanyMutation, withCompanyFilter } from "@/lib/companyIsolati
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { supabase } from "@/integrations/supabase/client";
 import provisionHandler from "@/pages/api/auth/provision-company";
+import clientMagicLinkHandler from "@/pages/api/auth/client-magic-link";
+import clientProvisionProfileHandler from "@/pages/api/auth/client-provision-profile";
+import { findClientPortalContact } from "@/lib/clientPortalAccess";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { consumeApiKeyRateLimitWindowed } from "@/lib/apiKeyRateLimit";
+import { emailService } from "@/services/emailService";
 import { companyProvisionProofMatches } from "@/lib/companyProvisionProof";
 import { createHash } from "node:crypto";
 import welcomeHandler from "@/pages/api/emails/owner-welcome";
@@ -18,6 +23,7 @@ import localProfitHandler from "@/pages/api/admin/event-profitability";
 
 jest.mock("@/lib/supabase/server", () => ({ createPagesServerClient: jest.fn() }));
 jest.mock("@/lib/supabase/service", () => ({ getServiceSupabase: jest.fn() }));
+jest.mock("@/lib/apiKeyRateLimit", () => ({ consumeApiKeyRateLimitWindowed: jest.fn(async () => ({ allowed: true, resetInMs: 0 })) }));
 jest.mock("@/lib/withApiLogging", () => ({ withApiLogging: (handler: unknown) => handler }));
 jest.mock("@/server/emails/sendBrandedEmail", () => ({ sendBrandedEmail: jest.fn(async () => ({ ok: true })) }));
 jest.mock("@/services/email/templateResolver", () => ({ resolveEmailTemplate: jest.fn(async () => ({ source: "fallback" })) }));
@@ -165,42 +171,154 @@ function provisioning({ caller = null, profileCompany = null, existingCompany = 
   } });
   return { from, inserts, updateUserById };
 }
-async function provision(config: any = {}, extraBody: any = {}) {
-  const mocks = provisioning(config), res = response();
+test("self-service company provisioning is retired without reaching auth or the database", async () => {
+  const res = response();
   await provisionHandler({ method: "POST", headers: {}, body: {
-    userId: a, email: provisionUser.email, companyName: "New company", ownerName: "Owner", ...extraBody,
+    userId: a, email: provisionUser.email, companyName: "New company", ownerName: "Owner", provisionToken,
   } } as any, res as any);
-  return { ...mocks, res };
+  expect(res.statusCode).toBe(410);
+  expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ contactUrl: "/contact" }));
+  expect(getServiceSupabase).not.toHaveBeenCalled();
+  expect(createPagesServerClient).not.toHaveBeenCalled();
+});
+test("retired company provisioning still rejects other HTTP methods", async () => {
+  const res = response();
+  await provisionHandler({ method: "GET", headers: {}, body: {} } as any, res as any);
+  expect(res.statusCode).toBe(405);
+  expect(res.setHeader).toHaveBeenCalledWith("Allow", "POST");
+});
+
+function resultQuery(result: { data: any; error?: any }) {
+  const q: any = {};
+  for (const method of ["select", "eq", "ilike", "is", "or", "limit", "order", "update", "insert"]) {
+    q[method] = jest.fn(() => q);
+  }
+  q.maybeSingle = jest.fn(async () => result);
+  return q;
 }
-test("knowing an owner's user ID and email does not disclose their company", async () => {
-  const { res, from } = await provision({ profileCompany: b, existingCompany: { id: b, private: "secret" } });
-  expect(res.statusCode).toBe(401); expect(from).not.toHaveBeenCalledWith("companies");
+
+test("client portal contact lookup is tenant-scoped and excludes archived or inactive contacts", async () => {
+  const q: any = {};
+  for (const method of ["select", "eq", "ilike", "is", "or", "limit"]) {
+    q[method] = jest.fn(() => q);
+  }
+  const contact = { id: "client-row", client_name: "Client" };
+  q.maybeSingle = jest.fn(async () => ({ data: contact, error: null }));
+  const admin = { from: jest.fn(() => q) };
+
+  const result = await findClientPortalContact(admin, b, "client%_+@example.test");
+
+  expect(result.data).toEqual(contact);
+  expect(admin.from).toHaveBeenCalledWith("clients");
+  expect(q.eq).toHaveBeenCalledWith("company_id", b);
+  expect(q.ilike).toHaveBeenCalledWith("email", "client\\%\\_+@example.test");
+  expect(q.is).toHaveBeenCalledWith("deleted_at", null);
+  expect(q.or).toHaveBeenCalledWith("is_active.is.null,is_active.eq.true");
 });
-test("a signup capability cannot be replayed once any company membership exists", async () => {
-  const { res, inserts } = await provision({ profileCompany: b }, { provisionToken });
-  expect(res.statusCode).toBe(401); expect(inserts).toHaveLength(0);
+
+const clientCompany = { id: b, slug: "company-b", company_name: "Company B", logo_url: null, primary_color: null, secondary_color: null };
+const clientEmail = "client@example.test";
+
+test("client magic-link requests do not create accounts for emails outside the company client list", async () => {
+  const companies = resultQuery({ data: clientCompany, error: null });
+  const clients = resultQuery({ data: null, error: null });
+  const generateLink = jest.fn();
+  const createUser = jest.fn();
+  const admin = {
+    from: jest.fn((table: string) => table === "companies" ? companies : clients),
+    auth: { admin: { generateLink, createUser } },
+  };
+  (getServiceSupabase as jest.Mock).mockReturnValue(admin);
+  (consumeApiKeyRateLimitWindowed as jest.Mock).mockResolvedValue({ allowed: true, resetInMs: 0 });
+
+  const res = response();
+  await clientMagicLinkHandler({
+    method: "POST",
+    headers: { origin: "https://catering.example.test", "x-forwarded-for": "127.0.0.1" },
+    socket: { remoteAddress: "127.0.0.1" },
+    body: { email: clientEmail, company_slug: clientCompany.slug },
+  } as any, res as any);
+
+  expect(res.statusCode).toBe(200);
+  expect(res.json).toHaveBeenCalledWith({ ok: true });
+  expect(clients.eq).toHaveBeenCalledWith("company_id", clientCompany.id);
+  expect(clients.ilike).toHaveBeenCalledWith("email", clientEmail);
+  expect(clients.is).toHaveBeenCalledWith("deleted_at", null);
+  expect(generateLink).not.toHaveBeenCalled();
+  expect(createUser).not.toHaveBeenCalled();
+  expect(emailService.sendEmail).not.toHaveBeenCalled();
 });
-test("a signed-in user cannot provision or read another user's company", async () => {
-  const { res, inserts } = await provision({ caller: { id: b } }, { provisionToken });
-  expect(res.statusCode).toBe(403); expect(inserts).toHaveLength(0);
+
+test("a client contact on file can receive a first-time server-provisioned magic link", async () => {
+  const companies = resultQuery({ data: clientCompany, error: null });
+  const clients = resultQuery({ data: { id: "client-row", client_name: "Client" }, error: null });
+  const generateLink = jest.fn()
+    .mockResolvedValueOnce({ data: null, error: { message: "User not found" } })
+    .mockResolvedValueOnce({ data: { properties: { action_link: "https://auth.example.test/magic" } }, error: null });
+  const createUser = jest.fn(async () => ({ error: null }));
+  const admin = {
+    from: jest.fn((table: string) => table === "companies" ? companies : clients),
+    auth: { admin: { generateLink, createUser } },
+  };
+  (getServiceSupabase as jest.Mock).mockReturnValue(admin);
+  (consumeApiKeyRateLimitWindowed as jest.Mock).mockResolvedValue({ allowed: true, resetInMs: 0 });
+
+  const res = response();
+  await clientMagicLinkHandler({
+    method: "POST",
+    headers: { origin: "https://catering.example.test", "x-forwarded-for": "127.0.0.1" },
+    socket: { remoteAddress: "127.0.0.1" },
+    body: { email: clientEmail, company_slug: clientCompany.slug },
+  } as any, res as any);
+
+  expect(res.statusCode).toBe(200);
+  expect(createUser).toHaveBeenCalledWith(expect.objectContaining({
+    email: clientEmail,
+    user_metadata: expect.objectContaining({ client_signup_via: "magic_link", first_company_id: clientCompany.id }),
+  }));
+  expect(generateLink).toHaveBeenCalledTimes(2);
+  expect(emailService.sendEmail).toHaveBeenCalledWith(expect.objectContaining({ companyId: clientCompany.id, to: clientEmail }));
 });
-test("authenticated staff cannot move themselves into a new company", async () => {
-  const { res, inserts } = await provision({ caller: { id: a }, profileCompany: b });
-  expect(res.statusCode).toBe(409); expect(inserts).toHaveLength(0);
+
+test("client profile provisioning rejects an authenticated email absent from the company's contacts", async () => {
+  const user = { id: "client-user", email: clientEmail, user_metadata: {} };
+  (createPagesServerClient as jest.Mock).mockReturnValue({ auth: { getUser: jest.fn(async () => ({ data: { user } })) } });
+  const companies = resultQuery({ data: clientCompany, error: null });
+  const clients = resultQuery({ data: null, error: null });
+  const admin = { from: jest.fn((table: string) => table === "companies" ? companies : clients) };
+  (getServiceSupabase as jest.Mock).mockReturnValue(admin);
+
+  const res = response();
+  await clientProvisionProfileHandler({ method: "POST", headers: {}, body: { company_slug: clientCompany.slug } } as any, res as any);
+
+  expect(res.statusCode).toBe(404);
+  expect(admin.from).not.toHaveBeenCalledWith("profiles");
 });
-test("fresh signup proof preserves company signup without an email-confirmed session", async () => {
-  const { res, inserts, updateUserById } = await provision({}, { provisionToken });
-  expect(res.statusCode).toBe(201);
-  expect(inserts.find(row => row.table === "companies").row.owner_id).toBe(a);
-  expect(updateUserById).toHaveBeenCalledWith(a, { user_metadata: expect.objectContaining({ company_provision_token_hash: null }) });
+
+test("an existing staff profile cannot be attached to another company's client portal", async () => {
+  const user = { id: "staff-user", email: clientEmail, user_metadata: {} };
+  (createPagesServerClient as jest.Mock).mockReturnValue({ auth: { getUser: jest.fn(async () => ({ data: { user } })) } });
+  const companies = resultQuery({ data: clientCompany, error: null });
+  const clients = resultQuery({ data: { id: "client-row", client_name: "Client" }, error: null });
+  const profiles = resultQuery({ data: { id: user.id, role: "company_admin", company_id: a, full_name: "Staff", email: clientEmail }, error: null });
+  const admin = { from: jest.fn((table: string) => ({ companies, clients, profiles } as any)[table]) };
+  (getServiceSupabase as jest.Mock).mockReturnValue(admin);
+
+  const res = response();
+  await clientProvisionProfileHandler({ method: "POST", headers: {}, body: { company_slug: clientCompany.slug } } as any, res as any);
+
+  expect(res.statusCode).toBe(403);
+  expect(admin.from).toHaveBeenCalledWith("profiles");
+  expect(profiles.update).not.toHaveBeenCalled();
 });
-test("signup proof rejects expired, malformed and incorrect secrets", () => {
+
+test("welcome proof rejects expired, malformed and incorrect secrets", () => {
   const now = Date.now();
-  expect(companyProvisionProofMatches(provisionUser, provisionToken, now)).toBe(true);
-  expect(companyProvisionProofMatches(provisionUser, "cd".repeat(32), now)).toBe(false);
-  expect(companyProvisionProofMatches(provisionUser, "short", now)).toBe(false);
-  expect(companyProvisionProofMatches({ ...provisionUser, created_at: new Date(now - 31 * 60_000).toISOString() }, provisionToken, now)).toBe(false);
-  expect(companyProvisionProofMatches({ ...provisionUser, created_at: "invalid" }, provisionToken, now)).toBe(false);
+  expect(companyProvisionProofMatches(provisionUser, provisionToken, now, "owner_welcome_token_hash")).toBe(true);
+  expect(companyProvisionProofMatches(provisionUser, "cd".repeat(32), now, "owner_welcome_token_hash")).toBe(false);
+  expect(companyProvisionProofMatches(provisionUser, "short", now, "owner_welcome_token_hash")).toBe(false);
+  expect(companyProvisionProofMatches({ ...provisionUser, created_at: new Date(now - 31 * 60_000).toISOString() }, provisionToken, now, "owner_welcome_token_hash")).toBe(false);
+  expect(companyProvisionProofMatches({ ...provisionUser, created_at: "invalid" }, provisionToken, now, "owner_welcome_token_hash")).toBe(false);
 });
 test("a known user/company pair cannot trigger a welcome email", async () => {
   provisioning({ profileCompany: b, existingCompany: { id: b, owner_id: a } });

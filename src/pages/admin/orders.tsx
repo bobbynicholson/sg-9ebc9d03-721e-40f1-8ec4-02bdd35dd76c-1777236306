@@ -99,6 +99,7 @@ import {
 import { Footer } from "@/components/Footer";
 import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { orderService } from "@/services/orderService";
+import type { OrderPageCursor } from "@/services/order/orderCRUD";
 import { supabase } from "@/integrations/supabase/client";
 import {
   deriveOrderIntelligence,
@@ -123,6 +124,7 @@ import { OrdersListEmptyState } from "@/components/admin/orders/OrdersListEmptyS
 import { OrderHistoryTimeline } from "@/components/admin/orders/OrderHistoryTimeline";
 import { OrderDetailsModal } from "@/components/admin/orders/OrderDetailsModal";
 import { TimelineRow } from "@/components/admin/orders/TimelineRow";
+import { Virtuoso } from "react-virtuoso";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import { ClientEmailDrawer } from "@/components/messaging/ClientEmailDrawer";
 import { KanbanColumn } from "@/components/admin/orders/KanbanBoard";
@@ -159,6 +161,60 @@ import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
 import { loadLatestDocumentAmountChanges } from "@/services/documentAmountChanges";
 import { useServiceAreaEmailAvailability } from "@/hooks/useServiceAreaEmailAvailability";
+
+const ORDERS_PAGE_SIZE = 25;
+
+function getOrderEventDateBounds(
+  dateFilter: string,
+  dateFrom: string,
+  dateTo: string,
+  timezone: string | null,
+): { eventDateFrom: string | null; eventDateTo: string | null } {
+  if (dateFilter === "all") {
+    return { eventDateFrom: null, eventDateTo: null };
+  }
+
+  const today = tenantToday(timezone);
+  const todayIso = toLocalISO(today);
+  const addDays = (date: Date, count: number) => {
+    const result = new Date(date);
+    result.setDate(result.getDate() + count);
+    return result;
+  };
+
+  if (dateFilter === "today") {
+    return { eventDateFrom: todayIso, eventDateTo: todayIso };
+  }
+  if (dateFilter === "week") {
+    const day = today.getDay() === 0 ? 7 : today.getDay();
+    const monday = addDays(today, 1 - day);
+    return {
+      eventDateFrom: toLocalISO(monday),
+      eventDateTo: toLocalISO(addDays(monday, 6)),
+    };
+  }
+  if (dateFilter === "month") {
+    return {
+      eventDateFrom: toLocalISO(new Date(today.getFullYear(), today.getMonth(), 1)),
+      eventDateTo: toLocalISO(new Date(today.getFullYear(), today.getMonth() + 1, 0)),
+    };
+  }
+  if (dateFilter === "next30") {
+    return { eventDateFrom: todayIso, eventDateTo: toLocalISO(addDays(today, 30)) };
+  }
+  if (dateFilter === "past") {
+    return { eventDateFrom: null, eventDateTo: toLocalISO(addDays(today, -1)) };
+  }
+  if (dateFilter === "custom") {
+    const fromDate = parseLocalDay(dateFrom);
+    const toDate = parseLocalDay(dateTo);
+    return {
+      eventDateFrom: fromDate && toLocalISO(fromDate) === dateFrom ? dateFrom : null,
+      eventDateTo: toDate && toLocalISO(toDate) === dateTo ? dateTo : null,
+    };
+  }
+  return { eventDateFrom: null, eventDateTo: null };
+}
 
 // OrderStats type + STATUS_CONFIG + WORKFLOW_STAGES + helpers
 // extracted to sibling files in the P2-13 Phase B split. Imported
@@ -217,11 +273,24 @@ function OrderProcessDashboard() {
     Map<string, OrderReadiness>
   >(new Map());
   const [loading, setLoading] = useState(true);
+  const [loadingMoreOrders, setLoadingMoreOrders] = useState(false);
+  const [hasMoreOrders, setHasMoreOrders] = useState(false);
+  const [orderHistoryStatus, setOrderHistoryStatus] = useState<
+    "loading" | "complete" | "more" | "single-local-order"
+  >("loading");
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  const [nextOrderCursor, setNextOrderCursor] =
+    useState<OrderPageCursor | null>(null);
+  const loadMoreInFlightRef = useRef(false);
+  const orderLoadGenerationRef = useRef(0);
+  const deepLinkLookupRef = useRef<string | null>(null);
+  const [isResolvingOrderDeepLink, setIsResolvingOrderDeepLink] = useState(false);
   // Audit fix (2026-07-02): the main orders fetch failure was only
   // console.error'd - the operator saw an empty kanban that read as
   // "no orders" instead of "the load broke". Surface it with a Retry.
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [orderFiltersHydrated, setOrderFiltersHydrated] = useState(false);
   // Phase 26 #1: "/" or Cmd-F focuses the search box. Matches the
   // pattern already shipped on /admin/contacts and /admin/inventory.
   // Phase 29 #1: "n" jumps to the new-order surface so power users
@@ -339,6 +408,8 @@ function OrderProcessDashboard() {
         setViewMode(saved.viewMode);
     } catch {
       // Corrupt JSON or storage blocked - silently fall back to defaults.
+    } finally {
+      setOrderFiltersHydrated(true);
     }
     // Run once on mount only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -423,14 +494,14 @@ function OrderProcessDashboard() {
       /* storage blocked, harmless */
     }
   }, [searchTerm, statusFilter, dateFilter, dateFrom, dateTo, viewMode]);
-  // Phase 15 #7: render cap on the timeline view. The kanban
-  // view chunks rows by status column so it tolerates large
-  // sets gracefully, but the timeline rendered every order in
-  // a single column - a tenant with 800+ confirmed-and-onwards
-  // orders saw the page freeze. Cap at 200 by default with an
-  // opt-in 'show all'.
-  const TIMELINE_CAP = 200;
+  // The timeline rows render a full progress track, readiness signals,
+  // and staffing details. Keep the first paint bounded; operators can
+  // expand the rest after the list is on screen.
+  const TIMELINE_CAP = 20;
   const [timelineShowAll, setTimelineShowAll] = useState(false);
+  const [expandedTimelineIds, setExpandedTimelineIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   // Reset 'show all' when filters change so a heavy view doesn't
   // re-explode after the operator narrows then widens again.
   useEffect(() => {
@@ -441,20 +512,12 @@ function OrderProcessDashboard() {
   // lead sees how much client-driven work is queued without
   // opening each order.
   //
-  // TIGHTEN I.2 (2026-05-26): the badges also act as filter chips
-  // that link to ?status=pending-amendments / pending-cancellations.
-  // Pre-fix those URL params didn't match any real order status -
-  // the chip emptied the timeline. We now project order_id off the
-  // request tables and keep a Set per chip so the filter at
-  // getFilteredOrders() can resolve the synthetic status against
-  // the set of orders with an open request.
+  // TIGHTEN I.2 (2026-05-26): these badges also act as filter chips
+  // for pending amendment/cancellation requests. The paged query resolves
+  // those synthetic statuses on the database side, so the badges only need
+  // counts and do not download every request order_id into the browser.
   const [pendingAmendmentCount, setPendingAmendmentCount] = useState(0);
   const [pendingCancellationCount, setPendingCancellationCount] = useState(0);
-  const [pendingAmendmentOrderIds, setPendingAmendmentOrderIds] = useState<
-    Set<string>
-  >(new Set());
-  const [pendingCancellationOrderIds, setPendingCancellationOrderIds] =
-    useState<Set<string>>(new Set());
   useEffect(() => {
     const companyId = (user as any)?.company_id;
     if (!companyId) return;
@@ -464,28 +527,18 @@ function OrderProcessDashboard() {
         const [aRes, cRes] = await Promise.all([
           (supabase as any)
             .from("order_amendment_requests")
-            .select("order_id")
+            .select("id", { count: "exact", head: true })
             .eq("company_id", companyId)
             .eq("status", "pending"),
           (supabase as any)
             .from("cancellation_requests")
-            .select("order_id")
+            .select("id", { count: "exact", head: true })
             .eq("company_id", companyId)
             .eq("status", "pending"),
         ]);
         if (cancelled) return;
-        const aRows = (aRes?.data || []) as Array<{ order_id: string | null }>;
-        const cRows = (cRes?.data || []) as Array<{ order_id: string | null }>;
-        const aIds = new Set(
-          aRows.map((r) => r.order_id).filter((x): x is string => !!x),
-        );
-        const cIds = new Set(
-          cRows.map((r) => r.order_id).filter((x): x is string => !!x),
-        );
-        setPendingAmendmentCount(aRows.length);
-        setPendingCancellationCount(cRows.length);
-        setPendingAmendmentOrderIds(aIds);
-        setPendingCancellationOrderIds(cIds);
+        setPendingAmendmentCount(aRes?.count || 0);
+        setPendingCancellationCount(cRes?.count || 0);
       } catch {
         /* non-blocking */
       }
@@ -580,6 +633,30 @@ function OrderProcessDashboard() {
   // params, doesn't replace them.
   const [clientFilterId, setClientFilterId] = useState<string | null>(null);
   const [clientFilterName, setClientFilterName] = useState<string | null>(null);
+  const orderListFiltersRef = useRef({
+    searchTerm,
+    statusFilter,
+    dateFilter,
+    dateFrom,
+    dateTo,
+    clientFilterId,
+    regionFilterId,
+    myOrdersOnly,
+    assignedUserId: (user as any)?.id || null,
+    tenantTimezone,
+  });
+  orderListFiltersRef.current = {
+    searchTerm,
+    statusFilter,
+    dateFilter,
+    dateFrom,
+    dateTo,
+    clientFilterId,
+    regionFilterId,
+    myOrdersOnly,
+    assignedUserId: (user as any)?.id || null,
+    tenantTimezone,
+  };
   const [stats, setStats] = useState<OrderStats>({
     total: 0,
     byStatus: {},
@@ -587,12 +664,6 @@ function OrderProcessDashboard() {
     upcoming: 0,
     inProgress: 0,
   });
-
-  useEffect(() => {
-    if (user) {
-      loadOrders();
-    }
-  }, [user]);
 
   // Phase 11 #5: realtime new-order toast. Subscribes to INSERT
   // events on the orders table scoped to the current tenant so the
@@ -791,28 +862,64 @@ function OrderProcessDashboard() {
     if (selectedOrder?.id === orderId && isModalOpen) return; // already open
     const found = orders.find((o) => o.id === orderId);
     if (found) {
+      deepLinkLookupRef.current = null;
+      setIsResolvingOrderDeepLink(false);
       setSelectedOrder(found);
       setIsModalOpen(true);
     } else {
-      // Wave 55 - deep-link silent failure. Pre-Wave-55 a paste of a
-      // Slack link to ?orderId=X would silently land on an empty
-      // Orders page if X wasn't in the loaded set (filtered out by
-      // region scope, hidden by status filter, soft-deleted). Now
-      // surface a toast naming the likely cause + offer a one-click
-      // clear so the operator can find the order.
-      toast({
-        title: "Order not in your current view",
-        description:
-          "The link points to an order that's filtered out (cancelled, archived, or outside your region). Clear filters to find it.",
-        variant: "destructive",
-      });
-      // Strip the orderId from URL so a refresh doesn't keep firing
-      // the toast.
-      const { orderId: _drop, ...rest } = router.query;
-      router.replace({ pathname: router.pathname, query: rest }, undefined, {
-        shallow: true,
-        scroll: false,
-      });
+      // Resolve deep links directly so older orders can still open when
+      // they are outside the loaded cursor pages.
+      if (deepLinkLookupRef.current === orderId) return;
+      deepLinkLookupRef.current = orderId;
+      setIsResolvingOrderDeepLink(true);
+      void orderService
+        .getOrderById(orderId, (user as any)?.company_id || undefined)
+        .then((result: any) => {
+          if (deepLinkLookupRef.current !== orderId) return;
+          if (result?.success && result.data) {
+            const order = result.data as AppOrder;
+            deepLinkLookupRef.current = null;
+            setIsResolvingOrderDeepLink(false);
+            setOrders((current) =>
+              current.some((row) => row.id === order.id)
+                ? current
+                : [...current, order],
+            );
+            setSelectedOrder(order);
+            setIsModalOpen(true);
+            return;
+          }
+
+          toast({
+            title: "Order not in your current view",
+            description:
+              "The link points to an order that's filtered out, archived, or outside your access. Clear filters to browse available orders.",
+            variant: "destructive",
+          });
+          deepLinkLookupRef.current = null;
+          setIsResolvingOrderDeepLink(false);
+          const { orderId: _drop, ...rest } = router.query;
+          router.replace({ pathname: router.pathname, query: rest }, undefined, {
+            shallow: true,
+            scroll: false,
+          });
+        })
+        .catch((error) => {
+          console.warn("[orders] deep-link lookup failed:", error);
+          if (deepLinkLookupRef.current !== orderId) return;
+          toast({
+            title: "Could not open linked order",
+            description: "Check your connection and access, then try opening the order again.",
+            variant: "destructive",
+          });
+          deepLinkLookupRef.current = null;
+          setIsResolvingOrderDeepLink(false);
+          const { orderId: _drop, ...rest } = router.query;
+          router.replace({ pathname: router.pathname, query: rest }, undefined, {
+            shallow: true,
+            scroll: false,
+          });
+        });
     }
     // selectedOrder + isModalOpen intentionally omitted - including
     // them would re-fire on every drawer change and bounce the modal.
@@ -823,6 +930,7 @@ function OrderProcessDashboard() {
     router.query.amendment,
     router.query.cancellation,
     orders,
+    user,
   ]);
 
   // Local-dev fallback for direct links from reports. The dev auth user is
@@ -953,40 +1061,100 @@ function OrderProcessDashboard() {
     tenantTimezone,
   ]);
 
-  const loadOrders = async () => {
-    const localDev =
-      typeof window !== "undefined" && isLocalAuthBypassEnabled(window.location.hostname);
-    let companyId = user?.company_id || null;
-    const tenantSlug = localDev ? getTenantSlugFromPathname(router.asPath) : "";
-
-    // Local development uses a fake auth identity. Resolve the actual
-    // company from the tenant URL so report/order deep links target the
-    // company the operator is viewing, not the fake dev company.
-    if (localDev && tenantSlug) {
-      const { data: branding, error: brandingError } = await (
-        supabase.rpc as any
-      )("get_company_branding", { p_slug: tenantSlug });
-      const resolved = (Array.isArray(branding) ? branding[0] : branding) as {
-        id?: string;
-      } | null;
-      if (!brandingError && resolved?.id) companyId = resolved.id;
+  const loadOrders = async (options: { append?: boolean } = {}) => {
+    const append = options.append === true;
+    if (append) {
+      if (!nextOrderCursor || loadMoreInFlightRef.current) return;
+      loadMoreInFlightRef.current = true;
+      setLoadingMoreOrders(true);
+      setLoadMoreError(null);
+    } else {
+      loadMoreInFlightRef.current = false;
+      setLoadingMoreOrders(false);
+      setLoading(true);
+      setLoadError(null);
+      setLoadMoreError(null);
+      setHasMoreOrders(false);
+      setOrderHistoryStatus("loading");
+      setNextOrderCursor(null);
     }
-    if (!companyId) return;
-    setLoading(true);
-    setLoadError(null);
+    const requestGeneration = append
+      ? orderLoadGenerationRef.current
+      : ++orderLoadGenerationRef.current;
+
     try {
+      const localDev =
+        typeof window !== "undefined" && isLocalAuthBypassEnabled(window.location.hostname);
+      let companyId = user?.company_id || null;
+      const tenantSlug = localDev ? getTenantSlugFromPathname(router.asPath) : "";
+
+      // Local development uses a fake auth identity. Resolve the actual
+      // company from the tenant URL so report/order deep links target the
+      // company the operator is viewing, not the fake dev company.
+      if (localDev && tenantSlug) {
+        const { data: branding, error: brandingError } = await (
+          supabase.rpc as any
+        )("get_company_branding", { p_slug: tenantSlug });
+        const resolved = (Array.isArray(branding) ? branding[0] : branding) as {
+          id?: string;
+        } | null;
+        if (!brandingError && resolved?.id) companyId = resolved.id;
+      }
+      if (requestGeneration !== orderLoadGenerationRef.current) return;
+      if (!companyId) throw new Error("Could not determine the company for this orders list.");
+
+      const currentFilters = orderListFiltersRef.current;
+      const eventDateBounds = getOrderEventDateBounds(
+        currentFilters.dateFilter,
+        currentFilters.dateFrom,
+        currentFilters.dateTo,
+        currentFilters.tenantTimezone,
+      );
+      const pageFilters = {
+        search: currentFilters.searchTerm,
+        status: currentFilters.statusFilter,
+        ...eventDateBounds,
+        clientId: currentFilters.clientFilterId,
+        regionId: currentFilters.regionFilterId,
+        assignedUserId: currentFilters.myOrdersOnly
+          ? currentFilters.assignedUserId
+          : null,
+      };
+
       let allOrders: any[];
+      let pageHasMore = false;
+      let pageCursor: OrderPageCursor | null = null;
+      const deepLinkOnlyLocalOrder = localDev && Boolean(router.query.orderId);
       let localAmountChanges: Map<string, any> | null = null;
       if (localDev && tenantSlug) {
         const orderId =
           typeof router.query.orderId === "string" ? router.query.orderId : "";
         const params = new URLSearchParams({ company_id: companyId });
-        if (orderId) params.set("order_id", orderId);
+        if (orderId) {
+          params.set("order_id", orderId);
+        } else {
+          params.set("limit", String(ORDERS_PAGE_SIZE));
+          params.set("status", pageFilters.status);
+          if (pageFilters.search.trim()) params.set("search", pageFilters.search.trim());
+          if (pageFilters.eventDateFrom) params.set("event_date_from", pageFilters.eventDateFrom);
+          if (pageFilters.eventDateTo) params.set("event_date_to", pageFilters.eventDateTo);
+          if (pageFilters.clientId) params.set("client_id", pageFilters.clientId);
+          if (pageFilters.regionId) params.set("region_id", pageFilters.regionId);
+          if (pageFilters.assignedUserId) params.set("assigned_user_id", pageFilters.assignedUserId);
+          if (append && nextOrderCursor) {
+            if (nextOrderCursor.createdAt) {
+              params.set("cursor_created_at", nextOrderCursor.createdAt);
+            }
+            params.set("cursor_id", nextOrderCursor.id);
+          }
+        }
         const response = await fetch(`/api/admin/orders?${params.toString()}`);
         const payload = await response.json();
         if (!response.ok)
           throw new Error(payload?.error || "Could not load local orders.");
         allOrders = payload.orders || [];
+        pageHasMore = payload.has_more === true;
+        pageCursor = payload.next_cursor || null;
         // Keep the list and its financial-change indicators on the same
         // service-authorized local data path. A separate browser-side
         // audit_logs read can be rejected by RLS before auth hydration,
@@ -995,14 +1163,42 @@ function OrderProcessDashboard() {
           localAmountChanges = new Map(Object.entries(payload.amount_changes));
         }
       } else {
-        allOrders = await orderService.getAllOrders(companyId);
+        const page = await orderService.getOrdersPage(companyId, {
+          limit: ORDERS_PAGE_SIZE,
+          cursor: append ? nextOrderCursor : null,
+          ...pageFilters,
+        });
+        allOrders = page.orders;
+        pageHasMore = page.hasMore;
+        pageCursor = page.nextCursor;
       }
-      setOrders(allOrders as unknown as AppOrder[]);
+      if (requestGeneration !== orderLoadGenerationRef.current) return;
+      setHasMoreOrders(pageHasMore);
+      setOrderHistoryStatus(
+        pageHasMore
+          ? "more"
+          : deepLinkOnlyLocalOrder
+            ? "single-local-order"
+            : "complete",
+      );
+      setNextOrderCursor(pageCursor);
+      setOrders((current) => {
+        if (!append) return allOrders as unknown as AppOrder[];
+        const knownIds = new Set(current.map((order) => order.id));
+        return [
+          ...current,
+          ...(allOrders as unknown as AppOrder[]).filter((order) => !knownIds.has(order.id)),
+        ];
+      });
       // The order rows are the primary content. Reveal them now while the
       // amount history and timeline enrichment continue in the background.
-      setLoading(false);
+      if (!append) setLoading(false);
       if (localAmountChanges) {
-        setAmountChangesByOrder(localAmountChanges);
+        setAmountChangesByOrder((current) =>
+          append
+            ? new Map([...current, ...localAmountChanges!])
+            : localAmountChanges!,
+        );
       } else {
         try {
           const changes = await loadLatestDocumentAmountChanges(
@@ -1010,10 +1206,12 @@ function OrderProcessDashboard() {
             companyId,
             allOrders.map((order: any) => order.id),
           );
-          setAmountChangesByOrder(changes);
+          setAmountChangesByOrder((current) =>
+            append ? new Map([...current, ...changes]) : changes,
+          );
         } catch (changeError) {
           console.warn("[orders] amount change history could not be loaded:", changeError);
-          setAmountChangesByOrder(new Map());
+          if (!append) setAmountChangesByOrder(new Map());
         }
       }
 
@@ -1208,94 +1406,6 @@ function OrderProcessDashboard() {
               : Promise.resolve({ data: [] as any[] } as any),
           ]);
 
-          // Cross-system blocker T2: pull active cleaning_jobs
-          // for any equipment booked on this batch of orders. Two
-          // hops because cleaning_jobs is keyed by equipment_id,
-          // not order_id.
-          const equipmentIdsThisBatch = Array.from(
-            new Set(
-              (
-                (bookingsRes.data || []) as Array<{
-                  equipment_id?: string | null;
-                }>
-              )
-                .map((b) => b.equipment_id)
-                .filter((x): x is string => typeof x === "string"),
-            ),
-          );
-          let cleaningJobsActiveRows: Array<{
-            equipment_id: string;
-            equipment_name?: string | null;
-            status?: string;
-          }> = [];
-          if (equipmentIdsThisBatch.length > 0) {
-            const { data: cjRaw, error: cjErr } = await (supabase as any)
-              .from("cleaning_jobs")
-              .select("equipment_id, status")
-              .in("equipment_id", equipmentIdsThisBatch)
-              .in("status", ["queued", "in_progress"])
-              .is("deleted_at", null);
-            if (cjErr)
-              console.error("[orders] cleaning_jobs batch failed:", cjErr);
-            const eqIdsInJobs = Array.from(
-              new Set(
-                ((cjRaw || []) as Array<{ equipment_id: string }>).map(
-                  (r) => r.equipment_id,
-                ),
-              ),
-            );
-            const eqNameMap = new Map<string, string>();
-            if (eqIdsInJobs.length > 0) {
-              const { data: eqRaw } = await (supabase as any)
-                .from("equipment")
-                .select("id, name")
-                .in("id", eqIdsInJobs);
-              for (const e of (eqRaw || []) as Array<{
-                id: string;
-                name: string | null;
-              }>) {
-                if (e.name) eqNameMap.set(e.id, e.name);
-              }
-            }
-            cleaningJobsActiveRows = (
-              (cjRaw || []) as Array<{ equipment_id: string; status: string }>
-            ).map((r) => ({
-              equipment_id: r.equipment_id,
-              equipment_name: eqNameMap.get(r.equipment_id) || null,
-              status: r.status,
-            }));
-          }
-
-          // Order-level cleaning cycle (ALL statuses) keyed by
-          // triggered_by_event_id = order.id - mirrors OrderTimelineSection
-          // on /order/[id] so the post-event cleaning timeline stage shows
-          // the same progress here as on the order page (the equipment-keyed
-          // active-only fetch above can't see completed cleaning).
-          const cleaningJobsForOrderByOrder = new Map<string, any[]>();
-          {
-            const { data: cjAll, error: cjAllErr } = await (supabase as any)
-              .from("cleaning_jobs")
-              .select(
-                "triggered_by_event_id, created_at, actual_start, actual_end, status",
-              )
-              .in("triggered_by_event_id", orderIds)
-              .is("deleted_at", null);
-            if (cjAllErr)
-              console.error(
-                "[orders] cleaning_jobs (by order) batch failed:",
-                cjAllErr,
-              );
-            for (const r of (cjAll || []) as Array<{
-              triggered_by_event_id?: string | null;
-            }>) {
-              const key = String(r.triggered_by_event_id || "");
-              if (!key) continue;
-              const arr = cleaningJobsForOrderByOrder.get(key);
-              if (arr) arr.push(r);
-              else cleaningJobsForOrderByOrder.set(key, [r]);
-            }
-          }
-
           // Bucket each row-set by order_id once, then compute
           // timeline per order with O(1) lookup. Avoids N filter
           // passes through the same array.
@@ -1312,6 +1422,155 @@ function OrderProcessDashboard() {
             }
             return m;
           };
+          const equipmentIdsThisBatch = Array.from(
+            new Set(
+              (
+                (bookingsRes.data || []) as Array<{
+                  equipment_id?: string | null;
+                }>
+              )
+                .map((b) => b.equipment_id)
+                .filter((x): x is string => typeof x === "string"),
+            ),
+          );
+
+          // These three lookups are independent, so start them together
+          // after the base batch has supplied its order/equipment IDs.
+          const activeCleaningJobsQuery = equipmentIdsThisBatch.length > 0
+            ? (supabase as any)
+                .from("cleaning_jobs")
+                .select("equipment_id, status")
+                .in("equipment_id", equipmentIdsThisBatch)
+                .in("status", ["queued", "in_progress"])
+                .is("deleted_at", null)
+            : Promise.resolve({ data: [] as any[], error: null } as any);
+          const cleaningJobsForOrderQuery = (supabase as any)
+            .from("cleaning_jobs")
+            .select(
+              "triggered_by_event_id, created_at, actual_start, actual_end, status",
+            )
+            .in("triggered_by_event_id", orderIds)
+            .is("deleted_at", null);
+          const shiftsForOrdersQuery = (async () => {
+            try {
+              return await (supabase as any)
+                .from("kitchen_shifts")
+                .select(
+                  "id, order_id, staff_id, shift_type, shift_date, planned_start, planned_end, actual_start, actual_end, status",
+                )
+                .in("order_id", orderIds)
+                .is("deleted_at", null);
+            } catch (shiftBatchErr) {
+              console.warn(
+                "[orders] Wave 59 shift batch failed - AssignedShiftsPanel will fall back to per-card fetch",
+                shiftBatchErr,
+              );
+              return { data: null };
+            }
+          })();
+          const [
+            { data: cjRaw, error: cjErr },
+            { data: cjAll, error: cjAllErr },
+            { data: allShiftRows },
+          ] = await Promise.all([
+            activeCleaningJobsQuery,
+            cleaningJobsForOrderQuery,
+            shiftsForOrdersQuery,
+          ]);
+
+          if (cjErr)
+            console.error("[orders] cleaning_jobs batch failed:", cjErr);
+          if (cjAllErr)
+            console.error(
+              "[orders] cleaning_jobs (by order) batch failed:",
+              cjAllErr,
+            );
+
+          // Names depend on active cleaning jobs; profile names depend on
+          // their shifts. Fetch those two dependent lookups concurrently.
+          const eqIdsInJobs = Array.from(
+            new Set(
+              ((cjRaw || []) as Array<{ equipment_id: string }>).map(
+                (r) => r.equipment_id,
+              ),
+            ),
+          );
+          const distinctStaffIds = Array.from(
+            new Set(
+              ((allShiftRows || []) as Array<{ staff_id: string | null }>)
+                .map((r) => r.staff_id)
+                .filter((v): v is string => !!v),
+            ),
+          );
+          const equipmentNamesQuery = eqIdsInJobs.length > 0
+            ? (supabase as any)
+                .from("equipment")
+                .select("id, name")
+                .in("id", eqIdsInJobs)
+            : Promise.resolve({ data: [] as any[] } as any);
+          const staffProfilesQuery = distinctStaffIds.length > 0
+            ? (async () => {
+                try {
+                  return await (supabase as any)
+                    .from("profiles")
+                    .select("id, full_name, email")
+                    .in("id", distinctStaffIds);
+                } catch (shiftBatchErr) {
+                  console.warn(
+                    "[orders] Wave 59 shift batch failed - AssignedShiftsPanel will fall back to per-card fetch",
+                    shiftBatchErr,
+                  );
+                  return { data: null };
+                }
+              })()
+            : Promise.resolve({ data: [] as any[] } as any);
+          const [{ data: eqRaw }, { data: profileRows }] = await Promise.all([
+            equipmentNamesQuery,
+            staffProfilesQuery,
+          ]);
+
+          const eqNameMap = new Map<string, string>();
+          for (const e of (eqRaw || []) as Array<{
+            id: string;
+            name: string | null;
+          }>) {
+            if (e.name) eqNameMap.set(e.id, e.name);
+          }
+          const cleaningJobsActiveRows = (
+            (cjRaw || []) as Array<{ equipment_id: string; status: string }>
+          ).map((r) => ({
+            equipment_id: r.equipment_id,
+            equipment_name: eqNameMap.get(r.equipment_id) || null,
+            status: r.status,
+          }));
+
+          // Order-level cleaning cycle (ALL statuses) keyed by
+          // triggered_by_event_id = order.id - mirrors OrderTimelineSection.
+          const cleaningJobsForOrderByOrder = new Map<string, any[]>();
+          for (const r of (cjAll || []) as Array<{
+            triggered_by_event_id?: string | null;
+          }>) {
+            const key = String(r.triggered_by_event_id || "");
+            if (!key) continue;
+            const arr = cleaningJobsForOrderByOrder.get(key);
+            if (arr) arr.push(r);
+            else cleaningJobsForOrderByOrder.set(key, [r]);
+          }
+
+          const allShiftsByOrder = bucket(allShiftRows as any[] | null);
+          const staffProfilesById = new Map<string, any>();
+          for (const p of (profileRows || []) as any[]) {
+            staffProfilesById.set(p.id, p);
+          }
+          setAllShiftsByOrder((current) =>
+            append ? new Map([...current, ...allShiftsByOrder]) : allShiftsByOrder,
+          );
+          setStaffProfilesById((current) =>
+            append ? new Map([...current, ...staffProfilesById]) : staffProfilesById,
+          );
+
+          // Cross-system blocker T2: active cleaning jobs are keyed by
+          // equipment, so the returned rows are scoped per order below.
           const paymentsByOrder = bucket(paymentsRes.data as any[] | null);
           const bookingsByOrder = bucket(bookingsRes.data as any[] | null);
           const hireByOrder = bucket(hireRes.data as any[] | null);
@@ -1321,7 +1580,14 @@ function OrderProcessDashboard() {
           );
           const invoicesByOrder = bucket(invoicesRes.data as any[] | null);
           const emailLogByOrder = bucket(emailLogRes.data as any[] | null);
-          setAutoEmailMap(summariseAutoEmailsByOrder((emailLogRes.data as any[] | null) || []));
+          const pageAutoEmailMap = summariseAutoEmailsByOrder(
+            (emailLogRes.data as any[] | null) || [],
+          );
+          setAutoEmailMap((current) =>
+            append
+              ? new Map([...current, ...pageAutoEmailMap])
+              : pageAutoEmailMap,
+          );
           const deliveryShiftsByOrder = bucket(
             deliveryShiftsRes.data as any[] | null,
           );
@@ -1357,50 +1623,6 @@ function OrderProcessDashboard() {
           const vehicleRowsRaw = (vehiclesRes.data as any[] | null) || [];
           const vehicleById = new Map<string, any>();
           for (const v of vehicleRowsRaw) vehicleById.set(String(v.id), v);
-
-          // Wave 59 - batched shifts + profiles for AssignedShiftsPanel.
-          // Pre-Wave-59 each rendered AssignedShiftsPanel fired its own
-          // kitchen_shifts query AND its own profiles query per order
-          // - 200 visible orders = up to 400 round-trips, wedging the
-          // Supabase pool. Now: one query for all shifts on these
-          // order_ids, one query for all distinct staff_ids found in
-          // the shifts. Per-card panel reads from the preloaded maps.
-          let allShiftsByOrder = new Map<string, any[]>();
-          const staffProfilesById = new Map<string, any>();
-          try {
-            const { data: allShiftRows } = await (supabase as any)
-              .from("kitchen_shifts")
-              .select(
-                "id, order_id, staff_id, shift_type, shift_date, planned_start, planned_end, actual_start, actual_end, status",
-              )
-              .in("order_id", orderIds)
-              .is("deleted_at", null);
-            allShiftsByOrder = bucket(allShiftRows as any[] | null);
-            const distinctStaffIds = Array.from(
-              new Set(
-                ((allShiftRows || []) as Array<{ staff_id: string | null }>)
-                  .map((r) => r.staff_id)
-                  .filter((v): v is string => !!v),
-              ),
-            );
-            if (distinctStaffIds.length > 0) {
-              const { data: profileRows } = await (supabase as any)
-                .from("profiles")
-                .select("id, full_name, email")
-                .in("id", distinctStaffIds);
-              for (const p of (profileRows || []) as any[]) {
-                staffProfilesById.set(p.id, p);
-              }
-            }
-          } catch (shiftBatchErr) {
-            console.warn(
-              "[orders] Wave 59 shift batch failed - AssignedShiftsPanel will fall back to per-card fetch",
-              shiftBatchErr,
-            );
-          }
-          // Push into state so the per-row AssignedShiftsPanel reads it.
-          setAllShiftsByOrder(allShiftsByOrder);
-          setStaffProfilesById(staffProfilesById);
 
           const timelines = new Map<string, OrderTimeline>();
           const readinesses = new Map<string, OrderReadiness>();
@@ -1462,9 +1684,13 @@ function OrderProcessDashboard() {
             );
             readinesses.set(o.id, readiness);
           }
-          setTimelinesById(timelines);
-          setReadinessById(readinesses);
-        } else {
+          setTimelinesById((current) =>
+            append ? new Map([...current, ...timelines]) : timelines,
+          );
+          setReadinessById((current) =>
+            append ? new Map([...current, ...readinesses]) : readinesses,
+          );
+        } else if (!append) {
           setTimelinesById(new Map());
           setReadinessById(new Map());
           setAllShiftsByOrder(new Map());
@@ -1477,10 +1703,73 @@ function OrderProcessDashboard() {
       }
     } catch (error: any) {
       console.error("Error loading orders:", error);
-      setLoadError(error?.message || "Failed to load orders.");
+      if (requestGeneration === orderLoadGenerationRef.current) {
+        if (append) setLoadMoreError(error?.message || "Could not load older orders.");
+        else setLoadError(error?.message || "Failed to load orders.");
+      }
     } finally {
-      setLoading(false);
+      if (requestGeneration === orderLoadGenerationRef.current) {
+        if (append) {
+          loadMoreInFlightRef.current = false;
+          setLoadingMoreOrders(false);
+        } else {
+          setLoading(false);
+        }
+      }
     }
+  };
+
+  // Filters are applied before the database page is fetched. Debounce text
+  // input, discard in-flight pages as soon as a filter changes, and always
+  // restart from the first keyset cursor so pages from different filters can
+  // never be mixed together.
+  useEffect(() => {
+    if (!user || !orderFiltersHydrated) return;
+
+    orderLoadGenerationRef.current += 1;
+    loadMoreInFlightRef.current = false;
+    setLoading(true);
+    setLoadingMoreOrders(false);
+    setHasMoreOrders(false);
+    setNextOrderCursor(null);
+    setLoadError(null);
+    setLoadMoreError(null);
+    setOrders([]);
+    setSelectedIds(new Set());
+
+    const timer = window.setTimeout(
+      () => void loadOrders(),
+      searchTerm.trim() ? 300 : 0,
+    );
+    return () => window.clearTimeout(timer);
+    // loadOrders is intentionally omitted: its identity changes on each
+    // render; only the filter values below define a new page query.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    user,
+    orderFiltersHydrated,
+    searchTerm,
+    statusFilter,
+    dateFilter,
+    dateFrom,
+    dateTo,
+    clientFilterId,
+    regionFilterId,
+    myOrdersOnly,
+    tenantTimezone,
+  ]);
+
+  const loadOlderOrders = () => {
+    if (hasMoreOrders && !loadingMoreOrders) void loadOrders({ append: true });
+  };
+
+  const onTimelineExpandChange = (orderId: string, expanded: boolean) => {
+    setExpandedTimelineIds((current) => {
+      const next = new Set(current);
+      if (expanded) next.add(orderId);
+      else next.delete(orderId);
+      return next;
+    });
   };
 
   const calculateStats = () => {
@@ -1604,14 +1893,6 @@ function OrderProcessDashboard() {
           (order as any).assigned_driver_id === me;
         if (!isMine) return false;
       }
-      // TIGHTEN I.2: synthetic status filters used by the header
-      // chips. Match against the per-order Set, not against
-      // order.status (these values aren't real lifecycle statuses).
-      if (statusFilter === "pending-amendments") {
-        if (!pendingAmendmentOrderIds.has(order.id)) return false;
-      } else if (statusFilter === "pending-cancellations") {
-        if (!pendingCancellationOrderIds.has(order.id)) return false;
-      }
       // Hide cancelled by default ("All Statuses" excludes them).
       // Only surface cancelled when the operator explicitly picks
       // "cancelled" in the status dropdown - otherwise they'd
@@ -1686,8 +1967,6 @@ function OrderProcessDashboard() {
     regionFilterId,
     clientFilterId,
     myOrdersOnly,
-    pendingAmendmentOrderIds,
-    pendingCancellationOrderIds,
     tenantTimezone,
     (user as any)?.id,
   ]);
@@ -1941,7 +2220,7 @@ function OrderProcessDashboard() {
     !router.query.amendment &&
     !router.query.cancellation &&
     !isModalOpen &&
-    (loading || orders.length === 0);
+    (loading || orders.length === 0 || isResolvingOrderDeepLink);
 
   return (
     <>
@@ -2077,7 +2356,7 @@ function OrderProcessDashboard() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={loadOrders}
+                      onClick={() => void loadOrders()}
                       disabled={loading}
                       title="Refresh orders"
                       aria-label="Refresh orders"
@@ -2223,6 +2502,42 @@ function OrderProcessDashboard() {
               />
             </div>
 
+            <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs leading-5 text-slate-600" aria-live="polite">
+                {orderHistoryStatus === "more"
+                  ? `${orders.length} matching orders loaded. Search and filters apply across the full history; load older matching orders to continue.`
+                  : orderHistoryStatus === "complete"
+                    ? `All ${orders.length} matching orders are loaded from the full history.`
+                    : orderHistoryStatus === "single-local-order"
+                      ? "Showing the linked order in local development."
+                      : "Order history is loading or could not be confirmed as complete."}
+              </p>
+              {hasMoreOrders && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={loadOlderOrders}
+                  disabled={loadingMoreOrders}
+                  className="shrink-0"
+                >
+                  {loadingMoreOrders && (
+                    <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" />
+                  )}
+                  {loadMoreError
+                    ? "Retry loading older orders"
+                    : loadingMoreOrders
+                      ? "Loading older orders…"
+                      : "Load older orders"}
+                </Button>
+              )}
+              {loadMoreError && (
+                <span role="status" className="text-xs text-rose-700 sm:max-w-xs">
+                  {loadMoreError}
+                </span>
+              )}
+            </div>
+
             {/* Kanban Board / Timeline View */}
             <span
               id="order-list"
@@ -2250,7 +2565,7 @@ function OrderProcessDashboard() {
                     </h2>
                     <p className="text-sm text-slate-600 mb-4">{loadError}</p>
                     <Button
-                      onClick={loadOrders}
+                      onClick={() => void loadOrders()}
                       size="sm"
                       className="bg-brand-primary hover:bg-brand-primary/90"
                     >
@@ -2476,7 +2791,7 @@ function OrderProcessDashboard() {
                                 {sorted.length}
                               </strong>{" "}
                               orders. Use a status or date filter to narrow it -
-                              or load them all.
+                              or show them all.
                             </span>
                             <button
                               type="button"
@@ -2487,34 +2802,47 @@ function OrderProcessDashboard() {
                             </button>
                           </div>
                         )}
-                        {cappedToRender.map((order) => (
-                          <TimelineRow
-                            key={order.id}
-                            order={order}
-                            amountChange={amountChangesByOrder.get((order as any).id) || null}
-                            selectedIds={selectedIds}
-                            timelinesById={timelinesById}
-                            readinessById={readinessById}
-                            allShiftsByOrder={allShiftsByOrder}
-                            staffProfilesById={staffProfilesById}
-                            currencySymbol={C}
-                            companyId={user?.company_id || null}
-                            loadOrders={loadOrders}
-                            toggleSelected={toggleSelected}
-                            setSelectedOrder={setSelectedOrder}
-                            setIsModalOpen={setIsModalOpen}
-                            withSlug={withSlug}
-                            onEmail={(o) => {
-                              setEmailOrderDefaultOptionId("fully_booked");
-                              setEmailOrder(o);
-                            }}
-                            canEmailOutsideArea={canEmailOutsideArea}
-                            onOutsideAreaEmail={(o) => {
-                              setEmailOrderDefaultOptionId("outside_service_area");
-                              setEmailOrder(o);
-                            }}
-                          />
-                        ))}
+                        <Virtuoso
+                          useWindowScroll
+                          data={cappedToRender}
+                          computeItemKey={(_, order) => order.id}
+                          increaseViewportBy={{ top: 400, bottom: 700 }}
+                          itemContent={(index, order) => (
+                            <div
+                              className={
+                                index < cappedToRender.length - 1 ? "pb-3" : ""
+                              }
+                            >
+                              <TimelineRow
+                                order={order}
+                                amountChange={amountChangesByOrder.get((order as any).id) || null}
+                                selectedIds={selectedIds}
+                                timelinesById={timelinesById}
+                                readinessById={readinessById}
+                                expandedTimelineIds={expandedTimelineIds}
+                                onTimelineExpandChange={onTimelineExpandChange}
+                                allShiftsByOrder={allShiftsByOrder}
+                                staffProfilesById={staffProfilesById}
+                                currencySymbol={C}
+                                companyId={user?.company_id || null}
+                                loadOrders={loadOrders}
+                                toggleSelected={toggleSelected}
+                                setSelectedOrder={setSelectedOrder}
+                                setIsModalOpen={setIsModalOpen}
+                                withSlug={withSlug}
+                                onEmail={(o) => {
+                                  setEmailOrderDefaultOptionId("fully_booked");
+                                  setEmailOrder(o);
+                                }}
+                                canEmailOutsideArea={canEmailOutsideArea}
+                                onOutsideAreaEmail={(o) => {
+                                  setEmailOrderDefaultOptionId("outside_service_area");
+                                  setEmailOrder(o);
+                                }}
+                              />
+                            </div>
+                          )}
+                        />
                       </>
                     );
                   })()

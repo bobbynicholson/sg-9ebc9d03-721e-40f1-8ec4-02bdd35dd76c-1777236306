@@ -89,7 +89,7 @@ export function OrderFiltersBar({
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <Input
               ref={searchRef}
-              placeholder="Search by client, order ID, venue or event... (press /)"
+              placeholder="Search all orders by client, number, ID, venue or event... (press /)"
               value={searchTerm}
               onChange={(e) => onSearchTermChange(e.target.value)}
               className="pl-10 pr-10"

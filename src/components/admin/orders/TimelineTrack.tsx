@@ -69,6 +69,10 @@ interface TimelineTrackProps {
   /** Keep hover detail but suppress admin/source links on role-scoped
    *  order documents. */
   disableSourceLinks?: boolean;
+  /** Optional controlled expansion state, used by virtualized lists so
+   *  expanded steps remain open when the row scrolls out of the DOM. */
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 const CLUSTER_ORDER: StageGroup[] = [
@@ -671,8 +675,11 @@ export function TimelineTrack({
   hideOperatorBanner,
   hideOperatorGlossary,
   disableSourceLinks,
+  expanded: expandedProp,
+  onExpandedChange,
 }: TimelineTrackProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [localExpanded, setLocalExpanded] = useState(false);
+  const expanded = expandedProp ?? localExpanded;
   const { withSlug } = useTenantHref();
 
   const phases = useMemo(() => {
@@ -727,7 +734,9 @@ export function TimelineTrack({
       type="button"
       onClick={(e) => {
         e.stopPropagation();
-        setExpanded((v) => !v);
+        const nextExpanded = !expanded;
+        if (expandedProp === undefined) setLocalExpanded(nextExpanded);
+        onExpandedChange?.(nextExpanded);
       }}
       className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-900"
       aria-expanded={expanded}

@@ -55,7 +55,6 @@ export interface AuthContextType {
   activeRole: string;
   switchRole: (newRole: UserRole) => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ user: unknown; error: { message: string } | null }>;
-  signUp: (email: string, password: string, metadata: Record<string, unknown>) => Promise<{ user: unknown; error: { message: string } | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<DbProfile>) => Promise<void>;
 }

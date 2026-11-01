@@ -147,7 +147,7 @@ export default function PricingPage({ initialRegion = "za" }: { initialRegion?: 
 
             <StaggerItem>
               <p className="mx-auto mt-6 max-w-2xl text-balance text-lg leading-relaxed text-stone-600 sm:text-xl">
-                Choose the plan that fits your catering business. All plans include a 14-day free trial.
+                Compare plans, then talk with our team to set up your company workspace. Every plan includes a 14-day trial.
               </p>
             </StaggerItem>
 
@@ -263,10 +263,9 @@ export default function PricingPage({ initialRegion = "za" }: { initialRegion?: 
                     ))}
                   </ul>
 
-                  {/* Mobile-Optimized CTA Button.
-                      Signed-in companies go straight to checkout for the
-                      chosen plan; prospects register first (then upgrade
-                      from Admin -> Subscription). The middle tier's slug
+                  {/* Signed-in companies go straight to checkout for the
+                      chosen plan; prospects contact the platform team to
+                      set up their company workspace. The middle tier's slug
                       is "pro" here but "professional" in the billing
                       plans (getPlanById), so map it. */}
                   {(() => {
@@ -274,7 +273,7 @@ export default function PricingPage({ initialRegion = "za" }: { initialRegion?: 
                     const cycleParam = billingCycle === "annually" ? "annual" : "monthly";
                     const href = loggedIn
                       ? `/subscription/checkout?plan=${checkoutPlanId}&cycle=${cycleParam}`
-                      : "/company-signup";
+                      : "/contact";
                     return (
                       <Link href={href} className="mt-7 block">
                         <Button
@@ -286,7 +285,7 @@ export default function PricingPage({ initialRegion = "za" }: { initialRegion?: 
                           variant={highlighted ? "default" : "outline"}
                           size="lg"
                         >
-                          {loggedIn ? "Choose this plan" : "Start Free Trial"}
+                          {loggedIn ? "Choose this plan" : "Talk to our team"}
                           <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
                         </Button>
                       </Link>
@@ -327,7 +326,7 @@ export default function PricingPage({ initialRegion = "za" }: { initialRegion?: 
 
               <div>
                 <dt className="font-semibold text-stone-900">Free Trial</dt>
-                <dd className="mt-1.5 text-sm leading-relaxed text-stone-600">All plans include a 14-day free trial. No credit card required to start. Cancel anytime during the trial period with no charges.</dd>
+                <dd className="mt-1.5 text-sm leading-relaxed text-stone-600">Our platform team applies a 14-day trial when setting up an approved company workspace. No credit card is required to start.</dd>
               </div>
 
               <div className="md:col-span-2">
@@ -382,12 +381,12 @@ export default function PricingPage({ initialRegion = "za" }: { initialRegion?: 
 
             {/* Mobile-Optimized CTA Buttons */}
             <div className="mx-auto mt-8 flex max-w-md flex-col items-stretch justify-center gap-3 sm:max-w-none sm:flex-row sm:items-center">
-              <Link href="/company-signup" className="w-full sm:w-auto">
+              <Link href="/contact" className="w-full sm:w-auto">
                 <Button
                   size="lg"
                   className={`group h-12 w-full rounded-full bg-amber-600 px-9 text-base font-semibold text-white shadow-lg shadow-amber-900/30 hover:bg-amber-700 sm:w-auto ${btnPress}`}
                 >
-                  Start Free Trial
+                  Talk to our team
                   <ArrowRight className="ml-2 h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Button>
               </Link>

@@ -305,12 +305,12 @@ export default function DemoPage() {
               Ready to Transform Your Catering Business?
             </h2>
             <p className="mx-auto mt-5 max-w-2xl text-pretty text-lg text-stone-300">
-              Start your 14-day free trial today. No credit card required.
+              Our team will help set up your company workspace and show you the right plan for your operation.
             </p>
             <div className="mt-8 flex justify-center">
-              <Link href="/company-signup">
+              <Link href="/contact">
                 <Button size="lg" className={`group h-12 rounded-full bg-amber-500 px-9 text-base font-semibold text-stone-950 shadow-lg hover:bg-amber-400 ${btnPress}`}>
-                  Start Free Trial
+                  Talk to our team
                   <ArrowRight className={`ml-2 h-5 w-5 transition-transform duration-200 ${EASE} group-hover:translate-x-0.5`} />
                 </Button>
               </Link>

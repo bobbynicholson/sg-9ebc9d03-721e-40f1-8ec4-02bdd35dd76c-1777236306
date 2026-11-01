@@ -152,7 +152,7 @@ export default function CheckoutPage() {
   // first - they get a trial, then upgrade from Admin -> Subscription.
   useEffect(() => {
     if (!authLoading && !user && planId) {
-      router.replace("/company-signup");
+      router.replace({ pathname: "/auth/login", query: { redirectTo: router.asPath } });
     }
   }, [authLoading, user, planId, router]);
 

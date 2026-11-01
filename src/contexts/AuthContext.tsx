@@ -698,22 +698,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { user: data.user, error };
   };
 
-  const signUp = async (email: string, password: string, metadata: Record<string, unknown>) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: metadata,
-      },
-    });
-
-    if (error) {
-      setError(error.message);
-    }
-
-    return { user: data.user, error };
-  };
-
   const signOut = async () => {
     writeAuthSnapshot(null);
     await supabase.auth.signOut();
@@ -756,7 +740,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     activeRole,
     switchRole,
     signIn,
-    signUp,
     signOut,
     updateProfile,
   };
@@ -767,4 +750,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </AuthContext.Provider>
   );
 }
-

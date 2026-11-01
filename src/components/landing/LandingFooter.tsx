@@ -28,7 +28,7 @@ const COLUMNS: { title: string; links: { name: string; href: string }[] }[] = [
       { name: "Contact", href: "/contact" },
       { name: "Support", href: "/support" },
       { name: "Blog", href: "/blog" },
-      { name: "Get started", href: "/company-signup" },
+      { name: "Talk to sales", href: "/contact" },
     ],
   },
   {
@@ -137,13 +137,13 @@ export function LandingFooter({
           <div className="mt-14 flex flex-col items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-6 sm:flex-row sm:items-center">
             <div>
               <p className="font-display text-xl font-semibold text-white">Ready to win your next booking?</p>
-            <p className="mt-1 text-sm text-stone-400">Start with a 14-day free trial. No credit card required.</p>
+            <p className="mt-1 text-sm text-stone-400">Talk with our team about workspace setup and trial options.</p>
             </div>
             <Link
-              href="/company-signup"
+              href="/contact"
               className="group inline-flex items-center gap-2 rounded-full bg-amber-800 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-amber-900"
             >
-              Start free trial
+              Talk to our team
               <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
           </div>

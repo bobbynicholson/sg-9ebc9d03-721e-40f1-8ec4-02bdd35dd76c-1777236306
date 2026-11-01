@@ -31,7 +31,7 @@ import { PortalShell, PortalHeader,
 } from "@/components/portal/ui";
 import Head from "next/head";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { useForm, Controller, useWatch } from "react-hook-form";
+import { useForm, Controller, useWatch, type Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -74,7 +74,8 @@ const schema = z.object({
   }),
 });
 
-type FormValues = z.infer<typeof schema>;
+type FormInput = z.input<typeof schema>;
+type FormValues = z.output<typeof schema>;
 
 const DEFAULTS: FormValues = {
   email: {
@@ -119,7 +120,7 @@ function mergePreferenceDefaults(value: unknown): FormValues {
 const STORAGE_KEY = "notification_settings";
 
 interface ToggleProps {
-  control: ReturnType<typeof useForm<FormValues>>["control"];
+  control: Control<FormInput, any, FormValues>;
   name:
     | `email.${keyof FormValues["email"]}`
     | `push.${keyof FormValues["push"]}`
@@ -174,7 +175,7 @@ function NotificationSettingsPage() {
   // user's real preferences is worse than making them retry.
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm<FormValues>({
+  const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm<FormInput, any, FormValues>({
     resolver: zodResolver(schema),
     defaultValues: DEFAULTS,
   });

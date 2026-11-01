@@ -15,6 +15,7 @@ const migrations=[
   '20261029130000_private_company_documents.sql',
   '20261029140000_company_rpc_and_view_boundaries.sql',
   '20261029150000_company_relationship_integrity.sql',
+  '20261101120000_platform_only_company_creation.sql',
 ];
 before(async()=>{
   if (postgresUrl) {
@@ -42,6 +43,9 @@ before(async()=>{
     CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('request.jwt.claim.role',true),'') $$;
     CREATE TABLE companies(id uuid PRIMARY KEY, company_name text);
     CREATE TABLE profiles(id uuid PRIMARY KEY, company_id uuid REFERENCES companies, role text DEFAULT 'client', active_role text, is_active boolean DEFAULT true, deleted_at timestamptz, region_id uuid, email text, full_name text);
+    CREATE FUNCTION public.is_super_admin() RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_temp AS $$
+      SELECT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id=auth.uid() AND p.role='super_admin' AND p.is_active IS NOT FALSE AND p.deleted_at IS NULL)
+    $$;
     CREATE TABLE user_departments(id uuid DEFAULT gen_random_uuid() PRIMARY KEY,user_id uuid REFERENCES profiles,department text);
     CREATE TABLE clients(id uuid PRIMARY KEY,company_id uuid REFERENCES companies,name text);
     CREATE TABLE orders(id uuid PRIMARY KEY,company_id uuid REFERENCES companies,client_id uuid REFERENCES clients,note text);
@@ -109,6 +113,16 @@ test('anonymous callers cannot read company rows even with a legacy public grant
   await as(null,'anon'); assert.equal((await rows('SELECT * FROM orders')).length,0);
   assert.equal((await rows('SELECT * FROM profiles')).length,0);
   assert.equal((await rows('SELECT * FROM companies')).length,0);
+});
+test('only platform admins may create company workspaces',async()=>{
+  const policy=(await rows("SELECT with_check FROM pg_policies WHERE schemaname='public' AND tablename='companies' AND policyname='companies_platform_admin_insert'"))[0];
+  assert.match(policy?.with_check||'',/is_super_admin/);
+  assert.equal((await rows("SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='companies' AND policyname='companies_owner_self_insert'")).length,0);
+  await as(owner);
+  await assert.rejects(db.query('INSERT INTO companies VALUES($1,$2)',[id(99),'Self-service company']),/row.level security/);
+  await as(platform);
+  await db.query('INSERT INTO companies VALUES($1,$2)',[id(99),'Platform-created company']);
+  assert.equal((await rows('SELECT id FROM companies WHERE id=$1',[id(99)])).length,1);
 });
 test('own company CRUD works while foreign insert, update, delete and moving rows are denied',async()=>{
   await as(owner);
@@ -227,7 +241,7 @@ test('manual SQL bundle applies successfully and can be repeated',async()=>{
   await db.exec(bundle);
   await db.exec(bundle);
   const verification=await rows(fs.readFileSync('supabase/verification/company_isolation.sql','utf8'));
-  assert.equal(verification.length,14);
+  assert.equal(verification.length,15);
   for(const check of verification) assert.equal(check.passed,true,check.check_name);
   await as(owner);
   assert.deepEqual((await rows('SELECT company_id FROM orders')).map(row=>row.company_id),[a]);

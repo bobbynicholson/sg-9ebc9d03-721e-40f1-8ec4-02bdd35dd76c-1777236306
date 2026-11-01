@@ -10,10 +10,8 @@
  *      session (default behaviour for hash-style links), great. If not,
  *      we manually call exchangeCodeForSession.
  *   2. We read the resulting session, look up the company by slug, and
- *      auto-provision a `profiles` row with role=client, company_id
- *      from the slug, and email + name from the user. If a row already
- *      exists, we leave it alone (the user might already be a client of
- *      a different catering company too).
+ *      provision a `profiles` row only when the company already has an
+ *      active client contact matching the signed-in email.
  *   3. We try to link this auth user to any existing `clients` row that
  *      shares the email - this is the bridge that lets the new login
  *      see all their existing orders without needing each row to be
@@ -195,24 +193,30 @@ export default function ClientAuthCallbackPage({ initialBranding }: PageProps) {
           return finish("error", "We couldn't match this sign-in to a company. Please use the link from your latest email.");
         }
 
-        // Auto-provision the profiles row server-side - the profiles
-        // RLS doesn't permit a user to self-insert, so the browser
-        // can't do this. The endpoint uses the service role and has
-        // the necessary safety rails (role hard-coded to client, slug
-        // resolved to UUID server-side, existing profiles never
-        // overwritten).
+        // Provision the client profile server-side only for an existing
+        // company contact. The endpoint also refuses to reassign an
+        // existing staff profile or a client profile from another company.
         try {
-          await fetch("/api/auth/client-provision-profile", {
+          const provisionResponse = await fetch("/api/auth/client-provision-profile", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
             body: JSON.stringify({ company_slug: company.slug }),
           });
+          if (!provisionResponse.ok) {
+            return finish(
+              "error",
+              "This email does not have client portal access for this company. Ask the company to add you as a client contact, then request a new sign-in link.",
+            );
+          }
         } catch (provisionErr: any) {
-          // Non-fatal - if the user already has a profile or the
-          // provision endpoint hiccups, the dashboard will surface a
-          // clearer error than this callback could.
+          // Do not redirect into the client portal if the server could not
+          // confirm the account's company-scoped client access.
           console.warn("Auto-provision call failed:", provisionErr?.message);
+          return finish(
+            "error",
+            "We could not verify your client portal access. Please request a new sign-in link or contact the company.",
+          );
         }
 
         // Stamp the session start time in user_metadata so we can

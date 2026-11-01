@@ -458,9 +458,9 @@ export default function LoginPage() {
 
                 <div className="mt-2 text-center space-y-3">
                   <p className="text-sm text-stone-500">
-                    Don't have an account?{" "}
-                    <Link href="/company-signup" className="text-amber-700 hover:text-amber-800 font-medium">
-                      Sign up for free
+                    Need an account? Your company administrator sends staff invitations.{" "}
+                    <Link href="/contact" className="font-medium text-amber-700 hover:text-amber-800">
+                      Contact us about company setup
                     </Link>
                   </p>
                   <p className="text-xs text-stone-400 leading-relaxed">

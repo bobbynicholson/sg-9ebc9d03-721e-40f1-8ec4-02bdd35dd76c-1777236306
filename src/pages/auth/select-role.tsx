@@ -49,6 +49,22 @@ const ROLE_OPTIONS: Array<{
   { role: UserRole.CLIENT, icon: Building2, description: "Your company bookings, quotes, payments and updates." },
 ];
 
+function safeInternalRedirect(value: unknown): string | null {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || value.includes("\\") || /[\u0000-\u001f\u007f]/.test(value)) {
+    return null;
+  }
+
+  try {
+    const target = new URL(value, window.location.origin);
+    if (target.origin !== window.location.origin || ["/auth/login", "/auth/select-role"].includes(target.pathname)) {
+      return null;
+    }
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch {
+    return null;
+  }
+}
+
 function RoleSelectionContent() {
   const router = useRouter();
   const { user, userRoles, activeRole, companySlug, loading, signOut, switchRole } = useAuth();
@@ -63,7 +79,8 @@ function RoleSelectionContent() {
     setError(null);
     try {
       await switchRole(role);
-      const destination = getRoleLandingPage(role, companySlug || user?.company_slug || undefined);
+      const destination = safeInternalRedirect(router.query.redirectTo)
+        || getRoleLandingPage(role, companySlug || user?.company_slug || undefined);
       window.location.assign(destination);
     } catch (selectionError) {
       console.error("Role selection failed:", selectionError);

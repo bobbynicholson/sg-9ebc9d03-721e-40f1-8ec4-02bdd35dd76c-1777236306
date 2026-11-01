@@ -1072,10 +1072,9 @@ function AdminUsersPage() {
                   <Download className="w-4 h-4 mr-2" />
                   Export CSV
                 </Button>
-                {/* USR-C (task #208, 2026-05-24): Invite User
-                    button. Opens the dialog that calls the existing
-                    inviteStaffMember service (which now has the
-                    schema columns it needs). */}
+                {/* Opens the staff account form. Accounts are provisioned
+                    by the authenticated server endpoint and assigned to
+                    this company before the invitation is sent. */}
                 <Button
                   size="sm"
                   onClick={() => setInviteOpen(true)}
@@ -1673,9 +1672,9 @@ function AdminUsersPage() {
         </PortalShell>
       </div>
 
-      {/* USR-C (task #208, 2026-05-24): Invite User dialog. Calls
-          the existing inviteStaffMember service (now functional
-          after the staff_invitations email + full_name migration). */}
+      {/* The dialog provisions a company-scoped account through the
+          authenticated admin API, then offers the recipient a secure
+          password setup link. */}
       <Dialog
         open={inviteOpen}
         onOpenChange={(o) => {

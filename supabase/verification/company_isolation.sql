@@ -46,6 +46,13 @@ WITH required_buckets(id) AS (
         AND p.permissive = 'RESTRICTIVE' AND p.cmd = 'ALL' AND c.relrowsecurity)
   )
   UNION ALL
+  SELECT 'platform_only_company_creation',
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'companies'
+      AND policyname = 'companies_platform_admin_insert' AND permissive = 'PERMISSIVE'
+      AND cmd = 'INSERT' AND with_check ~ 'is_super_admin')
+    AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'companies'
+      AND policyname = 'companies_owner_self_insert')
+  UNION ALL
   SELECT 'profile_privilege_guard', EXISTS (
     SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.profiles'::regclass
       AND tgname = 'trg_enforce_profile_immutable' AND tgenabled IN ('O','A')

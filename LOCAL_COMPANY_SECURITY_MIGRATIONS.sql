@@ -1,4 +1,4 @@
--- Complete company isolation rollout. Generated from the four source migrations.
+-- Complete company isolation rollout. Generated from the five source migrations.
 -- Run the ENTIRE file in Supabase SQL Editor as the database administrator.
 -- Deploy the updated app (including /api/company-files) with this database change.
 -- This file does not revoke previously issued signed URLs or deploy the app.
@@ -594,6 +594,20 @@ BEGIN
   END LOOP;
 END $$;
 
+-- Source: 20261101120000_platform_only_company_creation.sql
+-- Company workspaces are provisioned by the CateringMS platform team.
+-- Remove the legacy owner self-insert branch so the permissive policy
+-- matches the current platform-managed onboarding model on its own.
+
+DROP POLICY IF EXISTS companies_owner_self_insert ON public.companies;
+DROP POLICY IF EXISTS companies_platform_admin_insert ON public.companies;
+
+CREATE POLICY companies_platform_admin_insert
+  ON public.companies
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (public.is_super_admin());
+
 -- Every one of the standalone verification checks must pass BEFORE COMMIT.
 DO $company_security_verify$
 DECLARE failed_checks text;
@@ -647,6 +661,13 @@ WITH required_buckets(id) AS (
       WHERE p.schemaname = 'public' AND p.tablename = required.name AND p.policyname = 'company_boundary'
         AND p.permissive = 'RESTRICTIVE' AND p.cmd = 'ALL' AND c.relrowsecurity)
   )
+  UNION ALL
+  SELECT 'platform_only_company_creation',
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'companies'
+      AND policyname = 'companies_platform_admin_insert' AND permissive = 'PERMISSIVE'
+      AND cmd = 'INSERT' AND with_check ~ 'is_super_admin')
+    AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'companies'
+      AND policyname = 'companies_owner_self_insert')
   UNION ALL
   SELECT 'profile_privilege_guard', EXISTS (
     SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.profiles'::regclass

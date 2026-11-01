@@ -1,7 +1,6 @@
  
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
-import { customerLinkOrigin } from "@/lib/publicAppOrigin";
 
 export interface AuthUser {
   id: string;
@@ -21,18 +20,6 @@ export interface AuthError {
   code?: string;
 }
 
-// Dynamic URL Helper
-// Sign-up / password-reset redirect base. Never the *.vercel.app
-// deployment host (login-protected); the tab's own origin covers local dev.
-const getURL = () => {
-  const url = customerLinkOrigin(
-    process?.env?.NEXT_PUBLIC_APP_URL,
-    process?.env?.NEXT_PUBLIC_SITE_URL,
-    typeof window !== 'undefined' ? window.location?.origin : null,
-  )
-  return url.endsWith('/') ? url : `${url}/`
-}
-
 export const authService = {
   // Get current user
   async getCurrentUser(): Promise<AuthUser | null> {
@@ -49,39 +36,6 @@ export const authService = {
   async getCurrentSession(): Promise<Session | null> {
     const { data: { session } } = await supabase.auth.getSession();
     return session;
-  },
-
-  // Sign up with email and password
-  async signUp(email: string, password: string, metadata?: Record<string, unknown>): Promise<{ user: AuthUser | null; error: AuthError | null }> {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${getURL()}auth/callback`,
-          data: metadata || {}
-        }
-      });
-
-      if (error) {
-        return { user: null, error: { message: error.message, code: error.status?.toString() } };
-      }
-
-      const authUser = data.user ? {
-        id: data.user.id,
-        email: data.user.email || "",
-        user_metadata: data.user.user_metadata,
-        created_at: data.user.created_at
-      } : null;
-
-      return { user: authUser, error: null };
-    } catch (error) {
-      const err = error as Error;
-      return { 
-        user: null, 
-        error: { message: err?.message || "An unexpected error occurred during sign up" } 
-      };
-    }
   },
 
   // Sign in with email and password
@@ -109,29 +63,6 @@ export const authService = {
       return { 
         user: null, 
         error: { message: err?.message || "An unexpected error occurred during sign in" } 
-      };
-    }
-  },
-
-  // Sign in with Google OAuth
-  async signInWithGoogle(): Promise<{ error: AuthError | null }> {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${getURL()}auth/callback`,
-        }
-      });
-      
-      if (error) {
-        return { error: { message: error.message } };
-      }
-
-      return { error: null };
-    } catch (error) {
-      const err = error as Error;
-      return { 
-        error: { message: err?.message || "An unexpected error occurred during Google sign in" } 
       };
     }
   },

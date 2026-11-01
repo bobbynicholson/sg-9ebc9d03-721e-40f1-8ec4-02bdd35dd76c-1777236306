@@ -46,8 +46,8 @@ export function FinalCtaSection() {
               size="lg"
               className={`group w-full px-9 sm:w-auto ${amberBtn}`}
             >
-              <Link href="/company-signup">
-                Start free trial
+              <Link href="/contact">
+                Talk to our team
                 <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </Button>

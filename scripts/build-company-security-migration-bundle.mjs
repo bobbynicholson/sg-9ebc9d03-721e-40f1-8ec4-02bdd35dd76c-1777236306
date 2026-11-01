@@ -5,8 +5,9 @@ const files = [
   '20261029130000_private_company_documents.sql',
   '20261029140000_company_rpc_and_view_boundaries.sql',
   '20261029150000_company_relationship_integrity.sql',
+  '20261101120000_platform_only_company_creation.sql',
 ];
-const preflight = `-- Complete company isolation rollout. Generated from the four source migrations.
+const preflight = `-- Complete company isolation rollout. Generated from the five source migrations.
 -- Run the ENTIRE file in Supabase SQL Editor as the database administrator.
 -- Deploy the updated app (including /api/company-files) with this database change.
 -- This file does not revoke previously issued signed URLs or deploy the app.

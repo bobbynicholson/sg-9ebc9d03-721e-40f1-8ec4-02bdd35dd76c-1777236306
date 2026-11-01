@@ -12,8 +12,8 @@
  *
  * Security:
  *   - Caller must have an active session (validated via cookie).
- *   - The slug in the request body must match the body's `target_slug`,
- *     and we look up the company by that slug.
+ *   - The requested company must already have an active client contact
+ *     whose email matches the authenticated user.
  *   - We only ever create profiles with role=client. Any attempt to
  *     pass a different role is ignored. This means an attacker who
  *     somehow phishes a client into running this endpoint can't
@@ -26,6 +26,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { findClientPortalContact } from "@/lib/clientPortalAccess";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -68,6 +69,23 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(404).json({ error: "Company not found" });
     }
 
+    // The client Auth user may be created by the server-side magic-link
+    // route, but only for an email the company already has on file. Keep
+    // this check here too so an existing signed-in account cannot call this
+    // endpoint to attach itself to an arbitrary tenant.
+    const { data: clientContact, error: clientContactError } = await findClientPortalContact(
+      admin,
+      company.id,
+      String(user.email || "").trim().toLowerCase(),
+    );
+    if (clientContactError) {
+      console.error("[auth/client-provision-profile] client contact lookup failed:", clientContactError);
+      return res.status(500).json({ error: "Could not verify client access for this company." });
+    }
+    if (!clientContact) {
+      return res.status(404).json({ error: "No active client access was found for this company and email." });
+    }
+
     // Idempotent backfill helper: link any orphan clients + quotes
     // under this tenant to the signed-in user. Safe to run on every
     // sign-in - the predicates only touch rows where user_id is null
@@ -93,7 +111,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           .from("clients")
           .select("id, user_id, email")
           .eq("company_id", company.id)
-          .eq("email", (user.email || "").toLowerCase());
+          .eq("id", clientContact.id)
+          .is("deleted_at", null)
+          .or("is_active.is.null,is_active.eq.true");
         if (candidatesErr) {
           console.error("[auth/client-provision-profile] clients fetch failed:", candidatesErr);
         }
@@ -148,7 +168,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           await admin
             .from("clients")
             .update({ user_id: user.id })
-            .eq("id", claimable[0]);
+            .eq("id", claimable[0])
+            .eq("company_id", company.id)
+            .is("deleted_at", null)
+            .or("is_active.is.null,is_active.eq.true");
         }
       } catch {
         /* non-fatal */
@@ -162,7 +185,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           .from("clients")
           .select("id")
           .eq("company_id", company.id)
-          .eq("user_id", user.id);
+          .eq("user_id", user.id)
+          .is("deleted_at", null)
+          .or("is_active.is.null,is_active.eq.true");
         if (clientRowsResolvedErr) {
           console.error("[auth/client-provision-profile] clients fetch failed:", clientRowsResolvedErr);
         }
@@ -197,6 +222,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     if (existing) {
+      // Never let a non-client profile or a client profile belonging to a
+      // different company claim this tenant's client rows.
+      if (existing.role !== "client" || (existing.company_id && existing.company_id !== company.id)) {
+        return res.status(403).json({ error: "This account does not have client portal access for this company." });
+      }
+
       // Still run the email-relink for the existing-profile path --
       // the clients row may have been added AFTER first signup, so
       // clients.user_id needs catching up.
@@ -245,26 +276,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       });
     }
 
-    // Try to derive a friendly name from any existing clients row that
-    // shares this email under this company. Fall back to a clean
-    // capitalised version of the email's local-part.
-    let fullName: string | null = null;
-    try {
-      const { data: clientRow, error: clientRowErr } = await admin
-        .from("clients")
-        .select("client_name")
-        .eq("company_id", company.id)
-        .eq("email", (user.email || "").toLowerCase())
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (clientRowErr) {
-        console.error("[auth/client-provision-profile] clients fetch failed:", clientRowErr);
-      }
-      fullName = (clientRow as any)?.client_name || null;
-    } catch {
-      /* non-fatal */
-    }
+    // The contact lookup above is mandatory for access; reuse its name for
+    // the new profile and fall back only when the record has no display name.
+    let fullName: string | null = (clientContact as any)?.client_name || null;
     if (!fullName) {
       const localPart = (user.email || "").split("@")[0] || "Client";
       fullName = localPart.replace(/[._-]+/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());

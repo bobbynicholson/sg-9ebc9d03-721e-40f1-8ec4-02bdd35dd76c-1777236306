@@ -63,14 +63,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (doc.status === "committed") return res.json({ targetId: doc.target_id, alreadySaved: true });
     if (doc.status !== "review" || !extractionSchema.safeParse(doc.extraction).success) return res.status(409).json({ error: "Read this PDF before reviewing it." });
     if (Number(req.body.version) !== doc.version) return res.status(409).json({ error: "Someone updated this document. Refresh before saving." });
-    const parsed = (action === "save" ? reviewDraftSchema : reviewSchema).safeParse(req.body.review);
-    if (!parsed.success) return res.status(400).json({ error: "Complete the review and confirm that you checked this document." });
     if (action === "save") {
+      const parsed = reviewDraftSchema.safeParse(req.body.review);
+      if (!parsed.success) return res.status(400).json({ error: "Complete the review and confirm that you checked this document." });
       const saved = await db.from("document_import_files").update({ reviewed_data: parsed.data, version: doc.version + 1, updated_at: new Date().toISOString() }).eq("id", doc.id).eq("company_id", companyId).eq("version", doc.version).select("*").maybeSingle();
       if (saved.error) throw saved.error;
       if (!saved.data) return res.status(409).json({ error: "This document changed. Refresh before saving." });
       return res.json({ document: saved.data });
     }
+    const parsed = reviewSchema.safeParse(req.body.review);
+    if (!parsed.success) return res.status(400).json({ error: "Complete the review and confirm that you checked this document." });
     const [company, region, catalogue] = await Promise.all([
       db.from("companies").select("currency, pricing_includes_vat").eq("id", companyId).single(),
       db.from("regions").select("id").eq("company_id", companyId).eq("id", parsed.data.region_id).maybeSingle(),

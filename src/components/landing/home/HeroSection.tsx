@@ -35,8 +35,8 @@ export function HeroSection() {
                 size="lg"
                 className={`group w-full px-8 sm:w-auto ${amberBtn}`}
               >
-                <Link href="/company-signup">
-                  Start free trial
+                <Link href="/contact">
+                  Talk to our team
                   <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Link>
               </Button>
@@ -57,7 +57,7 @@ export function HeroSection() {
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <CheckCircle className="h-4 w-4 text-amber-400" aria-hidden="true" />
-                14-day free trial
+                Platform-managed setup
               </span>
             </div>
           </div>

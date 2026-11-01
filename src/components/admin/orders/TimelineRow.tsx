@@ -35,6 +35,9 @@ interface Props {
   timelinesById: Map<string, OrderTimeline>;
   /** Pre-computed readiness per order (parent useMemo). */
   readinessById: Map<string, OrderReadiness>;
+  /** Expanded timeline steps, keyed by order so state survives virtualization. */
+  expandedTimelineIds: Set<string>;
+  onTimelineExpandChange: (orderId: string, expanded: boolean) => void;
   /** Shifts assigned per order (parent state). */
   allShiftsByOrder: Map<string, any[]>;
   /** Staff profiles map for shift labels. */
@@ -64,7 +67,7 @@ interface Props {
  */
 export function TimelineRow({
   order, amountChange, selectedIds, timelinesById, readinessById, allShiftsByOrder,
-  staffProfilesById, currencySymbol, companyId, loadOrders, toggleSelected,
+  expandedTimelineIds, onTimelineExpandChange, staffProfilesById, currencySymbol, companyId, loadOrders, toggleSelected,
   setSelectedOrder, setIsModalOpen, withSlug, onEmail, onOutsideAreaEmail, canEmailOutsideArea,
 }: Props) {
   const { toast } = useToast();
@@ -363,7 +366,17 @@ export function TimelineRow({
                 </div>
               );
             }
-            return <TimelineTrack timeline={tl} hideOperatorBanner />;
+            const orderId = String((order as any).id);
+            return (
+              <TimelineTrack
+                timeline={tl}
+                hideOperatorBanner
+                expanded={expandedTimelineIds.has(orderId)}
+                onExpandedChange={(expanded) =>
+                  onTimelineExpandChange(orderId, expanded)
+                }
+              />
+            );
           })()}
 
           {/* Wave 43 T1: surface every kitchen_shifts row linked

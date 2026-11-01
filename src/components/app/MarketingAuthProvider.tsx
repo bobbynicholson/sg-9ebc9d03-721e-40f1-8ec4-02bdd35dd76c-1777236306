@@ -71,7 +71,6 @@ export function MarketingAuthProvider({ children }: { children: ReactNode }) {
     activeRole: UserRole.ADMIN,
     switchRole: (role) => getReal().then((auth) => auth.switchRole(role)),
     signIn: (email, password) => getReal().then((auth) => auth.signIn(email, password)),
-    signUp: (email, password, metadata) => getReal().then((auth) => auth.signUp(email, password, metadata)),
     signOut: () => getReal().then((auth) => auth.signOut()),
     updateProfile: (updates) => getReal().then((auth) => auth.updateProfile(updates)),
   }), [loading, getReal]);
