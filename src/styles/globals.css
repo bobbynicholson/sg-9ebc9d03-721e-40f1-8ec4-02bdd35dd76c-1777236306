@@ -377,24 +377,13 @@
   }
 }
 
-/* Mobile performance optimizations */
+/* Mobile rendering defaults */
 @media (max-width: 768px) {
-  /* Reduce animation complexity on mobile */
-  * {
-    animation-duration: 0.2s !important;
-    transition-duration: 0.2s !important;
-  }
-  
   /* Optimize font rendering */
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-  }
-  
-  /* Improve scroll performance */
-  * {
-    -webkit-overflow-scrolling: touch;
   }
 }
 
