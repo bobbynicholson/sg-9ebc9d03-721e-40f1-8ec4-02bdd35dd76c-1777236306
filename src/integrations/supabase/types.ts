@@ -11295,6 +11295,18 @@ export type Database = {
           reset_in_ms: number
         }[]
       }
+      consume_api_key_rate_limits_windowed: {
+        Args: {
+          p_key_hashes: string[]
+          p_max_per_key: number[]
+          p_window_seconds?: number
+        }
+        Returns: {
+          allowed: boolean
+          remaining: number
+          reset_in_ms: number
+        }[]
+      }
       consume_next_document_number: {
         Args: { p_company_id: string; p_document_type: string }
         Returns: string

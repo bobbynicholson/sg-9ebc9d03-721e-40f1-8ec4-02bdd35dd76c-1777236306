@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+
 /**
  * Per-API-key rate limiter for the public integration endpoints.
  *
@@ -38,6 +40,100 @@ export interface RateLimitResult {
   allowed: boolean;
   remaining: number;
   resetInMs: number;
+  /** True when the shared limiter failed and this request was denied. */
+  unavailable?: boolean;
+}
+
+export interface RateLimitDimension {
+  /** Private identifier used to group requests, such as an email or IP. */
+  key: string;
+  max: number;
+}
+
+function getRateLimitHmacSecret(): string {
+  const secret =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY ||
+    process.env.SUPABASE_SECRET_KEY;
+  if (!secret) throw new Error("Rate-limit HMAC secret is not configured");
+  return secret;
+}
+
+/** HMAC identifiers so the limiter table never stores raw emails or IPs. */
+export function hashRateLimitIdentifier(identifier: string): string {
+  return createHmac("sha256", getRateLimitHmacSecret())
+    .update(`cateringms:rate-limit:v1:${identifier}`)
+    .digest("hex");
+}
+
+/** Prefer Vercel's platform-provided client IP, then standard local headers. */
+export function getRateLimitClientIp(req: {
+  headers: Record<string, string | string[] | undefined>;
+  socket?: { remoteAddress?: string };
+}): string {
+  const firstAddress = (value: string | string[] | undefined): string | null => {
+    const raw = Array.isArray(value) ? value[0] : value;
+    if (typeof raw !== "string") return null;
+    const first = raw.split(",")[0]?.trim();
+    return first || null;
+  };
+
+  return (
+    firstAddress(req.headers["x-vercel-forwarded-for"]) ||
+    firstAddress(req.headers["x-forwarded-for"]) ||
+    firstAddress(req.headers["x-real-ip"]) ||
+    req.socket?.remoteAddress ||
+    "unknown"
+  );
+}
+
+/**
+ * Consume several limits atomically in the shared database. This has no
+ * per-instance fallback: when the database limiter is unavailable, callers
+ * receive `unavailable: true` and must not perform the protected action.
+ */
+export async function consumeApiKeyRateLimitsWindowed(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  serviceClient: any,
+  dimensions: RateLimitDimension[],
+  options: { windowSeconds: number },
+): Promise<RateLimitResult> {
+  const windowSeconds = Math.max(1, Math.min(86_400, Math.floor(options.windowSeconds)));
+  const unavailable = (): RateLimitResult => ({
+    allowed: false,
+    remaining: 0,
+    resetInMs: windowSeconds * 1000,
+    unavailable: true,
+  });
+
+  try {
+    if (!dimensions.length || dimensions.some((dimension) => !Number.isInteger(dimension.max) || dimension.max < 1)) {
+      throw new Error("Invalid rate-limit dimensions");
+    }
+
+    const p_key_hashes = dimensions.map(({ key }) => hashRateLimitIdentifier(key));
+    const p_max_per_key = dimensions.map(({ max }) => max);
+    const { data, error } = await serviceClient.rpc("consume_api_key_rate_limits_windowed", {
+      p_key_hashes,
+      p_max_per_key,
+      p_window_seconds: windowSeconds,
+    });
+    if (error) throw new Error("Shared rate-limit RPC failed");
+
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row || typeof row.allowed !== "boolean") {
+      throw new Error("Shared rate-limit RPC returned an invalid response");
+    }
+    return {
+      allowed: row.allowed,
+      remaining: Number(row.remaining ?? 0),
+      resetInMs: Number(row.reset_in_ms ?? windowSeconds * 1000),
+    };
+  } catch {
+    // Do not include identifiers or database error details in logs.
+    console.warn("[rateLimit] shared limiter unavailable; protected action denied");
+    return unavailable();
+  }
 }
 
 /**

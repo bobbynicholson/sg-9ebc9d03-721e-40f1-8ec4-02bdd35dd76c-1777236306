@@ -9,7 +9,8 @@
  *
  * Body: { email: string, company_slug?: string }
  *
- * Public (no auth). Rate-limited per email at the DB-backed limiter.
+ * Public (no auth). Rate-limited separately per email and source IP by
+ * the shared database limiter.
  * Always returns 200 for privacy - never confirms whether an email
  * is on file.
  *
@@ -27,8 +28,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import { consumeApiKeyRateLimitDb } from "@/lib/apiKeyRateLimit";
-import crypto from "node:crypto";
+import {
+  consumeApiKeyRateLimitsWindowed,
+  getRateLimitClientIp,
+} from "@/lib/apiKeyRateLimit";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { customerLinkOrigin } from "@/lib/publicAppOrigin";
 
@@ -95,15 +98,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const sb: any = getServiceSupabase();
 
-    // Rate-limit per email (regardless of slug) so a malicious caller
-    // can't DOS a tenant's mail provider with magic-link spam to
-    // arbitrary addresses. 3 requests/min/email is generous for the
-    // legitimate "I lost my link" use case.
-    const limitKey = crypto
-      .createHash("sha256")
-      .update(`magic-link:${cleanEmail}`)
-      .digest("hex");
-    const rl = await consumeApiKeyRateLimitDb(sb, limitKey, { maxPerMinute: 3 });
+    // The recipient cap prevents mail spam to one address. The separate
+    // IP cap bounds aggregate requests without coupling unrelated users'
+    // recipient quotas together.
+    const rl = await consumeApiKeyRateLimitsWindowed(sb, [
+      { key: `client-account-link:email:${cleanEmail}`, max: 3 },
+      { key: `client-account-link:ip:${getRateLimitClientIp(req)}`, max: 60 },
+    ], { windowSeconds: 60 });
+    if (rl.unavailable) {
+      return res.status(503).json({
+        error: "Account links are temporarily unavailable. Please try again shortly.",
+      });
+    }
     if (!rl.allowed) {
       // Always return 200 for privacy.
       return res.status(200).json({ ok: true });
@@ -121,7 +127,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ ok: true });
     }
 
-    let sent = 0;
     for (const company of companies) {
       const { data: client } = await sb
         .from("clients")
@@ -131,7 +136,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .maybeSingle();
       if (!client) continue;
       await sendOneLink({ sb, company, client, cleanEmail, baseUrl });
-      sent += 1;
     }
     // We always return 200 regardless of sent count - the client
     // doesn't get to learn whether their email matched any tenant.

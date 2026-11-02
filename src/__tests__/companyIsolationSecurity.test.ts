@@ -11,7 +11,7 @@ import clientMagicLinkHandler from "@/pages/api/auth/client-magic-link";
 import clientProvisionProfileHandler from "@/pages/api/auth/client-provision-profile";
 import { findClientPortalContact } from "@/lib/clientPortalAccess";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import { consumeApiKeyRateLimitWindowed } from "@/lib/apiKeyRateLimit";
+import { consumeApiKeyRateLimitsWindowed } from "@/lib/apiKeyRateLimit";
 import { emailService } from "@/services/emailService";
 import { companyProvisionProofMatches } from "@/lib/companyProvisionProof";
 import { createHash } from "node:crypto";
@@ -23,7 +23,10 @@ import localProfitHandler from "@/pages/api/admin/event-profitability";
 
 jest.mock("@/lib/supabase/server", () => ({ createPagesServerClient: jest.fn() }));
 jest.mock("@/lib/supabase/service", () => ({ getServiceSupabase: jest.fn() }));
-jest.mock("@/lib/apiKeyRateLimit", () => ({ consumeApiKeyRateLimitWindowed: jest.fn(async () => ({ allowed: true, resetInMs: 0 })) }));
+jest.mock("@/lib/apiKeyRateLimit", () => ({
+  consumeApiKeyRateLimitsWindowed: jest.fn(async () => ({ allowed: true, resetInMs: 0 })),
+  getRateLimitClientIp: jest.fn(() => "127.0.0.1"),
+}));
 jest.mock("@/lib/withApiLogging", () => ({ withApiLogging: (handler: unknown) => handler }));
 jest.mock("@/server/emails/sendBrandedEmail", () => ({ sendBrandedEmail: jest.fn(async () => ({ ok: true })) }));
 jest.mock("@/services/email/templateResolver", () => ({ resolveEmailTemplate: jest.fn(async () => ({ source: "fallback" })) }));
@@ -229,7 +232,7 @@ test("client magic-link requests do not create accounts for emails outside the c
     auth: { admin: { generateLink, createUser } },
   };
   (getServiceSupabase as jest.Mock).mockReturnValue(admin);
-  (consumeApiKeyRateLimitWindowed as jest.Mock).mockResolvedValue({ allowed: true, resetInMs: 0 });
+  (consumeApiKeyRateLimitsWindowed as jest.Mock).mockResolvedValue({ allowed: true, resetInMs: 0 });
 
   const res = response();
   await clientMagicLinkHandler({
@@ -249,6 +252,47 @@ test("client magic-link requests do not create accounts for emails outside the c
   expect(emailService.sendEmail).not.toHaveBeenCalled();
 });
 
+test("client magic-link quotas are separate for recipient email and source IP", async () => {
+  const admin = { from: jest.fn(), auth: { admin: { generateLink: jest.fn() } } };
+  (getServiceSupabase as jest.Mock).mockReturnValue(admin);
+  (consumeApiKeyRateLimitsWindowed as jest.Mock).mockResolvedValue({ allowed: true, resetInMs: 0 });
+
+  const res = response();
+  await clientMagicLinkHandler({
+    method: "POST",
+    headers: { origin: "https://catering.example.test", "x-forwarded-for": "127.0.0.1" },
+    socket: { remoteAddress: "127.0.0.1" },
+    body: { email: " Client@Example.Test ", company_slug: clientCompany.slug },
+  } as any, res as any);
+
+  expect(consumeApiKeyRateLimitsWindowed).toHaveBeenCalledWith(admin, [
+    { key: "client-magic-link:email:client@example.test", max: 5 },
+    { key: "client-magic-link:ip:127.0.0.1", max: 60 },
+  ], { windowSeconds: 600 });
+});
+
+test.each([
+  [{ allowed: false, remaining: 0, resetInMs: 600_000 }, 429],
+  [{ allowed: false, remaining: 0, resetInMs: 600_000, unavailable: true }, 503],
+])("client magic-link request stops before company lookup when limiter denies it", async (limitResult, status) => {
+  const admin = { from: jest.fn(), auth: { admin: { generateLink: jest.fn() } } };
+  (getServiceSupabase as jest.Mock).mockReturnValue(admin);
+  (consumeApiKeyRateLimitsWindowed as jest.Mock).mockResolvedValue(limitResult);
+
+  const res = response();
+  await clientMagicLinkHandler({
+    method: "POST",
+    headers: { "x-forwarded-for": "127.0.0.1" },
+    socket: { remoteAddress: "127.0.0.1" },
+    body: { email: clientEmail, company_slug: clientCompany.slug },
+  } as any, res as any);
+
+  expect(res.statusCode).toBe(status);
+  expect(admin.from).not.toHaveBeenCalled();
+  expect(admin.auth.admin.generateLink).not.toHaveBeenCalled();
+  expect(emailService.sendEmail).not.toHaveBeenCalled();
+});
+
 test("a client contact on file can receive a first-time server-provisioned magic link", async () => {
   const companies = resultQuery({ data: clientCompany, error: null });
   const clients = resultQuery({ data: { id: "client-row", client_name: "Client" }, error: null });
@@ -261,7 +305,7 @@ test("a client contact on file can receive a first-time server-provisioned magic
     auth: { admin: { generateLink, createUser } },
   };
   (getServiceSupabase as jest.Mock).mockReturnValue(admin);
-  (consumeApiKeyRateLimitWindowed as jest.Mock).mockResolvedValue({ allowed: true, resetInMs: 0 });
+  (consumeApiKeyRateLimitsWindowed as jest.Mock).mockResolvedValue({ allowed: true, resetInMs: 0 });
 
   const res = response();
   await clientMagicLinkHandler({

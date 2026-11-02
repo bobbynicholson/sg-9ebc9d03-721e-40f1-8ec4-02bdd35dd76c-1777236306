@@ -41,20 +41,19 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { emailService } from "@/services/emailService";
-import { consumeApiKeyRateLimitWindowed } from "@/lib/apiKeyRateLimit";
+import {
+  consumeApiKeyRateLimitsWindowed,
+  getRateLimitClientIp,
+} from "@/lib/apiKeyRateLimit";
 import { findClientPortalContact } from "@/lib/clientPortalAccess";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
-// Phase 4 #1: DB-backed rate limit (5 sends per 10 minutes per
-// email+IP combo). Used to live in an in-memory Map that reset
-// every Vercel cold start, so an attacker could spread their probe
-// across cold restarts to defeat the cap. The DB-backed limiter
-// gives a hard ceiling regardless of how many serverless instances
-// are warm. Falls back to an in-memory bucket if the RPC fails so
-// a transient DB blip doesn't fail-open.
+// Separate shared caps prevent one recipient from exhausting another
+// recipient's allowance while still bounding traffic from a single IP.
 const MAGIC_LINK_MAX = 5;
 const MAGIC_LINK_WINDOW_SEC = 10 * 60;
+const MAGIC_LINK_IP_MAX = 60;
 
 /**
  * Build the branded HTML email.
@@ -154,27 +153,28 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    const xff = (req.headers["x-forwarded-for"] as string) || "";
-    const ip = xff.split(",")[0]?.trim() || (req.socket as any)?.remoteAddress || "0.0.0.0";
-
-    const limitKey = `magic-link:${cleanEmail}|${ip}`;
-    const rl = await consumeApiKeyRateLimitWindowed(getServiceSupabase(), limitKey, {
-      max: MAGIC_LINK_MAX,
-      windowSeconds: MAGIC_LINK_WINDOW_SEC,
-    });
-    if (!rl.allowed) {
-      const waitMin = Math.max(1, Math.ceil(rl.resetInMs / 60_000));
-      return res.status(429).json({
-        error: `Too many sign-in attempts. Try again in about ${waitMin} minute${waitMin === 1 ? "" : "s"}.`,
-      });
-    }
-
     let admin: any;
     try {
       admin = getServiceSupabase();
     } catch (e: any) {
       console.error("Magic-link: service role unavailable:", e?.message);
       return res.status(500).json({ error: "Server is not configured for magic-link auth." });
+    }
+
+    const ip = getRateLimitClientIp(req);
+    const rl = await consumeApiKeyRateLimitsWindowed(admin, [
+      { key: `client-magic-link:email:${cleanEmail}`, max: MAGIC_LINK_MAX },
+      { key: `client-magic-link:ip:${ip}`, max: MAGIC_LINK_IP_MAX },
+    ], {
+      windowSeconds: MAGIC_LINK_WINDOW_SEC,
+    });
+    if (rl.unavailable) {
+      return res.status(503).json({
+        error: "Sign-in links are temporarily unavailable. Please try again shortly.",
+      });
+    }
+    if (!rl.allowed) {
+      return res.status(429).json({ error: "Too many sign-in requests. Please try again later." });
     }
 
     // 1. Look up the company by slug
@@ -186,7 +186,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     if (companyErr || !company) {
       // Privacy: same response shape whether the slug exists or not
-      console.warn("Magic-link: unknown slug requested", { company_slug, ip });
+      console.warn("Magic-link: unknown slug requested", { company_slug });
       return res.status(200).json({ ok: true });
     }
 
@@ -297,7 +297,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (devReturnLink) {
       console.warn(
         "[client-magic-link] DEV_RETURN_MAGIC_LINK is on, returning the magic link in the API response. UNSAFE for production.",
-        { email: cleanEmail, slug: company.slug },
+        { slug: company.slug },
       );
       return res.status(200).json({
         ok: true,
