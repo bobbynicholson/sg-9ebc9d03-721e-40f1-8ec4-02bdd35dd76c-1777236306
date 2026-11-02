@@ -1018,15 +1018,6 @@ function AdminInventory() {
             }
             actions={
             <>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-9 w-9 p-0"
-                onClick={refreshAll}
-                title="Refresh"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </Button>
               <Button variant="outline" size="sm" className="gap-2" onClick={openAdd}>
                 <Plus className="w-4 h-4" />
                 New item

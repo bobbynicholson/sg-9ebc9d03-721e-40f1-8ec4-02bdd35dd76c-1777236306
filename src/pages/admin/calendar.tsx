@@ -895,20 +895,6 @@ function AdminCalendar() {
               <Button variant="outline" size="sm" onClick={jumpToday} className="hidden">
                 <Sparkles className="w-3.5 h-3.5" /> Today
               </Button>
-              {/* Phase 28 #10: manual refresh. A new booking from
-                  the lead pipeline or a status change made by
-                  dispatch in another tab should land on the
-                  calendar without a hard reload. */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={loadOrders}
-                disabled={loading}
-                className="gap-1.5"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
               {/* Phase 22 #1: calendar CSV. Operators print this for
                   kitchen meal-plan briefings and morning whiteboards.
                   Walks orders so future-dated events plus already-

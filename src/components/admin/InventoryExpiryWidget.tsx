@@ -123,10 +123,10 @@ export function InventoryExpiryWidget({ companyId }: { companyId: string | null 
 
   return (
     <Card collapsible defaultOpen={false} collapseLabel="Stock expiring soon" className="mb-6 border-amber-200 bg-amber-50/30">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-base">
+      <CardHeader className="pb-3 min-w-0 flex-wrap">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="flex min-w-0 flex-wrap items-center gap-2 text-base">
               <CalendarClock className="w-4 h-4 text-amber-600" />
               Stock expiring soon
               {!loading && <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700" aria-label={`${entries.length} items`}>{entries.length}</span>}

@@ -92,19 +92,13 @@ function ExceptionCenterPageInner() {
             title="Attention center"
             subtitle="Review unresolved issues and open the work that needs your attention."
             icon={AlertTriangle}
-            actions={(
-              <Button onClick={live.refresh} disabled={live.loading} variant="outline" className="gap-2 bg-white/10 text-white hover:bg-white/20 hover:text-white">
-                {live.loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                Refresh
-              </Button>
-            )}
             meta={live.refreshedAt ? <span className="text-xs text-white/75">Updated {new Date(live.refreshedAt).toLocaleTimeString()}</span> : null}
           />
           <PageWorkbench />
 
           {live.error && (
             <PortalCard className="mb-5 border-rose-200 bg-rose-50">
-              <div className="flex items-start gap-3 text-rose-900"><AlertCircle className="mt-0.5 h-5 w-5" /><div><p className="font-semibold">Some live signals could not be refreshed</p><p className="mt-1 text-sm">{live.error}</p></div></div>
+              <div className="flex items-start gap-3 text-rose-900"><AlertCircle className="mt-0.5 h-5 w-5" /><div className="min-w-0 flex-1"><p className="font-semibold">Some live signals could not be refreshed</p><p className="mt-1 text-sm">{live.error}</p></div><Button size="sm" variant="outline" onClick={live.refresh} disabled={live.loading}>Retry</Button></div>
             </PortalCard>
           )}
 

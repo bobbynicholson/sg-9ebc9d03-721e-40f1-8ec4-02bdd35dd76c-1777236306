@@ -160,9 +160,11 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
           <Button type="button" variant="outline" size="sm" aria-expanded={workspaceOpen} aria-controls={`${department}-team-controls-content`} aria-label={`${workspaceOpen ? "Collapse" : "Expand"} team controls`} onClick={() => setWorkspaceOpen(value => !value)} disabled={!!saving} className="min-h-10 gap-1.5 bg-white dark:bg-slate-900">
             {workspaceOpen ? "Collapse" : "Expand"}<ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${workspaceOpen ? "rotate-180" : ""}`} />
           </Button>
-        <Button variant="outline" size="sm" onClick={() => setTick((value) => value + 1)} disabled={loading} className="h-9 gap-2 bg-white dark:bg-slate-900">
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh status
-        </Button>
+        {error && (
+          <Button type="button" variant="outline" size="sm" onClick={() => setTick((value) => value + 1)} disabled={loading} className="h-9 gap-2 bg-white dark:bg-slate-900">
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Retry
+          </Button>
+        )}
         </div>
       </div>
 

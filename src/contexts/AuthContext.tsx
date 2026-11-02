@@ -337,20 +337,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       if (session?.user) {
-        // Fetch user profile
+        // Profile and role assignments are independent reads. Start the
+        // roles query now so it overlaps the profile/company lookups below
+        // instead of adding another full database round-trip to sign-in.
+        const departmentLookup = (async () => {
+          try {
+            return await supabase
+              .from("user_departments")
+              .select("department, is_primary")
+              .eq("user_id", session.user.id)
+              .order("is_primary", { ascending: false });
+          } catch (lookupError) {
+            return { data: null, error: lookupError };
+          }
+        })();
+
         const userProfile = await profileService.getProfile(session.user.id);
         if (hydrationRequest !== hydrationRequestRef.current) return;
         
         if (userProfile) {
-          // Resolve role access while company and client membership data load.
-          // These requests are independent; waiting for the company first
-          // added a full network round-trip to every cold app launch.
-          const departmentLookup = supabase
-            .from("user_departments")
-            .select("department, is_primary")
-            .eq("user_id", session.user.id)
-            .order("is_primary", { ascending: false });
-
           // Fetch company if user has company_id
           let userCompany = null;
 
@@ -380,13 +385,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const wantSlug = String(
                   (session.user.user_metadata as any)?.last_company_slug || "",
                 );
-                // Try the real rows first (works for staff-visible
-                // tenants and once the companies client-read policy
-                // lands in prod).
-                const { data: companyRows } = await supabase
-                  .from("companies")
-                  .select("*")
-                  .in("id", companyIds);
+                // Run the company lookup and safe branding fallback together.
+                // Client RLS commonly hides company rows, so waiting for that
+                // empty result before asking the SECURITY DEFINER RPC added a
+                // full network round-trip to client sign-in.
+                const [companyResult, brandingResult] = await Promise.all([
+                  supabase
+                    .from("companies")
+                    .select("*")
+                    .in("id", companyIds),
+                  wantSlug
+                    ? (supabase.rpc as any)("get_company_branding", { p_slug: wantSlug })
+                    : Promise.resolve({ data: null }),
+                ]);
+                const companyRows = companyResult.data;
+                const brandData = brandingResult.data;
                 let chosen: any =
                   (wantSlug &&
                     (companyRows || []).find((c: any) => c.slug === wantSlug)) ||
@@ -398,10 +411,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 // companies under RLS - and never picks an arbitrary
                 // company when the client belongs to several.
                 if (!chosen && wantSlug) {
-                  const { data: brandData } = await (supabase.rpc as any)(
-                    "get_company_branding",
-                    { p_slug: wantSlug },
-                  );
                   const brand = Array.isArray(brandData) ? brandData[0] : brandData;
                   if (brand?.id && companyIds.includes(brand.id)) {
                     chosen = {
@@ -655,6 +664,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchRole = async (newRole: UserRole) => {
     if (!userRoles.includes(newRole)) {
       throw new Error("That portal is not assigned to your account. Ask an administrator to add it.");
+    }
+    // Choosing the already-persisted portal needs no API round-trip. The
+    // selector uses this path for the common single-portal login case.
+    if (newRole === activeRole && String(profile?.active_role || "") === newRole) {
+      return;
     }
 
     // Passwords are account-wide; switching roles must reuse the current

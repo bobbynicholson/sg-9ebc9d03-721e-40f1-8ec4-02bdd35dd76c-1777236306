@@ -176,7 +176,7 @@ function PublicHolidaysAdmin() {
         if (changedCompanyId === null || changedCompanyId === companyId) void reload();
       })
       .subscribe();
-    return () => { sub.unsubscribe(); };
+    return () => { supabase.removeChannel(sub); };
   }, [companyId, reload]);
 
   const filtered = useMemo(() => buildOccurrences(holidays, year), [holidays, year]);
@@ -248,18 +248,6 @@ function PublicHolidaysAdmin() {
             }
             actions={
             <>
-              {/* Phase 28 #7: manual refresh. Year switching already
-                  triggers a reload but a manual button covers the
-                  case where another admin has just added a company
-                  custom holiday from a different tab. */}
-              <Button
-                variant="outline"
-                onClick={reload}
-                disabled={loading}
-              >
-                <RefreshCw className={`w-4 h-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
               {/* Phase 22 #4: holidays CSV. Payroll and ops planning
                   cross-reference these against shift rosters, public-
                   holiday surcharges and venue closures. */}

@@ -880,9 +880,7 @@ function AdminQuotesInner() {
       .filter((x): x is { regionId: string; rows: typeof filteredRows } => !!x);
   }, [filteredRows, options]);
 
-  // Phase 27 #8: manual refresh bumper. Realtime channels handle
-  // most refresh cases but operators want a button when they
-  // expect a colleague to have just touched something.
+  // Used to re-run quote-derived summaries after local quote actions.
   const [refreshTick, setRefreshTick] = useState(0);
   useEffect(() => {
     if (!user?.company_id) {
@@ -993,8 +991,8 @@ function AdminQuotesInner() {
     return () => { cancelled = true; };
   }, [user?.company_id, refreshTick]);
 
-  // Keep the diary fresh after quote/order realtime changes as well as
-  // manual refresh. A failed load must not advertise an empty diary.
+  // Keep the diary fresh after quote/order changes. A failed load must
+  // not advertise an empty diary.
   useEffect(() => {
     let cancelled = false;
     setDiaryEntries(null);
@@ -1722,19 +1720,6 @@ function AdminQuotesInner() {
             }
             actions={
               <>
-                {/* Phase 27 #8: manual refresh bumps refreshTick which
-                    is wired into the load effect's deps. Realtime
-                    channels handle most cases but operators want
-                    a button when expecting a colleague to have just
-                    touched a quote. */}
-                <Button
-                  variant="outline"
-                  onClick={() => setRefreshTick((n) => n + 1)}
-                  disabled={loading}
-                >
-                  <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                  Refresh
-                </Button>
                 {/* Phase 11 #2: CSV export of the currently filtered
                     quote set. Respects bucket + search so the file
                     matches what the operator sees on screen. */}

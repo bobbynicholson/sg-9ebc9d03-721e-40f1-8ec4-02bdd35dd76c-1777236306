@@ -237,15 +237,26 @@ function RegionsPage() {
     const companyId = user?.company_id;
     if (!companyId) return;
     const channelKey = `admin-regions-realtime:${companyId}`;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const refresh = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        void loadRegions();
+      }, 400);
+    };
     const channel = (supabase as any)
       .channel(channelKey)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "regions", filter: `company_id=eq.${companyId}` },
-        () => { void loadRegions(); },
+        refresh,
       )
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "quotes", filter: `company_id=eq.${companyId}` }, refresh)
       .subscribe();
     return () => {
+      if (timer) clearTimeout(timer);
       (supabase as any).removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -788,20 +799,6 @@ function RegionsPage() {
             }
             actions={
             <>
-              {/* Phase 28 #6: manual refresh. Region stats roll up
-                  from MTD orders and open quote counts; a refresh
-                  re-pulls the join after a quote or order changes
-                  in another tab. */}
-              <Button
-                variant="outline"
-                onClick={() => void loadRegions()}
-                disabled={loading}
-                className="px-2.5 sm:px-3"
-                title="Refresh branches"
-              >
-                <RefreshCw className={`w-4 h-4 sm:mr-2 ${loading ? "animate-spin" : ""}`} />
-                <span className="hidden sm:inline">Refresh</span>
-              </Button>
               {/* Phase 21 #4: per-branch performance CSV. Multi-
                   branch operators run quarterly reviews comparing
                   regions on revenue + order count + open quote

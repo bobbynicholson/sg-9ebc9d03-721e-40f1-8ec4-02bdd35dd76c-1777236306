@@ -949,10 +949,6 @@ function RefundsPage() {
                 <Download className="w-4 h-4" />
                 <span className="hidden sm:inline">Export CSV</span>
               </Button>
-              <Button variant="outline" onClick={load} disabled={loading} className="gap-2" aria-label="Refresh refunds and credits">
-                <RefreshCw className="w-4 h-4" />
-                <span className="hidden sm:inline">Refresh</span>
-              </Button>
               </>
             }
           />

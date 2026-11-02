@@ -628,7 +628,7 @@ export const notificationService = {
     return data?.length || 0;
   },
 
-  async getUnreadCount(userId: string, activeRole?: string): Promise<number> {
+  async getUnreadCount(userId: string, activeRole?: string, companyId?: string | null): Promise<number> {
     let query = supabase
       .from("notifications")
       .select("*", { count: "exact", head: true })
@@ -637,6 +637,10 @@ export const notificationService = {
 
     if (activeRole) {
       query = query.or(`target_role.eq.${activeRole},target_role.is.null`);
+    }
+
+    if (companyId) {
+      query = query.eq("company_id", companyId);
     }
 
     const { count, error } = await query;
@@ -653,7 +657,7 @@ export const notificationService = {
 
   subscribeToNotifications(
     userId: string, 
-    callback: (notification: Notification) => void,
+    callback: (notification: Notification, eventType: "INSERT" | "UPDATE" | "DELETE", previous?: Partial<Notification>) => void,
     activeRole?: string,
     companyId?: string | null,
   ) {
@@ -678,7 +682,42 @@ export const notificationService = {
           const notification = payload.new as Notification;
           if (companyId && notification.company_id !== companyId) return;
           if (!activeRole || !notification.target_role || notification.target_role === activeRole) {
-            callback(notification);
+            callback(notification, "INSERT");
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "notifications"
+        },
+        (payload) => {
+          const notification = payload.old as Notification;
+          if (notification.recipient_id !== userId) return;
+          if (companyId && notification.company_id !== companyId) return;
+          if (!activeRole || !notification.target_role || notification.target_role === activeRole) {
+            callback(notification, "DELETE");
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "notifications",
+          filter: `recipient_id=eq.${userId}`
+        },
+        (payload) => {
+          const notification = payload.new as Notification;
+          const previous = payload.old as Partial<Notification>;
+          if (companyId && notification.company_id !== companyId && previous.company_id !== companyId) return;
+          const matchesRole = (row?: Partial<Notification>) =>
+            !!row && (!activeRole || !row.target_role || row.target_role === activeRole);
+          if (matchesRole(notification) || matchesRole(previous)) {
+            callback(notification, "UPDATE", previous);
           }
         }
       )

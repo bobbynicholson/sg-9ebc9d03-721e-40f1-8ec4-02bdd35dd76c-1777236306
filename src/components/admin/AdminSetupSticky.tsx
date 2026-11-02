@@ -5,7 +5,6 @@ import {
   ArrowRight,
   Check,
   CheckCircle2,
-  RefreshCw,
   ChevronUp,
   ClipboardCheck,
   X,
@@ -93,6 +92,13 @@ export function AdminSetupSticky() {
   }, [open]);
 
   useEffect(() => {
+    if (open && companyId) void load();
+    // Refresh when the operator opens the checklist; route changes and local
+    // checklist events already keep the collapsed summary current.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, companyId]);
+
+  useEffect(() => {
     if (!companyId || typeof window === "undefined") return;
     const onTodoChanged = (event: Event) => {
       const detail = (event as CustomEvent<{ companyId?: string; taskId?: string; completed?: boolean }>).detail;
@@ -152,9 +158,6 @@ export function AdminSetupSticky() {
               <p className="mt-0.5 text-xs text-slate-500">{completedChecks}/{totalChecks} checks complete across your company.</p>
             </div>
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-9 w-9" disabled={loading} onClick={() => void load()} aria-label="Refresh setup checklist">
-                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              </Button>
               <Button variant="ghost" size="icon" className="h-9 w-9" onClick={closePanel} aria-label="Collapse setup checklist">
                 <X className="h-4 w-4" />
               </Button>

@@ -59,21 +59,25 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const admin = getServiceSupabase();
-    const { data: profile, error: profileError } = await admin
-      .from("profiles")
-      .select("id, role, active_role, company_id, is_active, deleted_at")
-      .eq("id", authUser.id)
-      .maybeSingle();
+    const [profileResult, assignmentsResult] = await Promise.all([
+      admin
+        .from("profiles")
+        .select("id, role, active_role, company_id, is_active, deleted_at")
+        .eq("id", authUser.id)
+        .maybeSingle(),
+      admin
+        .from("user_departments")
+        .select("department")
+        // user_departments is keyed by user_id in the live schema; the
+        // tenant boundary is enforced through the user's profile above.
+        .eq("user_id", authUser.id),
+    ]);
+    const { data: profile, error: profileError } = profileResult;
     if (profileError) throw profileError;
     if (!profile) return res.status(404).json({ error: "Your account profile could not be found." });
     if (profile.is_active === false || profile.deleted_at) return res.status(403).json({ error: "Account access denied" });
 
-    const { data: assignments, error: assignmentsError } = await admin
-      .from("user_departments")
-      .select("department")
-      // user_departments is keyed by user_id in the live schema; the
-      // tenant boundary is enforced through the user's profile above.
-      .eq("user_id", authUser.id);
+    const { data: assignments, error: assignmentsError } = assignmentsResult;
     if (assignmentsError) throw assignmentsError;
 
     // Compare canonical roles, not raw department strings. Older accounts

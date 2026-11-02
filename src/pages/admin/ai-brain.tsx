@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Head from "next/head";
 import { Brain, BookOpen, Database, Edit3, ExternalLink, FileUp, Loader2, Plus, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -112,6 +112,7 @@ function AiBrainPage() {
   const [websiteName, setWebsiteName] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [websiteRoleScopes, setWebsiteRoleScopes] = useState<string[]>(["all"]);
+  const sourceLoadRequestRef = useRef(0);
 
   const handlePdfSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] || null;
@@ -134,23 +135,42 @@ function AiBrainPage() {
     setPdfFile(file);
   };
 
-  const loadSources = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadSources = useCallback(async (options: { silent?: boolean } = {}) => {
+    const requestId = ++sourceLoadRequestRef.current;
+    if (!options.silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const response = await fetch("/api/chat/knowledge");
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Could not load brain sources");
+      if (requestId !== sourceLoadRequestRef.current) return;
       setAvailabilityMessage(payload.available === false ? payload.message || "Approved assistant knowledge is waiting for the latest workspace update." : null);
       setSources(payload.sources || []);
+      setError(null);
     } catch (cause: any) {
-      setError(cause?.message || "Could not load brain sources");
+      if (requestId === sourceLoadRequestRef.current) setError(cause?.message || "Could not load brain sources");
     } finally {
-      setLoading(false);
+      if (requestId === sourceLoadRequestRef.current) setLoading(false);
     }
   }, []);
 
-  useEffect(() => { void loadSources(); }, [loadSources]);
+  useEffect(() => {
+    void loadSources();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void loadSources({ silent: true });
+    };
+    const interval = window.setInterval(refreshWhenVisible, 60_000);
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      sourceLoadRequestRef.current += 1;
+    };
+  }, [loadSources]);
 
   const resetForm = () => {
     setEditingSource(null);
@@ -339,11 +359,11 @@ function AiBrainPage() {
             </div> : <Card className="border-amber-200 bg-amber-50/70 dark:border-amber-900/60 dark:bg-amber-950/20"><CardContent className="p-5"><p className="font-semibold text-amber-950 dark:text-amber-100">Owner-managed AI Brain</p><p className="mt-1 text-sm leading-6 text-amber-900/80 dark:text-amber-200/80">Company administrators can view this company’s indexed knowledge, but only the company owner can add, edit, upload, resync, delete, or load role-specific guidance here. You can still manage approved live-data access from the AI Access page.</p></CardContent></Card>}
 
             <Card id="approved-sources" data-chat-section="platform.ai-brain.approved-sources" className="border-slate-200/80 bg-white/90 dark:border-slate-800 dark:bg-slate-900/90">
-              <CardHeader id="source-sync-status" data-chat-section="platform.ai-brain.sync-status" className="flex flex-row items-center justify-between space-y-0"><CardTitle className="flex items-center gap-2"><BookOpen className={cn("h-5 w-5", accentText)} /> {isPlatformAdmin ? "Platform sources" : "Company sources"}</CardTitle><div className="flex gap-2">{canManageRoleScopedSources && <Button variant="outline" size="sm" onClick={() => void resync()} disabled={!!resyncing || loading}><RefreshCw className={`mr-2 h-4 w-4 ${resyncing === "all" ? "animate-spin" : ""}`} />Resync all</Button>}<Button variant="outline" size="sm" onClick={() => void loadSources()} disabled={loading}><RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />Refresh</Button></div></CardHeader>
+              <CardHeader id="source-sync-status" data-chat-section="platform.ai-brain.sync-status" className="flex flex-row items-center justify-between space-y-0"><CardTitle className="flex items-center gap-2"><BookOpen className={cn("h-5 w-5", accentText)} /> {isPlatformAdmin ? "Platform sources" : "Company sources"}</CardTitle>{canManageRoleScopedSources && <Button variant="outline" size="sm" onClick={() => void resync()} disabled={!!resyncing || loading}><RefreshCw className={`mr-2 h-4 w-4 ${resyncing === "all" ? "animate-spin" : ""}`} />Resync all</Button>}</CardHeader>
               <CardContent>
                 <p className="mb-4 text-xs leading-5 text-slate-500">Website sources are fetched again when you use their resync control; text and PDF sources only regenerate embeddings from their stored content.</p>
                 {availabilityMessage && <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100"><p className="font-semibold">Knowledge sources are not connected yet</p><p className="mt-1 leading-6">{availabilityMessage} The assistant will continue using approved built-in guidance and navigation until this workspace update is applied.</p></div>}
-                {error && <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error}</div>}
+                {error && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"><span className="min-w-0 flex-1">{error}</span><Button size="sm" variant="outline" onClick={() => void loadSources()} disabled={loading}><RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />Retry</Button></div>}
                 {!error && loading && <div className="flex items-center gap-2 py-8 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Loading sources...</div>}
                 {!error && !availabilityMessage && !loading && sources.length === 0 && <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-slate-700">No approved sources yet. Add policies and procedures or load the starter role packs.</div>}
                 <div id="failed-sources" data-chat-section="platform.ai-brain.failed-sources" className="space-y-3">

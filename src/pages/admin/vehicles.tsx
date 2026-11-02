@@ -253,12 +253,23 @@ function VehiclesPage() {
   // muted.
   useEffect(() => {
     if (!companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const refresh = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        void load();
+      }, 500);
+    };
     const sub = supabase
       .channel(`vehicles-${companyId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "vehicles",                 filter: `company_id=eq.${companyId}` }, () => { load(); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "vehicle_maintenance_log",  filter: `company_id=eq.${companyId}` }, () => { load(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "vehicles",                 filter: `company_id=eq.${companyId}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "vehicle_maintenance_log",  filter: `company_id=eq.${companyId}` }, refresh)
       .subscribe();
-    return () => { sub.unsubscribe(); };
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(sub);
+    };
   }, [companyId, load]);
 
   // Pull the utilisation rollup whenever the user opens the tab or
@@ -624,18 +635,6 @@ function VehiclesPage() {
             }
             actions={
             <>
-              {/* Phase 28 #3: manual refresh. Fleet roster loads on
-                  mount; a dispatcher who has just had a colleague
-                  add a hire-in vehicle needs to pull the new row. */}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={load}
-                disabled={loading}
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
               <Button
                 size="sm"
                 className="bg-brand-primary hover:opacity-90 gap-2"

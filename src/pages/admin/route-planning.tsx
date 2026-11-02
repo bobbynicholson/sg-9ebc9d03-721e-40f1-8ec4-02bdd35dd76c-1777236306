@@ -482,14 +482,6 @@ function RoutePlanningInner() {
             actions={
             <>
                 <Button
-                  variant="outline"
-                  onClick={loadDispatchData}
-                  disabled={loading}
-                >
-                  <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-                  Refresh
-                </Button>
-                <Button
                   onClick={autoAssignAll}
                   disabled={autoAssigning || unassignedOrders.length === 0 || drivers.length === 0}
                   size="lg"

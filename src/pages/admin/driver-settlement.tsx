@@ -745,15 +745,6 @@ function DriverSettlementPage() {
             }
             actions={
               <>
-                {/* Phase 28 #9: manual refresh. Bumps refreshTick which
-                    the per-driver compute effect already listens for. */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setRefreshTick((n) => n + 1)}
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" /> Refresh
-                </Button>
                 {/* DRV-C: bulk Mark all paid. Walks every unsettled row
                     with a positive total, drafts + flips each to paid
                     via EFT in sequence. window.confirm is the hurdle. */}

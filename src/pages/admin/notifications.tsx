@@ -46,7 +46,7 @@ export default function ProtectedNotificationsPage() {
 
 function NotificationsPage() {
   const router = useRouter();
-  const { user, activeRole } = useAuth();
+  const { user, activeRole, company, profile } = useAuth() as any;
   const { toast } = useToast();
   // Wave 26.1: tenant-slug wrapper. Every smart-CTA destination
   // (notification.link OR the fallback paths the smart-CTA branches
@@ -61,6 +61,8 @@ function NotificationsPage() {
   // Surfaced load failure. The service used to swallow query errors
   // and hand back [], which rendered as a fake "all caught up" inbox.
   const [loadError, setLoadError] = useState<string | null>(null);
+  const loadRequestRef = useRef(0);
+  const companyId = company?.id || profile?.company_id || user?.company_id || user?.user_metadata?.company_id || null;
   const [searchTerm, setSearchTerm] = useState("");
   // Phase 26 #5: "/" or Cmd-F focuses the search input.
   const searchRef = useRef<HTMLInputElement>(null);
@@ -107,16 +109,68 @@ function NotificationsPage() {
   }, [router, user, routeTenantSlug, withSlug]);
 
   useEffect(() => {
-    if (user?.id && !redirectingToScopedPage) {
-      loadNotifications();
+    loadRequestRef.current += 1;
+    if (!user?.id || redirectingToScopedPage) {
+      setNotifications([]);
+      setLoading(false);
+      return;
     }
-  }, [user, activeRole, redirectingToScopedPage]);
 
-  const loadNotifications = async () => {
-    if (!user?.id) return;
-
+    setNotifications([]);
     setLoading(true);
     setLoadError(null);
+    void loadNotifications();
+
+    const unsubscribe = notificationService.subscribeToNotifications(
+      user.id,
+      (notification, eventType) => {
+        setNotifications((current) => {
+          if (eventType === "INSERT") {
+            return current.some((item) => item.id === notification.id)
+              ? current
+              : [notification, ...current].slice(0, 100);
+          }
+          if (eventType === "DELETE") {
+            return current.filter((item) => item.id !== notification.id);
+          }
+          const inCurrentScope =
+            (!companyId || notification.company_id === companyId) &&
+            (!activeRole || !notification.target_role || notification.target_role === activeRole);
+          if (!inCurrentScope) return current.filter((item) => item.id !== notification.id);
+          if (current.some((item) => item.id === notification.id)) {
+            return current.map((item) => item.id === notification.id ? notification : item);
+          }
+          return [notification, ...current].slice(0, 100);
+        });
+      },
+      activeRole,
+      companyId,
+    );
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void loadNotifications(false);
+    };
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    const interval = setInterval(() => void loadNotifications(false), 5 * 60 * 1000);
+
+    return () => {
+      loadRequestRef.current += 1;
+      unsubscribe();
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, activeRole, companyId, redirectingToScopedPage]);
+
+  const loadNotifications = async (showSpinner = true) => {
+    if (!user?.id) return;
+
+    const requestId = ++loadRequestRef.current;
+    if (showSpinner) {
+      setLoading(true);
+      setLoadError(null);
+    }
     try {
       // Audit fix (tab-count inconsistency): the unread tab used to
       // refetch with unreadOnly=true, which replaced the state array
@@ -128,14 +182,18 @@ function NotificationsPage() {
         user.id,
         false,
         activeRole,
-        { limit: 100, throwOnError: true }
+        { limit: 100, companyId, throwOnError: true }
       );
+      if (requestId !== loadRequestRef.current) return;
       setNotifications(data);
+      setLoadError(null);
     } catch (err: any) {
-      console.error("loadNotifications failed:", err);
-      setLoadError(err?.message || "Could not load your notifications.");
+      if (requestId === loadRequestRef.current) {
+        console.error("loadNotifications failed:", err);
+        setLoadError(err?.message || "Could not load your notifications.");
+      }
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestRef.current) setLoading(false);
     }
   };
 
@@ -156,7 +214,7 @@ function NotificationsPage() {
   const handleMarkAllAsRead = async () => {
     if (!user?.id) return;
     try {
-      await notificationService.markAllAsRead(user.id, activeRole);
+      await notificationService.markAllAsRead(user.id, activeRole, companyId);
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
       toast({ title: "All notifications marked as read" });
     } catch (err) {
@@ -363,14 +421,6 @@ function NotificationsPage() {
             }
             actions={
               <>
-                {/* Phase 27 #7: manual refresh. Background
-                    subscriptions miss in-flight system events
-                    occasionally; one-click reload keeps the operator
-                    current. */}
-                <Button variant="outline" size="sm" onClick={loadNotifications} disabled={loading}>
-                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                  Refresh
-                </Button>
                 {unreadCount > 0 && (
                   <Button variant="outline" size="sm" onClick={handleMarkAllAsRead}>
                     <CheckCircle className="h-4 w-4 mr-2" />
@@ -499,7 +549,7 @@ function NotificationsPage() {
                       <AlertCircle className="h-10 w-10 mx-auto mb-3 text-rose-400" />
                       <p className="text-slate-900 font-medium mb-1">Couldn&apos;t load notifications</p>
                       <p className="text-sm text-slate-600 mb-4">{loadError}</p>
-                      <Button variant="outline" onClick={loadNotifications}>
+                      <Button variant="outline" onClick={() => void loadNotifications()}>
                         <RefreshCw className="h-4 w-4 mr-2" />
                         Retry
                       </Button>

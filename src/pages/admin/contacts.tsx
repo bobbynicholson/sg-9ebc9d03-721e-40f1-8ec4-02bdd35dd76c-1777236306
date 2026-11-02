@@ -1017,6 +1017,7 @@ function ClientsCRM() {
     };
     const sub = supabase
       .channel(`contacts-${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "clients", filter: `company_id=eq.${companyId}` }, refetch)
       .on("postgres_changes", { event: "*", schema: "public", table: "orders",   filter: `company_id=eq.${companyId}` }, refetch)
       .on("postgres_changes", { event: "*", schema: "public", table: "quotes",   filter: `company_id=eq.${companyId}` }, refetch)
       .on("postgres_changes", { event: "*", schema: "public", table: "leads",    filter: `company_id=eq.${companyId}` }, refetch)
@@ -1272,21 +1273,6 @@ function ClientsCRM() {
               {/* Search moved into the toolbar card below so every
                   filter control lives in ONE place (command-centre
                   standard). Hero keeps the primary actions only. */}
-              {/* Phase 15 #9: manual refresh. With the page now
-                  capped at 500 rows (perf fix) operators sometimes
-                  add a contact in another tab and don't see it
-                  here without a hard reload. Single button +
-                  loading spinner re-runs loadContacts. */}
-              <Button
-                variant="outline"
-                onClick={() => loadContacts()}
-                disabled={loading}
-                className="gap-1.5"
-                title="Re-pull the contact aggregate from the DB"
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
               {/* Phase 13 #2: bulk CSV export of the currently
                   filtered contact list (status + tag filters +
                   search all flow through fuzzyVisible). Marketing

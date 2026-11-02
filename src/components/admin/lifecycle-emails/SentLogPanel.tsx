@@ -15,10 +15,11 @@
  * Pure component: no AdminNav / NoIndexMeta / page header - those are
  * page concerns.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Mail, RefreshCw, Search, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -56,12 +57,19 @@ export function SentLogPanel() {
   const companyId = useCompanyId();
   const [rows, setRows] = useState<QueueRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
+  const requestRef = useRef(0);
 
-  const load = async () => {
-    if (!companyId) return;
-    setLoading(true);
+  const load = useCallback(async (options: { silent?: boolean } = {}) => {
+    const requestId = ++requestRef.current;
+    if (!companyId) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+    if (!options.silent) setLoading(true);
     try {
       const { data, error } = await (supabase as any)
         .from("outgoing_email_queue")
@@ -70,18 +78,46 @@ export function SentLogPanel() {
         .order("scheduled_for", { ascending: false, nullsFirst: false })
         .limit(200);
       if (error) throw error;
+      if (requestId !== requestRef.current) return;
       setRows((data as QueueRow[]) || []);
+      setLoadError(null);
     } catch (err) {
-      captureException(err, {
-        tags: { route: "/admin/email-templates", step: "sent-log-load", companyId },
-      });
-      setRows([]);
+      if (requestId === requestRef.current) {
+        captureException(err, {
+          tags: { route: "/admin/email-templates", step: "sent-log-load", companyId },
+        });
+        setLoadError(err instanceof Error ? err.message : "Could not load recent email activity.");
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestRef.current) setLoading(false);
     }
-  };
+  }, [companyId]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId]);
+  useEffect(() => {
+    void load();
+    if (!companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefresh = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { void load({ silent: true }); }, 400);
+    };
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void load({ silent: true });
+    };
+    const channel = supabase
+      .channel(`admin-email-sent-log:${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "outgoing_email_queue", filter: `company_id=eq.${companyId}` }, scheduleRefresh)
+      .subscribe();
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      requestRef.current += 1;
+      void supabase.removeChannel(channel);
+    };
+  }, [companyId, load]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -159,16 +195,6 @@ export function SentLogPanel() {
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            onClick={load}
-            disabled={loading}
-            className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
-            title="Refresh"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
         </CardContent>
       </Card>
 
@@ -180,9 +206,17 @@ export function SentLogPanel() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {loading ? (
+          {loadError && (
+            <div role="alert" className="m-4 flex flex-wrap items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+              <span className="min-w-0 flex-1">Recent activity could not be updated: {loadError}</span>
+              <Button size="sm" variant="outline" onClick={() => void load({ silent: true })} disabled={loading}>
+                <RefreshCw className="mr-2 h-3.5 w-3.5" />Retry
+              </Button>
+            </div>
+          )}
+          {loading && rows.length === 0 ? (
             <p className="text-center text-sm text-slate-500 py-12">Loading...</p>
-          ) : filtered.length === 0 ? (
+          ) : loadError && rows.length === 0 ? null : filtered.length === 0 ? (
             <div className="py-12 text-center text-sm text-slate-500 px-4">
               <p className="mb-2">
                 {rows.length === 0 ? "Nothing sent yet." : "No sends match the filter."}

@@ -2348,24 +2348,8 @@ function OrderProcessDashboard() {
                       Timeline
                     </button>
                   </div>
-                  {/* Icon-action group - refresh + overflow grouped
-                    visually so they read as a single secondary
-                    cluster, not as orphan buttons drifting between
-                    the toggle and the primary CTA. */}
+                  {/* Keep secondary order actions grouped beside the view toggle. */}
                   <div className="inline-flex items-center gap-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void loadOrders()}
-                      disabled={loading}
-                      title="Refresh orders"
-                      aria-label="Refresh orders"
-                      className="h-9 w-9 p-0"
-                    >
-                      <RefreshCw
-                        className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-                      />
-                    </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button

@@ -1020,10 +1020,6 @@ function StockPage() {
                   </Badge>
                 </a>
               )}
-              <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-2">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
-                Refresh
-              </Button>
             </>
             }
           />

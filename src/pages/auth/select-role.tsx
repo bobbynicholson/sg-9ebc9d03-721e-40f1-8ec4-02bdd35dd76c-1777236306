@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import type { LucideIcon } from "lucide-react";
@@ -70,8 +70,48 @@ function RoleSelectionContent() {
   const { user, userRoles, activeRole, companySlug, loading, signOut, switchRole } = useAuth();
   const [selecting, setSelecting] = useState<UserRole | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const autoRouteStartedFor = useRef<string | null>(null);
+  const switchRoleRef = useRef(switchRole);
+  const routerRef = useRef(router);
+  switchRoleRef.current = switchRole;
+  routerRef.current = router;
 
   const availableRoles = ROLE_OPTIONS.filter((option) => userRoles.includes(option.role));
+  const onlyRole = availableRoles.length === 1 ? availableRoles[0].role : null;
+  const redirectTo = router.query.redirectTo;
+
+  useEffect(() => {
+    if (!router.isReady || loading || !user || !onlyRole) return;
+    const attemptKey = `${user.id}:${onlyRole}`;
+    if (autoRouteStartedFor.current === attemptKey) return;
+    autoRouteStartedFor.current = attemptKey;
+    setSelecting(onlyRole);
+    setError(null);
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        await switchRoleRef.current(onlyRole);
+        if (cancelled) return;
+        const destination = safeInternalRedirect(redirectTo)
+          || getRoleLandingPage(onlyRole, companySlug || user.company_slug || undefined);
+        await routerRef.current.replace(destination);
+      } catch (selectionError) {
+        if (cancelled) return;
+        setSelecting(null);
+        setError(selectionError instanceof Error
+          ? selectionError.message
+          : "We could not open your portal. Please try again.");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (autoRouteStartedFor.current === attemptKey) {
+        autoRouteStartedFor.current = null;
+      }
+    };
+  }, [router.isReady, redirectTo, loading, user?.id, onlyRole, companySlug]);
 
   const handleRoleSelect = async (role: UserRole) => {
     if (selecting) return;
@@ -81,7 +121,7 @@ function RoleSelectionContent() {
       await switchRole(role);
       const destination = safeInternalRedirect(router.query.redirectTo)
         || getRoleLandingPage(role, companySlug || user?.company_slug || undefined);
-      window.location.assign(destination);
+      await router.replace(destination);
     } catch (selectionError) {
       console.error("Role selection failed:", selectionError);
       setSelecting(null);

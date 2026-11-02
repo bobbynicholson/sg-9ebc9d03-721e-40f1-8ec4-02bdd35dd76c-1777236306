@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import Head from "next/head";
@@ -139,24 +139,18 @@ function PlatformDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [attention, setAttention] = useState<AttentionCounts | null>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [customerGrowth, setCustomerGrowth] = useState<any[]>([]);
   const [planDistribution, setPlanDistribution] = useState<any[]>([]);
   const [geoDistribution, setGeoDistribution] = useState<any[]>([]);
   const [topCustomers, setTopCustomers] = useState<any[]>([]);
+  const dashboardRequestRef = useRef(0);
 
-  useEffect(() => {
-    if (user) {
-      loadDashboardData();
-    }
-  }, [user]);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async (options: { silent?: boolean } = {}) => {
+    const requestId = ++dashboardRequestRef.current;
     try {
-      setLoading(true);
-      setLoadError(null);
+      if (!options.silent) setLoading(true);
       const [
         metricsData,
         growthData,
@@ -171,18 +165,23 @@ function PlatformDashboard() {
         analyticsService.getTopCustomers(10)
       ]);
 
+      if (requestId !== dashboardRequestRef.current) return;
       setMetrics(metricsData);
       setCustomerGrowth(growthData);
       setPlanDistribution(plansData);
       setGeoDistribution(geoData);
       setTopCustomers(customersData);
+      setLoadError(null);
       // The attention card is a helper: if it fails, the card stays
       // hidden and the rest of the dashboard still shows.
-      loadAttentionCounts().then(setAttention).catch((attentionError) => {
+      loadAttentionCounts().then((counts) => {
+        if (requestId === dashboardRequestRef.current) setAttention(counts);
+      }).catch((attentionError) => {
         console.error("Error loading attention counts:", attentionError);
-        setAttention(null);
+        if (requestId === dashboardRequestRef.current) setAttention(null);
       });
     } catch (error: any) {
+      if (requestId !== dashboardRequestRef.current) return;
       console.error("Error loading dashboard data:", error);
       // Silent-failure audit: a failed load used to render an all-zero
       // dashboard that looked like an empty platform. Flag it instead.
@@ -190,15 +189,29 @@ function PlatformDashboard() {
         error?.message || "Couldn't load the platform analytics. Please try again.",
       );
     } finally {
-      setLoading(false);
+      if (requestId === dashboardRequestRef.current) setLoading(false);
     }
-  };
+  }, []);
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadDashboardData();
-    setRefreshing(false);
-  };
+  useEffect(() => {
+    if (user) void loadDashboardData();
+  }, [user, loadDashboardData]);
+
+  useEffect(() => {
+    if (!user) return;
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void loadDashboardData({ silent: true });
+    };
+    const interval = window.setInterval(refreshWhenVisible, 5 * 60_000);
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      dashboardRequestRef.current += 1;
+    };
+  }, [user, loadDashboardData]);
 
   // Show loading only if we don't have a user yet
   if (!user || loading) {
@@ -246,18 +259,7 @@ function PlatformDashboard() {
             ) : undefined
           }
           actions={
-            <>
-              <CompanySwitcher />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={refreshing}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-                <span className="hidden sm:inline">Refresh</span>
-              </Button>
-            </>
+            <CompanySwitcher />
           }
         />
         <PageWorkbench />
@@ -268,7 +270,7 @@ function PlatformDashboard() {
           <Alert variant="destructive" className="mb-6">
             <AlertDescription className="flex flex-wrap items-center gap-3">
               <span>{loadError}</span>
-              <Button variant="outline" size="sm" onClick={loadDashboardData}>
+              <Button variant="outline" size="sm" onClick={() => void loadDashboardData({ silent: true })}>
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Try again
               </Button>

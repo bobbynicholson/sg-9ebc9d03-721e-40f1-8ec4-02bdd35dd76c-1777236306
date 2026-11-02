@@ -1083,15 +1083,6 @@ function AdminUsersPage() {
                   <UserPlus className="w-4 h-4" />
                   Add user
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={loadUsers}
-                  disabled={loading}
-                >
-                  <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                  Refresh
-                </Button>
             </>
             }
           />
@@ -1644,10 +1635,6 @@ function AdminUsersPage() {
                     <h2 className="text-base font-semibold text-slate-950">Pending invitations</h2>
                     <p className="text-xs text-slate-500">{pendingInviteCount} waiting to accept</p>
                   </div>
-                  <Button variant="outline" size="sm" onClick={loadInvitations} disabled={invitationsLoading}>
-                    <RefreshCw className={`mr-2 h-4 w-4 ${invitationsLoading ? "animate-spin" : ""}`} />
-                    Refresh
-                  </Button>
                 </div>
                 <div className="p-4">
                   {invitationsError ? (

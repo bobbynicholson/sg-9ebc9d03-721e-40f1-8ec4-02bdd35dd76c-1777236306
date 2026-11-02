@@ -27,7 +27,7 @@
  * Phase 10 #4 originally; rebuilt Wave 70.54.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -135,28 +135,36 @@ export function InventoryLowStockWidget({ companyId }: Props) {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [drilldownById, setDrilldownById] = useState<Record<string, OrderDemandRow[] | "loading">>({});
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadRequestRef = useRef(0);
 
   /* Fetch outlook ---------------------------------------------------- */
   const load = useCallback(async () => {
-    if (!companyId) return;
-    setLoading(true);
-    // Pull every demand-outlook row for the tenant. RLS on the
-    // underlying inventory_items + orders tables already filters to
-    // this tenant, so the view inherits the scope. Set is small
-    // (single-tenant inventory rarely > a few hundred items).
-    const { data, error } = await (supabase as any)
-      .from("inventory_demand_outlook")
-      .select(
-        "inventory_item_id, item_name, category, unit_of_measure, current_stock, minimum_stock, reorder_quantity, demand_next_7_days, demand_next_14_days, demand_next_30_days, upcoming_order_count, projected_stock_after_7_days, shortfall_next_7_days, status",
-      )
-      .eq("company_id", companyId)
-      .limit(500);
-    if (error) {
+    const requestId = ++loadRequestRef.current;
+    if (!companyId) {
       setRows([]);
       setLoading(false);
-      reportError(error.message || "Could not load low-stock outlook");
       return;
     }
+    setLoading(true);
+    try {
+      // Pull every demand-outlook row for the tenant. RLS on the
+      // underlying inventory_items + orders tables already filters to
+      // this tenant, so the view inherits the scope. Set is small
+      // (single-tenant inventory rarely > a few hundred items).
+      const { data, error } = await (supabase as any)
+        .from("inventory_demand_outlook")
+        .select(
+          "inventory_item_id, item_name, category, unit_of_measure, current_stock, minimum_stock, reorder_quantity, demand_next_7_days, demand_next_14_days, demand_next_30_days, upcoming_order_count, projected_stock_after_7_days, shortfall_next_7_days, status",
+        )
+        .eq("company_id", companyId)
+        .limit(500);
+      if (requestId !== loadRequestRef.current) return;
+      if (error) {
+        setRows([]);
+        reportError(error.message || "Could not load low-stock outlook");
+        return;
+      }
     const all = ((data || []) as any[]).map((r): OutlookRow => ({
       inventory_item_id: r.inventory_item_id,
       item_name: r.item_name,
@@ -197,17 +205,30 @@ export function InventoryLowStockWidget({ companyId }: Props) {
       const br = b.minimum_stock > 0 ? b.current_stock / b.minimum_stock : 9;
       return ar - br;
     });
-    setRows(eligible.slice(0, LIMIT));
-    setLoading(false);
-    reportError(null);
+      setRows(eligible.slice(0, LIMIT));
+      reportError(null);
+    } catch (error) {
+      if (requestId !== loadRequestRef.current) return;
+      setRows([]);
+      reportError(error instanceof Error ? error.message : "Could not load low-stock outlook");
+    } finally {
+      if (requestId === loadRequestRef.current) setLoading(false);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, retryNonce]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    void load();
+    return () => { loadRequestRef.current += 1; };
+  }, [load]);
 
   /* Realtime --------------------------------------------------------- */
   useEffect(() => {
     if (!companyId) return;
+    const scheduleLoad = () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = setTimeout(() => { void load(); }, 400);
+    };
     // Per-tenant channel (Phase 6 audit ground rule). Refresh the
     // outlook whenever a) an order changes (status, deletion,
     // cancellation cascade, items added) or b) inventory_items stock
@@ -218,20 +239,24 @@ export function InventoryLowStockWidget({ companyId }: Props) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` },
-        () => load(),
+        scheduleLoad,
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "order_items" },
-        () => load(),
+        scheduleLoad,
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "inventory_items", filter: `company_id=eq.${companyId}` },
-        () => load(),
+        scheduleLoad,
       )
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+      supabase.removeChannel(ch);
+    };
   }, [companyId, load]);
 
   /* Drilldown: load the per-order breakdown lazily ------------------- */
@@ -297,10 +322,10 @@ export function InventoryLowStockWidget({ companyId }: Props) {
 
   return (
     <Card collapsible defaultOpen={false} collapseLabel="Stock running low" className={`mb-6 border-orange-200 ${shortfallCount > 0 ? "bg-rose-50/40" : "bg-orange-50/40"}`}>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-base">
+      <CardHeader className="pb-3 min-w-0 flex-wrap">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="flex min-w-0 flex-wrap items-center gap-2 text-base">
               <AlertTriangle className={`w-4 h-4 ${shortfallCount > 0 ? "text-rose-600" : "text-orange-600"}`} />
               Stock running low
               {shortfallCount > 0 && (

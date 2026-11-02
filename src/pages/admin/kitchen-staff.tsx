@@ -215,10 +215,8 @@ function KitchenStaffPage() {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId, regionFilterId]);
 
-  // STA-B: realtime subscription. Pre-STA-B the list only refreshed
-  // on mount or a manual Refresh click. A manager archiving someone
-  // on the tablet would leave this surface stale. Debounced to
-  // absorb the burst that follows a bulk-rate-save.
+  // STA-B: keep the roster current when another device changes a
+  // profile or department. Debounce the burst from bulk rate saves.
   useEffect(() => {
     if (!companyId) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -694,18 +692,6 @@ function KitchenStaffPage() {
                   Wage dashboard
                 </Button>
               </Link>
-              {/* Phase 28 #1: manual refresh. The roster loads once
-                  on mount; a manager who has just added or
-                  archived a staff member from another tab needs
-                  to pick up the change. */}
-              <Button
-                variant="outline"
-                onClick={load}
-                disabled={loading}
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
               {/* Phase 20 #3: kitchen-staff CSV export. Owners and
                   payroll regularly need a flat roster (name +
                   contact + role + pay type + rate + departments)

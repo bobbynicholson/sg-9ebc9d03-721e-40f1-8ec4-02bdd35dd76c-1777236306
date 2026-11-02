@@ -928,16 +928,6 @@ function DispatchQueuePage() {
             }
             actions={
             <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white"
-                onClick={loadAll}
-                disabled={loading}
-              >
-                <RefreshCw className={"w-4 h-4 " + (loading ? "animate-spin" : "")} />
-                Refresh
-              </Button>
               {/* Phase 20 #4: dispatch queue CSV export. Operations
                   lead regularly hands the queue off to a colleague,
                   drops it into a daily standup deck, or audits SLA

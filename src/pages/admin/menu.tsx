@@ -1191,20 +1191,6 @@ function MenuPage() {
             }
             actions={
             <div className="grid w-full grid-cols-2 gap-2 xl:flex xl:w-auto">
-              {/* Phase 28 #2: manual refresh. The catalogue loads
-                  once on mount; the kitchen lead who has just
-                  added an item from another tab needs to pull
-                  the new row without a hard reload. */}
-              <Button
-                variant="outline"
-                onClick={load}
-                disabled={loading}
-                className="w-full justify-center xl:w-auto"
-                aria-label="Refresh menu"
-              >
-                <RefreshCw className={`w-4 h-4 xl:mr-2 ${loading ? "animate-spin" : ""}`} />
-                <span className="hidden min-[400px]:inline">Refresh</span>
-              </Button>
               {/* Phase 19 #9: menu CSV export. Kitchen leads and
                   costing reviewers regularly want a flat snapshot of
                   the price list + cost + margin to bring into pricing

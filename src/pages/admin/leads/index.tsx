@@ -428,11 +428,8 @@ function AdminLeadsInner() {
   // up-front on /admin/leads so the operator notices BEFORE the
   // first lead lands in their funnel.
   const [emailSettingsEnabled, setEmailSettingsEnabled] = useState<boolean | null>(null);
-  // Wave 70.84: extracted into a stable callback so the Refresh
-  // button can re-run it. Pre-fix the banner state only loaded
-  // once on mount, so an operator who set up the provider in
-  // another tab couldn't dismiss the banner without a full
-  // page reload.
+    // Recheck when this tab regains focus so email-provider changes
+    // made elsewhere appear without a page-level refresh button.
   const refreshEmailProviderStatus = useCallback(async () => {
     if (!user?.company_id) return;
     const { getEmailProviderStatus } = await import("@/lib/email/providerStatus");
@@ -711,18 +708,27 @@ function AdminLeadsInner() {
         loadLeads();
       }, 250);
     };
+    const refreshOnFocus = () => {
+      if (document.visibilityState !== "visible") return;
+      refetch();
+      void refreshEmailProviderStatus();
+    };
     const sub = supabase
       .channel(`leads-${companyId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "leads",  filter: `company_id=eq.${companyId}` }, refetch)
       .on("postgres_changes", { event: "*", schema: "public", table: "quotes", filter: `company_id=eq.${companyId}` }, refetch)
       .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` }, refetch)
       .subscribe();
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshOnFocus);
     return () => {
       if (timer) clearTimeout(timer);
       supabase.removeChannel(sub);
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshOnFocus);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.company_id]);
+  }, [user?.company_id, refreshEmailProviderStatus]);
 
   const loadLeads = async () => {
     if (!user?.company_id) {
@@ -1210,25 +1216,6 @@ function AdminLeadsInner() {
               >
                 <Download className="w-4 h-4 mr-2" />
                 Export CSV
-              </Button>
-              {/* Phase 27 #6: manual refresh. Inbound enquiry channel
-                  is real-time; sales reps want to pick up overnight
-                  leads without hard-reloading. */}
-              <Button
-                variant="outline"
-                onClick={() => {
-                  // Wave 70.84: refresh button re-runs both the
-                  // leads fetch AND the email-provider banner
-                  // check. Previously the banner state was stuck
-                  // from mount, so configuring a provider in
-                  // another tab needed a full reload to clear.
-                  loadLeads();
-                  void refreshEmailProviderStatus();
-                }}
-                disabled={loading}
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                Refresh
               </Button>
               <Link href={withSlug("/admin/leads/new")}>
                 <Button>

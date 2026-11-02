@@ -141,7 +141,7 @@ export default function CompanyStaffLoginPage({
         const pickerUrl = requestedRedirect
           ? `/auth/select-role?redirectTo=${encodeURIComponent(requestedRedirect)}`
           : "/auth/select-role";
-        window.location.assign(pickerUrl);
+        await router.replace(pickerUrl);
       } catch {
         // Keep the sign-in form available if storage is unavailable or the
         // device is offline during a cold launch.
@@ -283,7 +283,7 @@ export default function CompanyStaffLoginPage({
     // Let the authenticated user choose between every role assigned to this
     // email before opening a portal. This prevents a driver/waiter or
     // kitchen/cleaning user from being forced into active_role only.
-    window.location.assign("/auth/select-role");
+    await router.replace("/auth/select-role");
   };
 
   const brandGradient = companyBrand

@@ -545,20 +545,6 @@ function CashflowDashboardInner() {
                 </>
               ) : undefined
             }
-            actions={
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={load}
-                disabled={loading}
-                className="self-start"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
-            </>
-            }
           />
           <PageWorkbench />
 

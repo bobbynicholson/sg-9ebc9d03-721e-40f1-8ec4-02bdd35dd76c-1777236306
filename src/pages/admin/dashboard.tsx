@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
@@ -148,6 +148,7 @@ function AdminDashboardPage() {
   const [range, setRange] = useState<DateRange>(() => resolvePreset("this_month"));
   const [stats, setStats] = useState<Stats>(EMPTY);
   const [loading, setLoading] = useState(true);
+  const metricsRequestRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
   // Silent-failure audit (Wave 70.52b): when one of the parallel tile
   // queries fails we keep the page alive but flag which tiles may be
@@ -233,12 +234,19 @@ function AdminDashboardPage() {
     return withSlug(`/admin/orders?${params.toString()}`);
   }, [range.from, range.to, withSlug]);
 
-  const loadMetrics = async () => {
-    if (!companyId) return;
+  const loadMetrics = async (showSpinner = true) => {
+    if (!companyId) {
+      setLoading(false);
+      setError("This admin account is not linked to a company yet.");
+      return;
+    }
+    const requestId = ++metricsRequestRef.current;
     try {
-      setLoading(true);
-      setError(null);
-      setTileWarning(null);
+      if (showSpinner) {
+        setLoading(true);
+        setError(null);
+        setTileWarning(null);
+      }
 
       const fromISO = toLocalISO(range.from);
       const toISO   = toLocalISO(range.to);
@@ -539,6 +547,7 @@ function AdminDashboardPage() {
         console.error("[admin/dashboard] payments refunds fetch failed:", refundRowsError);
         failedTiles.push("refunds");
       }
+      if (requestId !== metricsRequestRef.current) return;
       // Partial-failure banner: the page still renders, but the
       // operator is told which tiles may be reading 0 by mistake.
       setTileWarning(
@@ -585,17 +594,24 @@ function AdminDashboardPage() {
         quoteConversionRate, quoteConversionSample,
         testOrdersInRange, testRevenueInRange,
       });
+      setError(null);
     } catch (err: any) {
+      if (requestId !== metricsRequestRef.current) return;
       console.error("Dashboard load error:", err);
       setError(err?.message || "Failed to load dashboard metrics");
     } finally {
-      setLoading(false);
+      if (requestId === metricsRequestRef.current) setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!companyId) return;
-    loadMetrics();
+    if (!companyId) {
+      setLoading(false);
+      setError("This admin account is not linked to a company yet.");
+      return;
+    }
+    void loadMetrics();
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     // Realtime: any order change for THIS tenant refetches the current
     // range. Phase 6 audit fix: the channel was previously named
     // "admin-dashboard-orders" with no postgres_changes filter, so every
@@ -617,13 +633,20 @@ function AdminDashboardPage() {
           table: "orders",
           filter: `company_id=eq.${companyId}`,
         },
-        () => loadMetrics(),
+        () => {
+          if (refreshTimer) clearTimeout(refreshTimer);
+          refreshTimer = setTimeout(() => { void loadMetrics(false); }, 500);
+        },
       )
       .subscribe();
     // removeChannel (not unsubscribe) so the channel is released from
     // the client registry - unsubscribe leaves the topic behind and a
     // remount on the same name can collide (same fix as /admin/tracking).
-    return () => { supabase.removeChannel(sub); };
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      metricsRequestRef.current += 1;
+      supabase.removeChannel(sub);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, range.from.getTime(), range.to.getTime()]);
 
@@ -670,7 +693,7 @@ function AdminDashboardPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={loadMetrics}
+                onClick={() => { void loadMetrics(); }}
                 disabled={loading}
                 className="gap-2 border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white"
               >
@@ -712,7 +735,7 @@ function AdminDashboardPage() {
             <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
               <h2 className="text-base font-bold text-rose-900 mb-1">Couldn't load dashboard metrics</h2>
               <p className="text-sm text-slate-600 mb-3">{error}</p>
-              <Button onClick={loadMetrics} size="sm" className="bg-brand-primary hover:bg-brand-primary/90">
+              <Button onClick={() => { void loadMetrics(); }} size="sm" className="bg-brand-primary hover:bg-brand-primary/90">
                 <TrendingUp className="w-4 h-4 mr-2" /> Retry
               </Button>
             </div>
@@ -728,7 +751,7 @@ function AdminDashboardPage() {
               <div className="flex-1">
                 <p className="text-sm text-amber-900">{tileWarning}</p>
               </div>
-              <Button onClick={loadMetrics} size="sm" variant="outline" disabled={loading}>
+              <Button onClick={() => { void loadMetrics(); }} size="sm" variant="outline" disabled={loading}>
                 Retry
               </Button>
             </div>
@@ -1092,9 +1115,9 @@ function AdminDashboardPage() {
             </Card>
           )}
 
-<Card collapsible defaultOpen={true} collapseLabel="Needs attention" className="mb-6" id="dashboard-needs-attention">
-  <CardHeader><CardTitle className="text-base">Needs attention</CardTitle><CardDescription>Follow-ups, shortages, dispatch gaps and unresolved financial or delivery issues.</CardDescription></CardHeader>
-  <CardContent><div className="grid items-start gap-3 [&>div]:mb-0"><WidgetErrorBoundary label="Quote follow-up"><QuoteFollowupWidget companyId={companyId} /></WidgetErrorBoundary>
+<Card collapsible defaultOpen={true} collapseLabel="Needs attention" className="mb-6 min-w-0 max-w-full" id="dashboard-needs-attention">
+  <CardHeader className="min-w-0"><CardTitle className="text-base">Needs attention</CardTitle><CardDescription className="min-w-0 break-words">Follow-ups, shortages, dispatch gaps and unresolved financial or delivery issues.</CardDescription></CardHeader>
+  <CardContent className="min-w-0 max-w-full"><div className="grid min-w-0 grid-cols-1 items-start gap-3 [&>div]:mb-0 [&>div]:min-w-0 [&>div]:max-w-full"><WidgetErrorBoundary label="Quote follow-up"><QuoteFollowupWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Low stock"><InventoryLowStockWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Inventory expiry"><InventoryExpiryWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Vehicle service due"><VehicleServiceDueWidget companyId={companyId} /></WidgetErrorBoundary>
@@ -1106,14 +1129,14 @@ function AdminDashboardPage() {
 <WidgetErrorBoundary label="Email failures"><EmailFailuresWidget companyId={companyId} /></WidgetErrorBoundary></div></CardContent>
 </Card>
 
-<Card collapsible defaultOpen={false} collapseLabel="Upcoming work and team" className="mb-6" id="dashboard-upcoming-work-and-team">
+<Card collapsible lazyContent defaultOpen={false} collapseLabel="Upcoming work and team" className="mb-6" id="dashboard-upcoming-work-and-team">
   <CardHeader><CardTitle className="text-base">Upcoming work and team</CardTitle><CardDescription>Tomorrow’s events, new leads and the staff currently on duty.</CardDescription></CardHeader>
   <CardContent><div className="grid items-start gap-4 xl:grid-cols-2 [&>div]:mb-0"><WidgetErrorBoundary label="New leads today"><NewLeadsTodayWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Tomorrow's events"><TomorrowsEventsWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Active staff now"><ActiveStaffNowWidget companyId={companyId} /></WidgetErrorBoundary></div></CardContent>
 </Card>
 
-<Card collapsible defaultOpen={false} collapseLabel="Recent activity and payments" className="mb-6" id="dashboard-recent-activity-and-payments">
+<Card collapsible lazyContent defaultOpen={false} collapseLabel="Recent activity and payments" className="mb-6" id="dashboard-recent-activity-and-payments">
   <CardHeader><CardTitle className="text-base">Recent activity and payments</CardTitle><CardDescription>Recorded payments, inventory changes, cancellations, feedback and the activity log.</CardDescription></CardHeader>
   <CardContent><div className="grid items-start gap-4 xl:grid-cols-2 [&>div]:mb-0"><WidgetErrorBoundary label="Recent inventory adjusts"><RecentInventoryAdjustsWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Recent ratings"><RecentRatingsWidget companyId={companyId} /></WidgetErrorBoundary>
@@ -1122,7 +1145,7 @@ function AdminDashboardPage() {
 <WidgetErrorBoundary label="Recent activity"><RecentActivityWidget companyId={companyId} /></WidgetErrorBoundary></div></CardContent>
 </Card>
 
-<Card collapsible defaultOpen={false} collapseLabel="Performance and trends" className="mb-6" id="dashboard-performance-and-trends">
+<Card collapsible lazyContent defaultOpen={false} collapseLabel="Performance and trends" className="mb-6" id="dashboard-performance-and-trends">
   <CardHeader><CardTitle className="text-base">Performance and trends</CardTitle><CardDescription>Delivery performance, weekly bookings, quote response times and comparisons.</CardDescription></CardHeader>
   <CardContent><div className="grid items-start gap-4 xl:grid-cols-2 [&>div]:mb-0"><WidgetErrorBoundary label="Delivery SLA"><DeliverySlaWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Weekly orders chart"><WeeklyOrdersChart companyId={companyId} /></WidgetErrorBoundary>

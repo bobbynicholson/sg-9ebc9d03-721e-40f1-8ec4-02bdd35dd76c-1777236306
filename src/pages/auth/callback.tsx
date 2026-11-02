@@ -96,7 +96,7 @@ export default function AuthCallbackPage() {
 
           // Regular staff login callback - let the authenticated user choose
           // among every portal assigned to this email.
-          window.location.assign("/auth/select-role");
+          await router.replace("/auth/select-role");
         } else {
           router.push("/auth/login");
         }

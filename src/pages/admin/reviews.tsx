@@ -249,19 +249,12 @@ function AdminReviewsInner() {
                 )}
               </>
             }
-            actions={
-            <>
-              {lastLoadedAt && (
-                // Hero band: muted copy must stay light-on-dark.
-                <span className="text-[11px] text-white/70 tabular-nums hidden sm:inline" title={lastLoadedAt.toLocaleString("en-ZA")}>
-                  As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
-                </span>
-              )}
-              <Button variant="outline" size="sm" onClick={() => load()} disabled={loading} className="h-8" title="Refresh">
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-              </Button>
-            </>
-            }
+            actions={lastLoadedAt ? (
+              // Hero band: muted copy must stay light-on-dark.
+              <span className="text-[11px] text-white/70 tabular-nums hidden sm:inline" title={lastLoadedAt.toLocaleString("en-ZA")}>
+                As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            ) : undefined}
           />
           <PageWorkbench />
 

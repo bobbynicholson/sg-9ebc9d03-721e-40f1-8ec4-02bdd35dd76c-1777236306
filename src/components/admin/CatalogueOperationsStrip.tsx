@@ -257,7 +257,7 @@ export function CatalogueOperationsStrip({
 
       setCounts(nextCounts);
       setLastLoadedAt(new Date());
-      if (errors.length > 0) setError(errors[0]);
+      setError(errors[0] || null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       captureException(err, { tags: { surface: "catalogue-operations-strip", companyId } });
@@ -351,18 +351,20 @@ export function CatalogueOperationsStrip({
             <HealthIcon className="h-3 w-3" />
             {health.label}
           </Badge>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => void load()}
-            disabled={loading || !companyId}
-            className="h-8 w-8 p-0 text-slate-600"
-            aria-label="Refresh catalogue counts"
-            title="Refresh catalogue counts"
-          >
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-          </Button>
+          {error && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => void load()}
+              disabled={loading || !companyId}
+              className="h-8 gap-1 px-2 text-slate-600"
+              aria-label="Retry catalogue counts"
+            >
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              Retry
+            </Button>
+          )}
         </div>
       </div>
       {error && (

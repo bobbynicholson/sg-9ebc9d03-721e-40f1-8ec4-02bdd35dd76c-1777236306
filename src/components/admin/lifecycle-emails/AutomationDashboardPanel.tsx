@@ -16,7 +16,7 @@
  *     so the row reads "Hot lead, fresh enquiry" not "email_lead_hot"
  *   - Per-row recipient (client_name + email) surfaced directly on
  *     the card instead of buried in a small grey line
- *   - Refresh button + Last loaded chip
+ *   - Live updates + last loaded timestamp
  *   - CSV export (UTF-8 BOM for Excel-ZA)
  *   - captureException with route + step + companyId tags on the
  *     fetch path, replacing console.error
@@ -27,11 +27,12 @@
  * Pure component: no AdminNav / NoIndexMeta / page header - those are
  * page concerns.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Mail, MessageSquare, ArrowRight, Search, RefreshCw, Download,
   CheckCircle2, AlertCircle, Clock,
@@ -83,15 +84,22 @@ export function AutomationDashboardPanel() {
   const { withSlug } = useTenantHref();
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [range, setRange] = useState<RangeKey>("30d");
   const [query, setQuery] = useState("");
+  const requestRef = useRef(0);
 
-  const load = async () => {
-    if (!companyId) return;
-    setLoading(true);
+  const load = useCallback(async (options: { silent?: boolean } = {}) => {
+    const requestId = ++requestRef.current;
+    if (!companyId) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+    if (!options.silent) setLoading(true);
     try {
       const { data, error } = await (supabase as any)
         .from("quote_followup_log")
@@ -103,6 +111,7 @@ export function AutomationDashboardPanel() {
         .order("sent_at", { ascending: false })
         .limit(500);
       if (error) throw error;
+      if (requestId !== requestRef.current) return;
       const flat: AuditRow[] = ((data || []) as any[]).map((r: any) => ({
         id: r.id,
         quote_id: r.quote_id,
@@ -118,17 +127,44 @@ export function AutomationDashboardPanel() {
       }));
       setRows(flat);
       setLastLoadedAt(new Date());
+      setLoadError(null);
     } catch (err) {
-      captureException(err, {
-        tags: { route: "/admin/email-templates", step: "automation-load", companyId },
-      });
-      setRows([]);
+      if (requestId === requestRef.current) {
+        captureException(err, {
+          tags: { route: "/admin/email-templates", step: "automation-load", companyId },
+        });
+        setLoadError(err instanceof Error ? err.message : "Could not load follow-up activity.");
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestRef.current) setLoading(false);
     }
-  };
+  }, [companyId]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId]);
+  useEffect(() => {
+    void load();
+    if (!companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefresh = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { void load({ silent: true }); }, 400);
+    };
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void load({ silent: true });
+    };
+    const channel = supabase
+      .channel(`admin-quote-followups:${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "quote_followup_log", filter: `company_id=eq.${companyId}` }, scheduleRefresh)
+      .subscribe();
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      requestRef.current += 1;
+      void supabase.removeChannel(channel);
+    };
+  }, [companyId, load]);
 
   // Apply range first so the stat tiles reflect what the operator is
   // looking at, not the raw 500-row dump.
@@ -307,17 +343,6 @@ export function AutomationDashboardPanel() {
 
           <button
             type="button"
-            onClick={load}
-            disabled={loading}
-            className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
-            title={lastLoadedAt ? `Last loaded ${lastLoadedAt.toLocaleTimeString("en-ZA")}` : "Refresh"}
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
-
-          <button
-            type="button"
             onClick={exportCsv}
             disabled={filtered.length === 0}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
@@ -337,14 +362,23 @@ export function AutomationDashboardPanel() {
               Recent follow-up sends
             </CardTitle>
             <span className="text-[11px] text-slate-500">
+              {lastLoadedAt ? `Updated ${lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })} · ` : ""}
               {filtered.length} of {inRange.length} in the {range === "all" ? "log" : `last ${range}`}
             </span>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {loading ? (
+          {loadError && (
+            <div role="alert" className="m-4 flex flex-wrap items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+              <span className="min-w-0 flex-1">Follow-up activity could not be updated: {loadError}</span>
+              <Button size="sm" variant="outline" onClick={() => void load({ silent: true })} disabled={loading}>
+                <RefreshCw className="mr-2 h-3.5 w-3.5" />Retry
+              </Button>
+            </div>
+          )}
+          {loading && rows.length === 0 ? (
             <p className="text-center text-sm text-slate-500 py-12">Loading...</p>
-          ) : filtered.length === 0 ? (
+          ) : loadError && rows.length === 0 ? null : filtered.length === 0 ? (
             <div className="py-12 text-center text-sm text-slate-500 px-4">
               <p className="mb-2">
                 {rows.length === 0

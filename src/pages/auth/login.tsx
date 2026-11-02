@@ -84,11 +84,14 @@ const DEV_USERS = [
 // Route user after successful login. The authenticated session is sent to a
 // role chooser first so accounts with several assigned portals are not forced
 // into whichever role happens to be stored as active_role.
-const routeAfterLogin = async (redirectTo?: string) => {
+const routeAfterLogin = async (
+  router: ReturnType<typeof useRouter>,
+  redirectTo?: string,
+) => {
   const pickerUrl = redirectTo
     ? `/auth/select-role?redirectTo=${encodeURIComponent(redirectTo)}`
     : "/auth/select-role";
-  window.location.assign(pickerUrl);
+  await router.replace(pickerUrl);
 };
 
 export default function LoginPage() {
@@ -115,7 +118,7 @@ export default function LoginPage() {
         const requestedRedirect =
           typeof redirectTo === "string" ? redirectTo :
           typeof redirect === "string" ? redirect : undefined;
-        await routeAfterLogin(requestedRedirect);
+        await routeAfterLogin(router, requestedRedirect);
       } catch {
         // A cold/offline launch may not be able to read or refresh the
         // session. Leave the form usable so the user can sign in normally.
@@ -188,7 +191,7 @@ export default function LoginPage() {
         duration: 2000,
       });
 
-      await routeAfterLogin((redirectTo || redirect) as string);
+      await routeAfterLogin(router, (redirectTo || redirect) as string);
     } catch (err: any) {
       console.error("Dev login error:", err);
       setError(err.message || "Dev login failed");
@@ -245,7 +248,7 @@ export default function LoginPage() {
         duration: 2000,
       });
 
-      await routeAfterLogin((redirectTo || redirect) as string);
+      await routeAfterLogin(router, (redirectTo || redirect) as string);
     } catch (err: any) {
       console.error("Login error:", err);
       setError(err.message || "Login failed");

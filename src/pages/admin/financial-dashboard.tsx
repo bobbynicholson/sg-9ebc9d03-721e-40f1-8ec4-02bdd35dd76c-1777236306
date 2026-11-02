@@ -612,12 +612,9 @@ function FinancialDashboardInner() {
   if (loading && !metrics) {
     // Matches the cashflow-dashboard loading shell: nav stays mounted
     // so the operator isn't dropped onto a bare spinner page.
-    // Audit fix (2026-07-02): only take this path on the FIRST load.
-    // Previously `if (loading)` alone meant every Refresh click and
-    // every realtime-triggered reload (orders / payments / invoices
-    // channels fire on any change) unmounted the whole dashboard to a
-    // spinner page. Held metrics keep rendering while a reload runs;
-    // the hero Refresh button's spin state shows progress.
+    // Only take this path on the first load. Live order, payment and
+    // invoice updates keep the current figures on screen while new
+    // metrics are fetched.
     return (
       <>
         <Head><title>Financial dashboard - CateringMS</title></Head>
@@ -775,20 +772,6 @@ function FinancialDashboardInner() {
               }
               actions={
                 <>
-                  {/* Phase 27 #4: manual refresh. The page only
-                      auto-loads on mount; a bookkeeper running
-                      reconciliation throughout the day previously
-                      had to hard-reload to pick up fresh payment
-                      data. */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={loadFinancialData}
-                    disabled={loading}
-                  >
-                    <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                    Refresh
-                  </Button>
                   {/* Phase 20 #6: financial snapshot CSV export. The
                       owner runs this page weekly for the team meeting
                       and monthly for the bookkeeper. Until now they

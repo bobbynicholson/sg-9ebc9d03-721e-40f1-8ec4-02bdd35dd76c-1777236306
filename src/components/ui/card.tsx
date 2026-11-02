@@ -3,32 +3,40 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { ChevronDown } from "lucide-react"
 
-type Disclosure = { open: boolean; setOpen: React.Dispatch<React.SetStateAction<boolean>>; bodyId: string; label: string }
+type Disclosure = { open: boolean; setOpen: (open: boolean) => void; bodyId: string; label: string; lazyContent: boolean; hasBeenOpened: boolean }
 const CardDisclosure = React.createContext<Disclosure | null>(null)
 type CardProps = React.HTMLAttributes<HTMLDivElement> & {
   /** Explicit opt-in for secondary sections. Primary lists and alerts stay visible. */
   collapsible?: boolean
   defaultOpen?: boolean
   collapseLabel?: string
+  /** Mount content only after the first open. Useful for collapsed sections with data-fetching children. */
+  lazyContent?: boolean
 }
 
 const Card = React.forwardRef<
   HTMLDivElement,
   CardProps
->(({ className, collapsible = false, defaultOpen = false, collapseLabel = "section", children, ...props }, ref) => {
+>(({ className, collapsible = false, defaultOpen = false, collapseLabel = "section", lazyContent = false, children, ...props }, ref) => {
   const [open, setOpen] = React.useState(defaultOpen)
+  const [hasBeenOpened, setHasBeenOpened] = React.useState(defaultOpen)
+  const setDisclosureOpen = React.useCallback((next: boolean) => {
+    setOpen(next)
+    if (next) setHasBeenOpened(true)
+  }, [])
   const generatedId = React.useId()
   const body = React.Children.toArray(children).find(child => React.isValidElement(child) && child.type === CardContent)
   const bodyId = React.isValidElement<React.HTMLAttributes<HTMLDivElement>>(body) && body.props.id || generatedId
   React.useEffect(() => {
     if (!collapsible) return
     const root = document.getElementById(bodyId)?.closest('[data-collapsible]')
-    const reveal = () => setOpen(true)
+    const reveal = () => setDisclosureOpen(true)
     const revealHash = () => {
       let hash = window.location.hash.slice(1)
       try { hash = decodeURIComponent(hash) } catch { /* Keep malformed hashes inert. */ }
       const target = hash && document.getElementById(hash)
       if (target && root?.contains(target)) reveal()
+      else if (!target && hash && lazyContent) reveal()
     }
     root?.addEventListener('ui:expand-section', reveal)
     window.addEventListener('hashchange', revealHash)
@@ -37,9 +45,9 @@ const Card = React.forwardRef<
       root?.removeEventListener('ui:expand-section', reveal)
       window.removeEventListener('hashchange', revealHash)
     }
-  }, [bodyId, collapsible])
+  }, [bodyId, collapsible, lazyContent, setDisclosureOpen])
   return (
-  <CardDisclosure.Provider value={collapsible ? { open, setOpen, bodyId, label: collapseLabel } : null}>
+  <CardDisclosure.Provider value={collapsible ? { open, setOpen: setDisclosureOpen, bodyId, label: collapseLabel, lazyContent, hasBeenOpened } : null}>
   <div
     ref={ref}
     className={cn(
@@ -76,7 +84,7 @@ const CardHeader = React.forwardRef<
       <div className="min-w-0 flex-1 space-y-1.5">{children}</div>
       <button type="button" aria-expanded={disclosure.open} aria-controls={disclosure.bodyId}
         aria-label={`${disclosure.open ? "Collapse" : "Expand"} ${disclosure.label}`}
-        onClick={() => disclosure.setOpen(value => !value)}
+        onClick={() => disclosure.setOpen(!disclosure.open)}
         className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
         <span className="hidden sm:inline">{disclosure.open ? "Collapse" : "Expand"}</span>
         <ChevronDown aria-hidden="true" className={cn("h-4 w-4 transition-transform motion-reduce:transition-none", disclosure.open && "rotate-180")} />
@@ -116,7 +124,7 @@ CardDescription.displayName = "CardDescription"
 const CardContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
->(({ className, style, onInvalidCapture, ...props }, ref) => {
+>(({ className, style, onInvalidCapture, children, ...props }, ref) => {
   const disclosure = React.useContext(CardDisclosure)
   return <div ref={ref} className={cn("p-5", className)} {...props}
     id={props.id || disclosure?.bodyId}
@@ -130,7 +138,8 @@ const CardContent = React.forwardRef<
         const input = event.target as HTMLInputElement
         window.requestAnimationFrame(() => { input.focus(); input.reportValidity?.() })
       }
-    }} />
+    }}
+  >{disclosure?.lazyContent && !disclosure.hasBeenOpened ? null : children}</div>
 })
 CardContent.displayName = "CardContent"
 

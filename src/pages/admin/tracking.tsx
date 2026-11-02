@@ -668,18 +668,6 @@ function AdminTrackingInner() {
                 </>
               ) : null
             }
-            actions={
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={loadTrackingData}
-                disabled={loading}
-                className="gap-2 border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white"
-              >
-                <RefreshCw className={"h-4 w-4 " + (loading ? "animate-spin" : "")} />
-                Refresh
-              </Button>
-            }
           />
           <PageWorkbench />
 
@@ -841,15 +829,6 @@ function AdminTrackingInner() {
                     className="h-10 justify-center whitespace-nowrap"
                   >
                     {autoRefresh ? "Auto on" : "Auto off"}
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    onClick={loadTrackingData}
-                    className="h-10 justify-center gap-1.5 whitespace-nowrap"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Refresh
                   </Button>
 
                   <Button

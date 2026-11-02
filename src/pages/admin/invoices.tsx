@@ -1744,19 +1744,6 @@ function InvoicesPageInner() {
           }
           actions={
             <>
-          {/* Phase 27 #5: manual refresh. Bookkeeping running
-              reconciliation throughout the day needed a way to
-              pick up new payments without a hard reload. */}
-          <Button
-            variant="outline"
-            onClick={loadInvoices}
-            disabled={loading}
-            className="px-2.5 sm:px-3"
-            title="Refresh invoices"
-          >
-            <RefreshCw className={`w-4 h-4 sm:mr-2 ${loading ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Refresh</span>
-          </Button>
           {/* Phase 10 #6: invoice CSV export. Lets the bookkeeping
               team pull the current filtered invoice set into Sheets
               / Excel for VAT reconciliation, age analysis or
@@ -2830,13 +2817,7 @@ function InvoicesPageInner() {
                       >
                         <Send className="h-4 w-4" />
                       </Button>
-                      {/* Wave 62 - CloudUpload icon disambiguates
-                          from the page-level Refresh button (also
-                          RefreshCw). Pre-Wave-62 the same icon
-                          meant "reload list" at page-level and
-                          "sync to Xero" at row-level - new operators
-                          would click the row icon expecting a row
-                          reload and silently push to Xero instead. */}
+                      {/* CloudUpload marks this as an accounting sync action, distinct from sending the invoice. */}
                       <Button
                         variant="ghost"
                         size="sm"

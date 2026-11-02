@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import { Bell, Check, X, Clock, AlertCircle, CheckCircle, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { effectivePriority } from "@/lib/notificationDisplay";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { shoppingNotificationLink } from "@/lib/shoppingNotificationLink";
+import { updatePwaAppBadge } from "@/lib/pwa/appBadge";
 
 type SoundTier = "urgent" | "high" | "default";
 
@@ -212,6 +213,10 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [pwaUnreadCount, setPwaUnreadCount] = useState(0);
+  const readStateRef = useRef(new Map<string, boolean>());
+  const badgeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notificationLoadRequestRef = useRef(0);
   const companyId =
     company?.id ||
     profile?.company_id ||
@@ -219,9 +224,34 @@ export function NotificationBell() {
     (user as any)?.user_metadata?.company_id ||
     null;
 
-  useEffect(() => {
+  const refreshUnreadCount = async () => {
     if (!user?.id) return;
-    loadNotifications();
+    const count = await notificationService.getUnreadCount(user.id, activeRole, companyId);
+    setPwaUnreadCount(count);
+  };
+
+  const queueUnreadCountRefresh = () => {
+    if (badgeRefreshTimerRef.current) clearTimeout(badgeRefreshTimerRef.current);
+    badgeRefreshTimerRef.current = setTimeout(() => {
+      badgeRefreshTimerRef.current = null;
+      void refreshUnreadCount();
+    }, 150);
+  };
+
+  useEffect(() => {
+    notificationLoadRequestRef.current += 1;
+    setNotifications([]);
+    setLoading(!!user?.id);
+    if (!user?.id) {
+      setPwaUnreadCount(0);
+      readStateRef.current.clear();
+      void updatePwaAppBadge(0);
+      return;
+    }
+    readStateRef.current.clear();
+    setPwaUnreadCount(0);
+    void updatePwaAppBadge(0);
+    void loadNotifications();
 
     // Prime browser audio on the first operator interaction. Without this,
     // realtime notifications received in a background/idle admin tab are
@@ -247,13 +277,45 @@ export function NotificationBell() {
     // role filter, so we just prepend the new row when it arrives.
     const unsubscribe = notificationService.subscribeToNotifications(
       user.id,
-      (notification) => {
+      (notification, eventType) => {
+        if (eventType === "DELETE") {
+          const wasRead = readStateRef.current.get(notification.id);
+          readStateRef.current.delete(notification.id);
+          setNotifications((prev) => prev.filter((item) => item.id !== notification.id));
+          if (wasRead === false || (wasRead === undefined && !notification.is_read)) {
+            setPwaUnreadCount((count) => Math.max(0, count - 1));
+          }
+          queueUnreadCountRefresh();
+          return;
+        }
+
+        if (eventType === "UPDATE") {
+          const inCurrentScope =
+            (!companyId || notification.company_id === companyId) &&
+            (!activeRole || !notification.target_role || notification.target_role === activeRole);
+          const wasRead = readStateRef.current.get(notification.id);
+          if (!inCurrentScope) {
+            readStateRef.current.delete(notification.id);
+            setNotifications((prev) => prev.filter((item) => item.id !== notification.id));
+            if (wasRead === false) setPwaUnreadCount((count) => Math.max(0, count - 1));
+            queueUnreadCountRefresh();
+            return;
+          }
+          readStateRef.current.set(notification.id, notification.is_read);
+          setNotifications((prev) => prev.map((item) => item.id === notification.id ? notification : item));
+          if (wasRead === undefined || wasRead !== notification.is_read) queueUnreadCountRefresh();
+          return;
+        }
+
+        if (readStateRef.current.has(notification.id)) return;
+        readStateRef.current.set(notification.id, notification.is_read);
         setNotifications((prev) => {
           // Guard against the realtime channel re-firing the same row
           // (rare but happens on reconnects).
           if (prev.some((n) => n.id === notification.id)) return prev;
           return [notification, ...prev];
         });
+        if (!notification.is_read) queueUnreadCountRefresh();
         // Alert on every new notification, deduped across the 2-3 bell
         // mounts (desktop / collapsed / mobile). Raj 2026-07-05: play the
         // sound for ALL new notifications so staff hear them land. The
@@ -284,35 +346,36 @@ export function NotificationBell() {
     // Safety net: if a network blip drops the realtime channel, a slow
     // poll still catches up. 5 minutes is rare enough not to be costly,
     // frequent enough that no notification stays hidden for long.
-    const interval = setInterval(loadNotifications, 5 * 60 * 1000);
+    const interval = setInterval(() => { void loadNotifications(false); }, 5 * 60 * 1000);
 
     return () => {
       unsubscribe();
       clearInterval(interval);
+      if (badgeRefreshTimerRef.current) clearTimeout(badgeRefreshTimerRef.current);
+      badgeRefreshTimerRef.current = null;
       detachUnlockListeners();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, activeRole, companyId]);
+  }, [user?.id, activeRole, companyId]);
 
-  const loadNotifications = async () => {
+  useEffect(() => {
+    void updatePwaAppBadge(user?.id ? pwaUnreadCount : 0);
+  }, [pwaUnreadCount, user?.id]);
+
+  const loadNotifications = async (showSpinner = true) => {
     if (!user?.id) return;
-    
-    setLoading(true);
+    const requestId = ++notificationLoadRequestRef.current;
+    if (showSpinner) setLoading(true);
     try {
-      // Get unread notifications + 5 most recent read ones
-      const unreadNotifs = await notificationService.getNotifications(
-        user.id,
-        true,
-        activeRole,
-        { limit: 50, companyId }
-      );
-      
-      const readNotifs = await notificationService.getNotifications(
-        user.id,
-        false,
-        activeRole,
-        { limit: 5, companyId }
-      );
+      // Load the visible rows and the exact count in parallel. The list is
+      // intentionally capped, while the bell and installed-app badge use
+      // the full unread count.
+      const [unreadNotifs, readNotifs, exactUnreadCount] = await Promise.all([
+        notificationService.getNotifications(user.id, true, activeRole, { limit: 50, companyId }),
+        notificationService.getNotifications(user.id, false, activeRole, { limit: 5, companyId }),
+        notificationService.getUnreadCount(user.id, activeRole, companyId),
+      ]);
+      if (requestId !== notificationLoadRequestRef.current) return;
       
       // Combine, DEDUPE, then sort by date. getNotifications(userId, false)
       // returns ALL notifications (read + unread), not just read - so every
@@ -331,40 +394,58 @@ export function NotificationBell() {
         );
 
       setNotifications(combined);
+      readStateRef.current = new Map(combined.map((notification) => [notification.id, notification.is_read]));
+      setPwaUnreadCount(exactUnreadCount);
     } catch (error) {
-      console.error("Failed to load notifications:", error);
+      if (requestId === notificationLoadRequestRef.current) {
+        console.error("Failed to load notifications:", error);
+      }
     } finally {
-      setLoading(false);
+      if (requestId === notificationLoadRequestRef.current) setLoading(false);
     }
   };
 
   const handleMarkAsRead = async (notificationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     await notificationService.markAsRead(notificationId);
+    const wasUnread = readStateRef.current.get(notificationId) === false;
+    readStateRef.current.set(notificationId, true);
     setNotifications((prev) =>
       prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
     );
+    if (wasUnread) setPwaUnreadCount((count) => Math.max(0, count - 1));
+    queueUnreadCountRefresh();
   };
 
   const handleMarkAllAsRead = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!user?.id) return;
     await notificationService.markAllAsRead(user.id, activeRole, companyId);
+    readStateRef.current.forEach((_isRead, id) => readStateRef.current.set(id, true));
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    setPwaUnreadCount(0);
+    queueUnreadCountRefresh();
   };
 
   const handleDelete = async (notificationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    const wasUnread = readStateRef.current.get(notificationId) === false;
     await notificationService.deleteNotification(notificationId);
+    readStateRef.current.delete(notificationId);
     setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+    if (wasUnread) setPwaUnreadCount((count) => Math.max(0, count - 1));
+    queueUnreadCountRefresh();
   };
 
   const handleNotificationClick = (notification: Notification) => {
     if (!notification.is_read) {
-      notificationService.markAsRead(notification.id);
+      readStateRef.current.set(notification.id, true);
+      void notificationService.markAsRead(notification.id).catch(() => { void loadNotifications(); });
       setNotifications((prev) =>
         prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n))
       );
+      setPwaUnreadCount((count) => Math.max(0, count - 1));
+      queueUnreadCountRefresh();
     }
     
     if (notification.link) {
@@ -454,7 +535,7 @@ export function NotificationBell() {
   const visibleNotifications = Array.from(
     new Map(notifications.map((n) => [n.id, n])).values(),
   );
-  const unreadCount = visibleNotifications.filter((n) => !n.is_read).length;
+  const unreadCount = pwaUnreadCount;
 
   if (!user) return null;
 
