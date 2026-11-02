@@ -1,31 +1,17 @@
 /**
  * File-based logger for local dev flow tracing.
  *
- * Each server process gets its own run directory:
- *   logs/run-1-2026-06-09_10-30-00/
- *   logs/run-2-2026-06-09_11-45-00/
+ * All local server processes write to one predictable directory:
+ *   logs/all.log       - every server log line, across all feature areas
+ *   logs/errors.log    - WARN + ERROR only
  *
- * Files inside each run:
- *   all.log       - every log line from every area
- *   errors.log    - WARN + ERROR only (quick triage)
- *   auth.log      - login, session, magic-link flows
- *   owner.log     - owner/admin portal actions
- *   sales.log     - quotes, leads, order conversion
- *   kitchen.log   - prep tasks, allergens, recipe scaling
- *   shopper.log   - shopping lists, receipts, suppliers
- *   driver.log    - deliveries, GPS, equipment return
- *   cleaning.log  - cleaning handover, damage, stock
- *   client.log    - client portal, magic-link tokens, payments
- *   payment.log   - PayFast, Stripe, webhooks
- *   cron.log      - background jobs
- *   email.log     - outbound email sends
- *   accounting.log- Xero / QuickBooks / Sage syncs
- *   imports.log   - spreadsheet imports, step by step (see importLog.ts)
- *   api.log       - general API calls not in above areas
- *   _run-info.json- run metadata (start time, env)
+ * Area files (auth.log, driver.log, payment.log, etc.) sit beside all.log
+ * for filtered investigation. Set APP_LOG_DIR to choose another local path.
  *
- * patchConsole() mirrors ALL existing console.log/warn/error calls
- * throughout the codebase to all.log automatically - no per-file changes needed.
+ * patchConsole() mirrors server-side console calls in this Node process
+ * into all.log automatically. Browser and Edge runtime logs stay in their
+ * runtime consoles. In production serverless deployments, the filesystem is
+ * ephemeral; the same redacted warnings/errors also go to the runtime log.
  *
  * For structured per-area logs use logger.info(area, message, ctx).
  */
@@ -56,62 +42,42 @@ export type LogArea =
 
 // ── Run directory management ──────────────────────────────────────────────────
 
-let _runDir: string | null = null;
+let _logsDir: string | null = null;
 
+/** @deprecated Kept for existing callers; this now returns the shared logs directory. */
 export function getRunDir(): string | null {
-  return _runDir;
+  return _logsDir;
 }
 
 export function initLogger(): void {
   if (typeof window !== "undefined") return; // server-side only
-  if (_runDir) return; // already initialised
+  if (_logsDir) return; // already initialised
 
   try {
-    const logsRoot = path.join(process.cwd(), "logs");
-    if (!fs.existsSync(logsRoot)) fs.mkdirSync(logsRoot, { recursive: true });
-
-    // Run number = count of existing run dirs + 1
-    const existingRuns = fs.readdirSync(logsRoot).filter((f) => /^run-\d+/.test(f));
-    const runNumber = existingRuns.length + 1;
+    const configuredLogDir = process.env.APP_LOG_DIR?.trim();
+    const logsDir = configuredLogDir
+      ? path.resolve(process.cwd(), configuredLogDir)
+      : path.join(process.cwd(), "logs");
+    if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+    _logsDir = logsDir;
 
     const now = new Date();
-    const ts = now.toISOString().slice(0, 19).replace("T", "_").replace(/:/g, "-");
-    _runDir = path.join(logsRoot, `run-${runNumber}-${ts}`);
-
-    fs.mkdirSync(_runDir, { recursive: true });
-
     const banner = [
-      "═".repeat(72),
-      `  RUN #${runNumber}  -  ${now.toISOString()}`,
+      "─".repeat(72),
+      `  SERVER START  -  pid=${process.pid}  ${now.toISOString()}`,
       `  NODE_ENV: ${process.env.NODE_ENV ?? "unknown"}`,
       `  APP_URL:  ${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001"}`,
-      "═".repeat(72),
+      "─".repeat(72),
       "",
     ].join("\n");
     const safeBanner = redactLogText(banner);
 
-    // Seed all.log and errors.log with the banner
-    fs.writeFileSync(path.join(_runDir, "all.log"), safeBanner, "utf8");
-    fs.writeFileSync(path.join(_runDir, "errors.log"), safeBanner, "utf8");
+    // Append instead of replacing so a restart doesn't erase the stream.
+    fs.appendFileSync(path.join(_logsDir, "all.log"), `${safeBanner}\n`, "utf8");
 
-    fs.writeFileSync(
-      path.join(_runDir, "_run-info.json"),
-      JSON.stringify(
-        redactLogValue({
-          runNumber,
-          startedAt: now.toISOString(),
-          nodeEnv: process.env.NODE_ENV,
-          appUrl: process.env.NEXT_PUBLIC_APP_URL,
-        }),
-        null,
-        2
-      ),
-      "utf8"
-    );
-
-    // Confirm logger is alive in the terminal
+    // Show the exact file to follow in the local terminal.
     process.stdout.write(
-      `\n[logger] Run #${runNumber} - logs → ${path.relative(process.cwd(), _runDir)}\n\n`
+      `\n[logger] all server logs → ${path.join(path.relative(process.cwd(), _logsDir), "all.log")}\n\n`
     );
   } catch {
     // Never let logger setup crash the app
@@ -121,10 +87,10 @@ export function initLogger(): void {
 // ── Core write ────────────────────────────────────────────────────────────────
 
 function _write(file: string, line: string): void {
-  if (!_runDir) initLogger();
-  if (!_runDir) return;
+  if (!_logsDir) initLogger();
+  if (!_logsDir) return;
   try {
-    fs.appendFileSync(path.join(_runDir, file), redactLogText(line) + "\n", "utf8");
+    fs.appendFileSync(path.join(_logsDir, file), redactLogText(line) + "\n", "utf8");
   } catch {
     /* silent - never crash the app */
   }
@@ -136,7 +102,8 @@ export function log(
   area: LogArea,
   level: LogLevel,
   message: string,
-  ctx?: Record<string, unknown>
+  ctx?: Record<string, unknown>,
+  options: { runtime?: boolean } = {}
 ): void {
   if (typeof window !== "undefined") return;
 
@@ -160,6 +127,21 @@ export function log(
 
   if (level === "ERROR" || level === "WARN") {
     _write("errors.log", line);
+
+    // Local files are useful during development, but serverless runtimes
+    // do not provide durable access to them. Mirror only warnings/errors
+    // to the platform's native log stream so operators can inspect API
+    // failures and throttling without adding a paid monitoring service.
+    // Console-patched messages already reached the native stream, so the
+    // patchConsole mirror passes runtime: false to avoid duplicates.
+    if (options.runtime !== false) {
+      try {
+        const stream = level === "ERROR" ? process.stderr : process.stdout;
+        stream.write(`${line}\n`);
+      } catch {
+        // Logging must never break a request.
+      }
+    }
   }
 }
 
@@ -177,8 +159,8 @@ export const logger = {
 };
 
 // ── Console patching ──────────────────────────────────────────────────────────
-// Mirrors ALL existing console.log/warn/error calls in the codebase to
-// all.log automatically - no per-file changes needed.
+// Mirrors server-side console calls in this Node process to all.log
+// automatically - no per-file changes needed.
 
 // Infer log area from the call stack so console output is routed to the
 // right persona file as well as all.log.
@@ -209,5 +191,7 @@ function _inferArea(): LogArea {
 
 export function patchConsole(): void {
   if (typeof window !== "undefined") return;
-  installConsoleRedaction((level, message) => log(_inferArea(), level, message));
+  installConsoleRedaction((level, message) =>
+    log(_inferArea(), level, message, undefined, { runtime: false })
+  );
 }

@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { withApiRequestLogging } from "@/lib/withApiLogging";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getRequestSupabase } from "@/lib/supabase/service";
 import { notificationService } from "@/services/notificationService";
@@ -30,7 +31,7 @@ function preview(body: string): string {
  * deliberately server-side so a client cannot enumerate staff profiles or
  * select notification recipients itself.
  */
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Only POST is supported." });
@@ -116,3 +117,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }, db);
   return res.status(200).json({ notified: notification ? 1 : 0 });
 }
+
+export default withApiRequestLogging(handler);

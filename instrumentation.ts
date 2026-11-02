@@ -1,12 +1,10 @@
 /**
  * Next.js instrumentation hook — runs once when the server process starts.
  *
- * Initialises the file-based logger so every subsequent console.log/
- * warn/error call across the whole codebase (API routes, services,
- * middleware) is redacted before output. Node logs are also mirrored to
- * logs/run-N-TIMESTAMP/.
- *
- * Console redaction also runs on Edge. Only Node writes to the filesystem.
+ * Redacts console output in Node and Edge runtimes. In Node, it also
+ * initialises the shared file logger so server-side console calls are
+ * mirrored into logs/all.log. Edge middleware and browser logs stay in
+ * their runtime consoles because they cannot write to the local file.
  */
 export async function register() {
   const { installConsoleRedaction } = await import("./src/lib/consoleRedaction");

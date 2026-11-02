@@ -10,7 +10,7 @@
  * Where a line goes:
  *   - the terminal / Vercel function log (stdout, or stderr for WARN
  *     and ERROR)
- *   - logs/run-N/imports.log and all.log (plus errors.log for WARN and
+ *   - logs/imports.log and all.log (plus errors.log for WARN and
  *     ERROR) through the file logger, when the filesystem is writable
  *
  * It writes to stdout directly rather than console.*: patchConsole()
@@ -53,7 +53,9 @@ function write(
   if (typeof window !== "undefined") return; // server-side only
   const line = formatImportLine(jobId, step, message, ctx);
   try {
-    log("imports", level, line);
+    // This module writes its own terminal line for every level. Keep the
+    // logger's runtime mirror off so WARN/ERROR entries are not duplicated.
+    log("imports", level, line, undefined, { runtime: false });
     const out = level === "ERROR" || level === "WARN" ? process.stderr : process.stdout;
     out.write(`[${new Date().toISOString()}] [${level}] ${line}\n`);
   } catch {

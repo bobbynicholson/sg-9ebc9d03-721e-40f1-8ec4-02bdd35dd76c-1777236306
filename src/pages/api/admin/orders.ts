@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { withApiRequestLogging } from "@/lib/withApiLogging";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { loadLatestDocumentAmountChanges } from "@/services/documentAmountChanges";
 import { isLocalAuthBypassEnabled } from "@/lib/localAuthBypass";
@@ -20,7 +21,7 @@ function validDate(value: string): boolean {
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
-export default async function handler(
+async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
@@ -225,3 +226,5 @@ export default async function handler(
       .json({ error: error?.message || "Could not load orders." });
   }
 }
+
+export default withApiRequestLogging(handler);

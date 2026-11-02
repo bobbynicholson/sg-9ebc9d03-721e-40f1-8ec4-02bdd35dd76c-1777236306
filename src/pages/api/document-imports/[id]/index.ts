@@ -1,8 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { withApiRequestLogging } from "@/lib/withApiLogging";
 import { z } from "zod";
 import { documentImportAccess, documentImportCatalogue, documentImportError } from "@/server/documentImport";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") return res.status(405).end();
   const access = await documentImportAccess(req, res); if (!access) return;
   if (!z.string().uuid().safeParse(req.query.id).success) return res.status(400).json({ error: "Invalid import." });
@@ -22,3 +23,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.json({ job, documents: documents.data, regions: regions.data, currency: company.data.currency || "ZAR", pricingIncludesVat: company.data.pricing_includes_vat === true, catalogue });
   } catch (error) { return res.status(500).json({ error: documentImportError(error) }); }
 }
+
+export default withApiRequestLogging(handler);

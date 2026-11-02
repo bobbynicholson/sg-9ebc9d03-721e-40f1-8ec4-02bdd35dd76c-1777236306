@@ -199,7 +199,7 @@ interface CommitSummary {
 /**
  * Browser-side import trace. Same "[import job=... step=...]" shape as
  * the server's importLog, so a step can be matched between the browser
- * console and logs/run-N/imports.log by job id. Field names and counts
+ * console and logs/imports.log by job id. Field names and counts
  * only; never client details.
  */
 function importTrace(

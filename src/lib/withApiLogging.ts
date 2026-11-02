@@ -72,21 +72,27 @@ export function withApiLogging(handler: ApiHandler, areaOverride?: LogArea): Api
     }
     log(area, "INFO", `→ ${method} ${logUrl}`, inCtx);
 
-    // Intercept res.json to capture response status + body on errors
+    let endLogged = false;
+
+    // Intercept res.json to capture response status + body on errors.
+    // Next's json() eventually calls end(), so mark it logged here to keep
+    // one response record per request in the shared log stream.
     const origJson = res.json.bind(res);
     res.json = function (data: unknown) {
-      const dur = Date.now() - start;
-      const level =
-        res.statusCode >= 500 ? "ERROR" : res.statusCode >= 400 ? "WARN" : "INFO";
-      const ctx: Record<string, unknown> = { status: res.statusCode, ms: dur };
-      if (res.statusCode >= 400) ctx.response = redactLogValue(data);
-      log(area, level, `← ${method} ${logUrl}`, ctx);
+      if (!endLogged) {
+        endLogged = true;
+        const dur = Date.now() - start;
+        const level =
+          res.statusCode >= 500 ? "ERROR" : res.statusCode >= 400 ? "WARN" : "INFO";
+        const ctx: Record<string, unknown> = { status: res.statusCode, ms: dur };
+        if (res.statusCode >= 400) ctx.response = redactLogValue(data);
+        log(area, level, `← ${method} ${logUrl}`, ctx);
+      }
       return origJson(data);
     };
 
     // Intercept res.end for non-JSON responses
     const origEnd = res.end.bind(res);
-    let endLogged = false;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     res.end = function (...args: any[]) {
       if (!endLogged) {
@@ -126,6 +132,58 @@ export function withApiLogging(handler: ApiHandler, areaOverride?: LogArea): Api
           res.status(500).json({ error: "Internal server error" });
         }
       }
+    }
+  };
+}
+
+/**
+ * Request/response tracing for routes that intentionally manage their own
+ * cache headers or gates. It records method, redacted path, status and
+ * duration without changing headers, request data, or error responses.
+ */
+export function withApiRequestLogging(handler: ApiHandler, areaOverride?: LogArea): ApiHandler {
+  return async (req: NextApiRequest, res: NextApiResponse) => {
+    const start = Date.now();
+    const area: LogArea = areaOverride ?? areaFromUrl(req.url ?? "");
+    const method = req.method ?? "?";
+    const logUrl = redactLogUrl(req.url ?? "?");
+    const tenant = (req.query.company_slug as string) ?? "-";
+
+    log(area, "INFO", `→ ${method} ${logUrl}`, { tenant });
+
+    let responseLogged = false;
+    const logResponse = () => {
+      if (responseLogged) return;
+      responseLogged = true;
+      const level = res.statusCode >= 500 ? "ERROR" : res.statusCode >= 400 ? "WARN" : "INFO";
+      log(area, level, `← ${method} ${logUrl}`, {
+        status: res.statusCode,
+        ms: Date.now() - start,
+      });
+    };
+
+    const origJson = res.json.bind(res);
+    res.json = function (data: unknown) {
+      logResponse();
+      return origJson(data);
+    };
+
+    const origEnd = res.end.bind(res);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    res.end = function (...args: any[]) {
+      logResponse();
+      return origEnd(...args);
+    };
+
+    try {
+      await handler(req, res);
+    } catch (err: unknown) {
+      log("errors", "ERROR", `✗ ${method} ${logUrl} threw after ${Date.now() - start}ms`, {
+        tenant,
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack?.split("\n").slice(0, 6).join(" | ") : undefined,
+      });
+      throw err;
     }
   };
 }

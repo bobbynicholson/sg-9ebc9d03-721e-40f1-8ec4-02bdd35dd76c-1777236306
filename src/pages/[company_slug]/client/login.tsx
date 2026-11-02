@@ -238,13 +238,14 @@ export default function CompanyClientLoginPage({
         }),
       });
 
-      if (res.status === 429) {
-        const j = await res.json().catch(() => ({}));
-        setError(j.error || "Too many tries. Please wait and try again.");
-        return;
-      }
       if (!res.ok) {
-        setError("Could not send sign-in link. Please try again.");
+        const responseBody = await res.json().catch(() => ({} as any));
+        const fallback = res.status === 429
+          ? "Too many sign-in requests. Please wait before trying again."
+          : res.status === 503
+            ? "Sign-in links are temporarily unavailable. Please try again shortly."
+            : "Could not send sign-in link. Please try again.";
+        setError(typeof responseBody?.error === "string" ? responseBody.error : fallback);
         return;
       }
       const json = await res.json().catch(() => ({} as any));
@@ -437,8 +438,9 @@ export default function CompanyClientLoginPage({
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900 mb-1">Check your inbox</h2>
                   <p className="text-sm text-slate-600 leading-relaxed">
-                    We've sent a sign-in link to{" "}
-                    <span className="font-medium text-slate-900">{email}</span>.
+                    If{" "}
+                    <span className="font-medium text-slate-900">{email}</span>{" "}
+                    is linked to a client account, check your inbox for a sign-in link.
                   </p>
                 </div>
                 <div className="rounded-xl bg-slate-50 px-4 py-3 text-left">

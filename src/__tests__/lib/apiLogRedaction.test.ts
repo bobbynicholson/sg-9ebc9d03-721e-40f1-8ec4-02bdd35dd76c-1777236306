@@ -5,7 +5,7 @@ jest.mock("@/lib/subscriptionApiGate", () => ({ isSubscriptionGatedRequest: jest
 jest.mock("@/lib/platformApiGate", () => ({ isPlatformOnlyRequest: jest.fn(() => false), blockUnlessPlatformAdmin: jest.fn() }));
 
 import { log } from "@/lib/logger";
-import { withApiLogging } from "@/lib/withApiLogging";
+import { withApiLogging, withApiRequestLogging } from "@/lib/withApiLogging";
 import { isSubscriptionGatedRequest } from "@/lib/subscriptionApiGate";
 
 beforeEach(() => { jest.clearAllMocks(); });
@@ -35,6 +35,33 @@ it("redacts error response logs without changing the HTTP response", async () =>
   await withApiLogging((_req, reply) => { reply.status(400).json(payload); })(req, res);
   expect(send).toHaveBeenCalledWith(payload);
   expect(JSON.stringify((log as jest.Mock).mock.calls)).not.toContain("response-marker");
+});
+
+it("logs a JSON response once when json() delegates to end()", async () => {
+  const req: any = { method: "GET", url: "/api/auth/example", query: {}, headers: {} };
+  const res: any = response();
+  res.json = jest.fn(function (this: any, payload: unknown) {
+    this.end(payload);
+    return this;
+  });
+
+  await withApiLogging((_req, reply) => { reply.status(405).json({ error: "Method not allowed" }); })(req, res);
+
+  const responseLogs = (log as jest.Mock).mock.calls.filter(([, , message]) => String(message).startsWith("←"));
+  expect(responseLogs).toHaveLength(1);
+  expect(responseLogs[0][3]).toEqual(expect.objectContaining({ status: 405 }));
+});
+
+it("traces routes without changing their headers or logging token values", async () => {
+  const req: any = { method: "GET", url: "/api/public/invoices/invoice-marker/pdf?token=invoice-marker", query: {}, headers: {} };
+  const res: any = response();
+  await withApiRequestLogging((_req, reply) => { reply.status(200).json({ ok: true }); })(req, res);
+
+  expect(res.setHeader).not.toHaveBeenCalled();
+  expect(isSubscriptionGatedRequest).not.toHaveBeenCalled();
+  const output = JSON.stringify((log as jest.Mock).mock.calls);
+  expect(output).not.toContain("invoice-marker");
+  expect((log as jest.Mock).mock.calls).toHaveLength(2);
 });
 
 it("keeps tokens out of non-JSON response and exception URL logs", async () => {

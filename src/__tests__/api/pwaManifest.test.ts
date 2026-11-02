@@ -8,6 +8,10 @@ import { isPublicIpv4, renderCompanyIcon } from "@/lib/pwa/logoImage";
 import sharp from "sharp";
 
 jest.mock("@/lib/pwa/serverBranding", () => ({ getPwaBranding: jest.fn() }));
+jest.mock("@/lib/withApiLogging", () => ({
+  withApiLogging: (handler: unknown) => handler,
+  withApiRequestLogging: (handler: unknown) => handler,
+}));
 const brand = { id: "company-a", slug: "company-a", companyName: "Company A", logoUrl: "https://example.com/logo.png", primaryColor: "#f21f07" };
 function response() {
   return { status: jest.fn().mockReturnThis(), setHeader: jest.fn(), json: jest.fn(), send: jest.fn(), end: jest.fn() };

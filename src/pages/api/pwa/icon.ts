@@ -1,11 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { withApiRequestLogging } from "@/lib/withApiLogging";
 import { isCompanySlug } from "@/lib/pwa/metadata";
 import { getPwaBranding } from "@/lib/pwa/serverBranding";
 import { renderCompanyIcon } from "@/lib/pwa/logoImage";
 
 const cache = new Map<string, { image: Buffer; expires: number }>();
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET" && req.method !== "HEAD") {
     res.setHeader("Allow", "GET, HEAD");
     return res.status(405).end();
@@ -38,3 +39,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.redirect(302, fallback);
   }
 }
+
+export default withApiRequestLogging(handler);

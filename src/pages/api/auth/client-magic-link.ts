@@ -174,7 +174,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       });
     }
     if (!rl.allowed) {
-      return res.status(429).json({ error: "Too many sign-in requests. Please try again later." });
+      const retryAfterSeconds = Math.max(1, Math.ceil(rl.resetInMs / 1000));
+      const retryAfterMinutes = Math.ceil(retryAfterSeconds / 60);
+      const retryDelay = retryAfterSeconds < 60
+        ? `about ${retryAfterSeconds} second${retryAfterSeconds === 1 ? "" : "s"}`
+        : retryAfterMinutes === 1
+          ? "about a minute"
+          : `about ${retryAfterMinutes} minutes`;
+      res.setHeader("Retry-After", String(retryAfterSeconds));
+      return res.status(429).json({
+        error: `Too many sign-in requests. Please wait ${retryDelay} before trying again.`,
+        retry_after_seconds: retryAfterSeconds,
+      });
     }
 
     // 1. Look up the company by slug

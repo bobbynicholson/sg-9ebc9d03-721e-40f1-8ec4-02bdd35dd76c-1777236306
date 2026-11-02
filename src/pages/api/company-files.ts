@@ -1,10 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { withApiRequestLogging } from "@/lib/withApiLogging";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { PRIVATE_COMPANY_BUCKETS } from "@/lib/companyFiles";
 
 // This endpoint deliberately uses the caller's JWT, so storage RLS applies.
 // No service credential, public redirect, or reusable signed token is issued.
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   res.setHeader("Cache-Control", "private, no-store, max-age=0");
   res.setHeader("Vary", "Cookie, Authorization");
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -50,3 +51,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: "File could not be loaded" });
   }
 }
+
+export default withApiRequestLogging(handler);

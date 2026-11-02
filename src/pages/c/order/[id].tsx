@@ -1117,8 +1117,9 @@ function Row({ label, value, paid }: { label: string; value: string; paid?: bool
  * Client persona follow-up: previously this error card was a dead end -
  * "Ask the catering company to send you a fresh link." Now offers a
  * self-serve recovery: the user enters their email and we POST to
- * /api/client-tokens/request which is rate-limited (3/min/email) and
- * always returns 200 for privacy.
+ * /api/client-tokens/request which is rate-limited (3/min/email). Known
+ * and unknown emails get the same success response; exhausted quotas
+ * return a generic 429 before account lookup.
  *
  * TIGHTEN I.122 (2026-06-03): the "Catering company URL" input is GONE.
  * Clients had no way to know that string and the field was a UX
@@ -1169,10 +1170,19 @@ function ExpiredLinkCard({ reason }: { reason: string | null }) {
           ...(detectedSlug ? { company_slug: detectedSlug } : {}),
         }),
       });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      if (!resp.ok) {
+        const responseBody = await resp.json().catch(() => ({} as any));
+        const fallback = resp.status === 429
+          ? "Too many link requests. Please wait before trying again."
+          : resp.status === 503
+            ? "Account links are temporarily unavailable. Please try again shortly."
+            : "Couldn't request a fresh link. Please try again.";
+        setFormErr(typeof responseBody?.error === "string" ? responseBody.error : fallback);
+        return;
+      }
       setSent(true);
-    } catch (e: any) {
-      setFormErr(e?.message || "Couldn't request a fresh link. Try again.");
+    } catch {
+      setFormErr("Couldn't connect. Check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
@@ -1244,7 +1254,7 @@ function ExpiredLinkCard({ reason }: { reason: string | null }) {
                 </div>
                 {formErr && (
                   <div className="rounded-md bg-rose-50 border border-rose-200 px-3 py-2">
-                    <p className="text-xs text-rose-700">{formErr}</p>
+                    <p role="alert" className="text-xs text-rose-700">{formErr}</p>
                   </div>
                 )}
                 <Button

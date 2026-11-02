@@ -27,7 +27,10 @@ jest.mock("@/lib/apiKeyRateLimit", () => ({
   consumeApiKeyRateLimitsWindowed: jest.fn(async () => ({ allowed: true, resetInMs: 0 })),
   getRateLimitClientIp: jest.fn(() => "127.0.0.1"),
 }));
-jest.mock("@/lib/withApiLogging", () => ({ withApiLogging: (handler: unknown) => handler }));
+jest.mock("@/lib/withApiLogging", () => ({
+  withApiLogging: (handler: unknown) => handler,
+  withApiRequestLogging: (handler: unknown) => handler,
+}));
 jest.mock("@/server/emails/sendBrandedEmail", () => ({ sendBrandedEmail: jest.fn(async () => ({ ok: true })) }));
 jest.mock("@/services/email/templateResolver", () => ({ resolveEmailTemplate: jest.fn(async () => ({ source: "fallback" })) }));
 jest.mock("@/services/emailService", () => ({ emailService: { sendEmail: jest.fn() } }));
@@ -291,6 +294,13 @@ test.each([
   expect(admin.from).not.toHaveBeenCalled();
   expect(admin.auth.admin.generateLink).not.toHaveBeenCalled();
   expect(emailService.sendEmail).not.toHaveBeenCalled();
+  if (status === 429) {
+    expect(res.setHeader).toHaveBeenCalledWith("Retry-After", "600");
+    expect(res.json).toHaveBeenCalledWith({
+      error: "Too many sign-in requests. Please wait about 10 minutes before trying again.",
+      retry_after_seconds: 600,
+    });
+  }
 });
 
 test("a client contact on file can receive a first-time server-provisioned magic link", async () => {

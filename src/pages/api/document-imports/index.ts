@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { withApiRequestLogging } from "@/lib/withApiLogging";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { DOCUMENT_IMPORT_LIMITS } from "@/lib/documentImport";
@@ -9,7 +10,7 @@ const batchSchema = z.object({ target: z.enum(["quotes", "orders"]), files: z.ar
   size: z.number().int().positive().max(DOCUMENT_IMPORT_LIMITS.bytes), sha256: z.string().regex(/^[a-f0-9]{64}$/),
 })).min(1).max(DOCUMENT_IMPORT_LIMITS.files) });
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!["GET", "POST"].includes(req.method || "")) return res.status(405).end();
   const access = await documentImportAccess(req, res); if (!access) return;
   const { db, companyId, userId } = access;
@@ -43,3 +44,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.json({ jobId, uploads });
   } catch (error) { return res.status(500).json({ error: documentImportError(error) }); }
 }
+
+export default withApiRequestLogging(handler);

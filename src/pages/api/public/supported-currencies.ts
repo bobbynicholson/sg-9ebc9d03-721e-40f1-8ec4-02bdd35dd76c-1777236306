@@ -1,8 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { withApiRequestLogging } from "@/lib/withApiLogging";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { currencyMonitoringService } from "@/services/currencyMonitoringService";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
     return res.status(405).json({ code: "METHOD_NOT_ALLOWED", error: "Method not allowed" });
@@ -20,3 +21,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 }
+
+export default withApiRequestLogging(handler);

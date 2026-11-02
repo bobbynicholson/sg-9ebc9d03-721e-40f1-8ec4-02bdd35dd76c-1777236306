@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { withApiRequestLogging } from "@/lib/withApiLogging";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { extractionSchema, reviewSchema, reviewDraftSchema, validateDocumentReview, DOCUMENT_IMPORT_LIMITS } from "@/lib/documentImport";
@@ -8,7 +9,7 @@ import { setAiUsageContext } from "@/lib/ai/usageLog";
 export const maxDuration = 300;
 export const config = { api: { bodyParser: { sizeLimit: "1mb" } } };
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!["POST", "GET"].includes(req.method || "")) return res.status(405).end();
   const access = await documentImportAccess(req, res); if (!access) return;
   const { db, companyId, userId } = access;
@@ -97,3 +98,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status((error as any)?.code === "23505" || (error as any)?.code === "40001" ? 409 : 500).json({ error: message });
   }
 }
+
+export default withApiRequestLogging(handler);

@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { withApiRequestLogging } from "@/lib/withApiLogging";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getRequestSupabase } from "@/lib/supabase/service";
 import { notificationService } from "@/services/notificationService";
@@ -15,7 +16,7 @@ function preview(body: string): string {
  * Deliver an in-app admin alert for a dispatch chat message. The message
  * must already exist and the authenticated caller must be its sender.
  */
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Only POST is supported." });
@@ -62,3 +63,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json({ notified });
 }
+
+export default withApiRequestLogging(handler);

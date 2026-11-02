@@ -2,6 +2,10 @@
 const mockAccess = jest.fn(); const mockCatalogue = jest.fn(); const mockFrom = jest.fn(); const mockRpc = jest.fn();
 jest.mock("@/server/documentImport", () => ({ documentImportAccess: (...args: any[]) => mockAccess(...args), documentImportCatalogue: (...args: any[]) => mockCatalogue(...args), documentImportError: (e: any) => e.message || "Failed" }));
 jest.mock("@/lib/ai/usageLog", () => ({ setAiUsageContext: jest.fn() }));
+jest.mock("@/lib/withApiLogging", () => ({
+  withApiLogging: (handler: unknown) => handler,
+  withApiRequestLogging: (handler: unknown) => handler,
+}));
 import handler from "@/pages/api/document-imports/[id]/[documentId]";
 const id = (n: number) => `00000000-0000-0000-0000-${String(n).padStart(12, "0")}`;
 let doc: any; let calls: any[];

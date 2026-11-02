@@ -1,8 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { withApiRequestLogging } from "@/lib/withApiLogging";
 import { z } from "zod";
 import { documentImportAccess, documentImportError } from "@/server/documentImport";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!["GET", "POST"].includes(req.method || "")) return res.status(405).end();
   const access = await documentImportAccess(req, res, true); if (!access) return;
   const { db, companyId, userId, canManage } = access;
@@ -34,3 +35,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.json({ gaps: result.data });
   } catch (error) { return res.status(500).json({ error: documentImportError(error) }); }
 }
+
+export default withApiRequestLogging(handler);

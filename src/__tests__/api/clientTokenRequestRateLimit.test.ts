@@ -11,7 +11,7 @@ jest.mock("@/lib/withApiLogging", () => ({ withApiLogging: (handler: unknown) =>
 jest.mock("@/services/emailService", () => ({ emailService: { sendEmail: jest.fn() } }));
 
 function response() {
-  const res = { statusCode: 200, status: jest.fn(), json: jest.fn() };
+  const res = { statusCode: 200, status: jest.fn(), json: jest.fn(), setHeader: jest.fn() };
   res.status.mockImplementation((code: number) => { res.statusCode = code; return res; });
   res.json.mockReturnValue(res);
   return res;
@@ -20,7 +20,7 @@ function response() {
 beforeEach(() => jest.clearAllMocks());
 
 test.each([
-  [{ allowed: false, remaining: 0, resetInMs: 60_000 }, 200],
+  [{ allowed: false, remaining: 0, resetInMs: 60_000 }, 429],
   [{ allowed: false, remaining: 0, resetInMs: 60_000, unavailable: true }, 503],
 ])("client account-link request stops before tenant lookup when limiter denies it", async (limitResult, status) => {
   const from = jest.fn();
@@ -38,8 +38,14 @@ test.each([
   expect(res.statusCode).toBe(status);
   expect(from).not.toHaveBeenCalled();
   expect(res.json).toHaveBeenCalledWith({
-    ...(status === 200 ? { ok: true } : { error: "Account links are temporarily unavailable. Please try again shortly." }),
+    ...(status === 429
+      ? {
+          error: "Too many link requests. Please wait about a minute before trying again.",
+          retry_after_seconds: 60,
+        }
+      : { error: "Account links are temporarily unavailable. Please try again shortly." }),
   });
+  if (status === 429) expect(res.setHeader).toHaveBeenCalledWith("Retry-After", "60");
 });
 
 test("client account-link route applies distinct recipient and IP limits", async () => {

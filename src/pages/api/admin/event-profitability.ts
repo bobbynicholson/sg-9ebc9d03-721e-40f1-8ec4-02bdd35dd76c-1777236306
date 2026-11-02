@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { withApiRequestLogging } from "@/lib/withApiLogging";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { isLocalAuthBypassEnabled } from "@/lib/localAuthBypass";
 
@@ -24,7 +25,7 @@ function feeFromGatewayResponse(value: unknown): number {
   return 0;
 }
 
-export default async function handler(
+async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
@@ -127,3 +128,5 @@ export default async function handler(
       .json({ error: error?.message || "Could not load event profitability." });
   }
 }
+
+export default withApiRequestLogging(handler);

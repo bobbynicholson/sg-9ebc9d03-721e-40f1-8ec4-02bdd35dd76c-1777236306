@@ -41,7 +41,7 @@ describe("importLog", () => {
 
   it("writes INFO to the imports log file and stdout", () => {
     importLog.info("job-1", "preview.row", "Row ok", { row: 3 });
-    expect(logMock).toHaveBeenCalledWith("imports", "INFO", '[import job=job-1 step=preview.row] Row ok  {"row":3}');
+    expect(logMock).toHaveBeenCalledWith("imports", "INFO", '[import job=job-1 step=preview.row] Row ok  {"row":3}', undefined, { runtime: false });
     expect(out).toHaveBeenCalledTimes(1);
     expect(String(out.mock.calls[0][0])).toContain("[INFO] [import job=job-1 step=preview.row] Row ok");
     expect(err).not.toHaveBeenCalled();
@@ -50,8 +50,8 @@ describe("importLog", () => {
   it("sends WARN and ERROR to stderr", () => {
     importLog.warn("job-1", "commit.quotes", "Placeholder email used");
     importLog.error("job-1", "commit.quotes", "Quote not saved", { error: "boom" });
-    expect(logMock).toHaveBeenNthCalledWith(1, "imports", "WARN", expect.any(String));
-    expect(logMock).toHaveBeenNthCalledWith(2, "imports", "ERROR", expect.stringContaining('"error":"boom"'));
+    expect(logMock).toHaveBeenNthCalledWith(1, "imports", "WARN", expect.any(String), undefined, { runtime: false });
+    expect(logMock).toHaveBeenNthCalledWith(2, "imports", "ERROR", expect.stringContaining('"error":"boom"'), undefined, { runtime: false });
     expect(err).toHaveBeenCalledTimes(2);
     expect(out).not.toHaveBeenCalled();
   });

@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { withApiRequestLogging } from "@/lib/withApiLogging";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
@@ -128,4 +129,4 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 }
 
-export default handler;
+export default withApiRequestLogging(handler);

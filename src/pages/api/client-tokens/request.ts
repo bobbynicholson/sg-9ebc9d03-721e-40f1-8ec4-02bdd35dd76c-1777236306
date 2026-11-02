@@ -11,8 +11,10 @@
  *
  * Public (no auth). Rate-limited separately per email and source IP by
  * the shared database limiter.
- * Always returns 200 for privacy - never confirms whether an email
- * is on file.
+ * Known and unknown emails receive the same success response, so this
+ * endpoint never confirms whether an email is on file. Exhausted
+ * quotas return a generic 429 before tenant lookup, regardless of
+ * whether the email belongs to a client.
  *
  * TIGHTEN I.122 (2026-06-03): company_slug is now OPTIONAL. The
  * /c/order recovery card used to require the client to type the
@@ -111,8 +113,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       });
     }
     if (!rl.allowed) {
-      // Always return 200 for privacy.
-      return res.status(200).json({ ok: true });
+      const retryAfterSeconds = Math.max(1, Math.ceil(rl.resetInMs / 1000));
+      const retryAfterMinutes = Math.ceil(retryAfterSeconds / 60);
+      const retryDelay = retryAfterSeconds < 60
+        ? `about ${retryAfterSeconds} second${retryAfterSeconds === 1 ? "" : "s"}`
+        : retryAfterMinutes === 1
+          ? "about a minute"
+          : `about ${retryAfterMinutes} minutes`;
+      res.setHeader("Retry-After", String(retryAfterSeconds));
+      return res.status(429).json({
+        error: `Too many link requests. Please wait ${retryDelay} before trying again.`,
+        retry_after_seconds: retryAfterSeconds,
+      });
     }
 
     // Never the *.vercel.app deployment host (login-protected for clients).
