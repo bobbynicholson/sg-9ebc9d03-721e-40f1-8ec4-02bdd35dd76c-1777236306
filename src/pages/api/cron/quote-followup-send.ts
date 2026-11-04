@@ -12,6 +12,7 @@ import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { hasEventDatePassed } from "@/lib/eventDateGuard";
+import { buildPublicQuoteUrlServer } from "@/lib/customerLinksServer";
 
 
 const CRON_NAME = "quote-followup-send";
@@ -39,7 +40,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const { data: tenants, error: tenantErr } = await sb
       .from("companies")
-      .select("id, timezone")
+      .select("id, timezone, slug")
       .eq("auto_followups_enabled", true);
     if (tenantErr) {
       console.error("[quote-followup-send] tenant fetch failed:", tenantErr);
@@ -61,7 +62,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
       const { data: quotes, error: qErr } = await sb
         .from("quotes")
-        .select("id, status, sent_at, accepted_at, client_email, client_name, quote_number, quote_name, event_date")
+        .select("id, status, sent_at, accepted_at, client_email, client_name, quote_number, quote_name, event_date, public_token")
         .eq("company_id", tenant.id)
         .not("sent_at", "is", null)
         .not("status", "in", "(accepted,rejected,expired)")
@@ -106,6 +107,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             client_name: quote.client_name || "there",
             first_name: (quote.client_name || "there").split(" ")[0],
             quote_number: quote.quote_number || quote.id,
+            quote_url: buildPublicQuoteUrlServer(quote.public_token, tenant.slug) || "",
             event_name: (quote as any).quote_name || "your event",
             position: String(state.nextPosition),
           };
@@ -123,6 +125,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
               bodyHtml:
                 `Hi ${variables.first_name},\n\n` +
                 `Just circling back on the quote we sent for ${variables.event_name}. ` +
+                `${variables.quote_url ? `You can open and review it again here:\n${variables.quote_url}\n\n` : ""}` +
                 `Happy to tweak anything - just hit reply.\n\n` +
                 `Thanks!`,
             },

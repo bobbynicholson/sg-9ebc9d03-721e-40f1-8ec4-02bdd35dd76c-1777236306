@@ -178,6 +178,24 @@ export const WORKFLOW_DEFINITIONS: WorkflowDefinition[] = [
     ],
   },
   {
+    id: "quote-email-templates",
+    label: "Quote email templates",
+    description: "Edit the New quote email and Revised quote email, and check how each one reads for one quote or two quotes before it goes to a client.",
+    keywords: [
+      "quote email template", "quote template", "edit quote email", "change quote email", "new quote email", "revised quote email",
+      "edit template", "edit email template", "change email template", "email template preview", "preview quote email", "preview email template",
+      "template preview", "two quote", "two quotes", "2 quotes", "one quote preview", "second quote", "option 1", "option 2",
+      "second quote block", "quote options in email", "reset template", "email template",
+    ],
+    roles: ADMIN,
+    steps: [
+      { id: "open-quote-template", title: "Open the quote email", description: "In Email templates, find New quote email or Revised quote email and choose Edit.", ref: "admin.email-templates.templates" },
+      { id: "preview-quote-template", title: "Check both versions", description: "Above the preview, choose One quote or Two quotes. The preview uses sample data, so it shows the layout, not a real client's details.", ref: "admin.email-templates.templates" },
+      { id: "place-quote-options", title: "Choose where the options go", description: "With two quotes, Option 1 and Option 2 are added before your sign-off automatically. To place them yourself, click where they should go in the message and choose Insert Option 1 and Option 2 block.", ref: "admin.email-templates.templates" },
+      { id: "save-quote-template", title: "Save or reset", description: "Choose Save customisation to keep your wording for your company, then Send test email to me to check it. Reset to default removes your wording and goes back to the standard email.", ref: "admin.email-templates.templates" },
+    ],
+  },
+  {
     id: "automatic-emails",
     label: "Automatic emails on or off",
     description: "Choose which automatic emails are sent. Off means that automatic email is not sent at all; emails you send yourself (Send quote, Send invoice, messages, Resend) always go out, and sign-in links and invitations are always sent.",

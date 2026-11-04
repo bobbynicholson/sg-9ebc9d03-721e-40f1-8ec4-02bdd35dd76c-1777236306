@@ -283,6 +283,9 @@ function OrderProcessDashboard() {
     useState<OrderPageCursor | null>(null);
   const loadMoreInFlightRef = useRef(false);
   const orderLoadGenerationRef = useRef(0);
+  // Rows already on screen stay there while a refresh runs in the background.
+  const ordersOnScreenRef = useRef(0);
+  const liveRefreshTimerRef = useRef<number | undefined>(undefined);
   const deepLinkLookupRef = useRef<string | null>(null);
   const [isResolvingOrderDeepLink, setIsResolvingOrderDeepLink] = useState(false);
   // Audit fix (2026-07-02): the main orders fetch failure was only
@@ -645,6 +648,7 @@ function OrderProcessDashboard() {
     assignedUserId: (user as any)?.id || null,
     tenantTimezone,
   });
+  ordersOnScreenRef.current = orders.length;
   orderListFiltersRef.current = {
     searchTerm,
     statusFilter,
@@ -677,6 +681,12 @@ function OrderProcessDashboard() {
     // of Math.random(). Avoids leaked subscriptions on Strict Mode
     // double-mount + cleaner HMR.
     const channelKey = `admin-orders-realtime:${companyId}`;
+    // One order change fires several events (closing an order also updates
+    // its tasks and stamps), so a burst becomes a single refresh.
+    const refreshSoon = () => {
+      window.clearTimeout(liveRefreshTimerRef.current);
+      liveRefreshTimerRef.current = window.setTimeout(() => { void loadOrders(); }, 400);
+    };
     const channel = (supabase as any)
       .channel(channelKey)
       .on(
@@ -695,7 +705,7 @@ function OrderProcessDashboard() {
               ? `${row.client_name}${row.event_date ? ` - ${new Date(row.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}`
               : "An order just landed. Pulling the latest list.",
           });
-          loadOrders();
+          refreshSoon();
         },
       )
       // Wave 55 - subscribe to UPDATE so a payment captured in
@@ -714,7 +724,7 @@ function OrderProcessDashboard() {
         () => {
           // Quiet refresh - no toast, just keep the list fresh. A
           // status change banner already fires elsewhere.
-          loadOrders();
+          refreshSoon();
         },
       )
       // Wave 55 - DELETE so a hard-deleted order disappears from
@@ -728,7 +738,7 @@ function OrderProcessDashboard() {
           filter: `company_id=eq.${companyId}`,
         },
         () => {
-          loadOrders();
+          refreshSoon();
         },
       )
       // ORD-A (orders audit, ORD-4): payments captured in another tab
@@ -744,7 +754,7 @@ function OrderProcessDashboard() {
           filter: `company_id=eq.${companyId}`,
         },
         () => {
-          loadOrders();
+          refreshSoon();
         },
       )
       // Wave 70.94 - the OrderReadinessChip signals depend on rows
@@ -764,7 +774,7 @@ function OrderProcessDashboard() {
           filter: `company_id=eq.${companyId}`,
         },
         () => {
-          loadOrders();
+          refreshSoon();
         },
       )
       .on(
@@ -776,7 +786,7 @@ function OrderProcessDashboard() {
           filter: `company_id=eq.${companyId}`,
         },
         () => {
-          loadOrders();
+          refreshSoon();
         },
       )
       .on(
@@ -788,7 +798,7 @@ function OrderProcessDashboard() {
           filter: `company_id=eq.${companyId}`,
         },
         () => {
-          loadOrders();
+          refreshSoon();
         },
       )
       .on(
@@ -800,11 +810,12 @@ function OrderProcessDashboard() {
           filter: `company_id=eq.${companyId}`,
         },
         () => {
-          loadOrders();
+          refreshSoon();
         },
       )
       .subscribe();
     return () => {
+      window.clearTimeout(liveRefreshTimerRef.current);
       (supabase as any).removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1063,11 +1074,17 @@ function OrderProcessDashboard() {
 
   const loadOrders = async (options: { append?: boolean } = {}) => {
     const append = options.append === true;
+    // Swapping visible rows for the spinner on every refresh made the whole
+    // list flicker. Only an empty list shows the loading state.
+    const quietRefresh = !append && ordersOnScreenRef.current > 0;
     if (append) {
       if (!nextOrderCursor || loadMoreInFlightRef.current) return;
       loadMoreInFlightRef.current = true;
       setLoadingMoreOrders(true);
       setLoadMoreError(null);
+    } else if (quietRefresh) {
+      loadMoreInFlightRef.current = false;
+      setLoadingMoreOrders(false);
     } else {
       loadMoreInFlightRef.current = false;
       setLoadingMoreOrders(false);
@@ -1705,7 +1722,7 @@ function OrderProcessDashboard() {
       console.error("Error loading orders:", error);
       if (requestGeneration === orderLoadGenerationRef.current) {
         if (append) setLoadMoreError(error?.message || "Could not load older orders.");
-        else setLoadError(error?.message || "Failed to load orders.");
+        else if (!quietRefresh) setLoadError(error?.message || "Failed to load orders.");
       }
     } finally {
       if (requestGeneration === orderLoadGenerationRef.current) {
@@ -1728,6 +1745,7 @@ function OrderProcessDashboard() {
 
     orderLoadGenerationRef.current += 1;
     loadMoreInFlightRef.current = false;
+    ordersOnScreenRef.current = 0;
     setLoading(true);
     setLoadingMoreOrders(false);
     setHasMoreOrders(false);

@@ -64,27 +64,49 @@ export interface TemplateResolveInput {
  *     unknown keys in place, which is why recipients occasionally saw a
  *     raw `Hi {{first_name}}` whenever a caller forgot a variable.
  */
-function substitute(
+function hasSectionValue(value: string | number | null | undefined): boolean {
+  if (value === null || value === undefined) return false;
+  const normalized = String(value).trim().toLowerCase();
+  return normalized !== "" && normalized !== "false" && normalized !== "0";
+}
+
+function renderSections(
   template: string,
   vars: Record<string, string | number | null | undefined>,
 ): string {
-  return template.replace(/{{\s*([\w.]+)\s*}}/g, (_match, key: string) => {
+  return template.replace(/{{\s*([#^])([\w.]+)\s*}}([\s\S]*?){{\s*\/\2\s*}}/g, (_match, marker: string, key: string, content: string) =>
+    (hasSectionValue(vars[key]) === (marker === "#")) ? renderSections(content, vars) : "",
+  );
+}
+
+function substitute(
+  template: string,
+  vars: Record<string, string | number | null | undefined>,
+  conditionalSections = false,
+): string {
+  const source = conditionalSections ? renderSections(template, vars) : template;
+  return source.replace(/{{\s*([\w.]+)\s*}}/g, (_match, key: string) => {
     const v = vars[key];
     return v === null || v === undefined ? "" : String(v);
   });
 }
 
-function substituteBody(template: string, vars: Record<string, string | number | null | undefined>, safe: boolean | undefined): string {
-  if (!safe) return substitute(template, vars);
+function substituteBody(
+  template: string,
+  vars: Record<string, string | number | null | undefined>,
+  safe: boolean | undefined,
+  conditionalSections = false,
+): string {
+  if (!safe) return substitute(template, vars, conditionalSections);
   const escape = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;")
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   // Decide from the trusted template before substituting customer text,
   // so a name containing markup can never turn a plain email into HTML.
   if (/<\/?[a-z][^>]*>/i.test(template)) {
     return substitute(template, Object.fromEntries(Object.entries(vars).map(([key, value]) =>
-      [key, value == null ? "" : escape(String(value))])));
+      [key, value == null ? "" : escape(String(value))])), conditionalSections);
   }
-  const content = escape(substitute(template, vars)).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>');
+  const content = escape(substitute(template, vars, conditionalSections)).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>');
   return content.split(/\n\s*\n/).map((part) => `<p>${part.replace(/\n/g, "<br>")}</p>`).join("");
 }
 
@@ -131,13 +153,18 @@ export async function resolveEmailTemplate(
   // aliases (first_name from a full name, company/tenant name,
   // order/invoice number) fill in when the exact key wasn't supplied.
   const vars = normalizeEmailVariables(input.variables || {});
+  // Optional second-quote blocks are supported only by the established
+  // New quote and Revised quote templates. Other template keys keep the
+  // original token-substitution behavior.
+  const conditionalSections = input.templateType === "email_quote_sent"
+    || input.templateType === "email_quote_revised";
 
   // 1. Tenant override.
   const tenantRow = await fetchRow(sb, input.companyId, input.templateType);
   if (tenantRow && tenantRow.subject && tenantRow.body) {
     return {
-      subject: substitute(tenantRow.subject, vars),
-      bodyHtml: substituteBody(tenantRow.body, vars, input.escapeBodyVariables),
+      subject: substitute(tenantRow.subject, vars, conditionalSections),
+      bodyHtml: substituteBody(tenantRow.body, vars, input.escapeBodyVariables, conditionalSections),
       source: "db",
     };
   }
@@ -146,18 +173,18 @@ export async function resolveEmailTemplate(
   const globalRow = await fetchRow(sb, null, input.templateType);
   if (globalRow && globalRow.subject && globalRow.body) {
     return {
-      subject: substitute(globalRow.subject, vars),
-      bodyHtml: substituteBody(globalRow.body, vars, input.escapeBodyVariables),
+      subject: substitute(globalRow.subject, vars, conditionalSections),
+      bodyHtml: substituteBody(globalRow.body, vars, input.escapeBodyVariables, conditionalSections),
       source: "db",
     };
   }
 
   // 3. Caller's fallback.
   return {
-    subject: substitute(input.fallback.subject, vars),
-    bodyHtml: substituteBody(input.fallback.bodyHtml, vars, input.escapeBodyVariables),
+    subject: substitute(input.fallback.subject, vars, conditionalSections),
+    bodyHtml: substituteBody(input.fallback.bodyHtml, vars, input.escapeBodyVariables, conditionalSections),
     bodyText: input.fallback.bodyText
-      ? substitute(input.fallback.bodyText, vars)
+      ? substitute(input.fallback.bodyText, vars, conditionalSections)
       : undefined,
     source: "fallback",
   };

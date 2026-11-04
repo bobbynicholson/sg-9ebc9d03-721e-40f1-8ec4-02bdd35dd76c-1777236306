@@ -14,7 +14,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Truck, UserPlus, Mail, Phone, Search, MoreVertical, Activity, Clock, Settings, MapPin, Calendar, Snowflake, Flame, Users, User, Building2, Download, X, RefreshCw, Copy, MailWarning } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -114,7 +114,7 @@ function DriverManagementPage() {
   // show these credentials so the operator can pass them on by hand.
   // Mirrors the Staff Management page (/[slug]/admin/users).
   const [createResult, setCreateResult] = useState<
-    { email: string; name: string; tempPassword?: string; loginUrl?: string; emailed?: boolean } | null
+    { email: string; name: string; tempPassword?: string; loginUrl?: string; emailed?: boolean; reusedInactiveEmail?: boolean } | null
   >(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -173,6 +173,12 @@ function DriverManagementPage() {
     v_requires_two_people: false,
   });
   const [error, setError] = useState("");
+  useEffect(() => {
+    if (!error || !isAddDialogOpen) return;
+    const alert = document.getElementById("add-driver-error");
+    alert?.focus({ preventScroll: true });
+    alert?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [error, isAddDialogOpen]);
 
   // Reset the add-driver form back to defaults whenever the dialog closes
   // so a fresh open never inherits stale field values.
@@ -653,6 +659,7 @@ function DriverManagementPage() {
         tempPassword,
         loginUrl,
         emailed: emailDelivered,
+        reusedInactiveEmail: payload?.reusedInactiveEmail === true,
       });
     } catch (err: any) {
       console.error("Error adding driver:", err);
@@ -731,8 +738,8 @@ function DriverManagementPage() {
         return;
       }
       toast({
-        title: "Driver removed",
-        description: `${removeTarget.full_name || removeTarget.email} can no longer access the portal.`,
+        title: "Driver access disabled",
+        description: `${removeTarget.full_name || removeTarget.email} can no longer sign in. Their history stays on file, and you can reuse this email for a new account.`,
       });
       setRemoveTarget(null);
       loadDrivers();
@@ -892,8 +899,8 @@ function DriverManagementPage() {
                     Add New Driver
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
+                <DialogContent className="flex w-[calc(100vw-2rem)] max-w-4xl max-h-[92dvh] flex-col gap-0 overflow-hidden p-0">
+                  <DialogHeader className="shrink-0 border-b border-slate-200 px-6 py-5">
                     <DialogTitle className="flex items-center gap-2">
                       {createResult ? (
                         <><MailWarning className="w-5 h-5 text-amber-500" /> Share these sign-in details</>
@@ -906,11 +913,17 @@ function DriverManagementPage() {
                         ? (createResult.emailed
                             ? "We emailed the driver a link to set their own password. They can also sign in right away with the temporary password below."
                             : "We couldn't email the invite (no email sender set up yet). Pass these details to the driver directly.")
-                        : "Driver basics, operational details and the vehicle, all in one go."}
+                        : "Add the sign-in details first. Operational, pay and vehicle settings are optional."}
                     </p>
                   </DialogHeader>
                   {createResult ? (
-                    <div className="space-y-3">
+                    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-5">
+                      {createResult.reusedInactiveEmail && (
+                        <p className="rounded-md border border-brand-primary/20 bg-brand-primary/5 px-3 py-2.5 text-sm leading-relaxed text-slate-700">
+                          <strong className="text-slate-900">Previous account retained.</strong>{" "}
+                          Its inactive profile and work history stay on file. This driver has a separate new account.
+                        </p>
+                      )}
                       <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm space-y-1.5">
                         <div><span className="text-slate-500">Email:</span> <strong>{createResult.email}</strong></div>
                         {createResult.tempPassword && (
@@ -942,21 +955,28 @@ function DriverManagementPage() {
                       </div>
                     </div>
                   ) : (
-                  <form onSubmit={handleAddDriver} className="space-y-5">
+                  <form onSubmit={handleAddDriver} className="flex min-h-0 flex-1 flex-col">
+                    <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
                     {error && (
-                      <Alert variant="destructive">
-                        <AlertDescription>{error}</AlertDescription>
+                      <Alert
+                        id="add-driver-error"
+                        tabIndex={-1}
+                        variant="destructive"
+                        className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                      >
+                        <AlertTitle>Could not add this driver</AlertTitle>
+                        <AlertDescription className="text-sm leading-relaxed">{error}</AlertDescription>
                       </Alert>
                     )}
 
-                    {/* ── Section 1: driver basics ── */}
-                    <Card className="border-slate-200 shadow-none">
-                      <CardContent className="py-4 px-4 space-y-3">
-                        <Label className="text-xs font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                    {/* Required details first, with optional settings grouped below. */}
+                    <section className="space-y-4">
+                      <div className="space-y-3">
+                        <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
                           <UserPlus className="w-3.5 h-3.5 text-brand-primary" />
                           Driver basics
-                        </Label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        </h3>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                           <div>
                             <Label htmlFor="name">Full name *</Label>
                             <Input
@@ -992,29 +1012,24 @@ function DriverManagementPage() {
                               required
                             />
                           </div>
-                          <div>
-                            <Label className="text-slate-500">Password</Label>
-                            <p className="mt-1 text-xs text-slate-500 leading-relaxed">
-                              Auto-generated. We&apos;ll show you a temporary password to
-                              share once the driver is created (or email them an invite
-                              if your business has an email sender set up).
-                            </p>
-                          </div>
                         </div>
-                      </CardContent>
-                    </Card>
+                        <p className="rounded-md bg-slate-50 px-3 py-2.5 text-xs leading-relaxed text-slate-600">
+                          <span className="font-semibold text-slate-800">Sign-in details:</span>{" "}
+                          We&apos;ll generate a temporary password and show it after creation. If email is set up, the driver also gets an invite.
+                        </p>
+                      </div>
+                    </section>
 
-                    {/* ── Section 2: operational details ── */}
-                    <Card className="border-slate-200 shadow-none">
-                      <CardContent className="py-4 px-4 space-y-3">
+                    <section className="space-y-4 border-t border-slate-200 pt-5">
+                      <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <Label className="text-xs font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
                             <Activity className="w-3.5 h-3.5 text-brand-primary" />
                             Operational details
-                          </Label>
-                          <span className="text-[10px] text-slate-400 uppercase tracking-wide">Optional, fill what you know</span>
+                          </h3>
+                          <span className="text-xs text-slate-500">Optional</span>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                           <div>
                             <Label htmlFor="home_postcode" className="flex items-center gap-1">
                               <MapPin className="w-3 h-3 text-slate-400" /> Home postcode
@@ -1026,7 +1041,7 @@ function DriverManagementPage() {
                               placeholder="e.g. 7806"
                               className="mt-1"
                             />
-                            <p className="text-[11px] text-slate-500 mt-1">Used for regional fit when dispatching.</p>
+                            <p className="mt-1 text-xs text-slate-500">Used for regional fit when dispatching.</p>
                           </div>
                           <div>
                             <Label htmlFor="drive_time" className="flex items-center gap-1">
@@ -1041,7 +1056,7 @@ function DriverManagementPage() {
                               placeholder="e.g. 25"
                               className="mt-1"
                             />
-                            <p className="text-[11px] text-slate-500 mt-1">Feeds the dispatch ETA calc.</p>
+                            <p className="mt-1 text-xs text-slate-500">Feeds the dispatch ETA estimate.</p>
                           </div>
                           <div>
                             <Label htmlFor="max_jobs">Max jobs / shift</Label>
@@ -1054,23 +1069,22 @@ function DriverManagementPage() {
                               placeholder="e.g. 4"
                               className="mt-1"
                             />
-                            <p className="text-[11px] text-slate-500 mt-1">Caps the load picker won't exceed.</p>
+                            <p className="mt-1 text-xs text-slate-500">Maximum jobs the load planner will assign.</p>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </section>
 
-                    {/* ── Section 2b: pay rates ── */}
-                    <Card className="border-slate-200 shadow-none">
-                      <CardContent className="py-4 px-4 space-y-3">
+                    <section className="space-y-4 border-t border-slate-200 pt-5">
+                      <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <Label className="text-xs font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
                             <Activity className="w-3.5 h-3.5 text-brand-primary" />
                             Pay rates
-                          </Label>
-                          <span className="text-[10px] text-slate-400 uppercase tracking-wide">Optional, falls back to company defaults</span>
+                          </h3>
+                          <span className="text-xs text-slate-500">Optional · blank fields use company defaults</span>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                           <div>
                             <Label htmlFor="hourly_rate">Hourly rate (R / hr)</Label>
                             <Input
@@ -1087,7 +1101,7 @@ function DriverManagementPage() {
                               }
                               className="mt-1"
                             />
-                            <p className="text-[11px] text-slate-500 mt-1">Paid per hour on-shift.</p>
+                            <p className="mt-1 text-xs text-slate-500">Paid per hour on shift.</p>
                           </div>
                           <div>
                             <Label htmlFor="distance_rate_per_km">Per-km rate (R / km)</Label>
@@ -1105,7 +1119,7 @@ function DriverManagementPage() {
                               }
                               className="mt-1"
                             />
-                            <p className="text-[11px] text-slate-500 mt-1">Paid per km driven on a job.</p>
+                            <p className="mt-1 text-xs text-slate-500">Paid per kilometre driven on a job.</p>
                           </div>
                           <div>
                             <Label htmlFor="base_callout_fee">Callout fee (R)</Label>
@@ -1123,15 +1137,14 @@ function DriverManagementPage() {
                               }
                               className="mt-1"
                             />
-                            <p className="text-[11px] text-slate-500 mt-1">Flat fee per dispatch.</p>
+                            <p className="mt-1 text-xs text-slate-500">Flat fee per dispatch.</p>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </section>
 
-                    {/* ── Section 3: vehicle ── */}
-                    <Card className="border-slate-200 shadow-none">
-                      <CardContent className="py-4 px-4 space-y-3">
+                    <section className="space-y-4 border-t border-slate-200 pt-5">
+                      <div className="space-y-4">
                         <label className="flex items-start gap-3 cursor-pointer">
                           <Switch
                             checked={newDriver.has_vehicle}
@@ -1154,23 +1167,25 @@ function DriverManagementPage() {
                             <div className="grid grid-cols-2 gap-2">
                               <button
                                 type="button"
+                                aria-pressed={newDriver.vehicle_mode === "new_driver_owned"}
                                 onClick={() => setNewDriver({ ...newDriver, vehicle_mode: "new_driver_owned" })}
                                 className={`px-3 py-2 rounded-md border text-sm flex items-center gap-2 ${
                                   newDriver.vehicle_mode === "new_driver_owned"
                                     ? "bg-brand-primary text-white border-brand-primary"
                                     : "bg-white text-slate-700 border-slate-200 hover:border-brand-primary/40"
-                                }`}
+                                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2`}
                               >
                                 <User className="w-4 h-4" /> Driver brings their own
                               </button>
                               <button
                                 type="button"
+                                aria-pressed={newDriver.vehicle_mode === "existing_company"}
                                 onClick={() => setNewDriver({ ...newDriver, vehicle_mode: "existing_company" })}
                                 className={`px-3 py-2 rounded-md border text-sm flex items-center gap-2 ${
                                   newDriver.vehicle_mode === "existing_company"
                                     ? "bg-brand-primary text-white border-brand-primary"
                                     : "bg-white text-slate-700 border-slate-200 hover:border-brand-primary/40"
-                                }`}
+                                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2`}
                               >
                                 <Building2 className="w-4 h-4" /> Use a company vehicle
                               </button>
@@ -1301,22 +1316,31 @@ function DriverManagementPage() {
                             )}
                           </div>
                         )}
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </section>
 
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <p className="text-sm text-blue-800">
-                        <strong>Note:</strong> The driver can sign in to their portal as soon as you save. Anything you skip here can be filled in from the row's Edit menu later.
+                    <div className="rounded-md bg-slate-50 px-3 py-2.5 text-xs leading-relaxed text-slate-600">
+                      <p>
+                        <strong className="text-slate-800">You can finish setup later.</strong>{" "}
+                        Optional details can be added from the driver&apos;s Edit menu.
                       </p>
                     </div>
-
-                    <Button
-                      type="submit"
-                      className="w-full bg-brand-primary hover:opacity-90"
-                      disabled={addDriverLoading}
-                    >
-                      {addDriverLoading ? "Adding driver..." : "Add driver"}
-                    </Button>
+                    </div>
+                    <DialogFooter className="shrink-0 flex-row items-center justify-between gap-3 border-t border-slate-200 bg-white px-6 py-4">
+                      <p className="hidden text-xs text-slate-500 sm:block">Required fields are marked *</p>
+                      <div className="flex gap-2">
+                        <DialogClose asChild>
+                          <Button type="button" variant="outline" disabled={addDriverLoading}>Cancel</Button>
+                        </DialogClose>
+                        <Button
+                          type="submit"
+                          className="min-w-36 bg-brand-primary hover:opacity-90"
+                          disabled={addDriverLoading}
+                        >
+                          {addDriverLoading ? "Adding driver…" : "Create driver"}
+                        </Button>
+                      </div>
+                    </DialogFooter>
                   </form>
                   )}
                 </DialogContent>
@@ -1499,7 +1523,7 @@ function DriverManagementPage() {
                   const capacityFull = maxJobs != null && currentLoad >= maxJobs;
 
                   return (
-                    <Card key={driver.id} className={`border shadow-sm hover:shadow-md transition-shadow ${onShift ? "border-l-4 border-l-brand-primary" : ""}`}>
+                    <Card key={driver.id} className={`border shadow-sm transition-shadow hover:shadow-md ${onShift ? "border-brand-primary/40 bg-brand-primary/[0.025]" : "border-slate-200"}`}>
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -1949,12 +1973,11 @@ function DriverManagementPage() {
                   They'll disappear from the driver list and won't be able to log in to the driver portal.
                 </p>
                 <div className="rounded-md border border-brand-primary/20 bg-brand-primary/10 px-3 py-2 text-brand-primary text-xs">
-                  <strong>Pay history is preserved.</strong> All shifts, deliveries and the costs
-                  you paid this driver remain on file. They'll show in Driver Settlement under
-                  a "Removed" badge so you can still pay out anything outstanding.
+                  <strong>Work and pay history is preserved.</strong> Shifts, deliveries and
+                  payouts stay attached to this inactive profile for reporting and settlement.
                 </div>
                 <p className="text-xs">
-                  Restore them later by un-archiving the profile in Users.
+                  The email stays on the inactive profile and can be reused when you create a new account.
                 </p>
               </div>
             </AlertDialogDescription>

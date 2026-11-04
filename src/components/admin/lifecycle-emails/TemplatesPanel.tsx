@@ -46,6 +46,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { captureException } from "@/lib/observability";
+import { appendOptionBeforeSignoff, buildOptionBlock } from "@/lib/email/quoteOptionBlock";
 import {
   renderTemplate,
   TEMPLATE_REGISTRY,
@@ -404,6 +405,7 @@ function EditorDrawer({
 }) {
   const { toast } = useToast();
   const isEmail = template.channel === "email";
+  const isQuoteSendTemplate = template.key === "email_quote_sent" || template.key === "email_quote_revised";
 
   const initialSubject = template.isCustomised && template.customSubject != null
     ? template.customSubject
@@ -417,6 +419,7 @@ function EditorDrawer({
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
+  const [quotePreviewMode, setQuotePreviewMode] = useState<"single" | "multiple">("multiple");
 
   const dirty = subject !== initialSubject || body !== initialBody;
 
@@ -433,28 +436,60 @@ function EditorDrawer({
   const previewCtx = useMemo(() => {
     const ctx: Record<string, string> = {};
     for (const v of template.variables) ctx[v.name] = v.example;
+    if (isQuoteSendTemplate) {
+      ctx.has_second_quote = quotePreviewMode === "multiple" ? "true" : "";
+      // A real two-quote send uses the first quote as {{quote_number}}.
+      if (quotePreviewMode === "multiple") ctx.quote_number = ctx.quote_number_1;
+    }
     return ctx;
-  }, [template.variables]);
+  }, [template.variables, isQuoteSendTemplate, quotePreviewMode]);
   const previewSubject = useMemo(() => renderTemplate(subject, previewCtx), [subject, previewCtx]);
-  const previewBody = useMemo(() => renderTemplate(body, previewCtx), [body, previewCtx]);
+  const renderedBody = useMemo(() => renderTemplate(body, previewCtx), [body, previewCtx]);
+  // A saved template with no options section still sends both quotes: the
+  // send dialog adds Option 1 and Option 2 before the sign-off, so the
+  // preview does too.
+  const quoteOptionsAutoAdded = isQuoteSendTemplate
+    && quotePreviewMode === "multiple"
+    && renderedBody.trim() !== ""
+    && !renderedBody.includes(previewCtx.quote_number_2)
+    && !renderedBody.includes(previewCtx.quote_url_2);
+  const previewBody = useMemo(() => (
+    quoteOptionsAutoAdded
+      ? appendOptionBeforeSignoff(renderedBody, ([1, 2] as const).flatMap((position) => [
+          ...(position === 2 ? [""] : []),
+          ...buildOptionBlock({
+            quoteNumber: previewCtx[`quote_number_${position}`],
+            amount: previewCtx[`total_${position}`],
+            quoteUrl: previewCtx[`quote_url_${position}`],
+            guestCount: null,
+            eventDateLabel: previewCtx[`quote_details_${position}`],
+            eventName: previewCtx[`quote_name_${position}`],
+            label: `Option ${position}`,
+          }),
+        ]))
+      : renderedBody
+  ), [quoteOptionsAutoAdded, renderedBody, previewCtx]);
 
-  const insertVar = (name: string) => {
-    const token = `{{${name}}}`;
+  const insertText = (text: string) => {
     const el = document.getElementById("template-body") as HTMLTextAreaElement | null;
     if (el) {
       const start = el.selectionStart ?? body.length;
       const end = el.selectionEnd ?? body.length;
-      const next = body.slice(0, start) + token + body.slice(end);
+      const next = body.slice(0, start) + text + body.slice(end);
       setBody(next);
       requestAnimationFrame(() => {
         el.focus();
-        const caret = start + token.length;
+        const caret = start + text.length;
         el.setSelectionRange(caret, caret);
       });
     } else {
-      setBody(body + token);
+      setBody(body + text);
     }
   };
+  const insertVar = (name: string) => insertText(`{{${name}}}`);
+  const insertQuoteOptionsBlock = () => insertText(
+    "{{#has_second_quote}}\nOption 1 — {{quote_number_1}} ({{quote_name_1}})\n{{quote_details_1}}\nTotal: {{total_1}}\n{{quote_link_1}}\n\nOption 2 — {{quote_number_2}} ({{quote_name_2}})\n{{quote_details_2}}\nTotal: {{total_2}}\n{{quote_link_2}}\n{{/has_second_quote}}",
+  );
 
   const handleSave = async () => {
     if (!companyId) {
@@ -635,7 +670,7 @@ function EditorDrawer({
               Available variables (click to insert)
             </p>
             <div className="flex flex-wrap gap-1.5">
-              {template.variables.map((v) => (
+              {template.variables.filter((v) => !v.editorHidden).map((v) => (
                 <button
                   key={v.name}
                   type="button"
@@ -650,6 +685,23 @@ function EditorDrawer({
             <p className="text-[10px] text-slate-500 leading-snug">
               Variables are replaced at send time with the matching field on the lead / quote / order. Hover a chip for a description and example.
             </p>
+            {isQuoteSendTemplate && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-white px-3 py-2 text-xs text-slate-600">
+                <p>
+                  This template handles one or two quotes. The Option 1 and Option 2 block only shows when you send two quotes.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={insertQuoteOptionsBlock}
+                  disabled={body.includes("{{#has_second_quote}}")}
+                  className="shrink-0"
+                >
+                  {body.includes("{{#has_second_quote}}") ? "Option 1 and Option 2 block added" : "Insert Option 1 and Option 2 block"}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -679,13 +731,42 @@ function EditorDrawer({
 
         <Card className="border-brand-primary/20 bg-brand-primary/10 shadow-none">
           <CardContent className="py-3 px-4 space-y-2">
-            <p className="text-[11px] uppercase tracking-wide text-brand-primary font-semibold">
-              Preview (sample data)
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[11px] uppercase tracking-wide text-brand-primary font-semibold">
+                Preview (sample data)
+              </p>
+              {isQuoteSendTemplate && (
+                <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5" aria-label="Quote preview mode">
+                  {([
+                    { mode: "single", label: "One quote" },
+                    { mode: "multiple", label: "Two quotes" },
+                  ] as const).map(({ mode, label }) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      aria-pressed={quotePreviewMode === mode}
+                      onClick={() => setQuotePreviewMode(mode)}
+                      className={`rounded px-2 py-1 text-[11px] transition-colors ${
+                        quotePreviewMode === mode
+                          ? "bg-brand-primary text-white"
+                          : "text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             {isEmail && (
               <p className="text-sm font-semibold text-slate-900">{previewSubject || "(empty subject)"}</p>
             )}
             <p className="text-sm whitespace-pre-wrap text-slate-700">{previewBody || "(empty body)"}</p>
+            {quoteOptionsAutoAdded && (
+              <p className="text-[11px] leading-snug text-slate-600">
+                This email has no Option 1 and Option 2 block, so both are added automatically before your sign-off. To choose where they go, use Insert Option 1 and Option 2 block.
+              </p>
+            )}
           </CardContent>
         </Card>
 

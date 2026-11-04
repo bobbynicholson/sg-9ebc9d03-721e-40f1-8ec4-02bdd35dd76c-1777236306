@@ -29,7 +29,8 @@ function resolveServerClient(): any {
     return browserSupabase;
   }
 }
-const supabase: any = resolveServerClient();
+const defaultSupabase: any = resolveServerClient();
+const supabase: any = defaultSupabase;
 
 /**
  * Order Workflow Management
@@ -91,9 +92,15 @@ const ALLOWED_RESUME_FROM = new Set<string>(["paused"]);
 export async function updateOrderStatus(
   orderId: string,
   newStatus: string,
-  updatedBy?: string
+  updatedBy?: string,
+  client?: any
 ) {
   try {
+    // API routes can pass the exact server client used for their auth and
+    // tenant checks. Keep all status writes and their cascades on that same
+    // client instead of relying on the module-level browser/server fallback.
+    const supabase: any = client || defaultSupabase;
+
     // State-machine guard. Read current status before update; reject
     // transitions not in ALLOWED_ORDER_TRANSITIONS. Previously the
     // function happily flipped pending -> delivered, skipping
@@ -620,19 +627,12 @@ export async function updateOrderStatus(
             console.error("[order/orderWorkflow] driver_assignments fetch failed:", existingCollectionErr);
           }
           if (!existingCollection) {
-            // Find the delivery assignment to copy driver + as parent.
-            const { data: deliveryAssignment, error: deliveryAssignmentErr } = await (supabase as any)
-              .from("driver_assignments")
-              .select("id, driver_id")
-              .eq("order_id", order.id)
-              .eq("assignment_type", "delivery")
-              .maybeSingle();
-            if (deliveryAssignmentErr) {
-              console.error("[order/orderWorkflow] driver_assignments fetch failed:", deliveryAssignmentErr);
-            }
-
-            const deliveryDriverId =
-              (deliveryAssignment as any)?.driver_id || order.assigned_driver_id || null;
+            // Use the active whole-order delivery assignment (the sitting
+            // schedule has its own collection rows), then the legacy order
+            // driver fields for older bookings.
+            const { loadDeliveryAssignment } = await import("@/services/equipmentReturnOps");
+            const deliveryAssignment = await loadDeliveryAssignment(supabase, order as any);
+            const deliveryDriverId = deliveryAssignment.driverId;
             if (deliveryDriverId) {
               // Same rule the office "Book collection" action uses.
               const scheduledFor = collectionScheduledFor(order.event_date, order.event_time, returnMethod);
@@ -645,7 +645,7 @@ export async function updateOrderStatus(
                   driver_id: deliveryDriverId,
                   assignment_type: "collection",
                   scheduled_for: scheduledFor.toISOString(),
-                  parent_assignment_id: (deliveryAssignment as any)?.id || null,
+                  parent_assignment_id: deliveryAssignment.id,
                   // 'assigned' is the valid enum entry point (the
                   // assignment_status enum has NO 'pending' - inserting it
                   // 22P02'd and the whole collection trip silently never got

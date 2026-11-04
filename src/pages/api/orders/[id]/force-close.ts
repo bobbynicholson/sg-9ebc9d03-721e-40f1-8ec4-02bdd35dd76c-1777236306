@@ -107,11 +107,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     //   the read. If the read FAILS, the failure mode is
     //   diagnostically honest: either auth missing (handled above),
     //   wrong company (clear "Wrong company" 403), or genuinely not
-    //   in the database. The service-role client is still used below
-    //   for the privileged writes (kitchen_prep_tasks update +
-    //   audit_logs insert) where bypassing RLS is the intended
-    //   behaviour. getServiceSupabase() now also validates the role
-    //   claim on first call so an anon-key misconfig fails loudly.
+    //   in the database. The same validated service client is passed
+    //   through prep-task updates, order stamps, status transitions
+    //   and audit logs where bypassing RLS is intended.
+    //   getServiceSupabase() also validates the role claim on first call so
+    //   an anon-key misconfig fails loudly.
     //
     // Wave 70.33 - accept either a UUID `id` or an order_number
     // ("ORD-003829"). OrderReadinessChip passes UUID; defensive
@@ -212,11 +212,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // 1. Mark any pending / in-progress prep tasks as done. Preserves
     //    rows for the audit trail; the chef sees them flip on the
     //    production page.
-    const { count: tasksFlipped } = await admin
+    const { count: tasksFlipped, error: taskUpdateError } = await admin
       .from("kitchen_prep_tasks")
       .update({ status: "done", completed_at: new Date().toISOString() }, { count: "exact" })
       .eq("order_id", resolvedOrderId)
       .in("status", ["pending", "in_progress"]);
+    if (taskUpdateError) throw taskUpdateError;
 
     // 2. Best-guess clock for historical orders: event_time on
     //    event_date if both set, else now. Stamp only the columns
@@ -238,7 +239,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (!(order as any).picked_up_at) stamps.picked_up_at = bestGuessIso;
     if (!(order as any).delivered_at) stamps.delivered_at = bestGuessIso;
     if (Object.keys(stamps).length > 0) {
-      await admin.from("orders").update(stamps).eq("id", resolvedOrderId);
+      const { error: stampError } = await admin
+        .from("orders")
+        .update(stamps)
+        .eq("id", resolvedOrderId);
+      if (stampError) throw stampError;
     }
 
     // 3. Walk the canonical state machine instead of jumping directly.
@@ -247,7 +252,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const transitions = forceClosePath(currentStatus, targetStatus);
     const transitionResults: Array<{ to: string; ok: boolean; error?: string }> = [];
     for (const nextStatus of transitions) {
-      const statusResult = await updateOrderStatus(resolvedOrderId, nextStatus as any, user.id);
+      const statusResult = await updateOrderStatus(
+        resolvedOrderId,
+        nextStatus as any,
+        user.id,
+        admin,
+      );
       const ok = !!((statusResult as any)?.success || (statusResult as any)?.ok);
       transitionResults.push({ to: nextStatus, ok, error: (statusResult as any)?.error });
       if (!ok) {

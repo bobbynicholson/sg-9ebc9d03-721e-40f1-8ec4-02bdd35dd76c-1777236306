@@ -96,6 +96,7 @@ interface DriverRow {
   id: string;
   full_name: string;
   email: string;
+  phone: string;
   is_active: boolean;
   /** Soft-deleted via /admin/driver-management remove. We still show
    *  them in settlement because their historical pay is real and the
@@ -107,6 +108,21 @@ interface SettlementRow {
   driver: DriverRow;
   summary: DriverPaySummary | null;
   loading: boolean;
+}
+
+interface DriverPayslipCompanyProfile {
+  companyName: string;
+  companyLegalName?: string | null;
+  companyAddress?: string | null;
+  companyEmail?: string | null;
+  companyPhone?: string | null;
+  companyWebsite?: string | null;
+  companyRegistrationNumber?: string | null;
+  companyTaxNumber?: string | null;
+  companyVatNumber?: string | null;
+  companyVatRegistered?: boolean | null;
+  companyLogoUrl?: string | null;
+  companyBrandColor?: string | null;
 }
 
 export default function ProtectedDriverSettlementPage() {
@@ -154,7 +170,8 @@ function DriverSettlementPage() {
   const [driversError, setDriversError] = useState<string | null>(null);
   const [loadTick, setLoadTick] = useState(0);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [companyName, setCompanyName] = useState<string>("CateringMS");
+  const [companyProfile, setCompanyProfile] = useState<DriverPayslipCompanyProfile | null>(null);
+  const [companyProfileLoading, setCompanyProfileLoading] = useState(true);
   // Phase 8 #1: bump to refetch pay summaries after a shift edit
   // or delete lands. We hold this at the page level so the recompute
   // effect can re-run without losing the rows list.
@@ -202,19 +219,52 @@ function DriverSettlementPage() {
     busy: boolean;
   }>(null);
 
-  // Phase 4 #7: pull the company name once so per-driver payslips
-  // have the right header. Cheap; one row, runs on mount.
+  // Company identity is always read from the signed-in tenant. The
+  // same saved profile fields drive invoice headers and payslips.
   useEffect(() => {
-    if (!user?.company_id) return;
+    let cancelled = false;
+    setCompanyProfile(null);
+    setCompanyProfileLoading(true);
+    if (!user?.company_id) {
+      setCompanyProfileLoading(false);
+      return () => { cancelled = true; };
+    }
     (async () => {
-      const { supabase } = await import("@/integrations/supabase/client");
       const { data } = await supabase
         .from("companies")
-        .select("company_name")
+        .select("company_name, legal_name, email, phone, website, address_line1, address_line2, city, state_province, postal_code, country, registration_number, tax_number, vat_registered, vat_number, logo_url, primary_color, accent_color, slug")
         .eq("id", user.company_id)
         .maybeSingle();
-      if ((data as any)?.company_name) setCompanyName((data as any).company_name);
-    })().catch(() => { /* default name is fine */ });
+      if (cancelled) return;
+      if (!data) throw new Error("Company profile could not be loaded for this payslip.");
+      const company = data as any;
+      const slug = String(company.slug || "").trim();
+      const companyName = String(company.company_name || company.legal_name || "").trim();
+      if (!companyName) throw new Error("Add a business name in company settings before generating payslips.");
+      setCompanyProfile({
+        companyName,
+        companyLegalName: company.legal_name || null,
+        companyAddress: [company.address_line1, company.address_line2, company.city, company.state_province, company.postal_code, company.country]
+          .filter(Boolean)
+          .join(", "),
+        companyEmail: company.email || null,
+        companyPhone: company.phone || null,
+        companyWebsite: company.website || null,
+        companyRegistrationNumber: company.registration_number || null,
+        companyTaxNumber: company.tax_number || null,
+        companyVatNumber: company.vat_number || null,
+        companyVatRegistered: !!company.vat_registered,
+        companyLogoUrl: slug ? `/api/pwa/icon?slug=${encodeURIComponent(slug)}&size=180` : null,
+        companyBrandColor: company.primary_color || company.accent_color || null,
+      });
+    })().catch((error) => {
+      captureException(error, {
+        tags: { route: "/admin/driver-settlement", step: "load-payslip-company", companyId: user?.company_id },
+      });
+    }).finally(() => {
+      if (!cancelled) setCompanyProfileLoading(false);
+    });
+    return () => { cancelled = true; };
   }, [user?.company_id]);
 
   useEffect(() => {
@@ -246,7 +296,7 @@ function DriverSettlementPage() {
       try {
         let q = (supabase as any)
           .from("profiles")
-          .select("id, full_name, email, is_active, deleted_at, region_id")
+          .select("id, full_name, email, phone, phone_number, mobile_number, is_active, deleted_at, region_id")
           .eq("company_id", user.company_id)
           .eq("role", "driver");
         // DRV-B region filter: when the global filter is set, match
@@ -261,6 +311,7 @@ function DriverSettlementPage() {
           id: d.id,
           full_name: d.full_name || d.email || "Unnamed",
           email: d.email || "",
+          phone: d.phone || d.phone_number || d.mobile_number || "",
           is_active: !!d.is_active,
           is_removed: !!d.deleted_at,
         }));
@@ -1123,7 +1174,8 @@ function DriverSettlementPage() {
                                   periodFrom={from}
                                   periodTo={to}
                                   companyId={user?.company_id || ""}
-                                  companyName={companyName}
+                                  companyProfile={companyProfile}
+                                  companyProfileLoading={companyProfileLoading}
                                   currencyCode={tenantCurrency.code}
                                   formatR={formatR}
                                   toast={toast}
@@ -1265,7 +1317,7 @@ function DriverSettlementPage() {
 }
 
 function FragmentRows({
-  row, t, isOpen, onToggle, periodFrom, periodTo, companyId, companyName, currencyCode, formatR = formatRDefault, toast, actorUserId, onShiftChanged,
+  row, t, isOpen, onToggle, periodFrom, periodTo, companyId, companyProfile, companyProfileLoading, currencyCode, formatR = formatRDefault, toast, actorUserId, onShiftChanged,
   payout, onMarkPaid, onReverse,
 }: {
   row: SettlementRow;
@@ -1275,7 +1327,8 @@ function FragmentRows({
   periodFrom: string;
   periodTo: string;
   companyId: string;
-  companyName: string;
+  companyProfile: DriverPayslipCompanyProfile | null;
+  companyProfileLoading: boolean;
   /** TIGHTEN I.100: tenant currency code (companies.currency). Drives
    *  the symbol on the generated payslip PDF. */
   currencyCode?: string;
@@ -1400,27 +1453,40 @@ function FragmentRows({
       setShiftBusy(false);
     }
   };
-  // Phase 4 #7: payslip download. jsPDF render of the same summary
-  // the row above shows, so the operator can email or print one
-  // per driver without re-keying anything.
+  // Payslips always load the full shift and delivery lines on demand;
+  // the compact table summary intentionally omits those arrays.
+  const getPayslipSummary = async () => {
+    if (detail) return detail;
+    const fullSummary = await driverPayService.getPaySummary({
+      companyId,
+      driverId: row.driver.id,
+      range: { from: periodFrom, to: periodTo },
+    });
+    setDetail(fullSummary);
+    return fullSummary;
+  };
+
+  // Phase 4 #7: payslip download. The full period breakdown is loaded
+  // even when the operator has not expanded the driver row first.
   const handleDownload = async () => {
-    // DRV-B: prefer the per-shift detail when loaded so the payslip
-    // PDF has the full breakdown; fall back to the thin bulk
-    // summary on a "PDF without expanding" tap.
-    const summaryForPdf = detail || row.summary;
+    if (!companyProfile) throw new Error("Company details are unavailable. Refresh and try again.");
+    const summaryForPdf = await getPayslipSummary();
     if (!summaryForPdf) return;
     const { driverPayslipService } = await import("@/services/driverPayslipService");
-    const blob = driverPayslipService.generatePayslipPdf(
-      {
-        companyName,
-        driverName: row.driver.full_name,
-        driverEmail: row.driver.email || null,
-        periodFrom,
-        periodTo,
-        currencyCode,
-      },
-      summaryForPdf,
-    );
+    const exactPayout = payout?.period_from === periodFrom && payout.period_to === periodTo ? payout : null;
+    const blob = await driverPayslipService.generatePayslipPdf({
+      ...companyProfile,
+      driverName: row.driver.full_name,
+      driverEmail: row.driver.email || null,
+      driverPhone: row.driver.phone || null,
+      periodFrom,
+      periodTo,
+      currencyCode,
+      payoutStatus: exactPayout?.status || null,
+      payoutMethod: exactPayout?.paid_method || null,
+      payoutReference: exactPayout?.paid_reference || null,
+      paidAt: exactPayout?.paid_at || null,
+    }, summaryForPdf);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -1434,20 +1500,24 @@ function FragmentRows({
   // base64-encoded as an attachment on the per-tenant emailService
   // send so it picks up the company's branded sender + audit logging.
   const handleEmail = async () => {
-    const summaryForPdf = detail || row.summary;
+    if (!companyProfile) throw new Error("Company details are unavailable. Refresh and try again.");
+    const summaryForPdf = await getPayslipSummary();
     if (!summaryForPdf || !row.driver.email) return;
     const { driverPayslipService } = await import("@/services/driverPayslipService");
-    const blob = driverPayslipService.generatePayslipPdf(
-      {
-        companyName,
-        driverName: row.driver.full_name,
-        driverEmail: row.driver.email,
-        periodFrom,
-        periodTo,
-        currencyCode,
-      },
-      summaryForPdf,
-    );
+    const exactPayout = payout?.period_from === periodFrom && payout.period_to === periodTo ? payout : null;
+    const blob = await driverPayslipService.generatePayslipPdf({
+      ...companyProfile,
+      driverName: row.driver.full_name,
+      driverEmail: row.driver.email,
+      driverPhone: row.driver.phone || null,
+      periodFrom,
+      periodTo,
+      currencyCode,
+      payoutStatus: exactPayout?.status || null,
+      payoutMethod: exactPayout?.paid_method || null,
+      payoutReference: exactPayout?.paid_reference || null,
+      paidAt: exactPayout?.paid_at || null,
+    }, summaryForPdf);
     // Resend / nodemailer attachment shape: filename + content (base64).
     const buf = await blob.arrayBuffer();
     const base64 = btoa(
@@ -1571,10 +1641,20 @@ function FragmentRows({
               onClick={async () => {
                 if (pdfBusy) return;
                 setPdfBusy(true);
-                try { await handleDownload(); } finally { setPdfBusy(false); }
+                try {
+                  await handleDownload();
+                } catch (e: any) {
+                  toast({
+                    title: "Could not create payslip",
+                    description: e?.message || "Try again.",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setPdfBusy(false);
+                }
               }}
-              disabled={!hasPay || pdfBusy}
-              title={hasPay ? "Download payslip PDF" : "No pay this period"}
+              disabled={!hasPay || pdfBusy || companyProfileLoading || !companyProfile}
+              title={companyProfileLoading ? "Loading company details" : !companyProfile ? "Company details unavailable" : hasPay ? "Download payslip PDF" : "No pay this period"}
             >
               <Download className="w-3 h-3" /> {pdfBusy ? "..." : "PDF"}
             </Button>
@@ -1583,7 +1663,7 @@ function FragmentRows({
                 variant="ghost"
                 size="sm"
                 className="h-7 px-2 text-xs gap-1"
-                disabled={!hasPay || emailBusy}
+                disabled={!hasPay || emailBusy || companyProfileLoading || !companyProfile}
                 onClick={async () => {
                   if (emailBusy) return;
                   setEmailBusy(true);
@@ -1603,7 +1683,7 @@ function FragmentRows({
                     setEmailBusy(false);
                   }
                 }}
-                title={hasPay ? "Email this payslip to the driver" : "No pay this period"}
+                title={companyProfileLoading ? "Loading company details" : !companyProfile ? "Company details unavailable" : hasPay ? "Email this payslip to the driver" : "No pay this period"}
               >
                 {emailBusy ? "Sending..." : "Email"}
               </Button>

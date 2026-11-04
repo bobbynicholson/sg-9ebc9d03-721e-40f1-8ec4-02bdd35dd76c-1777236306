@@ -220,6 +220,8 @@ export interface QuoteTemplateContext {
   guestCount?: number;
   total?: number;
   quoteRef?: string;
+  /** Absolute public quote URL for follow-up messages. */
+  quoteUrl?: string;
   daysSinceSent?: number;
   fromName?: string;
   companyName?: string;
@@ -285,7 +287,13 @@ function buildQuoteCtx(ctx: QuoteTemplateContext): Record<string, string | numbe
     guest_count:  ctx.guestCount ?? "",
     quote_ref:    ctx.quoteRef ? ` (ref ${ctx.quoteRef})` : "",
     total:        fmtMoney(ctx.total, ctx.currencyCode),
+    quote_url:    ctx.quoteUrl || "",
   };
+}
+
+function ensureQuoteLink(body: string, quoteUrl?: string): string {
+  if (!quoteUrl || body.includes(quoteUrl)) return body;
+  return `${body.trim()}\n\nYou can open and review your quote again here:\n${quoteUrl}`;
 }
 
 export function templateForQuote(status: QuoteStatus, ctx: QuoteTemplateContext): { subject: string; body: string } {
@@ -298,7 +306,10 @@ export function templateForQuote(status: QuoteStatus, ctx: QuoteTemplateContext)
       ctx: buildQuoteCtx(ctx),
     });
     if (resolved && resolved.fromOverride) {
-      return { subject: resolved.subject, body: resolved.body };
+      return {
+        subject: resolved.subject,
+        body: status === "sent" ? ensureQuoteLink(resolved.body, ctx.quoteUrl) : resolved.body,
+      };
     }
   }
 
@@ -320,7 +331,7 @@ export function templateForQuote(status: QuoteStatus, ctx: QuoteTemplateContext)
     case "sent":
       return {
         subject: `Following up on your quote${ref}`,
-        body: `Hi ${first},\n\nJust circling back on the quote we sent across for ${eventLine}.${totalLine}\n\nAnything you would like changed, or shall we lock in the date for you? Happy to walk through the menu options if it would help.${sig}`,
+        body: `Hi ${first},\n\nJust circling back on the quote we sent across for ${eventLine}.${totalLine}${ctx.quoteUrl ? `\n\nYou can open and review it again here:\n${ctx.quoteUrl}` : ""}\n\nAnything you would like changed, or shall we lock in the date for you? Happy to walk through the menu options if it would help.${sig}`,
       };
     // TIGHTEN I.75: 'revised' case dropped - the enum no longer
     // carries it and no caller can produce that status.

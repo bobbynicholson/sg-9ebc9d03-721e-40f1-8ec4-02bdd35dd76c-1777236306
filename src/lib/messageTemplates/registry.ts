@@ -69,6 +69,8 @@ export interface TemplateVariable {
   description: string;
   /** Sample value shown in the live preview. */
   example: string;
+  /** Internal control value used by conditional template sections. */
+  editorHidden?: boolean;
 }
 
 export interface TemplateDefinition {
@@ -139,6 +141,25 @@ const QUOTE_VARS: TemplateVariable[] = [
   { name: "equipment_breakdown", description: "Equipment line breakdown with qty x price = total", example: "2 x R 450.00 = R 900.00" },
   { name: "quote_url",     description: "Link for the client to view + accept the quote", example: "https://cateringms.com/.../q/abc123" },
   { name: "guest_count",   description: "Number of guests",                      example: "30" },
+];
+
+const QUOTE_SEND_VARS: TemplateVariable[] = [
+  ...QUOTE_VARS,
+  { name: "quote_number_1", description: "First quote reference number", example: "QUO-000061" },
+  { name: "quote_name_1", description: "First quote option or event name", example: "On-site catering" },
+  { name: "quote_details_1", description: "First quote guest count and event date, when available", example: "50 guests — 13 February 2027 at 7:00 pm" },
+  { name: "total_1", description: "First quote total", example: "R 12 345.00" },
+  { name: "equipment_breakdown_block", description: "Equipment breakdown for the first quote, when available", example: "Equipment breakdown for option 1:\n- Spit roast: 1 x R 5 000 = R 5 000" },
+  { name: "quote_link_1", description: "First quote link, or attached-PDF guidance when no link is available", example: "View and accept this quote: https://cateringms.com/.../q/option-1" },
+  ...([1, 2] as const).flatMap((position) => [
+    { name: `quote_url_${position}`, description: `Direct link to view and accept quote ${position}`, example: `https://cateringms.com/.../q/option-${position}` },
+  ]),
+  { name: "quote_number_2", description: "Second quote reference number", example: "QUO-000062" },
+  { name: "quote_name_2", description: "Second quote option or event name", example: "Off-site catering" },
+  { name: "quote_details_2", description: "Second quote guest count and event date, when available", example: "50 guests — 13 February 2027 at 6:30 pm" },
+  { name: "total_2", description: "Second quote total", example: "R 11 950.00" },
+  { name: "quote_link_2", description: "Second quote link, or attached-PDF guidance when no link is available", example: "View and accept this quote: https://cateringms.com/.../q/option-2" },
+  { name: "has_second_quote", description: "Internal control: encloses the optional second quote block", example: "true", editorHidden: true },
 ];
 
 const STAFF_VARS: TemplateVariable[] = [
@@ -431,7 +452,8 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     defaultSubject: "Following up on your {{event_name}} quote",
     defaultBody:
       `Hi {{first_name}},\n\n` +
-      `Just circling back on the quote we sent across. Anything you'd like changed, or shall we lock the date in for you?\n\n` +
+      `Just circling back on the quote we sent across. You can open and review it again here:\n{{quote_url}}\n\n` +
+      `Anything you'd like changed, or shall we lock the date in for you?\n\n` +
       `Happy to walk through the menu options if helpful.\n\nBest,\n{{from_name}}`,
     variables: QUOTE_VARS,
   },
@@ -469,15 +491,28 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     category: "client",
     group: "Quote",
     label: "New quote email",
-    description: "First send of a fresh quote.",
+    description: "First send of a fresh quote, with one quote or two quote options.",
     defaultSubject: "Your {{event_name}} quote from {{tenant_name}} - {{total_zar}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
+      `{{^has_second_quote}}` +
       `Thank you for the opportunity to quote on {{event_name}}. Your quote {{quote_number}} is ready, and the total comes to {{total}} including VAT.\n\n` +
       `{{equipment_breakdown}}\n\n` +
       `You can view the full breakdown and accept your quote here:\n{{quote_url}}\n\n` +
-      `Please have a look when you get a chance and let me know if anything needs changing. I am happy to adjust the menu or talk through the options on a quick call.\n\nKind regards,\n{{from_name}}`,
-    variables: QUOTE_VARS,
+      `Please have a look when you get a chance and let me know if anything needs changing. I am happy to adjust the menu or talk through the options on a quick call.\n\n{{/has_second_quote}}` +
+      `{{#has_second_quote}}Thank you for the opportunity to quote on {{event_name}}. I've put together two options:\n\n` +
+      `Option 1 — {{quote_number_1}} ({{quote_name_1}})\n` +
+      `{{quote_details_1}}\n` +
+      `Total: {{total_1}}\n` +
+      `{{quote_link_1}}\n\n` +
+      `Option 2 — {{quote_number_2}} ({{quote_name_2}})\n` +
+      `{{quote_details_2}}\n` +
+      `Total: {{total_2}}\n` +
+      `{{quote_link_2}}\n\n` +
+      `{{equipment_breakdown_block}}\n\n` +
+      `Please have a look when you get a chance and let me know if anything needs changing. I am happy to adjust the menu or talk through the options on a quick call.\n\n{{/has_second_quote}}` +
+      `Kind regards,\n{{from_name}}`,
+    variables: QUOTE_SEND_VARS,
   },
   {
     key: "quote_price_updated",
@@ -508,15 +543,28 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     category: "client",
     group: "Quote",
     label: "Revised quote email",
-    description: "Manual re-send after editing a quote; separate from the automatic quote price update.",
+    description: "Manual re-send after editing one quote or two quote options; separate from the automatic quote price update.",
     defaultSubject: "Your revised {{event_name}} quote - {{total_zar}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
+      `{{^has_second_quote}}` +
       `Thank you for your patience. I have updated your quote {{quote_number}} for {{event_name}} based on what we last discussed, and the new total comes to {{total}} including VAT.\n\n` +
       `{{equipment_breakdown}}\n\n` +
       `You can view the updated quote here:\n{{quote_url}}\n\n` +
-      `Please take a look when you can and let me know if anything still needs tweaking. Happy to make further changes.\n\nKind regards,\n{{from_name}}`,
-    variables: QUOTE_VARS,
+      `Please take a look when you can and let me know if anything still needs tweaking. Happy to make further changes.\n\n{{/has_second_quote}}` +
+      `{{#has_second_quote}}Thank you for your patience. I've updated the two quote options for {{event_name}} based on what we last discussed:\n\n` +
+      `Option 1 — {{quote_number_1}} ({{quote_name_1}})\n` +
+      `{{quote_details_1}}\n` +
+      `Updated total: {{total_1}}\n` +
+      `{{quote_link_1}}\n\n` +
+      `Option 2 — {{quote_number_2}} ({{quote_name_2}})\n` +
+      `{{quote_details_2}}\n` +
+      `Updated total: {{total_2}}\n` +
+      `{{quote_link_2}}\n\n` +
+      `{{equipment_breakdown_block}}\n\n` +
+      `Please take a look when you can and let me know if either option still needs tweaking. Happy to make further changes.\n\n{{/has_second_quote}}` +
+      `Kind regards,\n{{from_name}}`,
+    variables: QUOTE_SEND_VARS,
   },
   {
     key: "email_quote_accepted",
@@ -696,7 +744,8 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     defaultSubject: "Following up on your {{event_name}} quote - {{total_zar}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
-      `Just circling back on the quote we sent for your {{event_name}}. Anything you would like changed, or shall we lock the date in?\n\nBest,\n{{from_name}}`,
+      `Just circling back on the quote we sent for your {{event_name}}. You can open and review it again here:\n{{quote_url}}\n\n` +
+      `Anything you would like changed, or shall we lock the date in?\n\nBest,\n{{from_name}}`,
     variables: QUOTE_VARS,
   },
   {
@@ -1875,8 +1924,8 @@ const DELIVERY_WIRING: Record<string, { delivery: MessageDelivery; trigger?: str
   email_lead_reopen:     { delivery: "manual", trigger: "Click Reopen on a lost lead in /admin/leads.",              settingsLink: "/admin/leads" },
 
   // --- MANUAL: quote outreach (operator clicks Send / Follow up in /admin/quotes) ---
-  email_quote_sent:     { delivery: "manual", trigger: "Click Send on a fresh quote in /admin/quotes.",     settingsLink: "/admin/quotes" },
-  email_quote_revised:  { delivery: "manual", trigger: "Click Re-send after editing a quote.",              settingsLink: "/admin/quotes" },
+  email_quote_sent:     { delivery: "manual", trigger: "Click Send on a fresh quote in /admin/quotes; add a second quote in the dialog to send two options.", settingsLink: "/admin/quotes" },
+  email_quote_revised:  { delivery: "manual", trigger: "Click Re-send after editing a quote; works with one quote or two quote options.", settingsLink: "/admin/quotes" },
   email_quote_accepted: { delivery: "manual", trigger: "Click Confirm next steps after a quote is accepted.", settingsLink: "/admin/quotes" },
   email_quote_expired:  { delivery: "manual", trigger: "Click Refresh on an expired quote in /admin/quotes.", settingsLink: "/admin/quotes" },
   email_quote_draft:    { delivery: "manual", trigger: "Click Notify on a draft quote in /admin/quotes.",   settingsLink: "/admin/quotes" },
@@ -1991,7 +2040,15 @@ export function groupTemplates(): Array<{
  * the typo) rather than silently rendering as "undefined".
  */
 export function renderTemplate(body: string, ctx: Record<string, string | number | null | undefined>): string {
-  return body.replace(/\{\{\s*([a-z_][a-z0-9_]*)\s*\}\}/gi, (_match, name: string) => {
+  const renderSections = (template: string): string =>
+    template.replace(/\{\{\s*([#^])([\w.]+)\s*\}\}([\s\S]*?)\{\{\s*\/\2\s*\}\}/g, (_match, marker: string, name: string, content: string) => {
+      const value = ctx[name];
+      const normalized = value == null ? "" : String(value).trim().toLowerCase();
+      const enabled = normalized !== "" && normalized !== "false" && normalized !== "0";
+      return (enabled === (marker === "#")) ? renderSections(content) : "";
+    });
+
+  return renderSections(body).replace(/\{\{\s*([a-z_][a-z0-9_]*)\s*\}\}/gi, (_match, name: string) => {
     const value = ctx[name];
     if (value === undefined || value === null || value === "") {
       return _match;

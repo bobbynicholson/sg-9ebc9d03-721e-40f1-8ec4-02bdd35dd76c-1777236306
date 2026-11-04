@@ -3,7 +3,7 @@
  * ODOC: waiter section - service-phase progress per assigned waiter.
  * Reads event_attendance rows (one per waiter per order).
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
@@ -116,8 +116,11 @@ export function WaiterSection({ orderId, companyId, serviceRequired = false, def
     ? userRoles.some((role) => ADMIN_ASSIGN_ROLES.has(String(role)))
     : ADMIN_ASSIGN_ROLES.has(String(user?.role || ""));
 
+  // Only the first load for an order shows the spinner. Live updates refresh
+  // the rows in place so the section does not blink.
+  const shownOrderRef = useRef<string | null>(null);
   const loadRows = useCallback(async () => {
-    setLoading(true);
+    if (shownOrderRef.current !== orderId) setLoading(true);
     setSectionError(null);
     try {
       const { data, error } = await (supabase as any)
@@ -127,6 +130,7 @@ export function WaiterSection({ orderId, companyId, serviceRequired = false, def
         .order("arrived_at", { ascending: true, nullsFirst: true });
       if (error) throw error;
       setRows((data || []) as Attendance[]);
+      shownOrderRef.current = orderId;
     } catch (e: any) {
       captureException(e, { tags: { route: "/order/[id]", step: "loadWaiterSection", orderId, companyId } });
       setSectionError("We couldn't load the service team. Refresh the page and try again.");

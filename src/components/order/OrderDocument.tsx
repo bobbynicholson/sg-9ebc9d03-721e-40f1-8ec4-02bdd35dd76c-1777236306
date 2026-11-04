@@ -594,9 +594,12 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
     [staffAllowed],
   );
 
+  // A live update must refresh the order in place. Showing the loader removed
+  // every section, closing what was open and losing the scroll position.
+  const orderShownRef = useRef(false);
   const load = useCallback(async () => {
     if (!orderId) return;
-    setLoading(true);
+    if (!orderShownRef.current) setLoading(true);
     setNotFound(false);
     try {
       const { data, error } = await supabase
@@ -608,7 +611,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
         .is("deleted_at", null)
         .maybeSingle();
       if (error) throw error;
-      if (!data) { setNotFound(true); setOrder(null); }
+      if (!data) { orderShownRef.current = false; setNotFound(true); setOrder(null); }
       else {
         let paymentTermsText = configuredPaymentTerms(null);
         try {
@@ -624,17 +627,22 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
           ...(data as any),
           payment_terms_text: paymentTermsText,
         } as unknown as OrderHead);
+        orderShownRef.current = true;
       }
       setLastLoadedAt(new Date());
     } catch (e: any) {
       captureException(e, { tags: { route: ROUTE_TAG, step: "loadOrderHead", orderId } });
-      setNotFound(true);
+      // A failed background refresh keeps the order that is already showing.
+      if (!orderShownRef.current) setNotFound(true);
     } finally {
       setLoading(false);
     }
   }, [orderId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    orderShownRef.current = false;
+    load();
+  }, [load]);
 
   // ODOC: realtime on the order head. Section data is sub'd inside
   // each section component to keep the network footprint scoped.
@@ -974,6 +982,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
               forceOpen={forceAll}
               defaultOpen={true /* timeline is universal context */}
               hideNowBanner={!staffAllowed}
+              onChanged={load}
             />
             {/* ODOC: client-facing delivery + driver card. The staff
                 DriverSection (dispatch run-sheet + POD + actions) stays hidden

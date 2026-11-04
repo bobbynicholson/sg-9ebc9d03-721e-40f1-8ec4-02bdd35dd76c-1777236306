@@ -1306,6 +1306,58 @@ function AdminQuotesInner() {
   const [markLostNote, setMarkLostNote] = useState<string>("");
   const [markLostBusy, setMarkLostBusy] = useState(false);
 
+  const [duplicateQuoteTarget, setDuplicateQuoteTarget] = useState<Quote | null>(null);
+  const [duplicateQuoteDate, setDuplicateQuoteDate] = useState("");
+  const [duplicateQuoteBusy, setDuplicateQuoteBusy] = useState(false);
+
+  const openDuplicateQuoteDialog = (quote: Quote) => {
+    const defaultDate = new Date();
+    defaultDate.setDate(defaultDate.getDate() + 7);
+    setDuplicateQuoteDate(toLocalISO(defaultDate));
+    setDuplicateQuoteTarget(quote);
+  };
+
+  const submitDuplicateQuote = async () => {
+    if (!duplicateQuoteTarget || !/^\d{4}-\d{2}-\d{2}$/.test(duplicateQuoteDate)) return;
+
+    setDuplicateQuoteBusy(true);
+    const progressToast = toast({
+      title: "Duplicating quote...",
+      description: `Creating a new draft for ${duplicateQuoteDate}.`,
+    });
+
+    try {
+      const res = await quoteService.duplicateQuote(duplicateQuoteTarget.id, duplicateQuoteDate);
+      if (!res.success) {
+        toast({
+          title: "Could not duplicate",
+          description: (res as { success: false; error: string }).error,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Quote duplicated",
+        description: `New quote ${(res.data as any).quote_number} created on ${duplicateQuoteDate}.`,
+      });
+      setDuplicateQuoteTarget(null);
+
+      const fresh = await quoteService.getQuotes(user.company_id!);
+      setQuotes(fresh);
+      await router.push(withSlug(`/admin/quotes/new?fromQuoteId=${(res.data as any).id}`));
+    } catch (err: any) {
+      toast({
+        title: "Could not duplicate",
+        description: dbErrorMessage(err, { entity: "quote", fallback: "Could not duplicate this quote." }),
+        variant: "destructive",
+      });
+    } finally {
+      progressToast.dismiss();
+      setDuplicateQuoteBusy(false);
+    }
+  };
+
   const handleMarkAsLost = (quote: Quote) => {
     // Open the dialog instead of running inline. Default reason is
     // 'no_response' - the most common admin-side loss path (operator
@@ -2099,6 +2151,9 @@ function AdminQuotesInner() {
                     : undefined,
                   total: rs.quote.total ?? rs.quote.subtotal ?? 0,
                   quoteRef: (rs.quote as any).quote_number || rs.quote.id?.slice(0, 8),
+                  quoteUrl: (rs.quote as any).public_token
+                    ? buildPublicQuoteUrl((rs.quote as any).public_token) || ""
+                    : "",
                   companyId: profile?.company_id ?? null,
                   currencyCode: tenantCurrency.code,
                 });
@@ -2820,53 +2875,7 @@ function AdminQuotesInner() {
                                 </Link>
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={async () => {
-                                  if (typeof window === "undefined") return;
-                                  const todayPlus7 = (() => {
-                                    const d = new Date();
-                                    d.setDate(d.getDate() + 7);
-                                    return toLocalISO(d);
-                                  })();
-                                  const newDate = window.prompt("New event date for the duplicate (YYYY-MM-DD):", todayPlus7);
-                                  if (newDate === null) {
-                                    toast({
-                                      title: "Duplicate cancelled",
-                                      description: "No new quote was created.",
-                                    });
-                                    return;
-                                  }
-                                  if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
-                                    toast({
-                                      title: "Enter a valid event date",
-                                      description: "Use YYYY-MM-DD, for example 2026-08-03. No quote was created.",
-                                      variant: "destructive",
-                                    });
-                                    return;
-                                  }
-                                  const progressToast = toast({
-                                    title: "Duplicating quote...",
-                                    description: `Creating a new draft for ${newDate}.`,
-                                  });
-                                  const res = await quoteService.duplicateQuote(quote.id, newDate);
-                                  progressToast.dismiss();
-                                  if (!res.success) {
-                                    toast({
-                                      title: "Could not duplicate",
-                                      description: (res as { success: false; error: string }).error,
-                                      variant: "destructive",
-                                    });
-                                    return;
-                                  }
-                                  toast({
-                                    title: "Quote duplicated",
-                                    description: `New quote ${(res.data as any).quote_number} created on ${newDate}.`,
-                                  });
-                                  const fresh = await quoteService.getQuotes(user.company_id!);
-                                  setQuotes(fresh);
-                                  await router.push(
-                                    withSlug(`/admin/quotes/new?fromQuoteId=${(res.data as any).id}`),
-                                  );
-                                }}
+                                onClick={() => openDuplicateQuoteDialog(quote)}
                               >
                                 <Copy className="w-4 h-4 mr-2" />
                                 Duplicate
@@ -3525,6 +3534,53 @@ function AdminQuotesInner() {
         onSent={handleQuoteSent}
       />
 
+      <Dialog
+        open={!!duplicateQuoteTarget}
+        onOpenChange={(open) => {
+          if (!open && !duplicateQuoteBusy) setDuplicateQuoteTarget(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submitDuplicateQuote();
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>Duplicate quote</DialogTitle>
+              <DialogDescription>
+                Choose the event date for the new draft. The date defaults to seven days from today.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <Label htmlFor="duplicate-quote-date">New event date</Label>
+              <Input
+                id="duplicate-quote-date"
+                type="date"
+                required
+                value={duplicateQuoteDate}
+                onChange={(event) => setDuplicateQuoteDate(event.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDuplicateQuoteTarget(null)}
+                disabled={duplicateQuoteBusy}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={duplicateQuoteBusy || !duplicateQuoteDate}>
+                {duplicateQuoteBusy ? "Duplicating..." : "Duplicate quote"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Wave 70.50b - Mark-lost dialog. Replaces the old window.prompt
           flow. Captures the structured lost_reason enum + an optional
           note. Submission goes through markQuoteAsLost() so the lead
@@ -3643,6 +3699,9 @@ function QuoteComposeDrawer({
     guestCount: quote.guest_count,
     total: quote.total ?? undefined,
     quoteRef,
+    quoteUrl: (quote as any).public_token
+      ? buildPublicQuoteUrl((quote as any).public_token) || ""
+      : "",
     fromName,
     companyName,
     companyId: companyId ?? null,

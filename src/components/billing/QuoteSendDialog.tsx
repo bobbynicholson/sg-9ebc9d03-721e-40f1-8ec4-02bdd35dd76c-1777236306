@@ -19,7 +19,9 @@ import { useToast } from "@/hooks/use-toast";
 import { captureException } from "@/lib/observability";
 import { buildQuoteSentLifecyclePatch } from "@/lib/quotes/revisionLifecycle";
 import { completeQueuedQuoteEmail } from "@/lib/email/completeQueuedQuoteEmail";
+import { appendOptionBeforeSignoff, buildOptionBlock } from "@/lib/email/quoteOptionBlock";
 import { formatClockWithAlt } from "@/lib/portalTime";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 export interface QuoteSendDialogQuote {
   id: string;
@@ -160,6 +162,7 @@ export function QuoteSendDialog({
   onSent,
 }: QuoteSendDialogProps) {
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
   const [resolved, setResolved] = useState<{ subject: string; body: string } | null>(null);
   const [resolving, setResolving] = useState(false);
   const [secondQuote, setSecondQuote] = useState<QuoteSendDialogQuote | null>(null);
@@ -246,8 +249,9 @@ export function QuoteSendDialog({
   // The template the dialog would pick on its own...
   const autoTemplateType = isRevised ? "email_quote_revised" : "email_quote_sent";
   // ...and the one actually used: the operator's choice wins, else auto.
-  const effectiveTemplateType = templateChoice ?? autoTemplateType;
-  const effectiveIsRevised = effectiveTemplateType === "email_quote_revised";
+  const selectedTemplateType = templateChoice ?? autoTemplateType;
+  const effectiveTemplateType = selectedTemplateType;
+  const effectiveIsRevised = selectedTemplateType === "email_quote_revised";
 
   // Second-quote derived values (only computed when one is selected).
   const secondTotal = Number(secondQuote?.total ?? secondQuote?.total_amount ?? 0);
@@ -270,42 +274,6 @@ export function QuoteSendDialog({
   useEffect(() => {
     if (!open || !quote || !companyId) {
       setResolved(null);
-      return;
-    }
-
-    // When a second quote is bundled, skip the template resolver:
-    // no tenant template supports two-quote bodies. Build the fallback
-    // directly with both quotes and return early.
-    if (secondQuote) {
-      setResolved({
-        subject: formatQuoteSubject({
-          eventName: cleanedEvent,
-          tenantName: tn,
-          total,
-          quoteNumber: quote.quote_number || quote.id,
-          currencyCode: currency,
-        }),
-        body: buildFallbackBody({
-          firstName,
-          tenantName: tn,
-          eventName: cleanedEvent,
-          quoteNumber: quote.quote_number || quote.id,
-          amount: totalLabel,
-          quoteUrl,
-          guestCount: guestCount > 0 ? guestCount : null,
-          eventDateLabel,
-          isConverted,
-          secondQuoteData: {
-            quoteNumber: secondQuote.quote_number || secondQuote.id,
-            amount: secondTotalLabel,
-            quoteUrl: secondQuoteUrl,
-            guestCount: secondGuestCount > 0 ? secondGuestCount : null,
-            eventDateLabel: secondEventDateLabel,
-            eventName: secondCleanedEvent,
-          },
-        }),
-      });
-      setResolving(false);
       return;
     }
 
@@ -332,18 +300,49 @@ export function QuoteSendDialog({
             guest_count: guestCount > 0 ? String(guestCount) : "",
             event_date: eventDateLabel || "",
             equipment_breakdown: combinedBreakdown,
+            quote_number_1: quote.quote_number || quote.id,
+            quote_name_1: cleanedEvent || eventLabel,
+            quote_details_1: [
+              guestCount > 0 ? `${guestCount} guest${guestCount === 1 ? "" : "s"}` : "",
+              eventDateLabel || "",
+            ].filter(Boolean).join(" — "),
+            total_1: totalLabel,
+            equipment_breakdown_block: combinedBreakdown
+              ? `Equipment breakdown for option 1:\n${combinedBreakdown}`
+              : "",
+            quote_url_1: quoteUrl || "",
+            quote_link_1: quoteUrl
+              ? secondQuote
+                ? `View and accept this quote: ${quoteUrl}`
+                : `You can view the full breakdown and accept your quote here:\n${quoteUrl}`
+              : secondQuote
+                ? "Please see the attached PDF for option 1."
+                : "Please see the attached PDF for the full quote.",
+            quote_number_2: secondQuote?.quote_number || secondQuote?.id || "",
+            quote_name_2: secondCleanedEvent || "Alternative option",
+            quote_details_2: [
+              secondGuestCount > 0 ? `${secondGuestCount} guest${secondGuestCount === 1 ? "" : "s"}` : "",
+              secondEventDateLabel || "",
+            ].filter(Boolean).join(" — "),
+            total_2: secondQuote ? secondTotalLabel : "",
+            quote_url_2: secondQuoteUrl || "",
+            quote_link_2: secondQuote
+              ? secondQuoteUrl
+                ? `View and accept this quote: ${secondQuoteUrl}`
+                : "Please see the attached PDF for this option."
+              : "",
+            has_second_quote: secondQuote ? "true" : "",
           },
           // Fallback when no tenant override exists: use the SAME registry
           // default the Templates tab shows for this template, so the
           // composer's starting text matches what the operator edits there
-          // (resolveEmailTemplate substitutes the {{tags}} below). Only
-          // when the quote has no public link (no quoteUrl) do we drop to
-          // buildFallbackBody, which has the "see the attached PDF" wording
-          // the link-less registry default lacks.
+          // (resolveEmailTemplate substitutes the {{tags}} below). The
+          // registry template handles either one quote or two, including
+          // the attached-PDF wording when a public link is unavailable.
           fallback: (() => {
             const regKey = effectiveTemplateType;
             const regDef = TEMPLATE_REGISTRY.find((t) => t.key === regKey);
-            if (regDef && quoteUrl) {
+            if (regDef && (secondQuote || quoteUrl)) {
               return {
                 subject: regDef.defaultSubject || formatQuoteSubject({
                   eventName: cleanedEvent, tenantName: tn, total, quoteNumber: quote.quote_number || quote.id, currencyCode: currency,
@@ -370,12 +369,51 @@ export function QuoteSendDialog({
                 eventDateLabel,
                 isConverted,
                 equipmentBreakdown: combinedBreakdown,
+                secondQuoteData: secondQuote
+                  ? {
+                      quoteNumber: secondQuote.quote_number || secondQuote.id,
+                      amount: secondTotalLabel,
+                      quoteUrl: secondQuoteUrl,
+                      guestCount: secondGuestCount > 0 ? secondGuestCount : null,
+                      eventDateLabel: secondEventDateLabel,
+                      eventName: secondCleanedEvent,
+                    }
+                  : undefined,
               }),
             };
           })(),
         });
         if (!cancelled) {
-          setResolved({ subject: result.subject, body: result.bodyHtml });
+          const secondQuoteNumber = secondQuote?.quote_number || secondQuote?.id || "";
+          const secondaryQuoteAlreadyAppears = !!secondQuote && (
+            (!!secondQuoteNumber && result.bodyHtml.includes(secondQuoteNumber))
+            || (!!secondQuoteUrl && result.bodyHtml.includes(secondQuoteUrl))
+            || (!!secondCleanedEvent && secondCleanedEvent !== cleanedEvent && result.bodyHtml.includes(secondCleanedEvent))
+          );
+          const bodyWithSecondaryQuote = secondQuote && !secondaryQuoteAlreadyAppears
+            ? appendOptionBeforeSignoff(result.bodyHtml, [
+                ...buildOptionBlock({
+                  quoteNumber: quote.quote_number || quote.id,
+                  amount: totalLabel,
+                  quoteUrl,
+                  guestCount: guestCount > 0 ? guestCount : null,
+                  eventDateLabel: eventDateLabel || null,
+                  eventName: cleanedEvent,
+                  label: "Option 1",
+                }),
+                "",
+                ...buildOptionBlock({
+                  quoteNumber: secondQuoteNumber,
+                  amount: secondTotalLabel,
+                  quoteUrl: secondQuoteUrl,
+                  guestCount: secondGuestCount > 0 ? secondGuestCount : null,
+                  eventDateLabel: secondEventDateLabel,
+                  eventName: secondCleanedEvent,
+                  label: "Option 2",
+                }),
+              ])
+            : result.bodyHtml;
+          setResolved({ subject: result.subject, body: bodyWithSecondaryQuote });
         }
       } catch (e) {
         console.warn("[QuoteSendDialog] template resolve failed:", e);
@@ -399,6 +437,16 @@ export function QuoteSendDialog({
               eventDateLabel,
               isConverted,
               equipmentBreakdown: combinedBreakdown,
+              secondQuoteData: secondQuote
+                ? {
+                    quoteNumber: secondQuote.quote_number || secondQuote.id,
+                    amount: secondTotalLabel,
+                    quoteUrl: secondQuoteUrl,
+                    guestCount: secondGuestCount > 0 ? secondGuestCount : null,
+                    eventDateLabel: secondEventDateLabel,
+                    eventName: secondCleanedEvent,
+                  }
+                : undefined,
             }),
           });
         }
@@ -410,7 +458,33 @@ export function QuoteSendDialog({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, quote?.id, companyId, tn, quoteUrl, total, guestCount, eventDateLabel, isConverted, effectiveTemplateType, secondQuote?.id]);
+  }, [
+    open,
+    quote?.id,
+    quote?.quote_number,
+    quote?.client_name,
+    companyId,
+    tn,
+    quoteUrl,
+    total,
+    totalLabel,
+    guestCount,
+    eventDateLabel,
+    cleanedEvent,
+    eventLabel,
+    isConverted,
+    currency,
+    combinedBreakdown,
+    firstName,
+    effectiveTemplateType,
+    secondQuote?.id,
+    secondQuote?.quote_number,
+    secondQuoteUrl,
+    secondTotalLabel,
+    secondGuestCount,
+    secondEventDateLabel,
+    secondCleanedEvent,
+  ]);
 
   if (!quote) return null;
 
@@ -430,7 +504,7 @@ export function QuoteSendDialog({
       </p>
       <div className="flex flex-wrap gap-2">
         {templateOptions.map((opt) => {
-          const active = effectiveTemplateType === opt.key;
+          const active = selectedTemplateType === opt.key;
           return (
             <button
               key={opt.key}
@@ -484,6 +558,13 @@ export function QuoteSendDialog({
       </div>
     ) : null;
 
+  const templateEditHref = withSlug(
+    `/admin/email-templates?tab=templates&template=${encodeURIComponent(effectiveTemplateType)}`,
+  );
+  const templateEditLabel = effectiveIsRevised
+    ? '"Revised quote email" template'
+    : '"New quote email" template';
+
   return (
     <SendEmailDialog
       open={open}
@@ -508,8 +589,8 @@ export function QuoteSendDialog({
       }
       sendLabel="Send quote"
       extraTopContent={<>{templatePicker}{secondQuotePicker}</>}
-      templateEditHref="/admin/email-templates?tab=templates"
-      templateEditLabel={effectiveIsRevised ? '"Revised quote email" template' : '"New quote email" template'}
+      templateEditHref={templateEditHref}
+      templateEditLabel={templateEditLabel}
       onSend={async (payload) => {
         try {
           const fingerprint = JSON.stringify({ companyId, quoteId: quote.id, secondQuoteId: secondQuote?.id, ...payload });
@@ -654,31 +735,6 @@ export function QuoteSendDialog({
  * to the polished /q/{token} (or order page) without digging out a
  * PDF attachment.
  */
-function buildOptionBlock(opt: {
-  quoteNumber: string;
-  amount: string;
-  quoteUrl: string | null;
-  guestCount: number | null;
-  eventDateLabel: string | null;
-  eventName: string | null;
-  label: string;
-}): string[] {
-  const details: string[] = [];
-  if (opt.guestCount && opt.guestCount > 0)
-    details.push(`${opt.guestCount} guest${opt.guestCount === 1 ? "" : "s"}`);
-  if (opt.eventDateLabel) details.push(opt.eventDateLabel);
-
-  const heading = opt.eventName
-    ? `${opt.label} - ${opt.quoteNumber} (${opt.eventName})`
-    : `${opt.label} - ${opt.quoteNumber}`;
-
-  const block: string[] = [heading, `  ${details.join(" - ")}`];
-  if (opt.quoteUrl) {
-    block.push(`  View this quote: ${opt.quoteUrl}`);
-  }
-  return block;
-}
-
 function buildFallbackBody(input: {
   firstName: string;
   tenantName: string;

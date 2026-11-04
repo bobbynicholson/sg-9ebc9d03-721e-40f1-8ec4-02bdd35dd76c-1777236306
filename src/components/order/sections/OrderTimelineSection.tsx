@@ -76,6 +76,8 @@ interface Props {
   forceOpen?: boolean;
   /** Hide the "Next to do" banner when the document header shows it. */
   hideNowBanner?: boolean;
+  /** Refreshes the order in place after it changes here. */
+  onChanged?: () => void | Promise<void>;
 }
 
 // Earliest non-null timestamp across multiple sources.
@@ -91,7 +93,7 @@ function fmtStamp(iso: string | null): string {
   return d.toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
-export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBanner = false }: Props) {
+export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBanner = false, onChanged }: Props) {
   const { profile } = useAuth() as any;
   const { toast } = useToast();
   const canForceClose = !!profile?.role && isAdmin(profile.role as UserRole);
@@ -134,7 +136,8 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
         return;
       }
       toast({ title: "Order closed", description: "Marked completed." });
-      if (typeof window !== "undefined") window.location.reload();
+      if (onChanged) await onChanged();
+      else if (typeof window !== "undefined") window.location.reload();
     } catch (e: any) {
       toast({ title: "Could not close", description: e?.message || "Try again.", variant: "destructive" });
     } finally {

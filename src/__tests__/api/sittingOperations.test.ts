@@ -44,7 +44,7 @@ test("admin splits and kitchen batches enter the same tenant-scoped transaction"
   const tasks = [{ service_sitting_id:id,menu_item_name:"Brownie" }];
   (kitchenPrepService.planTasksForOrder as jest.Mock).mockResolvedValueOnce(tasks);
   const s=setup(orderHandler,{sittings,returnPlan:"per_sitting_collection"});await s.run();
-  expect(rpc).toHaveBeenCalledWith("save_admin_order_service_plan",{p_order_id:id,p_company_id:"verified-company",p_operations:sittings,p_return_plan:"per_sitting_collection",p_kitchen_tasks:tasks});
+  expect(rpc).toHaveBeenCalledWith("save_admin_order_service_plan",{p_order_id:id,p_company_id:"verified-company",p_operations:sittings.map(row=>({...row,collectionDriverIds:row.deliveryDriverIds})),p_return_plan:"per_sitting_collection",p_kitchen_tasks:tasks});
 });
 test("a kitchen planning error leaves the saved order untouched", async()=>{
   (kitchenPrepService.planTasksForOrder as jest.Mock).mockRejectedValueOnce(new Error("Kitchen unavailable"));

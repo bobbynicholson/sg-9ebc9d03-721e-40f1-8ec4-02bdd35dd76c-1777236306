@@ -13,9 +13,12 @@ export type SittingOperations = {
   updated_at?: string; persisted?: boolean;
   kitchenReadyTime: string; dispatchTime: string; returnDate: string; returnTime: string;
   packingNotes: string; cleaningResetRequired: boolean; deliveryDriverIds: string[]; collectionDriverIds: string[];
+  collectionDriverAutoDefault?: boolean;
 };
 type Driver = { id: string; full_name: string; is_active?: boolean | null };
 const openTrip = (a: any) => !["cancelled", "rejected"].includes(a.status);
+const sameDriverIds = (left: string[], right: string[]) =>
+  left.length === right.length && left.every(id => right.includes(id));
 
 function DriverMultiSelect({
   drivers,
@@ -141,7 +144,7 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
       const results = await Promise.all([
         db.from("service_sittings").select("*").eq("order_id", orderId).eq("company_id", companyId).order("sequence_number"),
         db.from("driver_assignments").select("id,service_sitting_id,driver_id,assignment_type,status").eq("order_id", orderId).eq("company_id", companyId),
-        db.from("orders").select("event_date,event_time,guest_count,status,equipment_return_plan,assigned_driver_id,secondary_driver_id").eq("id", orderId).eq("company_id", companyId).single(),
+        db.from("orders").select("event_date,event_time,guest_count,status,equipment_return_plan,assigned_driver_id,secondary_driver_id,driver_id").eq("id", orderId).eq("company_id", companyId).single(),
         db.from("profiles").select("id,full_name").eq("company_id", companyId).eq("role", "driver").or("is_active.is.null,is_active.eq.true").order("full_name"),
       ]);
       for (const result of results) if (result.error) throw result.error;
@@ -152,13 +155,41 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
       setEditableBooking(!["draft", "cancelled", "completed", "postponed"].includes(order.data.status));
       setDrivers(pool.data || []);
       const source = sittings.data?.length ? sittings.data : [{ id: crypto.randomUUID(), sequence_number: 1, guest_count: order.data.guest_count, service_time: order.data.event_time || "" }];
-      setRows(source.map((s: any,index: number) => ({
-        ...s, persisted: !!sittings.data?.length, service_time: s.service_time.slice(0, 5), kitchenReadyTime: s.kitchen_ready_time?.slice(0, 5) || "", dispatchTime: s.dispatch_time?.slice(0, 5) || "",
-        returnDate: s.return_date || order.data.event_date, returnTime: s.return_time?.slice(0, 5) || "",
-        packingNotes: s.packing_notes || "", cleaningResetRequired: !!s.cleaning_reset_required,
-        deliveryDriverIds: (assignments.data || []).some((a: any) => a.service_sitting_id === s.id && a.assignment_type === "delivery" && openTrip(a)) ? (assignments.data || []).filter((a: any) => a.service_sitting_id === s.id && a.assignment_type === "delivery" && openTrip(a)).map((a: any) => a.driver_id) : index === 0 ? [order.data.assigned_driver_id,order.data.secondary_driver_id].filter(Boolean) : [],
-        collectionDriverIds: (assignments.data || []).filter((a: any) => a.service_sitting_id === s.id && a.assignment_type === "collection" && openTrip(a)).map((a: any) => a.driver_id),
-      })));
+      const assignmentRows = (assignments.data || []) as any[];
+      const orderDeliveries = assignmentRows.filter((a: any) =>
+        a.service_sitting_id === null && a.assignment_type === "delivery" && openTrip(a) && a.driver_id,
+      );
+      setRows(source.map((s: any, index: number) => {
+        const sittingDeliveries = assignmentRows.filter((a: any) =>
+          a.service_sitting_id === s.id && a.assignment_type === "delivery" && openTrip(a) && a.driver_id,
+        );
+        const deliveryDriverIds = sittingDeliveries.length
+          ? sittingDeliveries.map((a: any) => a.driver_id)
+          : index === 0
+            ? orderDeliveries.length
+              ? orderDeliveries.map((a: any) => a.driver_id)
+              : [order.data.assigned_driver_id, order.data.secondary_driver_id, order.data.driver_id].filter(Boolean)
+            : [];
+        const sittingCollections = assignmentRows.filter((a: any) =>
+          a.service_sitting_id === s.id && a.assignment_type === "collection" && openTrip(a) && a.driver_id,
+        ).map((a: any) => a.driver_id);
+        const collectionDriverAutoDefault = !sittingCollections.length || sameDriverIds(sittingCollections, deliveryDriverIds);
+
+        return {
+          ...s,
+          persisted: !!sittings.data?.length,
+          service_time: s.service_time.slice(0, 5),
+          kitchenReadyTime: s.kitchen_ready_time?.slice(0, 5) || "",
+          dispatchTime: s.dispatch_time?.slice(0, 5) || "",
+          returnDate: s.return_date || order.data.event_date,
+          returnTime: s.return_time?.slice(0, 5) || "",
+          packingNotes: s.packing_notes || "",
+          cleaningResetRequired: !!s.cleaning_reset_required,
+          deliveryDriverIds,
+          collectionDriverIds: collectionDriverAutoDefault ? deliveryDriverIds : sittingCollections,
+          collectionDriverAutoDefault,
+        };
+      }));
     } catch (e: any) { setError(e.message || "The sitting schedule could not be loaded. Please retry."); }
     finally { setLoading(false); }
   }, [orderId, companyId, canEdit]);
@@ -222,8 +253,20 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
               selectedIds={s[key]}
               disabled={!mayEdit || saving}
               label={label}
-              onChange={ids => edit(s.id, { [key]: ids })}
+              onChange={ids => {
+                if (leg === "delivery") {
+                  const followsDelivery = s.collectionDriverAutoDefault
+                    || sameDriverIds(s.collectionDriverIds, s.deliveryDriverIds);
+                  edit(s.id, {
+                    deliveryDriverIds: ids,
+                    ...(followsDelivery ? { collectionDriverIds: ids, collectionDriverAutoDefault: true } : {}),
+                  });
+                } else {
+                  edit(s.id, { collectionDriverIds: ids, collectionDriverAutoDefault: false });
+                }
+              }}
             /> : <p className="mt-1 break-words text-sm text-slate-700">{s[key].length ? s[key].map(id => drivers.find(d => d.id === id)?.full_name || "Assigned driver").join(", ") : "Not assigned yet"}</p>}
+            {leg === "collection" && canEdit && <p className="mt-1 text-xs text-slate-600">Defaults to the delivery driver. Select another driver here if needed.</p>}
           </fieldset>;
         };
         return <article key={s.id} className="min-w-0 py-5 first:pt-0">

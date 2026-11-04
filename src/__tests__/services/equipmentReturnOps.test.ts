@@ -16,14 +16,25 @@ function makeDb(tables: Record<string, any[]>) {
   return {
     tables,
     from(table: string) {
-      const where: Array<[string, "eq" | "neq", any]> = [];
+      const where: Array<[string, "eq" | "neq" | "is" | "not", any, any?]> = [];
       let op: "select" | "update" = "select";
       let values: any = null;
-      const rows = () => (tables[table] || []).filter((r) => where.every(([k, c, v]) => (c === "eq" ? r[k] === v : r[k] !== v)));
+      let maxRows = Infinity;
+      const rows = () => (tables[table] || []).filter((r) => where.every(([k, c, v, extra]) => {
+        if (c === "eq") return r[k] === v;
+        if (c === "is") return v === null ? r[k] == null : r[k] === v;
+        if (c === "neq") return r[k] !== v;
+        if (extra === "in") return !String(v).replace(/[()]/g, "").split(",").includes(String(r[k]));
+        return r[k] !== v;
+      })).slice(0, maxRows);
       const api: any = {
         select: () => api,
         eq: (k: string, v: any) => { where.push([k, "eq", v]); return api; },
         neq: (k: string, v: any) => { where.push([k, "neq", v]); return api; },
+        is: (k: string, v: any) => { where.push([k, "is", v]); return api; },
+        not: (k: string, c: string, v: any) => { where.push([k, "not", v, c]); return api; },
+        order: () => api,
+        limit: (n: number) => { maxRows = n; return api; },
         update: (v: any) => { op = "update"; values = v; return api; },
         insert: (v: any) => {
           (tables[table] = tables[table] || []).push({ id: `new-${table}`, ...v });

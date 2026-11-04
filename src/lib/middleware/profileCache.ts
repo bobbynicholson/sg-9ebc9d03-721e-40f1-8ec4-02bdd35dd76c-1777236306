@@ -140,6 +140,92 @@ export async function writeCachedProfile(
   });
 }
 
+/**
+ * Short-lived proof that the Auth server accepted this exact access token.
+ *
+ * With middleware enabled, Next sends a request through it on every page
+ * change, and auth.getUser() adds a full Auth server round trip to each one.
+ * This cookie lets repeat page changes skip that trip for VERIFIED_TTL_SECONDS.
+ *
+ * Security:
+ *   - HMAC-SHA256 signed with MIDDLEWARE_PROFILE_SECRET
+ *   - Bound to a hash of the access token, so it proves nothing for any other
+ *     token: a new, refreshed or forged token always goes to the Auth server
+ *   - A session revoked on the server can still open pages for up to
+ *     VERIFIED_TTL_SECONDS; API routes keep their own session checks
+ */
+interface VerifiedSessionPayload {
+  v: number;
+  uid: string;
+  th: string; // SHA-256 of the access token
+  exp: number; // unix seconds
+}
+
+const VERIFIED_COOKIE_NAME = "cms.mw.session";
+const VERIFIED_CACHE_VERSION = 1;
+const VERIFIED_TTL_SECONDS = 60;
+
+async function hashToken(token: string): Promise<string> {
+  return b64url(new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(token))));
+}
+
+/** The user id, when the Auth server accepted this exact token moments ago. */
+export async function readVerifiedSession(
+  request: NextRequest,
+  accessToken: string,
+): Promise<string | null> {
+  const secret = process.env.MIDDLEWARE_PROFILE_SECRET;
+  if (!secret) return null;
+
+  const raw = request.cookies.get(VERIFIED_COOKIE_NAME)?.value;
+  if (!raw) return null;
+
+  const dot = raw.indexOf(".");
+  if (dot < 0) return null;
+  const body = raw.slice(0, dot);
+  const expected = await sign(body, secret);
+  if (!constantTimeEqual(expected, raw.slice(dot + 1))) return null;
+
+  let payload: VerifiedSessionPayload;
+  try {
+    payload = JSON.parse(new TextDecoder().decode(fromB64url(body))) as VerifiedSessionPayload;
+  } catch {
+    return null;
+  }
+
+  if (payload.v !== VERIFIED_CACHE_VERSION || !payload.uid) return null;
+  if (!payload.exp || payload.exp < Math.floor(Date.now() / 1000)) return null;
+  if (!constantTimeEqual(payload.th, await hashToken(accessToken))) return null;
+
+  return payload.uid;
+}
+
+export async function writeVerifiedSession(
+  response: NextResponse,
+  userId: string,
+  accessToken: string,
+): Promise<void> {
+  const secret = process.env.MIDDLEWARE_PROFILE_SECRET;
+  if (!secret) return;
+
+  const payload: VerifiedSessionPayload = {
+    v: VERIFIED_CACHE_VERSION,
+    uid: userId,
+    th: await hashToken(accessToken),
+    exp: Math.floor(Date.now() / 1000) + VERIFIED_TTL_SECONDS,
+  };
+  const body = b64url(enc.encode(JSON.stringify(payload)));
+  const sig = await sign(body, secret);
+
+  response.cookies.set(VERIFIED_COOKIE_NAME, `${body}.${sig}`, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: VERIFIED_TTL_SECONDS,
+  });
+}
+
 export function clearCachedProfile(response: NextResponse): void {
   response.cookies.set(COOKIE_NAME, "", { path: "/", maxAge: 0 });
 }

@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { canAccessRoute, getRoleLandingPage, getUnauthorizedMessage, isAdmin } from "@/lib/authGuards";
@@ -39,11 +39,12 @@ export function ProtectedRoute({
 }: ProtectedRouteProps) {
   const { user, profile, loading, userRoles, activeRole } = useAuth();
   const router = useRouter();
-  const [authorized, setAuthorized] = useState(false);
-  const [isChecking, setIsChecking] = useState(true);
 
-  useEffect(() => {
-    const checkAuth = async () => {
+  // Decided during render, not in an effect: every page mounts its own
+  // ProtectedRoute, so an effect showed the full-screen loader on every page
+  // change even when the signed-in user was already known.
+  const authorized = useMemo(() => {
+    const checkAuth = () => {
       // 🔧 DEV MODE: Skip all auth checks on localhost only.
       //
       // CRITICAL: never bypass in production. The middleware version of
@@ -55,23 +56,9 @@ export function ProtectedRoute({
       const isDevEnvironment = typeof window !== "undefined"
         && isLocalAuthBypassEnabled(window.location.hostname);
 
-      if (isDevEnvironment) {
-        console.log("🔧 DEV MODE: Bypassing ProtectedRoute auth check");
-        setAuthorized(true);
-        setIsChecking(false);
-        return;
-      }
+      if (isDevEnvironment) return true;
 
-      if (!user) {
-        setIsChecking(false);
-        return;
-      }
-
-      if (!profile) {
-        setIsChecking(false);
-        setAuthorized(false);
-        return;
-      }
+      if (!user || !profile) return false;
 
       try {
         const roleSet = uniqueRoles([
@@ -88,19 +75,13 @@ export function ProtectedRoute({
         // Used to fence tenant-private surfaces (e.g. staff payroll)
         // off from the platform operator, who has no need to see them.
         if (denyRoles && denyRoles.length > 0 && denyRoles.some((r) => roleSet.includes(r))) {
-          setAuthorized(false);
-          setIsChecking(false);
-          return;
+          return false;
         }
 
         // Check if user has required role
         if (allowedRoles && allowedRoles.length > 0) {
           // GOD MODE: Super Admins bypass all role restrictions
-          if (roleSet.includes(UserRole.SUPER_ADMIN)) {
-            setAuthorized(true);
-            setIsChecking(false);
-            return;
-          }
+          if (roleSet.includes(UserRole.SUPER_ADMIN)) return true;
 
           const hasAccess = allowedRoles.some(role => {
             if (role === UserRole.ADMIN) {
@@ -109,23 +90,17 @@ export function ProtectedRoute({
             return roleSet.includes(role);
           });
 
-          if (!hasAccess) {
-            setAuthorized(false);
-            setIsChecking(false);
-            return;
-          }
+          if (!hasAccess) return false;
         }
 
-        setAuthorized(true);
+        return true;
       } catch (error) {
         console.error("Auth check error:", error);
-        setAuthorized(false);
-      } finally {
-        setIsChecking(false);
+        return false;
       }
     };
 
-    checkAuth();
+    return checkAuth();
   }, [user, profile, allowedRoles, denyRoles, userRoles, activeRole]);
 
   // Platform pages are global and belong only to the platform operator.
@@ -135,7 +110,7 @@ export function ProtectedRoute({
   // client-side role/profile mismatch without exposing the platform shell.
   useEffect(() => {
     if (
-      loading || isChecking || !requireAuth || !user || authorized ||
+      loading || !requireAuth || !user || authorized ||
       !router.pathname.startsWith("/admin/platform")
     ) return;
 
@@ -144,10 +119,10 @@ export function ProtectedRoute({
     if (landingPage && landingPage !== router.asPath) {
       void router.replace(landingPage);
     }
-  }, [loading, isChecking, requireAuth, user, authorized, router, activeRole]);
+  }, [loading, requireAuth, user, authorized, router, activeRole]);
 
   // Show loading state
-  if (loading || isChecking) {
+  if (loading) {
     return <PwaLoadingScreen />;
   }
 

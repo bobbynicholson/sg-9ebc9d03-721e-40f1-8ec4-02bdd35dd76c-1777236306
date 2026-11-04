@@ -2,7 +2,12 @@ import "@/lib/installLogRedaction";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getLandingPageForRoleString } from "@/lib/authGuards";
-import { readCachedProfile, writeCachedProfile } from "@/lib/middleware/profileCache";
+import {
+  readCachedProfile,
+  readVerifiedSession,
+  writeCachedProfile,
+  writeVerifiedSession,
+} from "@/lib/middleware/profileCache";
 import { deriveUserRoles, normalizeRoleValue } from "@/lib/roleDerivation";
 import { isLocalAuthBypassEnabled } from "@/lib/localAuthBypass";
 
@@ -289,8 +294,20 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // IMPORTANT: getUser revalidates the token against the Auth server
-  const { data: { user } } = await supabase.auth.getUser();
+  // IMPORTANT: getUser revalidates the token against the Auth server.
+  // Next runs this middleware on every page change, so that round trip was
+  // the main wait behind the page loader. A signed cookie remembers, for 60
+  // seconds, that the Auth server accepted this exact token; anything else
+  // still goes to the Auth server. getSession only reads the cookie (and
+  // refreshes an expiring token); its token is never trusted without that proof.
+  const { data: { session } } = await supabase.auth.getSession();
+  const accessToken = session?.access_token ?? null;
+  const verifiedUserId = accessToken && pathname !== "/auth/select-role"
+    ? await readVerifiedSession(request, accessToken)
+    : null;
+  const user: { id: string } | null = verifiedUserId
+    ? { id: verifiedUserId }
+    : (await supabase.auth.getUser()).data.user;
   const isPublic = isPublicRoute(pathname);
 
   // Extract company slug if present for dynamic tenant routing.
@@ -654,6 +671,9 @@ export async function middleware(request: NextRequest) {
       subscription_status: subscriptionStatus,
       trial_ends_at: trialEndsAt,
     });
+  }
+  if (!verifiedUserId && accessToken) {
+    await writeVerifiedSession(response, user.id, accessToken);
   }
 
   return response;

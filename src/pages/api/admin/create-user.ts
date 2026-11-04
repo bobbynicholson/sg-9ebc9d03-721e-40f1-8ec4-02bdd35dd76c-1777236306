@@ -263,18 +263,48 @@ async function handler(
 
     const dbRole = mapRoleToDatabase(role);
     const activeRole = role;
+    let reusedInactiveEmail = false;
+    let releasedInactiveAuthId: string | null = null;
+    const restoreInactiveAuthEmail = async () => {
+      if (!releasedInactiveAuthId) return;
+      try {
+        const { error: restoreError } = await admin.auth.admin.updateUserById(releasedInactiveAuthId, {
+          email,
+          email_confirm: true,
+        });
+        if (restoreError) {
+          console.warn("Could not restore the inactive account email:", restoreError.message);
+          return;
+        }
+        releasedInactiveAuthId = null;
+      } catch (restoreError: any) {
+        console.warn("Could not restore the inactive account email:", restoreError?.message);
+      }
+    };
 
-    // Pre-check: is there already an auth user with this email? If so, give a
-    // clear message instead of the noisy rollback path.
+    // Pre-check every Auth page before creating. Active accounts keep their
+    // email; an inactive account in this company can release its Auth email
+    // while its profile and work history stay archived under the old id.
     try {
-      const { data: existing } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
-      const match = existing?.users?.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
+      let match: any = null;
+      let page = 1;
+      const perPage = 1000;
+      while (!match) {
+        const { data: existing, error: listError } = await admin.auth.admin.listUsers({ page, perPage });
+        if (listError) throw listError;
+        const pageUsers = existing?.users || [];
+        match = pageUsers.find((u: any) => u.email?.toLowerCase() === email.toLowerCase()) || null;
+        if (match || pageUsers.length < perPage) break;
+        page += 1;
+      }
+
       if (match) {
-        const { data: existingProfile } = await admin
+        const { data: existingProfile, error: profileLookupError } = await admin
           .from("profiles")
-          .select("id, role")
+          .select("id, role, company_id, is_active, deleted_at")
           .eq("id", match.id)
           .maybeSingle();
+        if (profileLookupError) throw profileLookupError;
 
         if (!existingProfile) {
           // Orphan from the old endpoint - update password + create profile
@@ -336,36 +366,76 @@ async function handler(
           });
         }
 
-        return res.status(409).json({
-          error: `A user with email ${email} already exists. Use the existing record or pick a different email.`,
+        const inactive = existingProfile.is_active === false || Boolean(existingProfile.deleted_at);
+        if (!inactive) {
+          return res.status(409).json({
+            error: `An active account already uses ${email}. Use that account or enter a different email.`,
+          });
+        }
+
+        if (existingProfile.company_id !== company_id) {
+          return res.status(409).json({
+            error: "This email belongs to an inactive account in another company. Ask a platform administrator to review it.",
+          });
+        }
+
+        // Supabase Auth requires email to be globally unique. Move only the
+        // inactive Auth identity to a non-deliverable reserved address; keep
+        // profiles.email untouched so the archived record and its history
+        // remain identifiable. The new user gets a fresh Auth/profile id.
+        const reservedEmail = `inactive-${match.id}@accounts.invalid`;
+        const { error: releaseError } = await admin.auth.admin.updateUserById(match.id, {
+          email: reservedEmail,
+          email_confirm: true,
         });
+        if (releaseError) {
+          console.error("Could not release email from inactive account:", releaseError);
+          return res.status(409).json({
+            error: "This email belongs to an inactive account, but its sign-in record could not be released. Please try again or contact a platform administrator.",
+          });
+        }
+        releasedInactiveAuthId = match.id;
+        reusedInactiveEmail = true;
       }
     } catch (preErr: any) {
       console.warn("Email pre-check failed:", preErr?.message);
+      return res.status(500).json({
+        error: "We couldn't check whether this email belongs to an active or inactive account. Please try again.",
+      });
     }
 
     // Create the auth user with the service role.
-    const { data: created, error: createErr } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
-        full_name,
-        phone,
-        company_id,
-        role: dbRole,
-        active_role: activeRole,
-      },
-    });
+    let created: any;
+    let createErr: any;
+    try {
+      const createResult = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name,
+          phone,
+          company_id,
+          role: dbRole,
+          active_role: activeRole,
+        },
+      });
+      created = createResult.data;
+      createErr = createResult.error;
+    } catch (createThrow) {
+      await restoreInactiveAuthEmail();
+      throw createThrow;
+    }
 
     if (createErr || !created?.user) {
       console.error("admin.createUser failed:", createErr);
       const createMessage = dbErrorMessage(createErr) || "Could not create user";
       if (/already registered|already exists|duplicate key|unique constraint/i.test(createMessage)) {
         return res.status(409).json({
-          error: `The admin email "${email}" is already registered. Use a different email or manage the existing user.`,
+          error: `An account with ${email} is still registered. Refresh the user list and check its status before trying again.`,
         });
       }
+      await restoreInactiveAuthEmail();
       return res.status(500).json({
         error: createMessage,
       });
@@ -406,6 +476,7 @@ async function handler(
       } catch (rollbackErr: any) {
         console.error("Rollback delete failed:", rollbackErr?.message);
       }
+      await restoreInactiveAuthEmail();
       return res.status(500).json({
         error: `Could not save profile: ${dbErrorMessage(upsertErr)}. Try again.`,
       });
@@ -434,6 +505,7 @@ async function handler(
     return res.status(201).json({
       message: "User created successfully",
       user: { id: newUserId, email },
+      reusedInactiveEmail,
       tempPassword: password,
       emailDelivered: inviteResult.emailed,
       emailErrorCode: inviteResult.errorCode,

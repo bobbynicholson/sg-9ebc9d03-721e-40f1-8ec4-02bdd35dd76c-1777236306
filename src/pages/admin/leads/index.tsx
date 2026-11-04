@@ -46,6 +46,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { buildPublicQuoteUrl } from "@/lib/customerLinks";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { PageWorkbench, PortalCard, PortalCardHeader, PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
 import { AdminControlGroup, AdminFilterChip, AdminSearchField } from "@/components/admin/AdminControlSurface";
@@ -68,6 +69,7 @@ interface LeadQuoteSummary {
   status: string | null;
   total: number | null;
   createdAt: string | null;
+  publicToken: string | null;
 }
 
 /**
@@ -328,6 +330,7 @@ function templateForLeadAction(
   lead: any,
   fromName: string,
   companyId?: string | null,
+  quoteUrl?: string | null,
 ): { subject: string; body: string } {
   const first = String(lead.client_name || "there").split(" ")[0];
   const eventLine = lead.event_type
@@ -372,10 +375,17 @@ function templateForLeadAction(
         event_name:   lead.event_type || "your event",
         event_date:   eventDateLabel,
         guest_count:  lead.guest_count ?? "",
+        quote_url:   quoteUrl || "",
       },
     });
     if (resolved && resolved.fromOverride) {
-      return { subject: resolved.subject, body: resolved.body };
+      const body = resolved.body;
+      return {
+        subject: resolved.subject,
+        body: kind === "chase_quote" && quoteUrl && !body.includes(quoteUrl)
+          ? `${body.trim()}\n\nYou can open and review your quote again here:\n${quoteUrl}`
+          : body,
+      };
     }
   }
 
@@ -399,7 +409,7 @@ function templateForLeadAction(
     case "chase_quote":
       return {
         subject: `Following up on your quote`,
-        body: `Hi ${first},\n\nJust circling back on the quote we sent for ${eventLine}. Anything you would like changed, or shall we lock the date in?${sig}`,
+        body: `Hi ${first},\n\nJust circling back on the quote we sent for ${eventLine}.${quoteUrl ? `\n\nYou can open and review your quote again here:\n${quoteUrl}` : ""}\n\nAnything you would like changed, or shall we lock the date in?${sig}`,
       };
     case "winback":
       return {
@@ -793,14 +803,14 @@ function AdminLeadsInner() {
         const [{ data: byLead }, { data: byClient }] = await Promise.all([
           supabase
             .from("quotes")
-            .select("id, lead_id, client_id, status, converted_to_order_id, created_at, quote_number, quote_name, total_amount")
+            .select("id, lead_id, client_id, status, converted_to_order_id, created_at, quote_number, quote_name, total_amount, public_token")
             .eq("company_id", user.company_id)
             .in("lead_id", leadIds)
             .order("created_at", { ascending: false }),
           clientIds.length > 0
             ? supabase
                 .from("quotes")
-                .select("id, lead_id, client_id, status, converted_to_order_id, created_at, quote_number, quote_name, total_amount")
+                .select("id, lead_id, client_id, status, converted_to_order_id, created_at, quote_number, quote_name, total_amount, public_token")
                 .eq("company_id", user.company_id)
                 .in("client_id", clientIds)
                 .order("created_at", { ascending: false })
@@ -826,6 +836,7 @@ function AdminLeadsInner() {
             status: q.status ?? null,
             total: q.total_amount ?? null,
             createdAt: q.created_at ?? null,
+            publicToken: q.public_token ?? null,
           });
           if (!cur.latestQuoteId) {
             cur.latestQuoteId = q.id;
@@ -1943,6 +1954,7 @@ function AdminLeadsInner() {
             kind={composeKind}
             fromName={fromName}
             companyId={profile?.company_id ?? null}
+            quoteToken={linksByLeadId.get(composeLead.id)?.quotes[0]?.publicToken ?? null}
             onSent={async () => {
               // Wave 70.89: stamp last_contacted_at on every send,
               // not just the "new -> contacted" transition. The
@@ -2130,16 +2142,19 @@ export default function AdminLeads() {
  * so this component stays easy to test in isolation.
  */
 function LeadComposeDrawer({
-  lead, kind, fromName, companyId, onSent, onClose,
+  lead, kind, fromName, companyId, quoteToken, onSent, onClose,
 }: {
   lead: any;
   kind: LeadActionKind;
   fromName: string;
   companyId?: string | null;
+  quoteToken?: string | null;
   onSent: () => Promise<void> | void;
   onClose: () => void;
 }) {
-  const tpl = templateForLeadAction(kind, lead, fromName, companyId);
+  const { slug } = useTenantHref();
+  const quoteUrl = quoteToken ? buildPublicQuoteUrl(quoteToken, slug) || "" : "";
+  const tpl = templateForLeadAction(kind, lead, fromName, companyId, quoteUrl);
 
   const ageDays = lead.created_at
     ? Math.floor((Date.now() - new Date(lead.created_at).getTime()) / 86_400_000)

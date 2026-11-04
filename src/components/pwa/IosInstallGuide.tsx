@@ -74,6 +74,13 @@ export function IosInstallGuide({ appName, installPath }: { appName: string; ins
         <a href="https://support.apple.com/guide/iphone/iphea86e5236/ios" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 font-medium text-brand-primary underline underline-offset-4">Apple&apos;s illustrated instructions<ExternalLink className="h-4 w-4" /></a>
       </div>
     </details>
+    <details className="border-t border-slate-200 pt-3">
+      <summary className="min-h-11 cursor-pointer py-2 font-medium text-slate-900">Opening links from email on iPhone or iPad</summary>
+      <div className="mt-2 space-y-2">
+        <p>The Home Screen version of {appName} is a web app. iOS does not register it as an Apple Universal Link app, so tapping an email link may open Safari instead of the Home Screen app. You can still use the change request there, or open {appName} from its Home Screen icon.</p>
+        <p>To make email links launch a standalone iPhone or iPad app automatically, {appName} would need a native iOS app with Apple&apos;s Universal Links association.</p>
+      </div>
+    </details>
     <p className="text-sm text-slate-600">Safari controls the final Add action. The buttons on this page guide you; they cannot create a Home Screen icon themselves.</p>
   </div>;
 }

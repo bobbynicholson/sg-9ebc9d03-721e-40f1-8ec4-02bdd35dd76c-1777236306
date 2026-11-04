@@ -40,6 +40,8 @@ interface OrderCtx {
   venue_name?: string | null;
   venue_address: string | null;
   assigned_driver_id: string | null;
+  secondary_driver_id?: string | null;
+  driver_id: string | null;
   delivered_at: string | null;
   status: string | null;
   equipment_return_method: string | null;
@@ -51,10 +53,28 @@ interface OrderCtx {
 async function loadOrder(db: any, orderId: string): Promise<OrderCtx | null> {
   const { data } = await db
     .from("orders")
-    .select("id, company_id, order_number, event_name, event_date, event_time, venue_name, venue_address, assigned_driver_id, delivered_at, status, equipment_return_method, collection_next_day, requires_waiter, waiter_service_required")
+    .select("id, company_id, order_number, event_name, event_date, event_time, venue_name, venue_address, assigned_driver_id, secondary_driver_id, driver_id, delivered_at, status, equipment_return_method, collection_next_day, requires_waiter, waiter_service_required")
     .eq("id", orderId)
     .maybeSingle();
   return (data as OrderCtx) || null;
+}
+
+export async function loadDeliveryAssignment(db: any, o: OrderCtx): Promise<{ id: string | null; driverId: string | null }> {
+  const { data } = await db
+    .from("driver_assignments")
+    .select("id, driver_id")
+    .eq("order_id", o.id)
+    .eq("assignment_type", "delivery")
+    .is("service_sitting_id", null)
+    .not("status", "in", "(cancelled,rejected)")
+    .order("assigned_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const delivery = data as { id?: string; driver_id?: string | null } | null;
+  return {
+    id: delivery?.id || null,
+    driverId: delivery?.driver_id || o.assigned_driver_id || o.driver_id || o.secondary_driver_id || null,
+  };
 }
 
 const label = (o: OrderCtx) => o.event_name || o.order_number || "an event";
@@ -178,19 +198,14 @@ export async function bookOrReassignCollection(params: {
   }
 
   const scheduledFor = collectionScheduledFor(o.event_date, o.event_time, method);
-  const { data: delivery } = await db
-    .from("driver_assignments")
-    .select("id")
-    .eq("order_id", o.id)
-    .eq("assignment_type", "delivery")
-    .maybeSingle();
+  const delivery = await loadDeliveryAssignment(db, o);
   const { error } = await db.from("driver_assignments").insert({
     company_id: o.company_id,
     order_id: o.id,
     driver_id: params.driverId,
     assignment_type: "collection",
     scheduled_for: scheduledFor.toISOString(),
-    parent_assignment_id: (delivery as any)?.id || null,
+    parent_assignment_id: delivery.id,
     status: "assigned",
     notes: "Collection trip: return to venue, pick up equipment, deliver to kitchen for cleaning.",
   });
@@ -251,8 +266,9 @@ export async function changeEquipmentReturn(params: {
     } else if (!trip && delivered) {
       // Already delivered, so the automatic booking has passed: book it
       // with the order's driver, or alert the office to pick one.
-      if (o.assigned_driver_id) {
-        const r = await bookOrReassignCollection({ orderId: o.id, driverId: o.assigned_driver_id, db });
+      const delivery = await loadDeliveryAssignment(db, o);
+      if (delivery.driverId) {
+        const r = await bookOrReassignCollection({ orderId: o.id, driverId: delivery.driverId, db });
         notes.push(r.ok ? "Collection trip booked with the order's driver." : `Couldn't book the collection: ${r.error}`);
       } else {
         await alertNoCollectionDriver(o.id, db);

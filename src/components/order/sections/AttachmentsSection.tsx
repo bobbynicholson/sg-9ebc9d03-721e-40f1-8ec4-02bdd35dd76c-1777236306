@@ -14,7 +14,7 @@
  * (is_client_visible) optionally surface on the magic-link client
  * portal too - default off, so internal docs stay internal.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
@@ -68,8 +68,11 @@ export function AttachmentsSection({ orderId, companyId, defaultOpen, forceOpen 
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Only the first load for an order shows the spinner. Live updates refresh
+  // the rows in place so the section does not blink.
+  const shownOrderRef = useRef<string | null>(null);
   const load = async () => {
-    setLoading(true);
+    if (shownOrderRef.current !== orderId) setLoading(true);
     try {
       const { data, error } = await (supabase as any)
         .from("order_attachments")
@@ -79,6 +82,7 @@ export function AttachmentsSection({ orderId, companyId, defaultOpen, forceOpen 
         .order("created_at", { ascending: false });
       if (error) throw error;
       setRows((data || []) as AttachmentRow[]);
+      shownOrderRef.current = orderId;
     } catch (e: any) {
       captureException(e, { tags: { route: "/order/[id]", step: "loadAttachments", orderId, companyId } });
     } finally {

@@ -339,11 +339,30 @@ export const userManagementService = {
       // Pull the company_id + before-state so the audit row is
       // complete. If the lookup fails we still update; audit is
       // best-effort to avoid blocking the operator on a Sentry blip.
-      const { data: priorRow } = await supabase
+      const { data: priorRow, error: priorRowError } = await supabase
         .from("profiles")
-        .select("company_id, is_active")
+        .select("company_id, email, is_active")
         .eq("id", userId)
         .maybeSingle();
+
+      if (isActive && priorRowError) throw priorRowError;
+      if (isActive && !priorRow) throw new Error("We couldn't verify this account before reactivating it. Refresh the page and try again.");
+
+      if (isActive && priorRow?.company_id && priorRow.email) {
+        const { data: sameEmailProfiles, error: sameEmailError } = await supabase
+          .from("profiles")
+          .select("id, email")
+          .eq("company_id", priorRow.company_id)
+          .neq("id", userId);
+        if (sameEmailError) throw sameEmailError;
+
+        const emailIsAlreadyReused = (sameEmailProfiles || []).some(
+          (profile) => profile.email?.trim().toLowerCase() === priorRow.email.trim().toLowerCase(),
+        );
+        if (emailIsAlreadyReused) {
+          throw new Error("This email is now assigned to another account. Keep this old profile inactive and use the current account.");
+        }
+      }
 
       const { error } = await supabase
         .from("profiles")

@@ -113,8 +113,15 @@ export function PWAInstallPrompt({ appName = "CateringMS", companySlug, inline =
   const maxDrag = () => Math.max(0, (trackRef.current?.clientWidth || 0) - 56);
 
   if (installed) {
-    return inline ? <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
-      {appName} is installed or running as an app. <Link href={companySlug ? `/${companySlug}/login` : "/auth/login"} className="font-medium underline underline-offset-4">Open your workspace</Link>
+    return inline ? <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
+      <p role="status">{appName} is installed or running as an app. <Link href={companySlug ? `/${companySlug}/login` : "/auth/login"} className="font-medium underline underline-offset-4">Open your workspace</Link></p>
+      <details className="border-t border-emerald-200 pt-3 text-sm leading-6">
+        <summary className="min-h-11 cursor-pointer py-2 font-medium">Email links opening in a browser?</summary>
+        {ios ? <div className="mt-2 space-y-2">
+          <p>The Home Screen version of {appName} is a web app. iOS does not register it as an Apple Universal Link app, so tapping an email link may open Safari instead of this Home Screen app. You can use the change request in Safari or open {appName} from its Home Screen icon.</p>
+          <p>Automatic email-to-app opening on iPhone or iPad requires a native iOS app with Apple&apos;s Universal Links association.</p>
+        </div> : <div className="mt-2"><BrowserInstallGuide appName={appName} /></div>}
+      </details>
     </div> : null;
   }
   if (!inline && (dismissed || (!ios && !browserHint && !deferred))) return null;
