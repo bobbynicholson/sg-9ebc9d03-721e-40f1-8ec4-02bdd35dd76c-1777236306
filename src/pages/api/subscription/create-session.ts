@@ -148,12 +148,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
     }
 
-    // Platform PayFast credentials (server-only; never NEXT_PUBLIC for the
-    // passphrase). Fall back to the NEXT_PUBLIC_* names so an existing
-    // single-account setup keeps working.
+    // Platform PayFast credentials are server-only. Merchant IDs are public;
+    // signing keys and passphrases must use private environment variables.
     const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID;
-    const merchantKey = process.env.PAYFAST_PLATFORM_MERCHANT_KEY || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY;
-    const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || process.env.PAYFAST_PASSPHRASE || process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE || "";
+    const merchantKey = process.env.PAYFAST_PLATFORM_MERCHANT_KEY;
+    const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || process.env.PAYFAST_PASSPHRASE || "";
     const testMode =
       (process.env.PAYFAST_PLATFORM_TEST_MODE || process.env.NEXT_PUBLIC_PAYFAST_TEST_MODE) === "true";
     if (!merchantId || !merchantKey || !passphrase) {

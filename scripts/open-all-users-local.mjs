@@ -39,7 +39,11 @@ if (!url || !anon) { console.error("Missing Supabase URL or anon key in .env.loc
 const admin = svc
   ? createClient(url, svc, { auth: { persistSession: false, autoRefreshToken: false } })
   : null;
-const devPassword = env.NEXT_PUBLIC_DEV_USER_PASSWORD || "CateringMS123!";
+const devPassword = env.SUPABASE_DEV_USER_PASSWORD;
+if (!devPassword) {
+  console.error("Set SUPABASE_DEV_USER_PASSWORD in .env.local before opening test accounts.");
+  process.exit(1);
+}
 const storageKey = `sb-${new URL(url).hostname.split(".")[0]}-auth-token`;
 
 // role -> { email, landing }  (landing is the first page to open, includes prefix)

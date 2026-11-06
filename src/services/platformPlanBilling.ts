@@ -36,8 +36,8 @@ export function platformBillingProviders(): Record<PlatformPlanProvider, boolean
   const env = process.env;
   return {
     payfast: Boolean((env.PAYFAST_PLATFORM_MERCHANT_ID || env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID) &&
-      (env.PAYFAST_PLATFORM_MERCHANT_KEY || env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY) &&
-      (env.PAYFAST_PLATFORM_PASSPHRASE || env.PAYFAST_PASSPHRASE || env.NEXT_PUBLIC_PAYFAST_PASSPHRASE)),
+      env.PAYFAST_PLATFORM_MERCHANT_KEY &&
+      (env.PAYFAST_PLATFORM_PASSPHRASE || env.PAYFAST_PASSPHRASE)),
     stripe: Boolean(env.STRIPE_PLATFORM_SECRET_KEY && env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET),
     yoco: Boolean(env.YOCO_PLATFORM_SECRET_KEY && env.YOCO_PLATFORM_WEBHOOK_SECRET),
   };

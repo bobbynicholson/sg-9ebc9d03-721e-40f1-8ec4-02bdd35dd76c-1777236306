@@ -12,74 +12,62 @@ import { useToast } from "@/hooks/use-toast";
 import { createClient } from "@/lib/supabase/client";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { isValidEmail } from "@/lib/validation/authValidation";
+import { LOCAL_DEV_LOGIN_USERS } from "@/lib/devLoginUsers";
 
-// Dev Mode Test Users
-const DEV_USERS = [
-  {
-    email: "bobby@skylight-digital.co.za",
-    role: "super_admin",
+const DEV_USER_PRESENTATION: Record<string, { label: string; description: string; icon: typeof Crown; gradient: string }> = {
+  super_admin: {
     label: "Super Admin",
     description: "Platform Administrator",
     icon: Crown,
     gradient: "from-amber-500 to-orange-500",
   },
-  {
-    email: "hello@spitbraaidelivery.co.za",
-    role: "company_admin",
+  company_admin: {
     label: "Business Administrator",
     description: "Full company operations and management",
     icon: UserCog,
     gradient: "from-blue-500 to-slate-500",
   },
-  {
-    email: "admin@spitbraaidelivery.co.za",
-    role: "admin",
+  admin: {
     label: "Operations Administrator",
     description: "Day-to-day orders, clients, dispatch, and staff",
     icon: Shield,
     gradient: "from-slate-500 to-rose-500",
   },
-  {
-    email: "kitchen@spitbraaidelivery.co.za",
-    role: "kitchen_staff",
+  kitchen_staff: {
     label: "Kitchen Staff",
     description: "Kitchen Operations",
     icon: ChefHat,
     gradient: "from-orange-500 to-rose-500",
   },
-  {
-    email: "driver@spitbraaidelivery.co.za",
-    role: "driver",
+  driver: {
     label: "Driver",
     description: "Driver & Waiter",
     icon: Truck,
     gradient: "from-brand-primary to-brand-secondary",
   },
-  {
-    email: "shopping@spitbraaidelivery.co.za",
-    role: "shopping_staff",
+  shopping_staff: {
     label: "Shopping Staff",
     description: "Shopping Operations",
     icon: ShoppingCart,
     gradient: "from-rose-500 to-rose-500",
   },
-  {
-    email: "cleaning@spitbraaidelivery.co.za",
-    role: "cleaning_staff",
+  cleaning_staff: {
     label: "Cleaning Staff",
     description: "Cleaning Operations",
     icon: SprayCan,
     gradient: "from-brand-primary to-brand-secondary",
   },
-  {
-    email: "universalsportmags23@gmail.com",
-    role: "client",
+  client: {
     label: "Client",
     description: "Tollie Le Roux, Tollies Marketing",
     icon: Users,
     gradient: "from-blue-500 to-blue-500",
   },
-];
+};
+const DEV_USERS = LOCAL_DEV_LOGIN_USERS.map((user) => ({
+  ...user,
+  ...DEV_USER_PRESENTATION[user.role],
+}));
 
 // Route user after successful login. The authenticated session is sent to a
 // role chooser first so accounts with several assigned portals are not forced
@@ -173,17 +161,14 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const devPassword = process.env.NEXT_PUBLIC_DEV_USER_PASSWORD;
-      if (!devPassword) throw new Error("Development login password is not configured.");
-      const supabase = createClient();
-      const { data: { user }, error: signInError } = await supabase.auth.signInWithPassword({
-        email: userEmail,
-        password: devPassword,
+      const response = await fetch("/api/auth/dev-login", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: userEmail }),
       });
-
-      if (signInError || !user) {
-        throw new Error(signInError?.message || "Dev login failed");
-      }
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Dev login failed");
 
       toast({
         title: "Dev Login Successful",

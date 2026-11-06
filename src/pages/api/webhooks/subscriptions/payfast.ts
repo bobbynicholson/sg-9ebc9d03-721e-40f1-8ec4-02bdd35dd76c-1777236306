@@ -107,8 +107,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   // Use the same server-side credentials as subscription checkout.
   const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID;
-  const merchantKey = process.env.PAYFAST_PLATFORM_MERCHANT_KEY || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY;
-  const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || process.env.PAYFAST_PASSPHRASE || process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE || "";
+  const merchantKey = process.env.PAYFAST_PLATFORM_MERCHANT_KEY;
+  const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || process.env.PAYFAST_PASSPHRASE || "";
 
   if (!merchantId || !merchantKey || !passphrase) {
     console.warn(

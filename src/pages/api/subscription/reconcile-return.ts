@@ -60,7 +60,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID;
     const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE
       || process.env.PAYFAST_PASSPHRASE
-      || process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE
       || "";
     const isTest = (process.env.PAYFAST_PLATFORM_TEST_MODE || process.env.NEXT_PUBLIC_PAYFAST_TEST_MODE) === "true";
     if (!merchantId || !passphrase) {

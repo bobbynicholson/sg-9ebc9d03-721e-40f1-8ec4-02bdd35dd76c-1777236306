@@ -161,21 +161,22 @@ export const driverConfirmationService = {
     // for this order. Pre-Wave-49 the driver could roll out without
     // anyone proving the food + equipment got loaded - pure trust.
     // Now the kitchen lead's HandoverToDriverPanel sign-off is a
-    // hard prerequisite. Bypass available via env flag for dev.
-    if (process.env.NEXT_PUBLIC_BYPASS_HANDOVER_GATE !== "true") {
-      const { count: handoverCount, error: handoverErr } = await (supabase as any)
-        .from("equipment_handovers")
-        .select("id", { count: "exact", head: true })
-        .eq("order_id", orderId)
-        .eq("from_stage", "kitchen")
-        .eq("to_stage", "driver");
-      if (handoverErr) {
-        console.warn("[confirmDepartedKitchen] handover probe failed - letting through:", handoverErr);
-      } else if (!handoverCount || handoverCount === 0) {
-        throw new Error(
-          "Kitchen has not signed this order over yet. Ask the kitchen lead to tap 'Sign over to driver' first.",
-        );
-      }
+    // hard prerequisite. A lookup error also blocks departure so a database
+    // problem cannot silently bypass the handover requirement.
+    const { count: handoverCount, error: handoverErr } = await (supabase as any)
+      .from("equipment_handovers")
+      .select("id", { count: "exact", head: true })
+      .eq("order_id", orderId)
+      .eq("from_stage", "kitchen")
+      .eq("to_stage", "driver");
+    if (handoverErr) {
+      console.warn("[confirmDepartedKitchen] handover verification failed:", handoverErr);
+      throw new Error("Could not verify the kitchen handover. Try again or ask the kitchen lead to confirm it.");
+    }
+    if (!handoverCount || handoverCount === 0) {
+      throw new Error(
+        "Kitchen has not signed this order over yet. Ask the kitchen lead to tap 'Sign over to driver' first.",
+      );
     }
 
     const { data, error } = await (supabase as any)

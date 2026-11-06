@@ -125,10 +125,10 @@ export async function getRequestSupabase() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     const email = process.env.SUPABASE_DEV_USER_EMAIL;
-    const password = process.env.NEXT_PUBLIC_DEV_USER_PASSWORD;
+    const password = process.env.SUPABASE_DEV_USER_PASSWORD;
     if (!url || !anonKey || !email || !password) {
       throw new Error(
-        "Local Supabase fallback missing SUPABASE_DEV_USER_EMAIL or NEXT_PUBLIC_DEV_USER_PASSWORD",
+        "Local Supabase fallback missing SUPABASE_DEV_USER_EMAIL or SUPABASE_DEV_USER_PASSWORD",
       );
     }
 

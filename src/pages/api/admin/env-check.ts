@@ -82,8 +82,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // payment_gateway_credentials (sandbox vs live lives on that DB row's
       // is_test flag, not here).
       NEXT_PUBLIC_PAYFAST_MERCHANT_ID: present("NEXT_PUBLIC_PAYFAST_MERCHANT_ID"),
-      NEXT_PUBLIC_PAYFAST_MERCHANT_KEY: present("NEXT_PUBLIC_PAYFAST_MERCHANT_KEY"),
-      NEXT_PUBLIC_PAYFAST_PASSPHRASE: present("NEXT_PUBLIC_PAYFAST_PASSPHRASE"),
       NEXT_PUBLIC_PAYFAST_TEST_MODE: process.env.NEXT_PUBLIC_PAYFAST_TEST_MODE ?? null,
       PAYFAST_PASSPHRASE: present("PAYFAST_PASSPHRASE"),
       PAYFAST_ALLOWED_IPS: present("PAYFAST_ALLOWED_IPS"),

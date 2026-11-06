@@ -113,7 +113,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
     if (company.payfast_subscription_token) {
       const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID || "";
-      const merchantKey = process.env.PAYFAST_PLATFORM_MERCHANT_KEY || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY || "";
+      const merchantKey = process.env.PAYFAST_PLATFORM_MERCHANT_KEY || "";
       const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || process.env.PAYFAST_PASSPHRASE || "";
       if (!merchantId || !merchantKey || !passphrase) {
         return res.status(503).json({ error: "PayFast billing credentials are missing, so the PayFast agreement cannot be stopped. Nothing was changed." });

@@ -74,7 +74,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .eq("id", profile.company_id).single();
     if (!company?.payfast_subscription_token) return res.status(409).json({ error: "This subscription is not linked to a payment provider." });
     const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID || "";
-    const merchantKey = process.env.PAYFAST_PLATFORM_MERCHANT_KEY || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY || "";
+    const merchantKey = process.env.PAYFAST_PLATFORM_MERCHANT_KEY || "";
     const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || process.env.PAYFAST_PASSPHRASE || "";
     if (!merchantId || !merchantKey || !passphrase) return res.status(503).json({ error: "PayFast billing is not configured." });
     const svc = new PayFastService({ merchantId, merchantKey, passphrase,

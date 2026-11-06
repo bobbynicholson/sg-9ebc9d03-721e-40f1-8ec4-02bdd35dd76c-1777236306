@@ -223,9 +223,19 @@ export async function middleware(request: NextRequest) {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const { pathname } = request.nextUrl;
 
   if (!supabaseUrl || !supabaseKey) {
-    return response; // Cannot auth without env vars
+    const isStaticAsset = pathname.startsWith("/_next") || pathname.startsWith("/embed/") ||
+      /\.(?:ico|png|jpg|jpeg|webp|svg|gif|avif|woff2?|css|js|map|txt|xml|json|pdf|html|webmanifest|wav|mp3|ogg|m4a|aac)$/i.test(pathname);
+    if (isPublicRoute(pathname) || pathname.startsWith("/api/") || pathname === "/api" || isStaticAsset) {
+      return response;
+    }
+    mwLog("DENY", "protected page denied because auth configuration is missing", { path: pathname });
+    return new NextResponse("Authentication is temporarily unavailable.", {
+      status: 503,
+      headers: { "Cache-Control": "private, no-store", "Retry-After": "60" },
+    });
   }
 
   const supabase = createServerClient(
@@ -248,8 +258,6 @@ export async function middleware(request: NextRequest) {
       },
     }
   );
-
-  const { pathname } = request.nextUrl;
 
   // Skip middleware for static files and ALL api routes.
   //
