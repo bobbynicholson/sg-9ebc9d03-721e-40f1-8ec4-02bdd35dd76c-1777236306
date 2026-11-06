@@ -68,6 +68,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CustomerIdentityFields } from "@/components/admin/CustomerIdentityFields";
 import { composeEmail, templateFor, type ClientStatus } from "@/lib/composeEmail";
 import { WhatsAppButton } from "@/components/messaging/WhatsAppButton";
+import { WhatsAppTemplateSend } from "@/components/messaging/WhatsAppTemplateSend";
 import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import type { ClientWhatsAppKind } from "@/lib/whatsappTemplates";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -1903,6 +1904,15 @@ function ClientsCRM() {
                             </td>
                             <td className="py-3 pr-4 text-right">
                               <div className="flex flex-nowrap items-center justify-end gap-1.5 whitespace-nowrap">
+                                {c.clientId && <WhatsAppTemplateSend
+                                  entityType="client"
+                                  entityId={c.clientId}
+                                  companyId={companyId}
+                                  recipientName={c.name}
+                                  buttonLabel="Send template"
+                                  iconOnly
+                                  className="h-8 w-8 p-0"
+                                />}
                                 {/* WhatsApp the client. Hidden when no
                                     mobile is on file or it looks like
                                     a landline. Default template depends

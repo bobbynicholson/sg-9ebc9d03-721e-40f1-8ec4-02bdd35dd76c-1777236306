@@ -59,6 +59,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { WhatsAppTemplateSend } from "@/components/messaging/WhatsAppTemplateSend";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { formatLocalDate } from "@/lib/localFormat";
 import { loginActivityBucket } from "@/lib/loginActivity";
@@ -78,6 +79,10 @@ interface PendingInvitation {
   created_at: string | null;
   expires_at: string | null;
 }
+
+const WHATSAPP_STAFF_ROLES = new Set([
+  "kitchen_manager", "kitchen_staff", "shopping_staff", "driver", "waiter", "cleaning_manager", "cleaning_staff",
+]);
 
 function AdminUsersPage() {
   const router = useRouter();
@@ -1402,6 +1407,16 @@ function AdminUsersPage() {
                                 >
                                   {targetUser.phone_number}
                                 </button>
+                              )}
+                              {targetUser.is_active && roles.some((role) => WHATSAPP_STAFF_ROLES.has(String(role))) && (
+                                <WhatsAppTemplateSend
+                                  entityType="staff"
+                                  entityId={targetUser.id}
+                                  companyId={user?.company_id}
+                                  recipientName={targetUser.full_name}
+                                  buttonLabel="Send welcome"
+                                  className="mt-2"
+                                />
                               )}
                             </div>
 

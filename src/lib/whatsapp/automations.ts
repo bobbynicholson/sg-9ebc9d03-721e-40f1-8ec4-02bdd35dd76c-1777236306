@@ -31,7 +31,7 @@ export const WHATSAPP_AUTOMATION_KEYS = [
 ] as const;
 
 export type WhatsAppAutomationKey = (typeof WHATSAPP_AUTOMATION_KEYS)[number];
-export type WhatsAppSlot = "first_name" | "event_name" | "company_name" | "quote_url";
+export type WhatsAppSlot = "first_name" | "event_name" | "company_name" | "quote_url" | "lead_url";
 
 export const WHATSAPP_GROUPS = ["Enquiries", "Quotes", "Booked events", "Staff"] as const;
 export type WhatsAppGroup = (typeof WHATSAPP_GROUPS)[number];
@@ -208,7 +208,7 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
     group: "Staff",
     recommended: false,
     wording: "Hi {{1}}, a new website enquiry has come in for {{2}}. Open {{3}} to reply.",
-    slots: ["first_name", "event_name", "company_name"],
+    slots: ["first_name", "event_name", "lead_url"],
   },
 ];
 
@@ -259,10 +259,12 @@ export const WHATSAPP_SEND_FROM: Record<string, { label: string; href: string }>
   whatsapp_order_on_the_way: { label: "Open Tracking", href: "/admin/tracking" },
   whatsapp_event_arrived: { label: "Open Tracking", href: "/admin/tracking" },
   whatsapp_order_delivered: { label: "Open Tracking", href: "/admin/tracking" },
+  embed_lead_admin_whatsapp: { label: "Open Leads", href: "/admin/leads" },
+  whatsapp_staff_welcome_login: { label: "Open Users", href: "/admin/users" },
   whatsapp_delay_alert: { label: "Open Tracking", href: "/admin/tracking" },
-  whatsapp_staff_shift_confirm: { label: "Open Drivers", href: "/admin/driver-management" },
-  whatsapp_staff_job_assigned: { label: "Open Drivers", href: "/admin/driver-management" },
-  whatsapp_staff_pickup_ready: { label: "Open Drivers", href: "/admin/driver-management" },
+  whatsapp_staff_shift_confirm: { label: "Open schedules", href: "/admin/driver-schedule" },
+  whatsapp_staff_job_assigned: { label: "Open Orders", href: "/admin/orders" },
+  whatsapp_staff_pickup_ready: { label: "Open Orders", href: "/admin/orders" },
   whatsapp_staff_schedule_change: { label: "Open Drivers", href: "/admin/driver-management" },
   whatsapp_staff_check_in: { label: "Open Drivers", href: "/admin/driver-management" },
 };
@@ -272,6 +274,7 @@ const SAMPLE_VALUES: Record<WhatsAppSlot, string> = {
   event_name: "Year-end lunch",
   company_name: "Your company",
   quote_url: "https://cateringms.com/q/sample",
+  lead_url: "https://cateringms.com/admin/leads?leadId=sample",
 };
 
 const SLOT_LABELS: Record<WhatsAppSlot, string> = {
@@ -279,6 +282,7 @@ const SLOT_LABELS: Record<WhatsAppSlot, string> = {
   event_name: "Event name",
   company_name: "Your company name",
   quote_url: "Link to the quote",
+  lead_url: "Link to the enquiry in Leads",
 };
 
 function sampleValues(automation: WhatsAppAutomation, companyName?: string | null): Record<WhatsAppSlot, string> {

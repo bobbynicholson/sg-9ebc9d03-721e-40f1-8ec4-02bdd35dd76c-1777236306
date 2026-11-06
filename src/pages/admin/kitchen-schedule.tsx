@@ -42,6 +42,7 @@ import { staffOrderHref } from "@/lib/orderUrls";
 import { DEFAULT_TENANT_TIMEZONE, tenantToday, toLocalISO } from "@/lib/localDate";
 import { LogKitchenShiftModal, type EditableShift } from "@/components/admin/LogKitchenShiftModal";
 import { ShiftTasksChips } from "@/components/admin/ShiftTasksChips";
+import { WhatsAppTemplateSend } from "@/components/messaging/WhatsAppTemplateSend";
 import { AddShiftTaskModal } from "@/components/admin/AddShiftTaskModal";
 import {
   listTasksForShifts,
@@ -986,13 +987,21 @@ function KitchenScheduleGrid() {
                             ) : (
                               <ul className="space-y-1">
                                 {cellsForDay.map((c) => (
-                                  <li key={c.p.id} className="flex items-center justify-between text-xs">
-                                    <span className="font-medium text-slate-900 truncate">
+                                  <li key={c.p.id} className="flex items-center justify-between gap-2 text-xs">
+                                    <span className="min-w-0 truncate font-medium text-slate-900">
                                       {c.p.full_name || c.p.email}
                                     </span>
-                                    <span className="text-slate-600 tabular-nums shrink-0">
+                                    <span className="shrink-0 text-slate-600 tabular-nums">
                                       {c.totalPlanned.toFixed(1)}h
                                     </span>
+                                    {c.p.profile_id && c.shifts[0]?.id && !c.shifts[0].id.startsWith("live:") && <WhatsAppTemplateSend
+                                      entityType="kitchen_shift"
+                                      entityId={c.shifts[0].id}
+                                      companyId={companyId}
+                                      recipientName={c.p.full_name || c.p.email}
+                                      buttonLabel="Send shift message"
+                                      iconOnly
+                                    />}
                                   </li>
                                 ))}
                               </ul>
@@ -1165,11 +1174,21 @@ function KitchenScheduleGrid() {
                                               )}
                                               {/* Wave 41 Phase 3: typed task chips. */}
                                               {!s.id.startsWith("live:") && (
-                                                <ShiftTasksChips
-                                                  tasks={tasksByShift.get(s.id) || []}
-                                                  onAddClick={() => setAddTaskTarget({ shiftId: s.id, assignedUserId: s.staff_id })}
-                                                  onChanged={refreshTasks}
-                                                />
+                                                <>
+                                                  <ShiftTasksChips
+                                                    tasks={tasksByShift.get(s.id) || []}
+                                                    onAddClick={() => setAddTaskTarget({ shiftId: s.id, assignedUserId: s.staff_id })}
+                                                    onChanged={refreshTasks}
+                                                  />
+                                                  {p.profile_id && <WhatsAppTemplateSend
+                                                    entityType="kitchen_shift"
+                                                    entityId={s.id}
+                                                    companyId={companyId}
+                                                    recipientName={p.full_name || p.email}
+                                                    buttonLabel="Send shift message"
+                                                    iconOnly
+                                                  />}
+                                                </>
                                               )}
                                             </div>
                                           );

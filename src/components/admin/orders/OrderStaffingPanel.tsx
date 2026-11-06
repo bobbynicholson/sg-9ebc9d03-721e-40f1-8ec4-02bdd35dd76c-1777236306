@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+import { WhatsAppTemplateSend } from "@/components/messaging/WhatsAppTemplateSend";
 import { Clock3, Users, AlertCircle, CalendarClock } from "lucide-react";
 
 type OrderStaffingPanelProps = {
@@ -323,9 +324,9 @@ export function OrderStaffingPanel({ orderId, companyId, order }: OrderStaffingP
           <p className="rounded-md border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-600">No team members have been attached to this order yet. Assign the driver, kitchen shift, waiter, or cleaning work from the relevant operational section.</p>
         ) : (
           <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
-            <table className="w-full min-w-[760px] text-left text-xs">
+            <table className="w-full min-w-[900px] text-left text-xs">
               <thead className="bg-slate-100 text-[10px] uppercase tracking-wide text-slate-500">
-                <tr><th className="px-3 py-2">Person</th><th className="px-3 py-2">Role for this order</th><th className="px-3 py-2">Assignment</th><th className="px-3 py-2">Planned / assigned</th><th className="px-3 py-2">Actual time</th><th className="px-3 py-2">Time</th></tr>
+                <tr><th className="px-3 py-2">Person</th><th className="px-3 py-2">Role for this order</th><th className="px-3 py-2">Assignment</th><th className="px-3 py-2">Planned / assigned</th><th className="px-3 py-2">Actual time</th><th className="px-3 py-2">Time</th><th className="px-3 py-2">Staff message</th></tr>
               </thead>
               <tbody>
                 {rows.map((row) => {
@@ -339,6 +340,16 @@ export function OrderStaffingPanel({ orderId, companyId, order }: OrderStaffingP
                       <td className="px-3 py-2 text-slate-600">{row.plannedStart ? `${formatClock(row.plannedStart)}${row.plannedEnd ? ` – ${formatClock(row.plannedEnd)}` : ""}` : row.activityStart ? `Started ${formatStamp(row.activityStart)}` : "Not scheduled"}</td>
                       <td className="px-3 py-2 text-slate-600">{row.actualStart ? `${formatStamp(row.actualStart)}${row.actualEnd ? ` – ${formatStamp(row.actualEnd)}` : " · active"}` : "Not clocked"}</td>
                       <td className="px-3 py-2 font-medium tabular-nums text-slate-700">{durationLabel(row.activityStart, row.activityEnd)}</td>
+                      <td className="px-3 py-2">
+                        {row.role === "driver" && profile && <WhatsAppTemplateSend
+                          entityType="staff_order"
+                          entityId={orderId}
+                          recipientId={row.personId}
+                          companyId={companyId}
+                          recipientName={profile.full_name || profile.email}
+                          buttonLabel="Notify driver"
+                        />}
+                      </td>
                     </tr>
                   );
                 })}

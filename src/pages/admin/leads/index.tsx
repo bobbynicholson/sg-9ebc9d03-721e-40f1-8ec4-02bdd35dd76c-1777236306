@@ -1646,6 +1646,14 @@ function AdminLeadsInner() {
                             recipientName={lead.client_name || lead.contact_name}
                             className="w-full justify-center"
                           />
+                          {lead.source === "embed" && <WhatsAppTemplateSend
+                            entityType="lead_admin"
+                            entityId={lead.id}
+                            companyId={profile?.company_id ?? user?.company_id}
+                            recipientName="your admins"
+                            buttonLabel="Notify admins"
+                            className="w-full justify-center"
+                          />}
                           <LeadWhatsAppButton lead={lead} className="w-full justify-center" />
                           <div className="flex items-center gap-1.5 justify-end flex-wrap">
                             <Button

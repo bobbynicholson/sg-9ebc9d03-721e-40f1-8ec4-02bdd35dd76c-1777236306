@@ -179,3 +179,10 @@ export function buildPublicQuoteUrlServer(
   const origin = resolveOrigin(originOverride);
   return `${origin}${slugSegment(slug)}/q/${token}`;
 }
+
+/** Absolute admin link used by the website-enquiry WhatsApp alert. */
+export function buildAdminLeadUrlServer(leadId: string | null | undefined, slug?: string | null): string | null {
+  if (!leadId) return null;
+  const origin = resolveOrigin();
+  return `${origin}${slugSegment(slug)}/admin/leads?leadId=${encodeURIComponent(leadId)}`;
+}

@@ -13,7 +13,7 @@
  *     held back by quiet hours or the limit goes out on a later run.
  *   - Follow-ups stop once the person has replied.
  */
-import { buildPublicQuoteUrlServer } from "@/lib/customerLinksServer";
+import { buildAdminLeadUrlServer, buildPublicQuoteUrlServer } from "@/lib/customerLinksServer";
 import { normaliseToE164 } from "@/lib/whatsapp";
 import {
   CLIENT_KEYS,
@@ -297,6 +297,7 @@ function slotValue(slot: WhatsAppSlot, candidate: Candidate, company: { company_
     case "event_name": return String(candidate.eventName || "").trim() || "your event";
     case "company_name": return company.company_name;
     case "quote_url": return buildPublicQuoteUrlServer(candidate.publicToken || "", company.slug) || "";
+    case "lead_url": return candidate.entityType === "lead" ? buildAdminLeadUrlServer(candidate.entityId, company.slug) || "" : "";
   }
 }
 

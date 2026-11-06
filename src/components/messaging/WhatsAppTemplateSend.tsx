@@ -5,7 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { WHATSAPP_AUTOMATIONS, type WhatsAppAutomationKey } from "@/lib/whatsapp/automations";
 
-type EntityType = "lead" | "quote" | "order";
+type EntityType = "lead" | "quote" | "order" | "client" | "staff" | "driver_shift" | "kitchen_shift" | "staff_order" | "lead_admin";
 type TemplateStatus = "APPROVED" | "IN_REVIEW" | "PENDING" | "REJECTED" | "PAUSED" | "DISABLED" | "MISSING" | "NOT_SET_UP";
 
 const TEMPLATE_KEYS: Record<EntityType, WhatsAppAutomationKey[]> = {
@@ -19,6 +19,12 @@ const TEMPLATE_KEYS: Record<EntityType, WhatsAppAutomationKey[]> = {
     "whatsapp_event_arrived",
     "whatsapp_order_delivered",
   ],
+  client: ["whatsapp_touch_base"],
+  staff: ["whatsapp_staff_welcome_login"],
+  driver_shift: ["whatsapp_staff_shift_confirm"],
+  kitchen_shift: ["whatsapp_staff_shift_confirm"],
+  staff_order: ["whatsapp_staff_job_assigned", "whatsapp_staff_pickup_ready"],
+  lead_admin: ["embed_lead_admin_whatsapp"],
 };
 
 const STATUS_LABEL: Record<TemplateStatus, string> = {
@@ -37,8 +43,11 @@ interface Props {
   entityId: string;
   companyId?: string | null;
   recipientName?: string | null;
+  recipientId?: string | null;
   onSent?: () => void;
   className?: string;
+  buttonLabel?: string;
+  iconOnly?: boolean;
 }
 
 interface TemplateChoice {
@@ -54,7 +63,7 @@ function withCompany(path: string, companyId?: string | null) {
   return `${path}?companyId=${encodeURIComponent(companyId)}`;
 }
 
-export function WhatsAppTemplateSend({ entityType, entityId, companyId, recipientName, onSent, className }: Props) {
+export function WhatsAppTemplateSend({ entityType, entityId, companyId, recipientName, recipientId, onSent, className, buttonLabel = "Send template", iconOnly = false }: Props) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -123,7 +132,7 @@ export function WhatsAppTemplateSend({ entityType, entityId, companyId, recipien
       const response = await fetch(withCompany("/api/admin/whatsapp/send", companyId), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "record", entityType, entityId, key: selected.key }),
+        body: JSON.stringify({ action: "record", entityType, entityId, recipientId, key: selected.key }),
       });
       const json = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(json?.error || "Try again.");
@@ -144,8 +153,16 @@ export function WhatsAppTemplateSend({ entityType, entityId, companyId, recipien
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button type="button" size="sm" variant="outline" className={className}>
-          <Send className="h-3.5 w-3.5" /> Send template
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className={iconOnly ? `h-8 w-8 p-0 ${className || ""}` : className}
+          aria-label={iconOnly ? `${buttonLabel} ${recipientName || "contact"}` : undefined}
+          title={iconOnly ? buttonLabel : undefined}
+        >
+          <Send className="h-3.5 w-3.5" />
+          <span className={iconOnly ? "sr-only" : ""}>{buttonLabel}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" collisionPadding={12} className="w-[min(90vw,22rem)] p-3">

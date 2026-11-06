@@ -35,6 +35,7 @@ import { Calendar, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw
 import { toLocalISO } from "@/lib/localDate";
 import { LogDriverShiftModal, type ExistingShiftForEdit } from "@/components/admin/LogDriverShiftModal";
 import { ShiftTasksChips } from "@/components/admin/ShiftTasksChips";
+import { WhatsAppTemplateSend } from "@/components/messaging/WhatsAppTemplateSend";
 import { AddShiftTaskModal } from "@/components/admin/AddShiftTaskModal";
 import {
   listTasksForShifts,
@@ -566,6 +567,16 @@ function DriverScheduleGrid() {
                                                   onChanged={refreshTasks}
                                                 />
                                               </div>
+                                              <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                                                <WhatsAppTemplateSend
+                                                  entityType="driver_shift"
+                                                  entityId={s.id}
+                                                  companyId={companyId}
+                                                  recipientName={d.full_name || d.email}
+                                                  buttonLabel="Send shift message"
+                                                  iconOnly
+                                                />
+                                              </div>
                                             </div>
                                           );
                                         })}
@@ -713,6 +724,16 @@ function DriverScheduleGrid() {
                                                   tasks={tasksByShift.get(s.id) || []}
                                                   onAddClick={() => setAddTaskTarget({ shiftId: s.id, assignedUserId: s.driver_id })}
                                                   onChanged={refreshTasks}
+                                                />
+                                              </div>
+                                              <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                                                <WhatsAppTemplateSend
+                                                  entityType="driver_shift"
+                                                  entityId={s.id}
+                                                  companyId={companyId}
+                                                  recipientName={d.full_name || d.email}
+                                                  buttonLabel="Send shift message"
+                                                  iconOnly
                                                 />
                                               </div>
                                             </div>

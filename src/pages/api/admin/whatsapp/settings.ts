@@ -29,6 +29,7 @@ import {
 } from "@/lib/whatsapp/automations";
 import {
   canStoreWhatsAppToken,
+  callMeta,
   encryptWhatsAppToken,
   loadWhatsAppCredentials,
   postWhatsAppMessage,
@@ -187,8 +188,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
     const credentials = await loadWhatsAppCredentials(sb, companyId);
     if (!credentials) return res.status(400).json({ error: "Connect WhatsApp first." });
+    if (!credentials.businessAccountId) return res.status(400).json({ error: "Reconnect WhatsApp with your Business account ID." });
+    const templates = await callMeta(credentials, `${credentials.businessAccountId}/message_templates?fields=name,status,language&limit=200`);
+    if (!templates.ok) return res.status(400).json({ error: "Could not check template approval with Meta. Refresh and try again." });
+    const approved = (templates.json?.data || []).some((item: any) =>
+      item.name === setting.templateName && item.language === setting.language && item.status === "APPROVED",
+    );
+    if (!approved) return res.status(400).json({ error: `Meta has not approved "${automation.label}" yet.` });
     const sample: Record<string, string> = {
-      first_name: "Sam", event_name: "Sample event", company_name: "Your company", quote_url: "https://cateringms.com",
+      first_name: "Sam", event_name: "Sample event", company_name: "Your company", quote_url: "https://cateringms.com", lead_url: "https://cateringms.com/admin/leads?leadId=sample",
     };
     const result = await postWhatsAppMessage(credentials, {
       to,
