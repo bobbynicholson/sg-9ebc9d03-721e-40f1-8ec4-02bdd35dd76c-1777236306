@@ -49,6 +49,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ReassignDriverDialog } from "@/components/admin/dispatch/ReassignDriverDialog";
 import { OrderChatPanel } from "@/components/admin/dispatch/OrderChatPanel";
 import { WhatsAppButton } from "@/components/messaging/WhatsAppButton";
+import { WhatsAppTemplateSend } from "@/components/messaging/WhatsAppTemplateSend";
 import { useAuth } from "@/contexts/AuthContext";
 import { Camera, FileSignature } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
@@ -351,6 +352,15 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                 </Button>
               )}
               {order.client_phone && (
+                <WhatsAppTemplateSend
+                  entityType="order"
+                  entityId={order.id}
+                  companyId={companyId}
+                  recipientName={order.client_name || "client"}
+                  buttonLabel="Business templates"
+                />
+              )}
+              {order.client_phone && (
                 <WhatsAppButton
                   kind="client"
                   phone={order.client_phone}
@@ -358,8 +368,9 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                   size="sm"
                   variant="outline"
                   className="h-7 text-xs"
-                  defaultTemplate="event_day_morning"
-                  templates={["event_week", "event_day_morning", "event_arrived", "delay_alert", "quote_chase"]}
+                  label="Running late draft"
+                  defaultTemplate="delay_alert"
+                  templates={["delay_alert"]}
                   ctx={{
                     contactName: order.client_name || "",
                     eventName: order.event_name,
@@ -376,6 +387,9 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                 />
               )}
             </div>
+            {!order.client_phone && (
+              <p className="text-xs text-slate-500">Add the client’s mobile number to enable WhatsApp messages.</p>
+            )}
           </CardContent>
         </Card>
       )}

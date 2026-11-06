@@ -5,11 +5,24 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { WHATSAPP_AUTOMATIONS, type WhatsAppAutomationKey } from "@/lib/whatsapp/automations";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 const WHATSAPP_SEND_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
 type EntityType = "lead" | "quote" | "order" | "client" | "staff" | "driver_shift" | "kitchen_shift" | "staff_order" | "lead_admin";
 type TemplateStatus = "APPROVED" | "IN_REVIEW" | "PENDING" | "REJECTED" | "PAUSED" | "DISABLED" | "MISSING" | "NOT_SET_UP";
+
+const ENTITY_COPY: Record<EntityType, { noun: string; button: string; picker: string; guidance: string }> = {
+  lead: { noun: "Enquiry", button: "Enquiry templates (3)", picker: "Choose an enquiry message", guidance: "For people who enquired but have not booked yet. Use sparingly." },
+  quote: { noun: "Quote", button: "Quote WhatsApp", picker: "Choose a quote message", guidance: "For quote updates and follow-ups." },
+  order: { noun: "Order", button: "Order WhatsApp", picker: "Choose a booking message", guidance: "For confirmed bookings and event updates." },
+  client: { noun: "Contact", button: "Contact WhatsApp", picker: "Choose a contact message", guidance: "For this saved contact." },
+  staff: { noun: "Staff", button: "Staff welcome", picker: "Choose a staff message", guidance: "For this staff member." },
+  driver_shift: { noun: "Shift", button: "Shift message", picker: "Choose a shift message", guidance: "For the person assigned to this shift." },
+  kitchen_shift: { noun: "Shift", button: "Shift message", picker: "Choose a shift message", guidance: "For the person assigned to this shift." },
+  staff_order: { noun: "Driver", button: "Notify driver", picker: "Choose a driver message", guidance: "For the driver assigned to this order." },
+  lead_admin: { noun: "Admin alert", button: "Notify admins", picker: "Choose an admin alert", guidance: "For company admins handling this enquiry." },
+};
 
 const TEMPLATE_KEYS: Record<EntityType, WhatsAppAutomationKey[]> = {
   lead: ["whatsapp_lead_followup", "whatsapp_lead_details", "whatsapp_lead_chase"],
@@ -66,9 +79,10 @@ function withCompany(path: string, companyId?: string | null) {
   return `${path}?companyId=${encodeURIComponent(companyId)}`;
 }
 
-export function WhatsAppTemplateSend({ entityType, entityId, companyId, recipientName, recipientId, onSent, className, buttonLabel = "Send template", iconOnly = false }: Props) {
+export function WhatsAppTemplateSend({ entityType, entityId, companyId, recipientName, recipientId, onSent, className, buttonLabel, iconOnly = false }: Props) {
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -78,6 +92,8 @@ export function WhatsAppTemplateSend({ entityType, entityId, companyId, recipien
   const [selectedKey, setSelectedKey] = useState("");
   const [sending, setSending] = useState(false);
   const role = String(profile?.active_role || profile?.role || user?.active_role || user?.role || "");
+  const actionLabel = buttonLabel || ENTITY_COPY[entityType].button;
+  const settingsHref = withSlug("/admin/whatsapp");
   const loadTemplates = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -165,20 +181,22 @@ export function WhatsAppTemplateSend({ entityType, entityId, companyId, recipien
           size="sm"
           variant="outline"
           className={iconOnly ? `h-8 w-8 p-0 ${className || ""}` : className}
-          aria-label={iconOnly ? `${buttonLabel} ${recipientName || "contact"}` : undefined}
-          title={iconOnly ? buttonLabel : undefined}
+          aria-label={iconOnly ? `${actionLabel} ${recipientName || "contact"}` : undefined}
+          title={iconOnly ? actionLabel : undefined}
           onClick={(event) => event.stopPropagation()}
         >
           <Send className="h-3.5 w-3.5" />
-          <span className={iconOnly ? "sr-only" : ""}>{buttonLabel}</span>
+          <span className={iconOnly ? "sr-only" : ""}>{actionLabel}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" collisionPadding={12} className="w-[min(90vw,22rem)] p-3">
         <div className="space-y-3">
           <div>
-            <p className="text-sm font-semibold text-slate-900">Business WhatsApp</p>
+              <p className="text-sm font-semibold text-slate-900">
+                {ENTITY_COPY[entityType].noun} messages{choices.length ? ` (${choices.length})` : ""}
+              </p>
             <p className="mt-0.5 text-xs text-slate-600">
-              {recipientName ? `Send an approved template to ${recipientName}.` : "Send an approved template through your connected business number."}
+              {ENTITY_COPY[entityType].guidance} {recipientName ? `Recipient: ${recipientName}.` : ""}
             </p>
           </div>
 
@@ -190,36 +208,63 @@ export function WhatsAppTemplateSend({ entityType, entityId, companyId, recipien
               <Button type="button" size="sm" variant="outline" onClick={() => void loadTemplates()}>Try again</Button>
             </div>
           ) : connected === false ? (
-            <p className="rounded-md bg-slate-50 p-2 text-sm text-slate-700">Connect your business number in Admin → WhatsApp before sending templates.</p>
+            <div className="space-y-2 rounded-md bg-slate-50 p-2 text-sm text-slate-700">
+              <p>Connect your business number before sending {ENTITY_COPY[entityType].noun.toLowerCase()} messages.</p>
+              <a href={settingsHref} className="inline-flex text-xs font-medium text-brand-primary hover:underline">Open WhatsApp settings</a>
+            </div>
           ) : loaded ? (
             <>
               {choices.length > 0 ? (
-                <label className="block space-y-1.5">
-                  <span className="text-xs font-medium text-slate-700">Choose a message</span>
-                  <select
-                    value={selectedKey}
-                    onChange={(event) => setSelectedKey(event.target.value)}
-                    className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
-                  >
-                    <option value="">Select a template</option>
-                    {choices.map((choice) => (
-                      <option key={choice.key} value={choice.key} disabled={choice.status !== "APPROVED" || !choice.templateName}>
-                        {choice.label} · {STATUS_LABEL[choice.status] || choice.status.toLowerCase().replaceAll("_", " ")}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-slate-700">{ENTITY_COPY[entityType].picker}</p>
+                  <div role="group" aria-label={ENTITY_COPY[entityType].picker} className="space-y-1.5">
+                    {choices.map((choice) => {
+                      const canSend = choice.status === "APPROVED" && Boolean(choice.templateName);
+                      const selectedChoice = selectedKey === choice.key;
+                      const statusTone = choice.status === "APPROVED"
+                        ? "bg-emerald-50 text-emerald-800"
+                        : choice.status === "REJECTED" || choice.status === "DISABLED"
+                          ? "bg-rose-50 text-rose-800"
+                          : "bg-amber-50 text-amber-900";
+                      return (
+                        <button
+                          key={choice.key}
+                          type="button"
+                          disabled={!canSend}
+                          aria-pressed={selectedChoice}
+                          onClick={() => setSelectedKey(choice.key)}
+                          className={`flex w-full items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 disabled:cursor-not-allowed disabled:opacity-75 ${
+                            selectedChoice
+                              ? "border-brand-primary bg-brand-primary/5 ring-1 ring-brand-primary/30"
+                              : "border-slate-200 bg-white hover:bg-slate-50 disabled:hover:bg-white"
+                          }`}
+                        >
+                          <span className="min-w-0 font-medium text-slate-900">{choice.label}</span>
+                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${statusTone}`}>
+                            {STATUS_LABEL[choice.status] || choice.status.toLowerCase().replaceAll("_", " ")}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               ) : (
                 <p className="rounded-md bg-slate-50 p-2 text-sm text-slate-700">No templates are set up for this type of record yet. Set them up in Admin → WhatsApp.</p>
               )}
               {templatesInReview && approvedChoices.length === 0 && (
-                <p className="text-xs text-slate-600">Meta has not approved these templates yet. Sending becomes available as soon as one is approved.</p>
+                <div role="status" className="space-y-1 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+                  <p>These {ENTITY_COPY[entityType].noun.toLowerCase()} messages are waiting for Meta approval. They can be sent here once approved.</p>
+                  <a href={settingsHref} className="inline-flex font-medium underline underline-offset-2">View template status</a>
+                </div>
               )}
               {templatesNotSetUp && (
-                <p className="text-xs text-slate-600">Add these templates from Admin → WhatsApp before sending them here.</p>
+                <div className="space-y-1 text-xs text-slate-600">
+                  <p>Set up these messages in WhatsApp settings to make them available here.</p>
+                  <a href={settingsHref} className="inline-flex font-medium text-brand-primary hover:underline">Open WhatsApp settings</a>
+                </div>
               )}
               <Button type="button" size="sm" className="w-full" disabled={!selected || sending} onClick={() => void send()}>
-                <Send className="h-3.5 w-3.5" /> {sending ? "Queueing…" : "Send through business WhatsApp"}
+                <Send className="h-3.5 w-3.5" /> {sending ? "Queueing..." : "Send through business WhatsApp"}
               </Button>
             </>
           ) : null}

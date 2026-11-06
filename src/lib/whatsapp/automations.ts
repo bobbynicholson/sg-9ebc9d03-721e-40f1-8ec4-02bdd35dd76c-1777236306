@@ -245,7 +245,11 @@ export const WHATSAPP_MANUAL_ONLY: Array<{ key: string; label: string; group: Wh
 ];
 
 /** Where each message's direct WhatsApp button lives, with the real details filled in. */
-export const WHATSAPP_SEND_FROM: Record<string, { label: string; href: string }> = {
+export const WHATSAPP_SEND_FROM: Record<string, {
+  label: string;
+  href: string;
+  also?: Array<{ label: string; href: string }>;
+}> = {
   whatsapp_lead_followup: { label: "Open Leads", href: "/admin/leads" },
   whatsapp_lead_details: { label: "Open Leads", href: "/admin/leads" },
   whatsapp_lead_chase: { label: "Open Leads", href: "/admin/leads" },
@@ -254,18 +258,24 @@ export const WHATSAPP_SEND_FROM: Record<string, { label: string; href: string }>
   whatsapp_quote_chase: { label: "Open Quotes", href: "/admin/quotes" },
   whatsapp_quote_accepted: { label: "Open Quotes", href: "/admin/quotes" },
   whatsapp_order_update: { label: "Open Orders", href: "/admin/orders" },
-  whatsapp_event_week: { label: "Open Tracking", href: "/admin/tracking" },
-  whatsapp_event_day_morning: { label: "Open Tracking", href: "/admin/tracking" },
-  whatsapp_order_on_the_way: { label: "Open Tracking", href: "/admin/tracking" },
-  whatsapp_event_arrived: { label: "Open Tracking", href: "/admin/tracking" },
-  whatsapp_order_delivered: { label: "Open Tracking", href: "/admin/tracking" },
+  whatsapp_event_week: { label: "Choose an order", href: "/admin/tracking" },
+  whatsapp_event_day_morning: { label: "Choose an order", href: "/admin/tracking" },
+  whatsapp_order_on_the_way: { label: "Choose an order", href: "/admin/tracking" },
+  whatsapp_event_arrived: { label: "Choose an order", href: "/admin/tracking" },
+  whatsapp_order_delivered: { label: "Choose an order", href: "/admin/tracking" },
   embed_lead_admin_whatsapp: { label: "Open Leads", href: "/admin/leads" },
   whatsapp_staff_welcome_login: { label: "Open Users", href: "/admin/users" },
-  whatsapp_delay_alert: { label: "Open Tracking", href: "/admin/tracking" },
-  whatsapp_staff_shift_confirm: { label: "Open schedules", href: "/admin/driver-schedule" },
+  whatsapp_delay_alert: { label: "Choose an order", href: "/admin/tracking" },
+  whatsapp_staff_shift_confirm: {
+    label: "Driver schedule", href: "/admin/driver-schedule",
+    also: [{ label: "Kitchen schedule", href: "/admin/kitchen-schedule" }],
+  },
   whatsapp_staff_job_assigned: { label: "Open Orders", href: "/admin/orders" },
   whatsapp_staff_pickup_ready: { label: "Open Orders", href: "/admin/orders" },
-  whatsapp_staff_schedule_change: { label: "Open schedules", href: "/admin/driver-schedule" },
+  whatsapp_staff_schedule_change: {
+    label: "Driver schedule", href: "/admin/driver-schedule",
+    also: [{ label: "Kitchen schedule", href: "/admin/kitchen-schedule" }],
+  },
   whatsapp_staff_check_in: { label: "Open staff", href: "/admin/staff" },
   whatsapp_staff_welcome_no_login: { label: "Open staff", href: "/admin/staff" },
 };

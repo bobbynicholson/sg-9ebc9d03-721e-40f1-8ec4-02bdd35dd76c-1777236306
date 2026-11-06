@@ -29,6 +29,8 @@ import { Footer } from "@/components/Footer";
 import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import dynamic from "next/dynamic";
 import { OrderDetailsPanel } from "@/components/tracking/OrderDetailsPanel";
+import { WhatsAppButton } from "@/components/messaging/WhatsAppButton";
+import { WhatsAppTemplateSend } from "@/components/messaging/WhatsAppTemplateSend";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { dispatchService, computeRiskScore } from "@/services/dispatchService";
 import { supabase } from "@/integrations/supabase/client";
@@ -966,16 +968,16 @@ function AdminTrackingInner() {
                             const dateBadge = getOrderDateBadge(order);
                             const isToday = isTodayOrder(order);
                             const borderTone =
-                              arrived          ? "border-l-brand-primary bg-brand-primary/10 hover:bg-brand-primary/10" :
-                              riskTier === "critical" ? "border-l-red-600 bg-rose-50/40 hover:bg-rose-50" :
-                              riskTier === "high"     ? "border-l-red-500 bg-rose-50/40 hover:bg-rose-50" :
-                              riskTier === "watch"    ? "border-l-amber-500 hover:bg-amber-50/40" :
-                              isToday                 ? "border-l-brand-primary border border-brand-primary/20 bg-brand-primary/5 hover:bg-brand-primary/10" :
-                                                        "border-l-transparent border border-slate-200 hover:bg-slate-50";
+                              arrived          ? "border border-brand-primary/30 bg-brand-primary/10 hover:bg-brand-primary/10" :
+                              riskTier === "critical" ? "border border-rose-200 bg-rose-50/40 hover:bg-rose-50" :
+                              riskTier === "high"     ? "border border-rose-200 bg-rose-50/40 hover:bg-rose-50" :
+                              riskTier === "watch"    ? "border border-amber-200 hover:bg-amber-50/40" :
+                              isToday                 ? "border border-brand-primary/20 bg-brand-primary/5 hover:bg-brand-primary/10" :
+                                                        "border border-slate-200 hover:bg-slate-50";
                             return (
                               <div
                                 key={order.id}
-                                className={`p-3 border-l-4 rounded-md cursor-pointer transition-colors ${borderTone} ${isSelected ? "ring-2 ring-blue-300" : ""}`}
+                                className={`p-3 rounded-md cursor-pointer transition-colors ${borderTone} ${isSelected ? "ring-2 ring-blue-300" : ""}`}
                                 onClick={() => setSelectedOrder(order)}
                                 title={riskReasons.length > 0 ? `Risk reasons: ${riskReasons.join(" · ")}` : undefined}
                               >
@@ -1203,6 +1205,44 @@ function AdminTrackingInner() {
                               Last updated: {new Date(order.last_updated).toLocaleString()}
                             </div>
                           )}
+                          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+                            {order.client_phone ? (
+                              <>
+                                <WhatsAppTemplateSend
+                                  entityType="order"
+                                  entityId={order.id}
+                                  companyId={profile?.company_id ?? user?.company_id}
+                                  recipientName={order.client_name || "client"}
+                                  buttonLabel="Send business template"
+                                />
+                                <WhatsAppButton
+                                  kind="client"
+                                  phone={order.client_phone}
+                                  clientId={order.client_id || null}
+                                  size="sm"
+                                  variant="outline"
+                                  label="Running late draft"
+                                  defaultTemplate="delay_alert"
+                                  templates={["delay_alert"]}
+                                  ctx={{
+                                    contactName: order.client_name || "",
+                                    eventName: order.event_name,
+                                    eventDate: order.event_date
+                                      ? new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
+                                      : null,
+                                    driverName: order.driver_name,
+                                    arrivalTime: order.delivery_time
+                                      ? new Date(order.delivery_time).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })
+                                      : null,
+                                    fromName: profile?.full_name || companyName,
+                                    companyName,
+                                  }}
+                                />
+                              </>
+                            ) : (
+                              <p className="text-xs text-slate-500">Add a client mobile number to enable WhatsApp messages.</p>
+                            )}
+                          </div>
                         </div>
                         );
                       })}

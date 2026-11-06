@@ -100,29 +100,47 @@ function ChatPreview({ companyName, text }: { companyName: string; text: string 
   );
 }
 
+function messageDestinations(messageKey: string) {
+  const destination = WHATSAPP_SEND_FROM[messageKey];
+  return destination ? [destination, ...(destination.also || [])] : [];
+}
+
+function destinationActionLabel(label: string) {
+  if (label.startsWith("Choose ")) return label;
+  return label.startsWith("Open ") ? label : `Open ${label}`;
+}
+
 /** Sends straight away from the person's own WhatsApp, for any message. */
 function DirectSend({ messageKey, text, sendFromHref }: { messageKey: string; text: string; sendFromHref: (path: string) => string }) {
   const [phone, setPhone] = useState("");
   const [body, setBody] = useState(text);
   useEffect(() => setBody(text), [text]);
-  const sendFrom = WHATSAPP_SEND_FROM[messageKey];
+  const destinations = messageDestinations(messageKey);
+  const fieldPrefix = `wa-direct-${messageKey.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
   return (
     <div className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div>
         <div>
-          <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Send it yourself now</p>
-          <p className="text-xs text-slate-500">Opens your own WhatsApp with this message ready to send.</p>
+          <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Send from the matching record</p>
+          <p className="text-xs text-slate-500">Choose the matching record first. Its WhatsApp action will fill in the recipient and send options.</p>
         </div>
-        {sendFrom && (
-          <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
-            <Link href={sendFromHref(sendFrom.href)}>{sendFrom.label}</Link>
-          </Button>
-        )}
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {destinations.map((destination) => (
+            <Button key={destination.href} asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+              <Link href={sendFromHref(destination.href)}>
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                {destinationActionLabel(destination.label)}
+              </Link>
+            </Button>
+          ))}
+        </div>
       </div>
-      <Label htmlFor="wa-direct-phone" className="text-xs">Mobile number</Label>
-      <Input id="wa-direct-phone" type="tel" placeholder="082 000 0000" value={phone} onChange={(event) => setPhone(event.target.value)} />
-      <Label htmlFor="wa-direct-text" className="text-xs">Message (replace the sample details)</Label>
-      <Textarea id="wa-direct-text" rows={3} value={body} onChange={(event) => setBody(event.target.value)} />
+      <div className="border-t border-slate-100 pt-2 dark:border-slate-800">
+        <p className="mb-2 text-xs font-medium text-slate-600 dark:text-slate-300">Or prepare a message in your own WhatsApp</p>
+      <Label htmlFor={`${fieldPrefix}-phone`} className="text-xs">Mobile number</Label>
+      <Input id={`${fieldPrefix}-phone`} type="tel" placeholder="082 000 0000" value={phone} onChange={(event) => setPhone(event.target.value)} />
+      <Label htmlFor={`${fieldPrefix}-text`} className="text-xs">Message (replace the sample details)</Label>
+      <Textarea id={`${fieldPrefix}-text`} rows={3} value={body} onChange={(event) => setBody(event.target.value)} />
       {phone.trim() && body.trim() ? (
         <Button asChild size="sm" className="gap-1.5">
           <a href={buildWhatsAppUrl(phone, body)} target="_blank" rel="noopener noreferrer"><MessageCircle className="h-3.5 w-3.5" /> Open in WhatsApp</a>
@@ -132,6 +150,7 @@ function DirectSend({ messageKey, text, sendFromHref }: { messageKey: string; te
           <MessageCircle className="h-3.5 w-3.5" /> Open in WhatsApp
         </Button>
       )}
+      </div>
     </div>
   );
 }
@@ -160,7 +179,7 @@ function WhatsAppPage() {
   const [testPhone, setTestPhone] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<string | null>(null);
-  const [openGroups, setOpenGroups] = useState<string[]>([]);
+  const [openGroups, setOpenGroups] = useState<string[]>(() => [...WHATSAPP_GROUPS]);
   const detailRef = useRef<HTMLDivElement>(null);
 
   const companyName = (company as { company_name?: string } | null)?.company_name || "Your company";
@@ -248,11 +267,10 @@ function WhatsAppPage() {
     }
   }, [url, toast]);
 
-  // Asking Meta is slow, so only do it once a message is opened.
   const isConnected = !!state?.connected;
   useEffect(() => {
-    if (isConnected && selected && templatesStatus === "idle") void loadTemplates(true);
-  }, [isConnected, selected, templatesStatus, loadTemplates]);
+    if (isConnected && templatesStatus === "idle") void loadTemplates(true);
+  }, [isConnected, templatesStatus, loadTemplates]);
 
   const submitTemplate = async () => {
     if (!automation || !setting) return;
@@ -338,6 +356,7 @@ function WhatsAppPage() {
   const changed = !!state && !!draft && JSON.stringify(state.automations) !== JSON.stringify(draft);
   const automaticCount = draft ? Object.values(draft).filter((item) => item.enabled).length : 0;
   const manualCount = WHATSAPP_AUTOMATIONS.length + WHATSAPP_MANUAL_ONLY.length - automaticCount;
+  const totalMessageCount = WHATSAPP_AUTOMATIONS.length + WHATSAPP_MANUAL_ONLY.length;
 
   const automation = WHATSAPP_AUTOMATIONS.find((item) => item.key === selected) || null;
   const manualOnly = WHATSAPP_MANUAL_ONLY.find((item) => item.key === selected) || null;
@@ -355,6 +374,20 @@ function WhatsAppPage() {
     : !hasTemplate
       ? "Add the Meta template name below to use Automatic."
       : null;
+  const metaStatusFor = (key: string) => {
+    const setting = draft?.[key as WhatsAppAutomationKey];
+    if (!setting?.templateName) return { label: "Meta name not set", className: "text-slate-400" };
+    if (templatesStatus === "loading") return { label: "Checking Meta...", className: "text-slate-400" };
+    if (templatesStatus === "error") return { label: "Meta status unavailable", className: "text-rose-700" };
+    if (templatesStatus !== "loaded") return { label: "Meta status not checked", className: "text-slate-400" };
+    const template = templates.find((item) => item.name === setting.templateName && item.language === setting.language);
+    if (!template) return { label: "Not found in Meta", className: "text-rose-700" };
+    const status = String(template.status || "unknown").toUpperCase();
+    return {
+      label: `Meta · ${status.toLowerCase().replaceAll("_", " ")}`,
+      className: status === "APPROVED" ? "text-emerald-700" : status === "IN_REVIEW" || status === "PENDING" ? "text-amber-700" : "text-rose-700",
+    };
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -388,13 +421,14 @@ function WhatsAppPage() {
 
           {state && draft && (
             <div className="space-y-5">
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <StatTile
                   label="WhatsApp account"
                   icon={MessageCircle}
                   value={state.connected ? "Connected" : "Not connected"}
                   hint={state.connected ? state.displayNumber || "Ready to send" : "Nothing is being sent"}
                 />
+                <StatTile label="Message options" icon={Send} value={totalMessageCount} hint={`${WHATSAPP_AUTOMATIONS.length} business templates · ${WHATSAPP_MANUAL_ONLY.length} manual only`} />
                 <StatTile label="Automatic" icon={Bot} value={automaticCount} hint="Send by themselves" />
                 <StatTile label="Manual" icon={Hand} value={manualCount} hint="Only sent when you choose" />
               </div>
@@ -560,24 +594,35 @@ function WhatsAppPage() {
               <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
                 <Card>
                   <CardContent className="py-5">
-                    <p className="text-sm font-semibold text-slate-900 dark:text-white">Messages</p>
-                    <p className="pb-3 text-xs text-slate-500">Open a group, then choose a message to preview it and set how it sends.</p>
+                    <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white">WhatsApp message library</p>
+                        <p className="mt-0.5 text-xs text-slate-500">All {totalMessageCount} messages are listed below with a direct link to the right page.</p>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        <Badge variant="secondary">{WHATSAPP_AUTOMATIONS.length} business templates</Badge>
+                        <Badge variant="outline">{WHATSAPP_MANUAL_ONLY.length} manual-only messages</Badge>
+                      </div>
+                    </div>
                     <div className="flex flex-wrap gap-1.5 pb-3" role="group" aria-label="Filter messages">
                       {FILTERS.map((item) => (
-                        <button
-                          key={item.value}
-                          type="button"
-                          aria-pressed={filter === item.value}
-                          onClick={() => setFilter(item.value)}
-                          className={cn(
-                            "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                            filter === item.value
-                              ? "border-brand-primary bg-brand-primary text-white"
-                              : "border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800",
-                          )}
-                        >
-                          {item.label}
-                        </button>
+                        (() => {
+                          const count = item.value === "all" ? totalMessageCount : item.value === "automatic" ? automaticCount : manualCount;
+                          return <button
+                            key={item.value}
+                            type="button"
+                            aria-pressed={filter === item.value}
+                            onClick={() => setFilter(item.value)}
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                              filter === item.value
+                                ? "border-brand-primary bg-brand-primary text-white"
+                                : "border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800",
+                            )}
+                          >
+                            {item.label}<span className={cn("tabular-nums", filter === item.value ? "text-white/80" : "text-slate-400")}>{count}</span>
+                          </button>;
+                        })()
                       ))}
                     </div>
 
@@ -589,6 +634,7 @@ function WhatsAppPage() {
                           when: item.when,
                           recommended: item.recommended,
                           mode: (draft[item.key].enabled ? "automatic" : "manual") as "automatic" | "manual" | "locked",
+                          metaStatus: metaStatusFor(item.key),
                         })),
                         ...WHATSAPP_MANUAL_ONLY.filter((item) => item.group === group).map((item) => ({
                           key: item.key,
@@ -596,6 +642,7 @@ function WhatsAppPage() {
                           when: item.when,
                           recommended: false,
                           mode: "locked" as const,
+                          metaStatus: null,
                         })),
                       ].filter((row) => filter === "all" || (filter === "automatic" ? row.mode === "automatic" : row.mode !== "automatic"));
                       if (rows.length === 0) return null;
@@ -623,14 +670,16 @@ function WhatsAppPage() {
                             <p className="pb-1.5 text-[11px] text-amber-700">These go to people who haven't booked yet, so use them sparingly.</p>
                           )}
                           {groupOpen && <div className="space-y-1 pb-3">
-                            {rows.map((row) => (
+                            {rows.map((row) => {
+                              const destinations = messageDestinations(row.key);
+                              return (
+                              <div key={row.key} className="flex flex-wrap items-center gap-1.5 rounded-lg">
                               <button
-                                key={row.key}
                                 type="button"
                                 aria-current={selected === row.key}
                                 onClick={() => selectMessage(row.key)}
                                 className={cn(
-                                  "flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-colors",
+                                  "flex min-w-[12rem] flex-1 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-colors",
                                   selected === row.key
                                     ? "border-brand-primary bg-brand-primary/10"
                                     : "border-transparent hover:bg-slate-100 dark:hover:bg-slate-800",
@@ -640,11 +689,27 @@ function WhatsAppPage() {
                                   <span className="block truncate text-sm font-medium text-slate-900 dark:text-white">
                                     {row.label}{row.recommended ? " ★" : ""}
                                   </span>
-                                  <span className="block truncate text-xs text-slate-500">{row.when}</span>
+                                      <span className="flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
+                                        <span className="truncate">{row.when}</span>
+                                        {row.metaStatus && <span className={`shrink-0 font-medium ${row.metaStatus.className}`}>{row.metaStatus.label}</span>}
+                                      </span>
                                 </span>
                                 <ModeBadge mode={row.mode} />
                               </button>
-                            ))}
+                              {destinations.map((destination) => (
+                                <Link
+                                  key={destination.href}
+                                  href={withSlug(destination.href)}
+                                  title={`${destinationActionLabel(destination.label)} to send ${row.label}`}
+                                  className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-[11px] font-medium text-slate-700 transition-colors hover:border-brand-primary/40 hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                                >
+                                  <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                                  {destinationActionLabel(destination.label)}
+                                </Link>
+                              ))}
+                              </div>
+                              );
+                            })}
                           </div>}
                         </div>
                       );
