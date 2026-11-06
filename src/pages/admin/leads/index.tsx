@@ -28,6 +28,7 @@ import { resolveTemplateSync } from "@/services/messageTemplateService";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import { MessageComposer } from "@/components/messaging/MessageComposer";
 import { LeadWhatsAppButton } from "@/components/messaging/WorkflowWhatsAppButtons";
+import { WhatsAppTemplateSend } from "@/components/messaging/WhatsAppTemplateSend";
 import { ClientEmailDrawer } from "@/components/messaging/ClientEmailDrawer";
 import { useToast } from "@/hooks/use-toast";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -1637,6 +1638,13 @@ function AdminLeadsInner() {
                             label={suggestionCtaText(suggestion.kind)}
                             tooltip={suggestionCtaTooltip(suggestion.kind)}
                             onClick={() => runSuggestionAction(lead, links, suggestion.kind)}
+                          />
+                          <WhatsAppTemplateSend
+                            entityType="lead"
+                            entityId={lead.id}
+                            companyId={profile?.company_id ?? user?.company_id}
+                            recipientName={lead.client_name || lead.contact_name}
+                            className="w-full justify-center"
                           />
                           <LeadWhatsAppButton lead={lead} className="w-full justify-center" />
                           <div className="flex items-center gap-1.5 justify-end flex-wrap">

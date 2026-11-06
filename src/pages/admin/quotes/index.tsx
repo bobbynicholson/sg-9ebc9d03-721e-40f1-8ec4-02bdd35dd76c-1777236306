@@ -11,6 +11,7 @@ import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import { MessageComposer, type ContextRow } from "@/components/messaging/MessageComposer";
 import { ClientEmailDrawer } from "@/components/messaging/ClientEmailDrawer";
 import { WhatsAppButton } from "@/components/messaging/WhatsAppButton";
+import { WhatsAppTemplateSend } from "@/components/messaging/WhatsAppTemplateSend";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -2744,6 +2745,13 @@ function AdminQuotesInner() {
                             <MapPin className="h-4 w-4 shrink-0" />
                             Outside area
                           </Button>}
+                          <WhatsAppTemplateSend
+                            entityType="quote"
+                            entityId={quote.id}
+                            companyId={profile?.company_id ?? user?.company_id}
+                            recipientName={quote.client_name}
+                            className="w-full justify-center"
+                          />
                           <WhatsAppButton
                             kind="client"
                             phone={(quote as any).client_phone}
@@ -2752,7 +2760,7 @@ function AdminQuotesInner() {
                             size="sm"
                             variant="outline"
                             className="w-full justify-center"
-                            label="WhatsApp"
+                            label="Open WhatsApp chat"
                             templates={["quote_sent", "quote_chase", "quote_accepted"]}
                             defaultTemplate={
                               quote.status === "accepted"
