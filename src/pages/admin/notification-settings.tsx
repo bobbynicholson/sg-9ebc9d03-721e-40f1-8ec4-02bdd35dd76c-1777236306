@@ -17,7 +17,9 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle , CardDescription } from "@/components/ui/card";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs as _Tabs } from "@/components/ui/tabs";
@@ -175,6 +177,7 @@ function NotificationSettingsPage() {
   // user's real preferences is worse than making them retry.
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const { withSlug } = useTenantHref();
   const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm<FormInput, any, FormValues>({
     resolver: zodResolver(schema),
     defaultValues: DEFAULTS,
@@ -431,21 +434,19 @@ function NotificationSettingsPage() {
               </CardContent>
             </Card>
 
-            {/* WhatsApp Notifications */}
-            <Card collapsible defaultOpen={false} collapseLabel="WhatsApp Notifications">
+            {/* WhatsApp is managed company-wide on its own page. */}
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MessageSquare className="w-5 h-5 text-brand-primary" />
-                  WhatsApp Notifications
-                  <InfoTooltip content={"WhatsApp fan-out uses the same event buckets as push. A message is queued only when the tenant has WhatsApp connected and your profile has a WhatsApp-enabled phone number."} />
+                  WhatsApp
                 </CardTitle>
-<CardDescription>Choose WhatsApp alerts and review their availability.</CardDescription>
+                <CardDescription>
+                  Automatic WhatsApp messages are chosen for the whole company on the WhatsApp page.
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <ToggleRow control={control} name="whatsapp.urgentAlerts" id="waUrgentAlerts" title="Urgent Alerts" desc="Critical issues requiring immediate attention" />
-                <ToggleRow control={control} name="whatsapp.newOrders" id="waNewOrders" title="New Orders" desc="Confirmed orders and claimable jobs" />
-                <ToggleRow control={control} name="whatsapp.staffUpdates" id="waStaffUpdates" title="Staff Updates" desc="Driver, kitchen, amendment, and cancellation changes" />
-                <ToggleRow control={control} name="whatsapp.inventoryAlerts" id="waInventoryAlerts" title="Inventory Alerts" desc="Low stock and equipment shortage messages" />
+              <CardContent>
+                <Button asChild variant="outline"><Link href={withSlug("/admin/whatsapp")}>Open WhatsApp settings</Link></Button>
               </CardContent>
             </Card>
 

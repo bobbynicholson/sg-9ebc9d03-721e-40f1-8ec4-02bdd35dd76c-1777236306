@@ -393,18 +393,19 @@ export async function middleware(request: NextRequest) {
     cacheHit = true;
   } else {
     try {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role, active_role, company_id")
-        .eq("id", user.id)
-        .single();
+      const [{ data: profile }, { data: departmentRows, error: departmentError }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("role, active_role, company_id")
+          .eq("id", user.id)
+          .single(),
+        supabase
+          .from("user_departments")
+          .select("department, is_primary")
+          .eq("user_id", user.id)
+          .order("is_primary", { ascending: false }),
+      ]);
       profileCompanyId = profile?.company_id ?? null;
-
-      const { data: departmentRows, error: departmentError } = await supabase
-        .from("user_departments")
-        .select("department, is_primary")
-        .eq("user_id", user.id)
-        .order("is_primary", { ascending: false });
       if (departmentError) {
         console.error("[Middleware] Error fetching user departments:", departmentError);
       }

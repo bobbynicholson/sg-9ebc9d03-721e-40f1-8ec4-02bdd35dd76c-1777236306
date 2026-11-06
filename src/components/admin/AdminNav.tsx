@@ -24,6 +24,7 @@
  */
 
 import {
+  MessageCircle,
   LayoutDashboard,
   Users,
   Settings,
@@ -364,6 +365,9 @@ export function AdminNav(_: AdminNavProps = {}) {
         { title: "Email",                 href: "/admin/email-settings",        icon: Mail,          description: "SMTP and providers" },
         { title: "Integrations",          href: "/admin/integrations",          icon: Zap,           description: "Apps and webhooks" },
         { title: "Lead forms",            href: "/admin/integrations/embed",    icon: Code2,         description: "Public forms" },
+        { title: "WhatsApp",              href: "/admin/whatsapp",              icon: MessageCircle, description: "Connect WhatsApp and choose automatic messages" },
+        { title: "WhatsApp replies",      href: "/admin/whatsapp/replies",      icon: MessageCircle, description: "Read and answer client replies" },
+        { title: "WhatsApp activity",     href: "/admin/whatsapp/activity",     icon: MessageCircle, description: "What was sent, read and failed" },
         { title: "Messages",              href: "/admin/email-templates",       icon: MessageSquare, description: "Email and WhatsApp templates" },
         { title: "Notifications",         href: "/admin/notification-settings", icon: Bell,          description: "Routing and opt-ins" },
         { title: "Audit log",             href: "/admin/audit-logs",            icon: Shield,        description: "Compliance trail - who did what" },

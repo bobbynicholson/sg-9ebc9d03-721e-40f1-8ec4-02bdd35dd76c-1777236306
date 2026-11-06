@@ -41,6 +41,8 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { alertWhatsAppFailures, flagWhatsAppConnectionProblem, isConnectionProblem } from "@/lib/whatsapp/alerts";
+import { postWhatsAppMessage, type StoredWhatsAppCredentials } from "@/lib/whatsapp/credentials";
 
 
 const MAX_ATTEMPTS = 5;
@@ -61,10 +63,7 @@ interface QueueRow {
 }
 
 interface Integration {
-  credentials: {
-    phoneNumberId: string;
-    accessToken: string;
-  };
+  credentials: StoredWhatsAppCredentials;
 }
 
 function backoffMinutes(attempts: number): number {
@@ -138,6 +137,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const rows = (due || []) as QueueRow[];
   let sent = 0;
   let failed = 0;
+  const failedByCompany = new Map<string, number>();
+  const connectionProblems = new Set<string>();
 
   for (const row of rows) {
     // Atomically claim: accept BOTH 'pending' and 'sending' (a retried row
@@ -173,12 +174,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         integrationByCompany[row.company_id] = (integration as Integration | null) || null;
       }
       const integration = integrationByCompany[row.company_id];
-      if (!integration?.credentials?.phoneNumberId || !integration?.credentials?.accessToken) {
+      if (!integration?.credentials?.phoneNumberId || !integration?.credentials?.accessTokenEncrypted) {
         throw new Error("WhatsApp integration credentials missing");
       }
 
       const body: Record<string, unknown> = {
-        messaging_product: "whatsapp",
         to: row.recipient_phone,
         type: row.message_type,
       };
@@ -194,24 +194,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         };
       }
 
-      const response = await fetch(
-        `https://graph.facebook.com/v18.0/${integration.credentials.phoneNumberId}/messages`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${integration.credentials.accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(body),
-        },
-      );
-
-      const json = await response.json().catch(() => ({}));
-      gatewayResponse = json;
-      if (!response.ok) {
-        throw new Error(json?.error?.message || `HTTP ${response.status}`);
-      }
-      gatewayId = json?.messages?.[0]?.id || null;
+      const result = await postWhatsAppMessage(integration.credentials, body);
+      gatewayResponse = result.response;
+      if (!result.ok) throw new Error(result.error || "WhatsApp send failed");
+      gatewayId = result.id;
       ok = true;
     } catch (e) {
       failureReason = e instanceof Error ? e.message : String(e);
@@ -244,8 +230,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         })
         .eq("id", row.id);
       failed += 1;
+      if (isConnectionProblem(failureReason)) connectionProblems.add(row.company_id);
+      if (finalStatus === "failed") failedByCompany.set(row.company_id, (failedByCompany.get(row.company_id) || 0) + 1);
     }
   }
+
+  for (const companyId of connectionProblems) await flagWhatsAppConnectionProblem(supabase, companyId);
+  for (const [companyId, count] of failedByCompany) await alertWhatsAppFailures(companyId, count);
 
   await recordCronHeartbeat(supabase, CRON_NAME, "ok", {
     source: auth.source,

@@ -154,6 +154,13 @@ const SETTINGS_SHORTCUTS: SettingsShortcut[] = [
     source: "embed_form_configs",
   },
   {
+    title: "WhatsApp",
+    description: "Connect your WhatsApp Business account and choose automatic messages.",
+    href: "/admin/whatsapp",
+    icon: MessageSquare,
+    source: "integrations",
+  },
+  {
     title: "Messages",
     description: "Email and WhatsApp wording, sent log and automation.",
     href: "/admin/email-templates",

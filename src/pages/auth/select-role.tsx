@@ -113,6 +113,18 @@ function RoleSelectionContent() {
     };
   }, [router.isReady, redirectTo, loading, user?.id, onlyRole, companySlug]);
 
+  // Start downloading each portal's page while the person chooses, so it is
+  // ready the moment their choice is saved.
+  useEffect(() => {
+    if (!router.isReady || loading || !user || safeInternalRedirect(redirectTo)) return;
+    for (const { role } of availableRoles) {
+      void routerRef.current
+        .prefetch(getRoleLandingPage(role, companySlug || user.company_slug || undefined))
+        .catch(() => { /* Only a head start; the page still opens without it. */ });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, redirectTo, loading, user?.id, availableRoles.length, companySlug]);
+
   const handleRoleSelect = async (role: UserRole) => {
     if (selecting) return;
     setSelecting(role);

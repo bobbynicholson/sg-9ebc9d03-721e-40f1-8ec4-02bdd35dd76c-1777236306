@@ -1383,6 +1383,7 @@ function BroadcastDialog({
       const results = await Promise.all(
         recipients.map((r) =>
           whatsappIntegrationService.enqueueWhatsAppMessage({
+            manual: true,
             companyId,
             recipientPhone: r.phone,
             recipientName: r.name,

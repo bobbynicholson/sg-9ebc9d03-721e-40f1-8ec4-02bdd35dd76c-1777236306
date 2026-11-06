@@ -142,15 +142,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
     const testBody = `[TEST] ${body}`;
 
-    const { whatsappIntegrationService } = await import("@/services/whatsappIntegrationService");
-    // sendWhatsAppMessage returns false (no longer throws) when WhatsApp
-    // isn't connected / the number is blocked / the send is refused. Honour
-    // that so the admin's "Send test" doesn't show a green success while
-    // nothing actually went out.
-    const sent = await (whatsappIntegrationService as any).sendWhatsAppMessage(
-      { to: phone, type: "text", text: { body: testBody } },
-      { companyId },
-    );
+    // Don't show a green success when nothing actually went out.
+    const { loadWhatsAppCredentials, postWhatsAppMessage } = await import("@/lib/whatsapp/credentials");
+    const credentials = await loadWhatsAppCredentials(getServiceSupabase(), companyId);
+    const sent = credentials
+      ? (await postWhatsAppMessage(credentials, { to: phone, type: "text", text: { body: testBody } })).ok
+      : false;
     if (sent === false) {
       return res.status(400).json({
         error:

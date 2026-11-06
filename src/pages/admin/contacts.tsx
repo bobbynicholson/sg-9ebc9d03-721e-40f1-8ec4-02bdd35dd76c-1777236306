@@ -1933,6 +1933,11 @@ function ClientsCRM() {
                                     companyName: profile?.company_name,
                                   }}
                                 />
+                                {c.mobile_number || c.phone && (
+                                  <Button asChild variant="outline" size="sm" className="h-8 text-xs">
+                                    <Link href={withSlug(`/admin/whatsapp/replies?phone=${encodeURIComponent(String(c.mobile_number || c.phone))}`)}>WhatsApp history</Link>
+                                  </Button>
+                                )}
                                 <RowPrimaryAction
                                   tone={c.suggestion?.tone || "neutral"}
                                   icon={<Send className="w-3.5 h-3.5" />}

@@ -62,66 +62,6 @@ async function buildOrderPaymentLink(order: any): Promise<string> {
 }
 
 export const whatsappIntegrationService = {
-  async connectWhatsApp(config: {
-    phoneNumberId: string;
-    accessToken: string;
-    businessAccountId: string;
-  }): Promise<boolean> {
-    try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user?.user) throw new Error("User not authenticated");
-
-      const response = await fetch(
-        `https://graph.facebook.com/v18.0/${config.phoneNumberId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${config.accessToken}`
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Invalid WhatsApp Business credentials");
-      }
-
-      // Audit (May 2026, Wave 7): integrations row is now keyed on
-      // company_id so EVERY admin on the same tenant resolves the
-      // same connection. The previous user_id-only keying meant the
-      // connection was visible only to the admin who connected it;
-      // a second admin saw "WhatsApp not connected" or, worse, picked
-      // up a different user's stale connection.
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("company_id")
-        .eq("id", user.user.id)
-        .maybeSingle();
-      const companyId = (profile as any)?.company_id || null;
-      if (!companyId) {
-        throw new Error("Cannot connect WhatsApp: profile has no company_id.");
-      }
-
-      await supabase
-        .from("integrations")
-        .upsert({
-          company_id: companyId,
-          user_id: user.user.id, // who connected it, for audit
-          integration_type: "whatsapp",
-          credentials: {
-            phoneNumberId: config.phoneNumberId,
-            accessToken: config.accessToken,
-            businessAccountId: config.businessAccountId
-          },
-          is_active: true,
-          connected_at: new Date().toISOString()
-        }, { onConflict: "company_id,integration_type" } as any);
-
-      return true;
-    } catch (error) {
-      console.error("Error connecting to WhatsApp:", error);
-      return false;
-    }
-  },
-
   async disconnectWhatsApp(): Promise<void> {
     const { data: user } = await supabase.auth.getUser();
     if (!user?.user) throw new Error("User not authenticated");
@@ -141,102 +81,17 @@ export const whatsappIntegrationService = {
       .eq("integration_type", "whatsapp");
   },
 
+  /**
+   * Older automatic send path. Companies now choose what sends on the WhatsApp
+   * page, and lib/whatsapp/runAutomations queues only those messages, so this
+   * refuses every message. Callers already treat false as "not sent".
+   */
   async sendWhatsAppMessage(
-    message: WhatsAppMessage,
-    meta?: { companyId?: string; bypassPause?: boolean },
+    _message: WhatsAppMessage,
+    _meta?: { companyId?: string; bypassPause?: boolean },
   ): Promise<boolean> {
-    try {
-      // Comms guard. Skips the send if the recipient sits on the
-      // company block list, or is in import quarantine. Email path is
-      // gated centrally in pages/api/send-email.ts; WhatsApp used to
-      // skip the gates entirely (Agent 4 audit). Passing `companyId`
-      // is what activates the check - callers without it (legacy
-      // callers / tests) are not gated, but every production caller
-      // in this file passes it.
-      if (meta?.companyId) {
-        const guard = await isCommsAllowed({
-          companyId: meta.companyId,
-          channel: "whatsapp",
-          phone: message.to,
-          bypassPause: meta.bypassPause,
-        });
-        if (!guard.allowed) {
-          console.log(`[whatsapp] send refused: ${guard.detail || guard.reason}`);
-          return false;
-        }
-      }
-
-      // Resolve the tenant's WhatsApp connection. Audit (May 2026,
-      // Wave 7): scope by company_id (preferring the meta-passed
-      // value, falling back to the caller's profile) instead of
-      // user_id so every admin on the same tenant sees the same
-      // connection.
-      let connectionCompanyId = meta?.companyId || null;
-      if (!connectionCompanyId) {
-        const { data: user } = await supabase.auth.getUser();
-        if (!user?.user) throw new Error("User not authenticated");
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("company_id")
-          .eq("id", user.user.id)
-          .maybeSingle();
-        connectionCompanyId = (profile as any)?.company_id || null;
-      }
-      if (!connectionCompanyId) {
-        // Not an error condition worth throwing: a missing company just
-        // means we can't route the message. Return a soft failure so a
-        // status transition / notification fan-out is never broken by it.
-        console.warn("[whatsapp] send skipped: company_id could not be resolved.");
-        return false;
-      }
-
-      const { data: integration, error: integrationErr } = await supabase
-        .from("integrations")
-        .select("*")
-        .eq("company_id", connectionCompanyId)
-        .eq("integration_type", "whatsapp")
-        .eq("is_active", true)
-        .maybeSingle();
-      if (integrationErr) console.error("[whatsappIntegrationService/sendWhatsAppMessage] integrations lookup failed:", integrationErr);
-
-      if (!integration) {
-        // The tenant simply hasn't connected WhatsApp. This is the
-        // common case, NOT an error - it must never bubble up and break
-        // the caller (e.g. an order status transition firing customer
-        // notifications). Soft no-op.
-        console.log("[whatsapp] send skipped: integration not connected for this company.");
-        return false;
-      }
-
-      const credentials = integration.credentials as any;
-
-      const response = await fetch(
-        `https://graph.facebook.com/v18.0/${credentials.phoneNumberId}/messages`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${credentials.accessToken}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            messaging_product: "whatsapp",
-            to: message.to,
-            type: message.type,
-            ...(message.type === "text" ? { text: message.text } : {}),
-            ...(message.type === "template" ? { template: message.template } : {})
-          })
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to send WhatsApp message");
-      }
-
-      return true;
-    } catch (error) {
-      console.error("Error sending WhatsApp message:", error);
-      return false;
-    }
+    console.log("[whatsapp] send skipped: automatic messages are chosen on the WhatsApp page.");
+    return false;
   },
 
   /**
@@ -295,8 +150,13 @@ export const whatsappIntegrationService = {
     relatedEntityId?: string | null;
     dedupKey?: string | null;
     enqueuedBy?: string | null;
+    /** True only when a person chose to send this, such as a team broadcast. */
+    manual?: boolean;
   }): Promise<string | null> {
     try {
+      // Automatic messages are chosen on the WhatsApp page and queued by
+      // lib/whatsapp/runAutomations. Nothing else may queue one by itself.
+      if (!args.manual) return null;
       const guard = await isCommsAllowed({
         companyId: args.companyId,
         channel: "whatsapp",

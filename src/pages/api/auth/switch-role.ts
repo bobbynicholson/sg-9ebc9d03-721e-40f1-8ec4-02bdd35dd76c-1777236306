@@ -95,13 +95,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       });
     }
 
-    if (profile.active_role !== requestedRole) {
-      const { error: updateError } = await admin
-        .from("profiles")
-        .update({ active_role: requestedRole })
-        .eq("id", authUser.id);
-      if (updateError) throw updateError;
+    // Choosing the role that is already active changes nothing, so there is
+    // nothing to save, audit or re-cache. This is the usual sign-in path.
+    if (profile.active_role === requestedRole) {
+      return res.status(200).json({ ok: true, active_role: requestedRole });
     }
+
+    const { error: updateError } = await admin
+      .from("profiles")
+      .update({ active_role: requestedRole })
+      .eq("id", authUser.id);
+    if (updateError) throw updateError;
 
     try {
       await admin.from("user_access_audit").insert({

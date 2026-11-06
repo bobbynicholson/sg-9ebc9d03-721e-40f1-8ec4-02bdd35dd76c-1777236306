@@ -5,7 +5,7 @@
  * Unifies three sources into one chronological feed:
  *  - notifications (in-portal toasts + linked-entity feed)
  *  - outgoing_email_queue (transactional emails, status lifecycle)
- *  - (whatsapp_messages table not present yet - placeholder)
+ *  - whatsapp_messages (messages sent through the business account)
  *
  * The operator answers "did the client get the order_ready email?"
  * in one scan. Failed sends surface a rose row with the error.
@@ -15,6 +15,7 @@
  */
 import { useEffect, useState } from "react";
 import { CollapsibleSection } from "./CollapsibleSection";
+import { WhatsAppOrderSend } from "@/components/order/WhatsAppOrderSend";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,7 +35,7 @@ interface Props {
 
 interface CommsEvent {
   id: string;
-  kind: "notification" | "email";
+  kind: "notification" | "email" | "whatsapp";
   title: string;
   detail: string | null;
   recipient: string | null;
@@ -63,6 +64,7 @@ export function CommsLogSection({ orderId, companyId, defaultOpen, forceOpen }: 
   const [loading, setLoading] = useState(true);
   const [viewing, setViewing] = useState<CommsEvent | null>(null);
   const [showAmendment, setShowAmendment] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
   // Change requests on this order, so amendment messages can say what changed.
   const [amendments, setAmendments] = useState<Array<{ id: string; proposed: any; before: any; requestedAt: number }>>([]);
 
@@ -72,7 +74,7 @@ export function CommsLogSection({ orderId, companyId, defaultOpen, forceOpen }: 
     (async () => {
       setLoading(true);
       try {
-        const [notifRes, emailRes] = await Promise.all([
+        const [notifRes, emailRes, whatsappRes] = await Promise.all([
           (supabase as any)
             .from("notifications")
             .select("id, title, message, type, notification_type, target_role, channels, is_read, created_at")
@@ -86,6 +88,14 @@ export function CommsLogSection({ orderId, companyId, defaultOpen, forceOpen }: 
             .select("id, subject, to_email, to_name, status, template_type, trigger_event, sent_at, created_at, error_message, scheduled_for")
             .eq("company_id", companyId)
             .eq("trigger_ref_id", orderId)
+            .order("created_at", { ascending: false })
+            .limit(50),
+          (supabase as any)
+            .from("whatsapp_messages")
+            .select("id, recipient_name, recipient_phone, template_name, message_content, status, failure_reason, created_at, sent_at")
+            .eq("company_id", companyId)
+            .eq("related_entity_type", "order")
+            .eq("related_entity_id", orderId)
             .order("created_at", { ascending: false })
             .limit(50),
         ]);
@@ -117,6 +127,17 @@ export function CommsLogSection({ orderId, companyId, defaultOpen, forceOpen }: 
             created_at: e.sent_at || e.created_at,
           });
         }
+        for (const w of (whatsappRes.data || []) as any[]) {
+          merged.push({
+            id: `w:${w.id}`,
+            kind: "whatsapp",
+            title: `WhatsApp: ${w.template_name || "message"}`,
+            detail: w.failure_reason || w.message_content || null,
+            recipient: w.recipient_name || w.recipient_phone,
+            status: w.status === "failed" ? "failed" : w.status === "pending" || w.status === "sending" ? "queued" : "sent",
+            created_at: w.sent_at || w.created_at,
+          });
+        }
         merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         if (!cancelled) setEvents(merged);
         if (merged.some((m) => m.aboutAmendment)) {
@@ -141,7 +162,7 @@ export function CommsLogSection({ orderId, companyId, defaultOpen, forceOpen }: 
       }
     })();
     return () => { cancelled = true; };
-  }, [orderId, companyId, canSee]);
+  }, [orderId, companyId, canSee, reloadTick]);
 
   if (!canSee) return null;
 
@@ -169,6 +190,7 @@ export function CommsLogSection({ orderId, companyId, defaultOpen, forceOpen }: 
       defaultOpen={defaultOpen}
       forceOpen={forceOpen}
     >
+      <WhatsAppOrderSend orderId={orderId} companyId={companyId} onSent={() => setReloadTick((tick) => tick + 1)} />
       {loading ? (
         <div className="flex items-center justify-center py-6 text-slate-500">
           <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading comms log...
@@ -180,7 +202,7 @@ export function CommsLogSection({ orderId, companyId, defaultOpen, forceOpen }: 
       ) : (
         <ul className="space-y-2">
           {events.map((e) => {
-            const Icon = e.kind === "email" ? Mail : Bell;
+            const Icon = e.kind === "email" ? Mail : e.kind === "whatsapp" ? MessageSquare : Bell;
             const statusTone =
               e.status === "sent" ? "bg-brand-primary/10 border-brand-primary/20" :
               e.status === "failed" ? "bg-rose-50 border-rose-300" :
@@ -241,7 +263,7 @@ export function CommsLogSection({ orderId, companyId, defaultOpen, forceOpen }: 
           <DialogHeader>
             <DialogTitle className="break-words pr-6">{viewing?.title}</DialogTitle>
             <DialogDescription>
-              {viewing?.kind === "email" ? "Email" : "Team notification"}
+              {viewing?.kind === "email" ? "Email" : viewing?.kind === "whatsapp" ? "WhatsApp message" : "Team notification"}
               {" · "}<strong className="capitalize">{viewing?.status === "info" ? "Recorded" : viewing?.status}</strong>
               {viewing ? ` · ${new Date(viewing.created_at).toLocaleString("en-ZA")}` : ""}
             </DialogDescription>

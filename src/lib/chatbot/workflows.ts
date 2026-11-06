@@ -196,6 +196,38 @@ export const WORKFLOW_DEFINITIONS: WorkflowDefinition[] = [
     ],
   },
   {
+    id: "whatsapp-automation",
+    label: "Automatic WhatsApp messages",
+    description: "Connect your WhatsApp Business account and choose which messages send automatically. Anything left off is never sent automatically, and the manual WhatsApp buttons keep working.",
+    keywords: [
+      "whatsapp business", "connect whatsapp", "automatic whatsapp", "automate whatsapp", "whatsapp automation", "automated whatsapp",
+      "whatsapp messages", "whatsapp template", "meta template", "turn on whatsapp", "turn off whatsapp", "stop whatsapp",
+    ],
+    roles: ADMIN,
+    steps: [
+      { id: "connect-whatsapp", title: "Connect your account", description: "In WhatsApp, enter the Phone number ID, WhatsApp Business account ID and access token from Meta, then choose Connect WhatsApp.", ref: "admin.whatsapp" },
+      { id: "approve-templates", title: "Get your templates approved", description: "WhatsApp only allows a business to message first with templates Meta has approved. Submit the suggested wording in Meta, then enter each approved Meta template name.", ref: "admin.whatsapp" },
+      { id: "choose-messages", title: "Choose your messages", description: "Turn on only the messages you want, then choose Save WhatsApp messages. Each only applies to things that happen after you turn it on.", ref: "admin.whatsapp" },
+      { id: "test-whatsapp", title: "Send a test", description: "Add your number under Test number and choose Send test WhatsApp. Recent messages shows what was sent and anything that failed.", ref: "admin.whatsapp" },
+    ],
+  },
+  {
+    id: "whatsapp-replies",
+    label: "WhatsApp replies, consent and limits",
+    description: "Read client replies, record who agreed to WhatsApp messages, and limit how often people are messaged.",
+    keywords: [
+      "whatsapp replies", "whatsapp reply", "client replied", "reply on whatsapp", "whatsapp consent", "opt out whatsapp", "whatsapp stop",
+      "quiet hours", "whatsapp limit", "bulk whatsapp", "whatsapp report", "delivered whatsapp", "read whatsapp", "whatsapp webhook",
+    ],
+    roles: ADMIN,
+    steps: [
+      { id: "replies", title: "Read and answer replies", description: "Open WhatsApp replies. Search or filter conversations, then answer. WhatsApp only allows a reply within 24 hours of the client's last message, so after that use Call client or Open in WhatsApp.", ref: "admin.whatsapp.replies" },
+      { id: "consent", title: "Record consent", description: "In Client consent, mark clients as Agreed or Opted out. A client who replies STOP is blocked automatically.", ref: "admin.whatsapp" },
+      { id: "rules", title: "Set your limits", description: "In Sending rules, set quiet hours, the weekly limit and timing, then choose Save sending rules.", ref: "admin.whatsapp" },
+      { id: "reports", title: "See what happened", description: "Activity shows every message sent, what was delivered, read and failed, and lets you choose Send again on a failed message. Bulk message on the Set up tab sends one approved template to clients who agreed.", ref: "admin.whatsapp.activity" },
+    ],
+  },
+  {
     id: "automatic-emails",
     label: "Automatic emails on or off",
     description: "Choose which automatic emails are sent. Off means that automatic email is not sent at all; emails you send yourself (Send quote, Send invoice, messages, Resend) always go out, and sign-in links and invitations are always sent.",

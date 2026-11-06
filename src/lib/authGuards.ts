@@ -105,6 +105,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/admin/regions",
     // Lifecycle Emails hub. Legacy paths kept for redirect-safety.
     "/admin/email-templates",
+    "/admin/whatsapp",
     "/admin/after-sales-emails",
     "/admin/email-automation-dashboard",
     "/admin/email-automation-settings",
