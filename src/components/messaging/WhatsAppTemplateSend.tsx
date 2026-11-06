@@ -15,7 +15,7 @@ type TemplateStatus = "APPROVED" | "IN_REVIEW" | "PENDING" | "REJECTED" | "PAUSE
 const ENTITY_COPY: Record<EntityType, { noun: string; button: string; picker: string; guidance: string }> = {
   lead: { noun: "Enquiry", button: "Enquiry templates (3)", picker: "Choose an enquiry message", guidance: "For people who enquired but have not booked yet. Use sparingly." },
   quote: { noun: "Quote", button: "Quote WhatsApp", picker: "Choose a quote message", guidance: "For quote updates and follow-ups." },
-  order: { noun: "Order", button: "Order WhatsApp", picker: "Choose a booking message", guidance: "For confirmed bookings and event updates." },
+  order: { noun: "Order", button: "Choose business template (6)", picker: "Choose an order message", guidance: "Select an approved message to send to this booked client." },
   client: { noun: "Contact", button: "Contact WhatsApp", picker: "Choose a contact message", guidance: "For this saved contact." },
   staff: { noun: "Staff", button: "Staff welcome", picker: "Choose a staff message", guidance: "For this staff member." },
   driver_shift: { noun: "Shift", button: "Shift message", picker: "Choose a shift message", guidance: "For the person assigned to this shift." },

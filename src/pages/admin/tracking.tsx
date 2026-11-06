@@ -1213,7 +1213,7 @@ function AdminTrackingInner() {
                                   entityId={order.id}
                                   companyId={profile?.company_id ?? user?.company_id}
                                   recipientName={order.client_name || "client"}
-                                  buttonLabel="Send business template"
+                                  buttonLabel="Choose business template (6)"
                                 />
                                 <WhatsAppButton
                                   kind="client"

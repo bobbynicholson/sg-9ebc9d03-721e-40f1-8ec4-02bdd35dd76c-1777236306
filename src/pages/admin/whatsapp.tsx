@@ -157,8 +157,8 @@ function DirectSend({ messageKey, text, sendFromHref }: { messageKey: string; te
 
 function ModeBadge({ mode }: { mode: "automatic" | "manual" | "locked" }) {
   if (mode === "automatic") return <Badge className="bg-brand-primary text-white hover:bg-brand-primary">Automatic</Badge>;
-  if (mode === "locked") return <Badge variant="outline">Manual only</Badge>;
-  return <Badge variant="secondary">Manual</Badge>;
+  if (mode === "locked") return <Badge variant="outline" title="Editable draft opens your own WhatsApp for you to review and send.">Manual only</Badge>;
+  return <Badge variant="secondary" title="Send manually from the matching record. Approved templates use your business number.">Manual</Badge>;
 }
 
 function WhatsAppPage() {

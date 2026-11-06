@@ -357,7 +357,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                   entityId={order.id}
                   companyId={companyId}
                   recipientName={order.client_name || "client"}
-                  buttonLabel="Business templates"
+                  buttonLabel="Choose business template (6)"
                 />
               )}
               {order.client_phone && (
