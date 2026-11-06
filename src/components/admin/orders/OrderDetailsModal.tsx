@@ -1,4 +1,5 @@
 import { OrderWhatsAppButton } from "@/components/messaging/WorkflowWhatsAppButtons";
+import { WhatsAppTemplateSend } from "@/components/messaging/WhatsAppTemplateSend";
 import { ImportReadinessBanner } from "@/components/admin/ImportReadinessBanner";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { CustomerIdentityFields } from "@/components/admin/CustomerIdentityFields";
@@ -1223,7 +1224,7 @@ return (
         {/* Row 3: contact strip. WhatsApp keeps its brand-green
             accent because operators scan for it specifically;
             Call + Email stay slate so the row reads cleanly. */}
-        {selectedOrder && ((selectedOrder as any).client_phone || (selectedOrder as any).client_email) && (
+        {selectedOrder && ((selectedOrder as any).client_phone || (selectedOrder as any).client_email || (selectedOrder as any).client_id) && (
           <div className="flex flex-wrap gap-1.5">
             {(selectedOrder as any).client_phone && (
               <>
@@ -1237,6 +1238,15 @@ return (
                 </a>
                 <OrderWhatsAppButton order={selectedOrder} />
               </>
+            )}
+            {((selectedOrder as any).client_phone || (selectedOrder as any).client_id) && (
+              <WhatsAppTemplateSend
+                entityType="order"
+                entityId={selectedOrder.id}
+                companyId={(selectedOrder as any).company_id || companyId}
+                recipientName={(selectedOrder as any).client_name}
+                className="h-8"
+              />
             )}
             {(selectedOrder as any).client_email && (
               <a

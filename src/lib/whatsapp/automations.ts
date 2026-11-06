@@ -265,8 +265,9 @@ export const WHATSAPP_SEND_FROM: Record<string, { label: string; href: string }>
   whatsapp_staff_shift_confirm: { label: "Open schedules", href: "/admin/driver-schedule" },
   whatsapp_staff_job_assigned: { label: "Open Orders", href: "/admin/orders" },
   whatsapp_staff_pickup_ready: { label: "Open Orders", href: "/admin/orders" },
-  whatsapp_staff_schedule_change: { label: "Open Drivers", href: "/admin/driver-management" },
-  whatsapp_staff_check_in: { label: "Open Drivers", href: "/admin/driver-management" },
+  whatsapp_staff_schedule_change: { label: "Open schedules", href: "/admin/driver-schedule" },
+  whatsapp_staff_check_in: { label: "Open staff", href: "/admin/staff" },
+  whatsapp_staff_welcome_no_login: { label: "Open staff", href: "/admin/staff" },
 };
 
 const SAMPLE_VALUES: Record<WhatsAppSlot, string> = {

@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { WHATSAPP_AUTOMATIONS, type WhatsAppAutomationKey } from "@/lib/whatsapp/automations";
+import { useAuth } from "@/contexts/AuthContext";
+
+const WHATSAPP_SEND_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
 type EntityType = "lead" | "quote" | "order" | "client" | "staff" | "driver_shift" | "kitchen_shift" | "staff_order" | "lead_admin";
 type TemplateStatus = "APPROVED" | "IN_REVIEW" | "PENDING" | "REJECTED" | "PAUSED" | "DISABLED" | "MISSING" | "NOT_SET_UP";
@@ -64,6 +67,7 @@ function withCompany(path: string, companyId?: string | null) {
 }
 
 export function WhatsAppTemplateSend({ entityType, entityId, companyId, recipientName, recipientId, onSent, className, buttonLabel = "Send template", iconOnly = false }: Props) {
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -73,6 +77,7 @@ export function WhatsAppTemplateSend({ entityType, entityId, companyId, recipien
   const [choices, setChoices] = useState<TemplateChoice[]>([]);
   const [selectedKey, setSelectedKey] = useState("");
   const [sending, setSending] = useState(false);
+  const role = String(profile?.active_role || profile?.role || user?.active_role || user?.role || "");
   const loadTemplates = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -125,6 +130,8 @@ export function WhatsAppTemplateSend({ entityType, entityId, companyId, recipien
   const templatesNotSetUp = choices.length > 0 && choices.every((choice) => choice.status === "NOT_SET_UP");
   const selected = approvedChoices.find((choice) => choice.key === selectedKey);
 
+  if (!WHATSAPP_SEND_ROLES.has(role)) return null;
+
   const send = async () => {
     if (!selected) return;
     setSending(true);
@@ -160,6 +167,7 @@ export function WhatsAppTemplateSend({ entityType, entityId, companyId, recipien
           className={iconOnly ? `h-8 w-8 p-0 ${className || ""}` : className}
           aria-label={iconOnly ? `${buttonLabel} ${recipientName || "contact"}` : undefined}
           title={iconOnly ? buttonLabel : undefined}
+          onClick={(event) => event.stopPropagation()}
         >
           <Send className="h-3.5 w-3.5" />
           <span className={iconOnly ? "sr-only" : ""}>{buttonLabel}</span>

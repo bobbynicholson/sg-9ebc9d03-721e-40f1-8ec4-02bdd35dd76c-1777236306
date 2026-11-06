@@ -60,6 +60,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { WhatsAppTemplateSend } from "@/components/messaging/WhatsAppTemplateSend";
+import { WhatsAppManualStaffSend } from "@/components/messaging/WhatsAppManualStaffSend";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { formatLocalDate } from "@/lib/localFormat";
 import { loginActivityBucket } from "@/lib/loginActivity";
@@ -1409,14 +1410,21 @@ function AdminUsersPage() {
                                 </button>
                               )}
                               {targetUser.is_active && roles.some((role) => WHATSAPP_STAFF_ROLES.has(String(role))) && (
-                                <WhatsAppTemplateSend
-                                  entityType="staff"
-                                  entityId={targetUser.id}
-                                  companyId={user?.company_id}
-                                  recipientName={targetUser.full_name}
-                                  buttonLabel="Send welcome"
-                                  className="mt-2"
-                                />
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                  <WhatsAppTemplateSend
+                                    entityType="staff"
+                                    entityId={targetUser.id}
+                                    companyId={user?.company_id}
+                                    recipientName={targetUser.full_name}
+                                    buttonLabel="Send welcome"
+                                  />
+                                  <WhatsAppManualStaffSend
+                                    messageKey="whatsapp_staff_check_in"
+                                    recipientName={targetUser.full_name || "staff member"}
+                                    recipientPhone={targetUser.mobile_number || targetUser.phone_number}
+                                    buttonLabel="Check in"
+                                  />
+                                </div>
                               )}
                             </div>
 

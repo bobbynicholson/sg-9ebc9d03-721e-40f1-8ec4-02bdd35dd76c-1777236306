@@ -36,6 +36,8 @@ import { toLocalISO } from "@/lib/localDate";
 import { LogDriverShiftModal, type ExistingShiftForEdit } from "@/components/admin/LogDriverShiftModal";
 import { ShiftTasksChips } from "@/components/admin/ShiftTasksChips";
 import { WhatsAppTemplateSend } from "@/components/messaging/WhatsAppTemplateSend";
+import { WhatsAppManualStaffSend } from "@/components/messaging/WhatsAppManualStaffSend";
+import { formatDate } from "@/lib/formatters";
 import { AddShiftTaskModal } from "@/components/admin/AddShiftTaskModal";
 import {
   listTasksForShifts,
@@ -46,6 +48,8 @@ interface Driver {
   id: string;
   full_name: string;
   email: string;
+  phone_number?: string | null;
+  mobile_number?: string | null;
 }
 
 interface ShiftRow {
@@ -143,7 +147,7 @@ function DriverScheduleGrid() {
       const [driversRes, shiftsRes] = await Promise.all([
         (supabase as any)
           .from("profiles")
-          .select("id, full_name, email")
+          .select("id, full_name, email, phone_number, mobile_number")
           .eq("company_id", companyId)
           .eq("role", "driver")
           .is("deleted_at", null)
@@ -576,6 +580,14 @@ function DriverScheduleGrid() {
                                                   buttonLabel="Send shift message"
                                                   iconOnly
                                                 />
+                                                <WhatsAppManualStaffSend
+                                                  messageKey="whatsapp_staff_schedule_change"
+                                                  recipientName={d.full_name || d.email}
+                                                  recipientPhone={d.mobile_number || d.phone_number}
+                                                  variables={{ shift_date: formatDate(s.shift_date, { year: true }) }}
+                                                  buttonLabel="Shift changed"
+                                                  iconOnly
+                                                />
                                               </div>
                                             </div>
                                           );
@@ -733,6 +745,14 @@ function DriverScheduleGrid() {
                                                   companyId={companyId}
                                                   recipientName={d.full_name || d.email}
                                                   buttonLabel="Send shift message"
+                                                  iconOnly
+                                                />
+                                                <WhatsAppManualStaffSend
+                                                  messageKey="whatsapp_staff_schedule_change"
+                                                  recipientName={d.full_name || d.email}
+                                                  recipientPhone={d.mobile_number || d.phone_number}
+                                                  variables={{ shift_date: formatDate(s.shift_date, { year: true }) }}
+                                                  buttonLabel="Shift changed"
                                                   iconOnly
                                                 />
                                               </div>

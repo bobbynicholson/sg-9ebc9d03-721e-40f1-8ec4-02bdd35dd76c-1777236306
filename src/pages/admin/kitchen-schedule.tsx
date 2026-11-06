@@ -43,6 +43,8 @@ import { DEFAULT_TENANT_TIMEZONE, tenantToday, toLocalISO } from "@/lib/localDat
 import { LogKitchenShiftModal, type EditableShift } from "@/components/admin/LogKitchenShiftModal";
 import { ShiftTasksChips } from "@/components/admin/ShiftTasksChips";
 import { WhatsAppTemplateSend } from "@/components/messaging/WhatsAppTemplateSend";
+import { WhatsAppManualStaffSend } from "@/components/messaging/WhatsAppManualStaffSend";
+import { formatDate } from "@/lib/formatters";
 import { AddShiftTaskModal } from "@/components/admin/AddShiftTaskModal";
 import {
   listTasksForShifts,
@@ -65,6 +67,9 @@ interface Staffer {
   profile_id: string | null;
   /** Kitchen staff-directory id. Present for tablet-only staff. */
   staff_member_id: string | null;
+  phone: string | null;
+  phone_number?: string | null;
+  mobile_number?: string | null;
 }
 
 interface ShiftRow {
@@ -104,6 +109,7 @@ interface StaffMemberLinkRow {
   email: string | null;
   full_name: string | null;
   role_title: string | null;
+  phone: string | null;
 }
 
 function staffRosterKey(profileId: string | null | undefined, staffMemberId: string | null | undefined): string {
@@ -304,7 +310,7 @@ function KitchenScheduleGrid() {
         // unless their profile/active role or department says kitchen.
         (supabase as any)
           .from("profiles")
-          .select("id, full_name, email, role, active_role")
+          .select("id, full_name, email, role, active_role, phone_number, mobile_number")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .order("full_name", { ascending: true }),
@@ -348,7 +354,7 @@ function KitchenScheduleGrid() {
         // them disappear from the shift planner.
         (supabase as any)
           .from("kitchen_staff_members")
-          .select("id, linked_profile_id, email, full_name, role_title")
+          .select("id, linked_profile_id, email, full_name, role_title, phone")
           .eq("company_id", companyId)
           .eq("is_active", true)
           .contains("departments", ["kitchen"])
@@ -367,6 +373,7 @@ function KitchenScheduleGrid() {
         ...row,
         profile_id: row.id,
         staff_member_id: null,
+        phone: row.mobile_number || row.phone_number || null,
       }));
       let departmentRows: RosterDepartmentRow[] = [];
       if (staffRows.length > 0) {
@@ -402,7 +409,7 @@ function KitchenScheduleGrid() {
           (member.email ? profileByEmail.get(member.email.trim().toLowerCase()) : null);
         if (profileId) {
           const profile = staffRows.find((row) => row.id === profileId);
-          if (profile) rosterStaff.set(profile.id, profile);
+          if (profile) rosterStaff.set(profile.id, { ...profile, phone: profile.phone || member.phone });
         } else {
           // Kitchen tablet staff do not need their own application login.
           // Keep them in the roster as first-class people, keyed by their
@@ -417,6 +424,7 @@ function KitchenScheduleGrid() {
             email: member.email || "",
             role: member.role_title || "kitchen staff",
             active_role: null,
+            phone: member.phone,
           });
         }
       }
@@ -1186,6 +1194,27 @@ function KitchenScheduleGrid() {
                                                     companyId={companyId}
                                                     recipientName={p.full_name || p.email}
                                                     buttonLabel="Send shift message"
+                                                    iconOnly
+                                                  />}
+                                                  {p.phone && !p.profile_id && <WhatsAppManualStaffSend
+                                                    messageKey="whatsapp_staff_shift_confirm"
+                                                    recipientName={p.full_name || p.email}
+                                                    recipientPhone={p.phone}
+                                                    variables={{
+                                                      shift_date: formatDate(s.shift_date, { year: true }),
+                                                      shift_time: s.planned_start
+                                                        ? `${fmtTime(s.planned_start)}${s.planned_end ? ` - ${fmtTime(s.planned_end)}` : ""}`
+                                                        : "the scheduled time",
+                                                    }}
+                                                    buttonLabel="New shift"
+                                                    iconOnly
+                                                  />}
+                                                  {p.phone && <WhatsAppManualStaffSend
+                                                    messageKey="whatsapp_staff_schedule_change"
+                                                    recipientName={p.full_name || p.email}
+                                                    recipientPhone={p.phone}
+                                                    variables={{ shift_date: formatDate(s.shift_date, { year: true }) }}
+                                                    buttonLabel="Shift changed"
                                                     iconOnly
                                                   />}
                                                 </>

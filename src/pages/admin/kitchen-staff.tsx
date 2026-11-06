@@ -40,6 +40,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { WhatsAppManualStaffSend } from "@/components/messaging/WhatsAppManualStaffSend";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import {
@@ -1189,6 +1190,24 @@ function KitchenStaffPage() {
                               >
                                 <MessageCircle className="w-3 h-3" />
                               </a>
+                            )}
+                            {s.phone && !archived && (
+                              <div className="flex flex-wrap gap-1.5" onClick={(event) => event.stopPropagation()}>
+                                {!s.linked_profile_id && <WhatsAppManualStaffSend
+                                  messageKey="whatsapp_staff_welcome_no_login"
+                                  recipientName={s.full_name}
+                                  recipientPhone={s.phone}
+                                  buttonLabel="Shared-device welcome"
+                                  className="h-7 px-2 text-[11px]"
+                                />}
+                                <WhatsAppManualStaffSend
+                                  messageKey="whatsapp_staff_check_in"
+                                  recipientName={s.full_name}
+                                  recipientPhone={s.phone}
+                                  buttonLabel="Check in"
+                                  className="h-7 px-2 text-[11px]"
+                                />
+                              </div>
                             )}
                             {s.email && (
                               <a
