@@ -62,11 +62,29 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       rules: readWhatsAppRules(row?.settings),
       attention: row?.is_active ? row?.settings?.attention || null : null,
       webhookUrl: `https://${req.headers.host || "cateringms.com"}/api/webhooks/whatsapp`,
-      webhookVerifyToken: row?.is_active ? row?.settings?.webhookVerifyToken || null : null,
+      // Fetch only when the admin chooses Show or Copy; do not include the
+      // verify token in every routine page load.
+      webhookVerifyToken: row?.is_active && req.query.revealToken === "1" ? row?.settings?.webhookVerifyToken || null : null,
+      verifyTokenAvailable: !!(row?.is_active && row?.settings?.webhookVerifyToken),
+      webhookVerifiedAt: row?.is_active ? row?.settings?.webhookVerifiedAt || null : null,
     });
   }
 
   const body = (req.body || {}) as any;
+
+  if (body.action === "rotate_verify_token") {
+    const row = await loadRow(sb, companyId);
+    if (!row?.is_active) return res.status(400).json({ error: "Connect WhatsApp before replacing the verify token." });
+    const { error } = await sb.from("integrations").update({
+      settings: {
+        ...(row.settings || {}),
+        webhookVerifyToken: crypto.randomBytes(24).toString("hex"),
+        webhookVerifiedAt: null,
+      },
+    }).eq("id", row.id).eq("company_id", companyId);
+    if (error) throw error;
+    return res.status(200).json({ success: true });
+  }
 
   if (body.action === "connect") {
     const phoneNumberId = String(body.phoneNumberId || "").trim();
@@ -98,6 +116,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         displayNumber: check.displayNumber || null,
         attention: null,
         webhookVerifyToken: existing?.settings?.webhookVerifyToken || crypto.randomBytes(24).toString("hex"),
+        webhookVerifiedAt: existing?.settings?.webhookVerifiedAt || null,
       },
       is_active: true,
       status: "connected",

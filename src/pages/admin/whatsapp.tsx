@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import { Bot, CheckCircle2, ChevronDown, Copy, Hand, Lock, MessageCircle, RefreshCw, Send } from "lucide-react";
+import { Bot, CheckCircle2, ChevronDown, Copy, ExternalLink, Eye, EyeOff, Hand, Lock, MessageCircle, RefreshCw, RotateCw, Send, ShieldCheck } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
@@ -56,6 +56,8 @@ interface WhatsAppState {
   attention: string | null;
   webhookUrl: string;
   webhookVerifyToken: string | null;
+  verifyTokenAvailable: boolean;
+  webhookVerifiedAt: string | null;
 }
 
 type Filter = "all" | "automatic" | "manual";
@@ -149,6 +151,8 @@ function WhatsAppPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [connection, setConnection] = useState({ phoneNumberId: "", businessAccountId: "", accessToken: "", appSecret: "" });
+  const [showVerifyToken, setShowVerifyToken] = useState(false);
+  const [verifyToken, setVerifyToken] = useState<string | null>(null);
   const [rules, setRules] = useState<WhatsAppRules | null>(null);
   const [templates, setTemplates] = useState<MetaTemplate[]>([]);
   const [templatesStatus, setTemplatesStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
@@ -172,6 +176,8 @@ function WhatsAppPage() {
       const response = await fetch(url);
       const json = await response.json();
       if (!response.ok) throw new Error(json?.error || "Could not load WhatsApp settings.");
+      setShowVerifyToken(false);
+      setVerifyToken(null);
       setState(json);
       setDraft(json.automations);
       setRules(json.rules);
@@ -212,6 +218,14 @@ function WhatsAppPage() {
   const disconnect = async () => {
     if (!window.confirm("Disconnect WhatsApp? Your details are removed and every message goes back to Manual.")) return;
     if (await post("disconnect", { action: "disconnect" }, "WhatsApp disconnected")) await load();
+  };
+
+  const rotateVerifyToken = async () => {
+    if (!window.confirm("Replace the verify token? You will need to paste the new token into Meta and verify the callback again.")) return;
+    if (await post("rotate_verify_token", { action: "rotate_verify_token" }, "Verify token replaced")) {
+      setShowVerifyToken(false);
+      await load();
+    }
   };
 
   const save = async () => {
@@ -276,6 +290,51 @@ function WhatsAppPage() {
     }
   };
 
+  const copySetupValue = async (value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast({ title: `${label} copied` });
+    } catch {
+      toast({ title: `Couldn't copy ${label.toLowerCase()}`, description: "Select the value and copy it manually.", variant: "destructive" });
+    }
+  };
+
+  const fetchVerifyToken = async (): Promise<string> => {
+    const response = await fetch(`${url}${url.includes("?") ? "&" : "?"}revealToken=1`, { cache: "no-store" });
+    const json = await response.json();
+    if (!response.ok || !json.webhookVerifyToken) throw new Error(json?.error || "Could not load the verify token.");
+    return json.webhookVerifyToken;
+  };
+
+  const toggleVerifyToken = async () => {
+    if (showVerifyToken) {
+      setShowVerifyToken(false);
+      setVerifyToken(null);
+      return;
+    }
+    setBusy("show_verify_token");
+    try {
+      setVerifyToken(await fetchVerifyToken());
+      setShowVerifyToken(true);
+    } catch (error) {
+      toast({ title: "Couldn't show verify token", description: error instanceof Error ? error.message : "Try again.", variant: "destructive" });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const copyVerifyToken = async () => {
+    setBusy("copy_verify_token");
+    try {
+      await navigator.clipboard.writeText(await fetchVerifyToken());
+      toast({ title: "Verify token copied" });
+    } catch (error) {
+      toast({ title: "Couldn't copy verify token", description: error instanceof Error ? error.message : "Show the token and copy it manually.", variant: "destructive" });
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const changed = !!state && !!draft && JSON.stringify(state.automations) !== JSON.stringify(draft);
   const automaticCount = draft ? Object.values(draft).filter((item) => item.enabled).length : 0;
   const manualCount = WHATSAPP_AUTOMATIONS.length + WHATSAPP_MANUAL_ONLY.length - automaticCount;
@@ -308,7 +367,9 @@ function WhatsAppPage() {
             variant="hero"
             icon={MessageCircle}
             title="WhatsApp"
-            subtitle="Connect your WhatsApp Business account, then choose which messages are Automatic and which stay Manual."
+            subtitle={state?.connected
+              ? "Finish Meta webhook setup to receive replies, then choose which messages send automatically."
+              : "Connect your WhatsApp Business account, then choose which messages are Automatic and which stay Manual."}
           />
           <WhatsAppTabs active="setup" />
 
@@ -344,38 +405,110 @@ function WhatsAppPage() {
                 </Card>
               )}
 
-              <Card collapsible defaultOpen={false} collapseLabel="WhatsApp Business account" className="w-full">
+              <Card collapsible defaultOpen collapseLabel="WhatsApp Business account" className="w-full">
                 <CardHeader>
-                  <CardTitle className="text-sm">WhatsApp Business account</CardTitle>
+                  <CardTitle className="text-base">WhatsApp Business account</CardTitle>
                   <CardDescription className="text-xs">
                     {state.connected
-                      ? `Connected${state.displayNumber ? ` to ${state.displayNumber}` : ""}`
+                      ? `Number connected${state.displayNumber ? ` · ${state.displayNumber}` : ""}`
                       : "Not connected. Open this to enter your details from Meta."}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4 py-5">
                   {state.connected && (
                     <>
-                      <div className="space-y-2 rounded-lg bg-slate-50 p-3 text-xs dark:bg-slate-800">
-                        <p className="font-semibold text-slate-700 dark:text-slate-300">Set up replies and delivery updates in Meta</p>
-                        <p className="text-slate-500">In your Meta app, open WhatsApp, Configuration. Paste these two values, then subscribe to the messages field.</p>
-                        <div className="grid gap-2 md:grid-cols-2">
-                          {[["Callback URL", state.webhookUrl], ["Verify token", state.webhookVerifyToken || ""]].map(([label, value]) => (
-                            <div key={label}>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-slate-600 dark:text-slate-300">{label}</span>
-                                <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 text-xs" onClick={() => void copyWording(value)}>
-                                  <Copy className="h-3 w-3" /> Copy {label.toLowerCase()}
+                      <div className={cn(
+                        "flex flex-wrap items-start gap-3 rounded-lg p-4",
+                        state.webhookVerifiedAt
+                          ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100"
+                          : "bg-amber-50 text-amber-950 dark:bg-amber-950/40 dark:text-amber-100",
+                      )}>
+                        {state.webhookVerifiedAt ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" /> : <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold">{state.webhookVerifiedAt ? "Callback verified by Meta" : "Finish receiving replies from Meta"}</p>
+                          <p className="mt-1 text-sm leading-relaxed opacity-90">
+                            {state.webhookVerifiedAt
+                              ? "The callback was verified. Subscribe to messages and this WhatsApp account in Meta, then send a test reply."
+                              : "Your number is connected. Copy the callback details below into Meta to receive replies and delivery updates here."}
+                          </p>
+                        </div>
+                        <Button type="button" variant="outline" size="sm" className="shrink-0 bg-white/80 dark:bg-transparent" onClick={() => void load()}>
+                          <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" /> Refresh status
+                        </Button>
+                      </div>
+
+                      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(16rem,0.85fr)]">
+                        <div className="min-w-0 space-y-4">
+                          <div>
+                            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Values to enter in Meta</h3>
+                            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Copy each value into the matching field under Configure Webhooks.</p>
+                            {/localhost|127\.0\.0\.1/i.test(state.webhookUrl) && (
+                              <p className="mt-2 text-sm font-medium text-amber-800 dark:text-amber-200">Open this page on the live CateringMS site before copying the callback URL. Meta cannot reach localhost.</p>
+                            )}
+                          </div>
+                          <div className="divide-y divide-slate-200 rounded-xl border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
+                            <div className="space-y-2 p-4">
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-sm font-medium text-slate-800 dark:text-slate-100">Callback URL</span>
+                                <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" disabled={/localhost|127\.0\.0\.1/i.test(state.webhookUrl)} onClick={() => void copySetupValue(state.webhookUrl, "Callback URL")}>
+                                  <Copy className="h-3.5 w-3.5" aria-hidden="true" /> Copy
                                 </Button>
                               </div>
-                              <p className="break-all font-mono text-slate-700 dark:text-slate-200">{value}</p>
+                              <p className="break-all rounded-md bg-slate-50 px-3 py-2 font-mono text-xs text-slate-800 dark:bg-slate-800 dark:text-slate-100">{state.webhookUrl}</p>
                             </div>
-                          ))}
+                            <div className="space-y-2 p-4">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="text-sm font-medium text-slate-800 dark:text-slate-100">Verify token</span>
+                                <div className="flex items-center gap-1">
+                                  <Button type="button" variant="ghost" size="sm" className="h-8 gap-1.5" disabled={!state.verifyTokenAvailable || busy === "show_verify_token"} onClick={() => void toggleVerifyToken()} aria-label={showVerifyToken ? "Hide verify token" : "Show verify token"}>
+                                    {showVerifyToken ? <EyeOff className="h-3.5 w-3.5" aria-hidden="true" /> : <Eye className="h-3.5 w-3.5" aria-hidden="true" />}
+                                    {showVerifyToken ? "Hide" : "Show"}
+                                  </Button>
+                                  <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" disabled={!state.verifyTokenAvailable || busy === "copy_verify_token"} onClick={() => void copyVerifyToken()}>
+                                    <Copy className="h-3.5 w-3.5" aria-hidden="true" /> Copy
+                                  </Button>
+                                </div>
+                              </div>
+                              <p className="break-all rounded-md bg-slate-50 px-3 py-2 font-mono text-xs text-slate-800 dark:bg-slate-800 dark:text-slate-100" aria-label={showVerifyToken ? "Verify token" : "Verify token hidden"}>
+                                {showVerifyToken ? verifyToken || "Unavailable" : "••••••••••••••••••••••••"}
+                              </p>
+                              <p className="text-xs text-slate-600 dark:text-slate-300">Keep this token private. If it was shared, replace it before verifying in Meta.</p>
+                            </div>
+                          </div>
+                          <Button type="button" variant="ghost" size="sm" className="gap-1.5 px-0 text-slate-700 hover:bg-transparent dark:text-slate-300" disabled={busy === "rotate_verify_token"} onClick={() => void rotateVerifyToken()}>
+                            <RotateCw className="h-3.5 w-3.5" aria-hidden="true" /> {busy === "rotate_verify_token" ? "Replacing token..." : "Replace verify token"}
+                          </Button>
+                        </div>
+
+                        <div className="min-w-0 border-t border-slate-200 pt-5 dark:border-slate-700 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+                          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Finish setup in Meta</h3>
+                          <ol className="mt-4 space-y-4">
+                            {[
+                              ["Open your Meta app", "Go to WhatsApp → Configuration → Configure Webhooks."],
+                              ["Verify the callback", "Paste the Callback URL and Verify token, then choose Verify and save."],
+                              ["Subscribe to messages", "Subscribe the messages field, then use Subscribe webhooks for this WhatsApp account."],
+                              ["Test a reply", "Publish the Meta app for live events, then message the business number from another phone."],
+                            ].map(([title, description], index) => (
+                              <li key={title} className="flex gap-3">
+                                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold tabular-nums text-slate-700 dark:bg-slate-800 dark:text-slate-200">{index + 1}</span>
+                                <div>
+                                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{title}</p>
+                                  <p className="mt-0.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">{description}</p>
+                                </div>
+                              </li>
+                            ))}
+                          </ol>
+                          <Button asChild variant="outline" size="sm" className="mt-5 gap-1.5">
+                            <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer">Open Meta apps <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></a>
+                          </Button>
+                          <p className="mt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">A verified callback confirms the URL. Live replies also need the messages subscription and a published Meta app.</p>
                         </div>
                       </div>
-                      <Button type="button" variant="outline" size="sm" disabled={busy === "disconnect"} onClick={() => void disconnect()}>
+                      <div className="border-t border-slate-200 pt-4 dark:border-slate-700">
+                        <Button type="button" variant="outline" size="sm" disabled={busy === "disconnect"} onClick={() => void disconnect()}>
                         {busy === "disconnect" ? "Disconnecting..." : "Disconnect WhatsApp"}
-                      </Button>
+                        </Button>
+                      </div>
                     </>
                   )}
                   {!state.connected && (

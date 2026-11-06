@@ -109,9 +109,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === "GET") {
     const token = String(req.query["hub.verify_token"] || "");
     const { data } = token
-      ? await sb.from("integrations").select("id").eq("integration_type", "whatsapp").eq("settings->>webhookVerifyToken", token).limit(1)
+      ? await sb.from("integrations").select("id, settings").eq("integration_type", "whatsapp").eq("is_active", true).eq("settings->>webhookVerifyToken", token).limit(1)
       : { data: [] };
     if (req.query["hub.mode"] === "subscribe" && data?.length) {
+      const row = data[0];
+      const { error } = await sb.from("integrations")
+        .update({ settings: { ...(row.settings || {}), webhookVerifiedAt: new Date().toISOString() } })
+        .eq("id", row.id).eq("is_active", true).eq("settings->>webhookVerifyToken", token);
+      if (error) return res.status(500).json({ error: "Could not record verification" });
       return res.status(200).send(String(req.query["hub.challenge"] || ""));
     }
     return res.status(403).json({ error: "Verification failed" });

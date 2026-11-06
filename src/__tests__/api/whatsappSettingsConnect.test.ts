@@ -1,7 +1,7 @@
 /** @jest-environment node */
 import handler from "@/pages/api/admin/whatsapp/settings";
 
-let mockExisting: { id: string; settings: Record<string, unknown> } | null = null;
+let mockExisting: { id: string; settings: Record<string, unknown>; is_active?: boolean } | null = null;
 const mockWrites: Array<{ kind: string; row: Record<string, unknown>; filters?: Array<[string, unknown]> }> = [];
 
 jest.mock("@/lib/subscriptionApiGate", () => ({ isSubscriptionGatedRequest: () => false, blockIfCompanyUnpaid: jest.fn() }));
@@ -34,7 +34,7 @@ jest.mock("@/lib/supabase/service", () => ({
   }),
 }));
 
-async function connect() {
+async function call(body: Record<string, unknown> = { action: "connect", phoneNumberId: "118302861227098", businessAccountId: "101680439572707", accessToken: "token", appSecret: "secret" }, method = "POST", query: Record<string, string> = {}) {
   const res: any = {
     statusCode: 200, body: null,
     setHeader() { return this; }, getHeader() { return undefined; }, end() { return this; },
@@ -42,8 +42,8 @@ async function connect() {
     json(value: unknown) { this.body = value; return this; },
   };
   await handler({
-    method: "POST", url: "/api/admin/whatsapp/settings", headers: {}, cookies: {}, query: {},
-    body: { action: "connect", phoneNumberId: "118302861227098", businessAccountId: "101680439572707", accessToken: "token", appSecret: "secret" },
+    method, url: "/api/admin/whatsapp/settings", headers: {}, cookies: {}, query,
+    body,
   } as any, res);
   return res;
 }
@@ -52,7 +52,7 @@ describe("WhatsApp connection storage", () => {
   beforeEach(() => { mockExisting = null; mockWrites.length = 0; });
 
   it("inserts a new connection without a partial-index upsert", async () => {
-    const response = await connect();
+    const response = await call();
     expect(response.statusCode).toBe(200);
     expect(mockWrites).toHaveLength(1);
     expect(mockWrites[0]).toMatchObject({ kind: "insert", row: { company_id: "company-1", integration_type: "whatsapp", is_active: true } });
@@ -60,10 +60,31 @@ describe("WhatsApp connection storage", () => {
 
   it("updates the existing company connection", async () => {
     mockExisting = { id: "integration-1", settings: { preserved: true } };
-    const response = await connect();
+    const response = await call();
     expect(response.statusCode).toBe(200);
     expect(mockWrites).toHaveLength(1);
     expect(mockWrites[0]).toMatchObject({ kind: "update", row: { settings: { preserved: true } } });
     expect(mockWrites[0].filters).toEqual([["id", "integration-1"], ["company_id", "company-1"]]);
+  });
+
+  it("replaces a shared verify token and clears its verification state", async () => {
+    mockExisting = { id: "integration-1", settings: { webhookVerifyToken: "old-token", webhookVerifiedAt: "2026-11-06T00:00:00Z" } };
+    mockExisting.is_active = true;
+    const response = await call({ action: "rotate_verify_token" });
+    expect(response.statusCode).toBe(200);
+    expect(mockWrites[0].kind).toBe("update");
+    const settings = mockWrites[0].row.settings as Record<string, unknown>;
+    expect(settings.webhookVerifyToken).toMatch(/^[0-9a-f]{48}$/);
+    expect(settings.webhookVerifyToken).not.toBe("old-token");
+    expect(settings.webhookVerifiedAt).toBeNull();
+  });
+
+  it("keeps the verify token out of routine settings responses", async () => {
+    mockExisting = { id: "integration-1", is_active: true, settings: { webhookVerifyToken: "private-token" } };
+    const ordinary = await call({}, "GET");
+    expect(ordinary.body.webhookVerifyToken).toBeNull();
+    expect(ordinary.body.verifyTokenAvailable).toBe(true);
+    const revealed = await call({}, "GET", { revealToken: "1" });
+    expect(revealed.body.webhookVerifyToken).toBe("private-token");
   });
 });

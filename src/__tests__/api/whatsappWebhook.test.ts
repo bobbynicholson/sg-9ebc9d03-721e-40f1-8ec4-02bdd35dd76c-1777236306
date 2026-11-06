@@ -90,6 +90,7 @@ describe("WhatsApp webhook", () => {
     mockUpserts.length = 0;
     mockAlert.mockClear();
     mockTables.integrations = [{
+      id: "integration-1",
       company_id: "company-1",
       integration_type: "whatsapp",
       is_active: true,
@@ -169,6 +170,7 @@ describe("WhatsApp webhook", () => {
       return res;
     };
     expect((await verify("verify-me")).body).toBe("ok-123");
+    expect(mockUpdates.find((item) => item.table === "integrations")?.patch.settings.webhookVerifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect((await verify("guess")).statusCode).toBe(403);
   });
 });
