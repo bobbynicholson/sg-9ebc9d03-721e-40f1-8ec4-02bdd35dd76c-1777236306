@@ -83,7 +83,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (!check.ok) return res.status(400).json({ error: "Meta didn't accept these details. Check the Phone number ID and access token." });
 
     const existing = await loadRow(sb, companyId);
-    const { error } = await sb.from("integrations").upsert({
+    const connectionRow = {
       company_id: companyId,
       user_id: userId,
       integration_type: "whatsapp",
@@ -102,7 +102,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       is_active: true,
       status: "connected",
       connected_at: new Date().toISOString(),
-    }, { onConflict: "company_id,integration_type" });
+    };
+    // The database has a partial unique index on (company_id, integration_type).
+    // PostgREST's onConflict cannot specify its WHERE clause, so an upsert on
+    // those columns fails with 42P10. Update the existing row or insert it.
+    let { error } = existing
+      ? await sb.from("integrations").update(connectionRow).eq("id", existing.id).eq("company_id", companyId)
+      : await sb.from("integrations").insert(connectionRow);
+    if (error?.code === "23505" && !existing) {
+      // Another request created the row after loadRow; use that row instead.
+      const concurrent = await loadRow(sb, companyId);
+      if (concurrent) {
+        ({ error } = await sb.from("integrations").update(connectionRow).eq("id", concurrent.id).eq("company_id", companyId));
+      }
+    }
     if (error) throw error;
     return res.status(200).json({ success: true });
   }

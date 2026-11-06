@@ -135,10 +135,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const signature = String(req.headers["x-hub-signature-256"] || "");
   const companyByNumber = new Map<string, { companyId: string; valid: boolean }>();
 
+  // We can verify signatures only after identifying the connected number.
+  // Never acknowledge an empty or unidentifiable POST as an accepted webhook.
+  if (!changes.length) return res.status(401).json({ error: "Invalid signature" });
+
   for (const change of changes) {
     const value = change?.value;
     const numberId = String(value?.metadata?.phone_number_id || "");
-    if (!numberId) continue;
+    if (!numberId) return res.status(401).json({ error: "Invalid signature" });
     if (!companyByNumber.has(numberId)) {
       const { data: rows } = await sb.from("integrations").select("company_id, credentials")
         .eq("integration_type", "whatsapp").eq("is_active", true).eq("credentials->>phoneNumberId", numberId).limit(1);

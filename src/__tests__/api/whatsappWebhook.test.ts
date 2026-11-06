@@ -110,6 +110,12 @@ describe("WhatsApp webhook", () => {
     expect(mockTables.whatsapp_inbound_messages).toBeUndefined();
   });
 
+  it("rejects webhook posts that cannot be tied to a verified number", async () => {
+    expect(await post({ entry: [] })).toBe(401);
+    expect(await post({ entry: [{ changes: [{ value: { event: "ACCOUNT_UPDATED" } }] }] })).toBe(401);
+    expect(mockTables.whatsapp_inbound_messages).toBeUndefined();
+  });
+
   it("saves a real reply and alerts admins once, even if Meta resends it", async () => {
     expect(await post(reply("Yes please"))).toBe(200);
     expect(await post(reply("Yes please"))).toBe(200);
