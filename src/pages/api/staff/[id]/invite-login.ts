@@ -18,7 +18,6 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
-import { randomUUID } from "crypto";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { sendStaffInviteEmail } from "@/lib/staffInviteEmail";
@@ -208,7 +207,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       company_id: staff.company_id, user_id: authUserId, email,
       full_name: staff.full_name, role: existingProfile?.active_role || roleInput,
       invited_by: callerAuth.id, status: "pending",
-      invitation_token: randomUUID(),
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     };
     const { error: invitationErr } = pending

@@ -53,7 +53,6 @@ export interface OutsourceAssignment {
   invoice_paid: boolean;
   invoice_received_at: string | null;
   invoice_paid_at: string | null;
-  accept_token: string | null;
   accept_token_expires_at: string | null;
   requested_by: string | null;
   manually_marked_accepted: boolean;
@@ -93,18 +92,26 @@ export const STATUS_TONE: Record<OutsourceAssignmentStatus, { label: string; cls
   cancelled: { label: "Cancelled", cls: "bg-slate-50 text-slate-600 border-slate-200" },
 };
 
-/** Crypto-safe token for the magic-link accept page. 32 bytes ->
- *  base64url ~43 chars. Long enough to be unguessable, short enough
- *  to fit cleanly in a WhatsApp message. */
-function generateToken(): string {
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-    const bytes = new Uint8Array(32);
-    crypto.getRandomValues(bytes);
-    return Array.from(bytes)
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+const SAFE_ASSIGNMENT_FIELDS = `
+  id, company_id, order_id, provider_id, order_item_id, menu_item_id,
+  service_description, required_on_site_at, scope_notes, status,
+  requested_at, responded_at, decline_reason, en_route_at, on_site_at,
+  completed_at, cancelled_at, quoted_cost, cost_currency, rate_type,
+  actual_cost, invoice_received, invoice_paid, invoice_received_at,
+  invoice_paid_at, accept_token_expires_at, requested_by,
+  manually_marked_accepted, manually_marked_by, notes, routing_group_id,
+  created_at, updated_at, deleted_at
+`;
+
+async function postAdminAction(assignmentId: string, body: Record<string, unknown>): Promise<any> {
+  const response = await fetch(`/api/admin/outsource-assignments/${encodeURIComponent(assignmentId)}/action`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result?.error || `Request failed (${response.status})`);
+  return result;
 }
 
 export const outsourceAssignmentService = {
@@ -114,7 +121,7 @@ export const outsourceAssignmentService = {
     const { data, error } = await (supabase as any)
       .from("outsource_assignments")
       .select(`
-        *,
+        ${SAFE_ASSIGNMENT_FIELDS},
         provider:provider_id (
           id, provider_name, contact_person, email, phone,
           whatsapp_number, preferred_contact_channel, default_rate_type
@@ -148,92 +155,53 @@ export const outsourceAssignmentService = {
     requestedBy?: string | null;
     expiresAt?: string | null;
   }): Promise<OutsourceAssignment | null> {
-    const token = generateToken();
-    // Default token expiry: 90 days from now. The order cancellation
-    // cascade will also flip the assignment to cancelled, but the
-    // token-bearer endpoint double-checks expiry as belt-and-braces.
-    const fallbackExpiry = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
-    const { data, error } = await (supabase as any)
-      .from("outsource_assignments")
-      .insert({
-        company_id: args.companyId,
-        order_id: args.orderId,
-        provider_id: args.providerId,
-        order_item_id: args.orderItemId ?? null,
-        menu_item_id: args.menuItemId ?? null,
-        service_description: args.serviceDescription,
-        required_on_site_at: args.requiredOnSiteAt ?? null,
-        scope_notes: args.scopeNotes ?? null,
-        quoted_cost: args.quotedCost,
-        cost_currency: args.costCurrency ?? "ZAR",
-        rate_type: args.rateType ?? "per_event",
-        accept_token: token,
-        accept_token_expires_at: args.expiresAt ?? fallbackExpiry,
-        requested_by: args.requestedBy ?? null,
-      })
-      .select()
-      .single();
-    if (error) {
-      console.error("[outsourceAssignmentService.create] failed:", error);
+    const response = await fetch("/api/admin/outsource-assignments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orderId: args.orderId,
+        providerId: args.providerId,
+        orderItemId: args.orderItemId ?? null,
+        menuItemId: args.menuItemId ?? null,
+        serviceDescription: args.serviceDescription,
+        requiredOnSiteAt: args.requiredOnSiteAt ?? null,
+        scopeNotes: args.scopeNotes ?? null,
+        quotedCost: args.quotedCost,
+        costCurrency: args.costCurrency ?? "ZAR",
+        rateType: args.rateType ?? "per_event",
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.error("[outsourceAssignmentService.create] failed:", result?.error || response.status);
       return null;
     }
-    return data as OutsourceAssignment;
+    return result.assignment as OutsourceAssignment;
   },
 
   /** Admin manual flip to accepted. Used for "called Sarah, she said
    *  yes" workflows - saves the magic-link round-trip when the
    *  operator already has verbal confirmation. */
   async markAcceptedManual(assignmentId: string, performedByUserId: string): Promise<void> {
-    const nowIso = new Date().toISOString();
-    const { error } = await (supabase as any)
-      .from("outsource_assignments")
-      .update({
-        status: "accepted",
-        responded_at: nowIso,
-        manually_marked_accepted: true,
-        manually_marked_by: performedByUserId,
-      })
-      .eq("id", assignmentId);
-    if (error) throw error;
+    void performedByUserId;
+    await postAdminAction(assignmentId, { action: "mark_accepted" });
   },
 
   /** Admin manual flip to cancelled (typically when reassigning). */
   async cancelAssignment(assignmentId: string, reason?: string): Promise<void> {
-    const nowIso = new Date().toISOString();
-    const { error } = await (supabase as any)
-      .from("outsource_assignments")
-      .update({
-        status: "cancelled",
-        cancelled_at: nowIso,
-        decline_reason: reason ?? null,
-      })
-      .eq("id", assignmentId);
-    if (error) throw error;
+    await postAdminAction(assignmentId, { action: "cancel", reason });
   },
 
   /** Admin updates the quoted cost (post-negotiation, scope change). */
   async updateCost(assignmentId: string, quotedCost: number): Promise<void> {
-    const { error } = await (supabase as any)
-      .from("outsource_assignments")
-      .update({ quoted_cost: quotedCost })
-      .eq("id", assignmentId);
-    if (error) throw error;
+    await postAdminAction(assignmentId, { action: "update_cost", quotedCost });
   },
 
   /** Admin advances the operational status (en_route / on_site /
    *  completed) when status updates come in via phone rather than
    *  via the magic-link page. */
   async setStatus(assignmentId: string, status: OutsourceAssignmentStatus): Promise<void> {
-    const nowIso = new Date().toISOString();
-    const patch: any = { status };
-    if (status === "en_route") patch.en_route_at = nowIso;
-    if (status === "on_site") patch.on_site_at = nowIso;
-    if (status === "completed") patch.completed_at = nowIso;
-    const { error } = await (supabase as any)
-      .from("outsource_assignments")
-      .update(patch)
-      .eq("id", assignmentId);
-    if (error) throw error;
+    await postAdminAction(assignmentId, { action: "set_status", status });
   },
 
   /** Build the full accept-link URL the operator drops into the

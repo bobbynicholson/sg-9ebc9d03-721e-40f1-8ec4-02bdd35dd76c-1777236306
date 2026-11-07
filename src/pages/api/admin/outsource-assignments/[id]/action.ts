@@ -5,7 +5,7 @@
  * Single endpoint, switch by body.action. Cleaner than a separate
  * route per verb when each verb is a small state flip.
  *
- * Body: { action: 'mark_accepted' | 'cancel' | 'set_status' | 'update_cost',
+ * Body: { action: 'get_accept_link' | 'mark_accepted' | 'cancel' | 'set_status' | 'update_cost',
  *         status?: string, quotedCost?: number, reason?: string }
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -25,6 +25,7 @@ const ALLOWED_STATUSES = new Set([
 ]);
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
+  res.setHeader("Cache-Control", "private, no-store, max-age=0");
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
@@ -56,13 +57,49 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     // Tenant scope check.
-    const { data: existing } = await admin
+    const wantsAcceptLink = action === "get_accept_link";
+    const { data: existing, error: readErr } = await admin
       .from("outsource_assignments")
-      .select("id, company_id, status")
+      .select(wantsAcceptLink
+        ? "id, company_id, status, accept_token, accept_token_expires_at"
+        : "id, company_id, status")
       .eq("id", assignmentId)
       .eq("company_id", companyId)
       .maybeSingle();
+    if (readErr) {
+      console.error("[admin/outsource-assignments/action] read failed:", readErr);
+      return res.status(500).json({ error: "Could not load assignment" });
+    }
     if (!existing) return res.status(404).json({ error: "Assignment not found in your company" });
+
+    if (wantsAcceptLink) {
+      if (existing.status === "declined" || existing.status === "cancelled") {
+        return res.status(409).json({ error: "This assignment no longer accepts provider responses" });
+      }
+      const expiry = existing.accept_token_expires_at
+        ? new Date(existing.accept_token_expires_at).getTime()
+        : null;
+      if (expiry !== null && (!Number.isFinite(expiry) || expiry < Date.now())) {
+        return res.status(410).json({ error: "This provider link has expired" });
+      }
+      if (typeof existing.accept_token !== "string" || existing.accept_token.length < 32) {
+        return res.status(404).json({ error: "No provider link is available for this assignment" });
+      }
+      try {
+        const { error: linkAuditError } = await admin.from("audit_logs").insert({
+          company_id: companyId,
+          user_id: user.id,
+          action: "outsource_accept_link_retrieved",
+          entity_type: "outsource_assignment",
+          entity_id: assignmentId,
+          details: { action: "get_accept_link" },
+        });
+        if (linkAuditError) console.warn("[admin/outsource-assignments/action] link access audit failed:", linkAuditError);
+      } catch (auditErr) {
+        console.warn("[admin/outsource-assignments/action] link access audit failed:", auditErr);
+      }
+      return res.status(200).json({ token: existing.accept_token });
+    }
 
     const nowIso = new Date().toISOString();
     let patch: any = {};

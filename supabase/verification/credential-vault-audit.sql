@@ -131,7 +131,9 @@ BEGIN
       ('suppliers', 'Supplier source table'),
       ('integrations', 'Integration source table'),
       ('email_provider_settings', 'Email provider source table'),
-      ('accounting_integrations', 'Accounting integration table')
+      ('accounting_integrations', 'Accounting integration table'),
+      ('staff_invitations', 'Staff invitation table'),
+      ('outsource_assignments', 'Outsource assignment table')
     ) AS t(table_name, label)
   LOOP
     v_table := to_regclass(format('public.%I', r.table_name));
@@ -655,6 +657,80 @@ BEGIN
       '0',
       'Only ciphertext version prefixes are inspected; values are not returned.'
     );
+  END IF;
+
+  IF to_regclass('public.outsource_assignments') IS NOT NULL THEN
+    v_table := to_regclass('public.outsource_assignments');
+    SELECT c.relrowsecurity INTO v_rls FROM pg_class AS c WHERE c.oid = v_table;
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Outsource assignments: RLS enabled',
+      CASE WHEN v_rls THEN 'PASS' ELSE 'FAIL' END,
+      CASE WHEN v_rls THEN 1 ELSE 0 END,
+      '1',
+      'Outsource assignment rows must remain company-scoped.'
+    );
+
+    SELECT count(*) INTO v_count
+    FROM (VALUES ('anon'), ('authenticated')) AS client_roles(role_name)
+    WHERE has_column_privilege(
+      client_roles.role_name,
+      'public.outsource_assignments',
+      'accept_token',
+      'SELECT'
+    );
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Outsource accept tokens: client read access',
+      CASE WHEN v_count = 0 THEN 'PASS' ELSE 'FAIL' END,
+      v_count,
+      '0',
+      'Bearer links must not be readable from company-scoped browser queries; authorized server APIs release them only to admins.'
+    );
+
+    SELECT count(*) INTO v_count
+    FROM public.outsource_assignments
+    WHERE NULLIF(accept_token, '') IS NOT NULL;
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Outsource accept tokens: plaintext at-rest review',
+      CASE WHEN v_count = 0 THEN 'PASS' ELSE 'REVIEW' END,
+      v_count,
+      '0 or move to encrypted/hash-only storage',
+      'Client roles are blocked, but a database-level read or backup can still reveal active bearer tokens.'
+    );
+  END IF;
+
+  IF to_regclass('public.staff_invitations') IS NOT NULL THEN
+    SELECT EXISTS (
+      SELECT 1
+      FROM pg_attribute
+      WHERE attrelid = 'public.staff_invitations'::regclass
+        AND attname = 'invitation_token'
+        AND attnum > 0
+        AND NOT attisdropped
+    ) INTO v_column_exists;
+
+    IF v_column_exists THEN
+      SELECT count(*) INTO v_count
+      FROM public.staff_invitations
+      WHERE invitation_token IS NOT NULL;
+
+      INSERT INTO pg_temp.credential_vault_audit_results
+      VALUES (
+        'Unused staff invitation tokens remaining',
+        CASE WHEN v_count = 0 THEN 'PASS' ELSE 'FAIL' END,
+        v_count,
+        '0',
+        'The application uses Supabase action links; the deprecated invitation_token field must remain empty.'
+      );
+    ELSE
+      INSERT INTO pg_temp.credential_vault_audit_results
+      VALUES (
+        'Unused staff invitation tokens remaining', 'PASS', 0, '0',
+        'The deprecated invitation_token column has been removed.'
+      );
+    END IF;
   END IF;
 
   SELECT count(*) FILTER (WHERE status = 'FAIL') INTO v_count

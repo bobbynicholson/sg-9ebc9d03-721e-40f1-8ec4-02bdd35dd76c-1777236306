@@ -376,8 +376,20 @@ export function OutsourcedFulfilmentPanel({
     }
   };
 
-  const composedRequest = (a: OutsourceAssignmentWithProvider): { subject: string; body: string; link: string } => {
-    const link = a.accept_token ? outsourceAssignmentService.buildAcceptLink(origin, a.accept_token) : "";
+  const getAcceptLink = async (a: OutsourceAssignmentWithProvider): Promise<string> => {
+    const response = await fetch(`/api/admin/outsource-assignments/${encodeURIComponent(a.id)}/action`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "get_accept_link" }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || typeof result.token !== "string") {
+      throw new Error(result?.error || "Could not prepare a provider link");
+    }
+    return outsourceAssignmentService.buildAcceptLink(origin, result.token);
+  };
+
+  const composedRequest = (a: OutsourceAssignmentWithProvider, link: string): { subject: string; body: string; link: string } => {
     const greeting = a.provider?.contact_person
       ? `Hi ${a.provider.contact_person.split(" ")[0]}`
       : a.provider?.provider_name
@@ -410,34 +422,43 @@ export function OutsourcedFulfilmentPanel({
     return { subject, body, link };
   };
 
-  const sendEmail = (a: OutsourceAssignmentWithProvider) => {
+  const sendEmail = async (a: OutsourceAssignmentWithProvider) => {
     const email = a.provider?.email;
     if (!email) {
       toast({ title: "No email on file", description: "Add one to the provider record first.", variant: "destructive" });
       return;
     }
-    const { subject, body } = composedRequest(a);
-    window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    try {
+      const link = await getAcceptLink(a);
+      const { subject, body } = composedRequest(a, link);
+      window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    } catch (error: any) {
+      toast({ title: "Could not prepare provider link", description: error?.message || "Try again", variant: "destructive" });
+    }
   };
 
-  const sendWhatsApp = (a: OutsourceAssignmentWithProvider) => {
+  const sendWhatsApp = async (a: OutsourceAssignmentWithProvider) => {
     const num = (a.provider?.whatsapp_number || a.provider?.phone || "").replace(/[^\d]/g, "");
     if (!num) {
       toast({ title: "No WhatsApp / phone on file", description: "Add one to the provider record first.", variant: "destructive" });
       return;
     }
-    const { body } = composedRequest(a);
-    openWhatsApp(num, body);
+    try {
+      const link = await getAcceptLink(a);
+      const { body } = composedRequest(a, link);
+      openWhatsApp(num, body);
+    } catch (error: any) {
+      toast({ title: "Could not prepare provider link", description: error?.message || "Try again", variant: "destructive" });
+    }
   };
 
   const copyAcceptLink = async (a: OutsourceAssignmentWithProvider) => {
-    const { link } = composedRequest(a);
-    if (!link) return;
     try {
+      const link = await getAcceptLink(a);
       await navigator.clipboard.writeText(link);
       toast({ title: "Accept link copied", description: "Paste anywhere - SMS, email, WhatsApp." });
-    } catch {
-      toast({ title: "Copy failed", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "Copy failed", description: error?.message || "Try again", variant: "destructive" });
     }
   };
 

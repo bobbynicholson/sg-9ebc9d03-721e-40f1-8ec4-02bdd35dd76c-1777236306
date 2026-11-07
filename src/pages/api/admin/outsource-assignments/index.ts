@@ -25,6 +25,7 @@ function mintToken(): string {
 }
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
+  res.setHeader("Cache-Control", "private, no-store, max-age=0");
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
@@ -132,7 +133,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         requested_by: user.id,
         routing_group_id: routingGroupId,
       })
-      .select()
+      .select(`
+        id, company_id, order_id, provider_id, order_item_id, menu_item_id,
+        service_description, required_on_site_at, scope_notes, status,
+        requested_at, responded_at, decline_reason, en_route_at, on_site_at,
+        completed_at, cancelled_at, quoted_cost, cost_currency, rate_type,
+        actual_cost, invoice_received, invoice_paid, invoice_received_at,
+        invoice_paid_at, accept_token_expires_at, requested_by,
+        manually_marked_accepted, manually_marked_by, notes, routing_group_id,
+        created_at, updated_at, deleted_at
+      `)
       .single();
 
     if (insErr) {

@@ -16,7 +16,6 @@
  * Link generation or delivery failure is reported to the admin for resend.
  * Only emails containing an activation link can be reported as delivered.
  */
-import { randomUUID } from "crypto";
 import { emailService } from "@/services/emailService";
 
 export function escapeHtml(s: string): string {
@@ -90,7 +89,7 @@ export async function sendStaffInviteEmail(
       const invitation = {
         company_id: args.companyId, user_id: args.userId, email: args.email,
         full_name: args.fullName, role: args.role, invited_by: args.invitedBy,
-        status: "pending", invitation_token: randomUUID(),
+        status: "pending",
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       };
       const { error: trackingError } = pending
