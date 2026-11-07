@@ -44,10 +44,14 @@ async function readRawBody(req: NextApiRequest): Promise<Buffer> {
 
 async function applyStatus(sb: any, companyId: string, status: any) {
   const at = status.timestamp ? new Date(Number(status.timestamp) * 1000).toISOString() : new Date().toISOString();
+  const failure = status.errors?.[0];
+  const failureReason = failure
+    ? [failure.code ? `Meta ${failure.code}` : null, failure.title, failure.error_data?.details].filter(Boolean).join(": ")
+    : "Meta could not deliver this message";
   const patch: Record<string, unknown> =
     status.status === "delivered" ? { status: "delivered", delivered_at: at }
     : status.status === "read" ? { status: "read", read_at: at }
-    : status.status === "failed" ? { status: "failed", failed_at: at, failure_reason: status.errors?.[0]?.title || "Meta could not deliver this message" }
+    : status.status === "failed" ? { status: "failed", failed_at: at, failure_reason: failureReason }
     : {};
   if (Object.keys(patch).length === 0) return;
   let update = sb.from("whatsapp_messages").update(patch).eq("company_id", companyId).eq("gateway_message_id", status.id);

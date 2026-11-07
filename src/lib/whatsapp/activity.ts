@@ -11,11 +11,12 @@ export const ACTIVITY_STATUSES: Record<string, string[]> = {
   cancelled: ["cancelled"],
 };
 
-export type MessageSource = "Automatic" | "Manual" | "Bulk" | "Reply";
+export type MessageSource = "Automatic" | "Manual" | "Bulk" | "Reply" | "Test";
 
 /** How a message came to be sent, from the way it was queued. */
 export function messageSource(dedupKey: string | null | undefined, messageType: string | null | undefined): MessageSource {
   const key = String(dedupKey || "");
+  if (key.startsWith("test:")) return "Test";
   if (key.startsWith("auto:")) return "Automatic";
   if (key.startsWith("bulk:")) return "Bulk";
   if (key.startsWith("manual:")) return "Manual";

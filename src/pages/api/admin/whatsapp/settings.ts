@@ -240,17 +240,47 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const sample: Record<string, string> = {
       first_name: "Sam", event_name: "Sample event", company_name: "Your company", quote_url: "https://cateringms.com", lead_url: "https://cateringms.com/admin/leads?leadId=sample",
     };
+    const templateParams = buildTemplateComponents(automation.slots.map((slot) => sample[slot]));
     const result = await postWhatsAppMessage(credentials, {
       to,
       type: "template",
       template: {
         name: setting.templateName,
         language: { code: setting.language },
-        components: buildTemplateComponents(automation.slots.map((slot) => sample[slot])),
+        components: templateParams,
       },
     });
     if (!result.ok) return res.status(400).json({ error: `Meta refused the test: ${result.error}` });
-    return res.status(200).json({ success: true });
+
+    // A 200 from Meta means accepted, not delivered. Keep the returned wamid
+    // so the messages webhook can advance this test to delivered/read/failed.
+    const { error: trackingError } = await sb.from("whatsapp_messages").insert({
+      company_id: companyId,
+      recipient_phone: to,
+      message_type: "template",
+      template_name: setting.templateName,
+      template_language: setting.language,
+      template_params: { components: templateParams },
+      status: "sent",
+      sent_at: new Date().toISOString(),
+      gateway_message_id: result.id,
+      gateway_response: result.response,
+      dedup_key: `test:${crypto.randomUUID()}`,
+      enqueued_by: userId,
+    });
+    if (trackingError) {
+      console.error("[admin/whatsapp/settings] Meta accepted test but tracking insert failed:", trackingError.message);
+      return res.status(200).json({
+        success: true,
+        message: "Meta accepted the test, but CateringMS couldn't record its delivery status. Check the destination phone directly.",
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      message: result.id
+        ? "Meta accepted the test. Delivery status will appear in WhatsApp Activity."
+        : "Meta accepted the test but returned no message ID, so delivery can't be tracked.",
+    });
   }
 
   return res.status(400).json({ error: "Unknown action" });

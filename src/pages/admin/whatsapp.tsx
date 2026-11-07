@@ -217,7 +217,7 @@ function WhatsAppPage() {
       });
       const json = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(json?.error || "That didn't work. Try again.");
-      toast({ title: success });
+      toast({ title: success, description: typeof json?.message === "string" ? json.message : undefined });
       return true;
     } catch (e) {
       toast({ title: "WhatsApp", description: e instanceof Error ? e.message : "Try again.", variant: "destructive" });
@@ -906,7 +906,7 @@ function WhatsAppPage() {
                                 className="gap-1.5"
                                 disabled={!state.connected || !state.automations[automation.key].templateName || !testPhone.trim() || busy === "test"}
                                 title={!state.connected ? "Connect WhatsApp to send a test" : !state.automations[automation.key].templateName ? "Save the Meta template name to send a test" : !testPhone.trim() ? "Enter a test number" : undefined}
-                                onClick={() => void post("test", { action: "test", key: automation.key, phone: testPhone }, "Test WhatsApp sent")}
+                                onClick={() => void post("test", { action: "test", key: automation.key, phone: testPhone }, "Meta accepted test")}
                               >
                                 <Send className="h-3.5 w-3.5" />
                                 {busy === "test" ? "Sending..." : "Send test WhatsApp"}
