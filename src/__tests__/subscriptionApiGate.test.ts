@@ -18,7 +18,7 @@ jest.mock("@/lib/supabase/service", () => ({
   }),
 }));
 
-import { isSubscriptionGatedRequest, subscriptionAllowsWrite } from "@/lib/subscriptionApiGate";
+import { isCompanyAccessGatedRequest, isSubscriptionGatedRequest, subscriptionAllowsWrite } from "@/lib/subscriptionApiGate";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 const DAY = 86_400_000;
@@ -51,6 +51,14 @@ describe("which requests are checked", () => {
       expect(isSubscriptionGatedRequest("POST", url)).toBe(false);
     }
   });
+  it("checks company API access while leaving auth, public tokens, jobs, and platform routes available", () => {
+    expect(isCompanyAccessGatedRequest("/api/orders/1")).toBe(true);
+    expect(isCompanyAccessGatedRequest("/api/subscription/manage")).toBe(true);
+    for (const url of ["/api/auth/switch-role", "/api/webhooks/payment-confirmation", "/api/public/embed/x/submit",
+      "/api/client-tokens/amend-order", "/api/cron/expire-trials", "/api/admin/platform/company-status"]) {
+      expect(isCompanyAccessGatedRequest(url)).toBe(false);
+    }
+  });
 });
 
 describe("who may save", () => {
@@ -71,6 +79,21 @@ describe("who may save", () => {
 });
 
 describe("through withApiLogging", () => {
+  it("blocks API reads and writes for a deactivated company", async () => {
+    company = { is_active: false, subscription_status: "active", trial_ends_at: null };
+    const { res, ran } = await call("GET", "/api/orders/1");
+    expect(ran).toBe(false);
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toMatchObject({ code: "COMPANY_DEACTIVATED" });
+  });
+
+  it("keeps platform owners able to inspect a deactivated company's data", async () => {
+    profile = { role: "super_admin", active_role: "super_admin", company_id: "co-1" };
+    company = { is_active: false, subscription_status: "active", trial_ends_at: null };
+    const { ran } = await call("GET", "/api/orders/1");
+    expect(ran).toBe(true);
+  });
+
   it("stops a suspended company's save with a clear message; the route never runs", async () => {
     const { res, ran } = await call("POST", "/api/orders/1/cancel");
     expect(ran).toBe(false);

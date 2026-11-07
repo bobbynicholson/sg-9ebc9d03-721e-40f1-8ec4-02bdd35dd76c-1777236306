@@ -18,6 +18,7 @@ import {
 } from "@/lib/payfastTestPlan";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { getPayfastSubscriptionToken } from "@/lib/platformBillingCredentialVault";
+import { platformPayfastTestMode } from "@/services/platformPlanBilling";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -58,11 +59,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: "Payment reference is invalid." });
     }
 
-    const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID;
-    const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE
-      || process.env.PAYFAST_PASSPHRASE
-      || "";
-    const isTest = (process.env.PAYFAST_PLATFORM_TEST_MODE || process.env.NEXT_PUBLIC_PAYFAST_TEST_MODE) === "true";
+    const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID;
+    const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || "";
+    const isTest = platformPayfastTestMode();
+    if (isTest === null) return res.status(503).json({ error: "PayFast test/live mode is not configured on the server." });
     if (!merchantId || !passphrase) {
       return res.status(503).json({ error: "PayFast payment verification is not configured." });
     }

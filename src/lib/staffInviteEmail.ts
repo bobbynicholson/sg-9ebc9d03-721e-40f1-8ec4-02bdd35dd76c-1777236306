@@ -54,7 +54,7 @@ export interface StaffInviteResult {
   /** emailService error_code when emailed=false (e.g. "no_provider"). */
   errorCode?: string;
   /** Which variant was sent / attempted. */
-  via: "invite_link" | "temp_password" | "fallback";
+  via: "invite_link" | "fallback";
   /** Staff login URL, for the caller to surface when email failed. */
   loginUrl: string;
 }
@@ -62,8 +62,8 @@ export interface StaffInviteResult {
 /**
  * Build + send the invite email. Never throws. Returns a structured
  * result so the caller can tell the admin whether the invite actually
- * went out, and fall back to showing the credentials when it didn't
- * (e.g. the tenant has no email provider configured yet).
+ * went out. Failed delivery requires configuring email and resending;
+ * the server never falls back to exposing a temporary password.
  */
 export async function sendStaffInviteEmail(
   admin: any,

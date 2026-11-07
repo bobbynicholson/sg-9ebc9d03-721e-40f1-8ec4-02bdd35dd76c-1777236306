@@ -81,7 +81,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const { data: company, error: companyErr } = await admin
       .from("companies")
-      .select("id, company_name, slug")
+      .select("id, company_name, slug, is_active")
       .eq("id", companyId)
       .maybeSingle();
 
@@ -90,6 +90,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
     if (!company) {
       return res.status(404).json({ error: "Company not found." });
+    }
+    if ((company as any).is_active !== false) {
+      return res.status(409).json({
+        error: "Deactivate this company before permanently deleting it. Deactivation keeps its data available for later recovery.",
+        code: "COMPANY_MUST_BE_DEACTIVATED",
+      });
     }
 
     const { data: targetProfiles, error: profilesErr } = await admin
@@ -115,6 +121,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     if (purgeErr) {
       const message = purgeErr.message || "";
+      if (purgeErr.code === "23514" || /active companies must be deactivated/i.test(message)) {
+        return res.status(409).json({
+          error: "Deactivate this company before permanently deleting it.",
+          code: "COMPANY_MUST_BE_DEACTIVATED",
+        });
+      }
       if (purgeErr.code === "PGRST202" || /admin_hard_delete_company|could not find the function/i.test(message)) {
         return res.status(500).json({
           error: "The company-delete database migration has not been applied yet.",

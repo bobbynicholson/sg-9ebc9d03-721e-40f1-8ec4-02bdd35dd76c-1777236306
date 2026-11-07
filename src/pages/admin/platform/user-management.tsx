@@ -121,7 +121,7 @@ export default function UserManagementPage() {
   // Set when a user was created but the invite couldn't be emailed (no
   // email sender configured) - drives the "share these details" panel.
   const [createResult, setCreateResult] = useState<
-    { email: string; tempPassword?: string; loginUrl?: string; emailed?: boolean } | null
+    { email: string; loginUrl?: string; emailed?: boolean } | null
   >(null);
   const { toast } = useToast();
 
@@ -137,9 +137,10 @@ export default function UserManagementPage() {
     if (!createResult) return;
     const text =
       `Email: ${createResult.email}\n` +
-      (createResult.tempPassword ? `Temporary password: ${createResult.tempPassword}\n` : "") +
       (createResult.loginUrl ? `Sign in at: ${createResult.loginUrl}\n` : "") +
-      `Please change your password after first sign-in.`;
+      (createResult.emailed
+        ? "A one-time password setup link was emailed."
+        : "The invite was not emailed. Configure the sender, then resend the invite.");
     try {
       await navigator.clipboard.writeText(text);
       toast({ title: "Copied", description: "Sign-in details copied to your clipboard." });
@@ -262,7 +263,7 @@ export default function UserManagementPage() {
       // inserted the profile from the browser, tripping profiles RLS.
       // Route through the service-role API instead (same as every
       // other admin add-user surface): no session change, no RLS
-      // issue, server-generated temp password.
+      // issue, server-only initial password and one-time setup invite.
       const res = await fetch("/api/admin/create-user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -278,20 +279,13 @@ export default function UserManagementPage() {
         throw new Error(payload?.error || "Failed to create user");
       }
 
-      const tempPassword = (payload as any)?.tempPassword as string | undefined;
       const emailDelivered = !!(payload as any)?.emailDelivered;
       const loginUrl = (payload as any)?.loginUrl as string | undefined;
       const createdEmail = newUser.email;
 
       loadUsers();
 
-      // Always surface the credentials. The temp password is a working
-      // login even when the invite emails (the email only sends a
-      // set-password link, which doesn't invalidate the temp password).
-      // Hiding it on email-success left no way in if the email never
-      // arrived. We keep the dialog open and note whether an invite was
-      // also emailed.
-      setCreateResult({ email: createdEmail, tempPassword, loginUrl, emailed: emailDelivered });
+      setCreateResult({ email: createdEmail, loginUrl, emailed: emailDelivered });
     } catch (error: any) {
       console.error("Error creating user:", error);
       toast({
@@ -508,25 +502,19 @@ export default function UserManagementPage() {
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                       <MailWarning className="w-5 h-5 text-amber-500" />
-                      {createResult.emailed ? "User created - sign-in details" : "Share these sign-in details"}
+                      {createResult.emailed ? "User created - invite sent" : "User created - invite not sent"}
                     </DialogTitle>
                     <DialogDescription>
                       {createResult.emailed ? (
-                        <><strong>{createResult.email}</strong> was created and emailed a link to set their own password. They can also sign in right away with the temporary password below.</>
+                        <><strong>{createResult.email}</strong> was created and emailed a one-time link to set their own password. No password is shared with admins.</>
                       ) : (
-                        <><strong>{createResult.email}</strong> was created, but this company hasn&apos;t set up an email sender yet, so we couldn&apos;t email the invite. Pass these details on directly.</>
+                        <><strong>{createResult.email}</strong> was created, but the invite email could not be sent. Configure the email sender, then resend the invite.</>
                       )}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-3">
                     <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm space-y-1.5 dark:border-amber-500/30 dark:bg-amber-500/10">
                       <div><span className="text-slate-500 dark:text-slate-400">Email:</span> <strong>{createResult.email}</strong></div>
-                      {createResult.tempPassword && (
-                        <div>
-                          <span className="text-slate-500 dark:text-slate-400">Temporary password:</span>{" "}
-                          <strong className="font-mono">{createResult.tempPassword}</strong>
-                        </div>
-                      )}
                       {createResult.loginUrl && (
                         <div>
                           <span className="text-slate-500 dark:text-slate-400">Sign in at:</span>{" "}
@@ -534,12 +522,12 @@ export default function UserManagementPage() {
                         </div>
                       )}
                       <p className="text-xs text-slate-500 dark:text-slate-400 pt-1">
-                        They should change this password after their first sign-in.
+                        {createResult.emailed ? "The invitee sets their own password through the email link." : "Resend the invite after email delivery is configured."}
                       </p>
                     </div>
                     {!createResult.emailed && (
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Set up an email sender under <strong>Email settings</strong> so future invites send automatically.
+                        Set up an email sender under <strong>Email settings</strong> so you can send this invite securely.
                       </p>
                     )}
                     <div className="flex justify-between gap-2 pt-2">
@@ -615,7 +603,7 @@ export default function UserManagementPage() {
                   </div>
                 )}
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400">
-                  A unique temporary password is generated by the server and shown after save for direct handover.
+                  A unique password is generated on the server. The user sets their own password from a one-time email invite.
                 </div>
                 <div className="flex justify-end gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => closeAddUserDialog(false)}>

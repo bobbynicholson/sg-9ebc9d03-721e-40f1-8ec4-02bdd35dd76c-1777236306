@@ -33,14 +33,16 @@ export interface CachedProfilePayload {
   /** Company subscription_status, for the expired-plan access gate.
    *  Optional so cookies signed before this field shipped still parse. */
   subscription_status?: string | null;
+  /** Platform-controlled workspace availability. */
+  company_is_active?: boolean | null;
   /** Trial deadline used for an immediate edge-side expiry check. */
   trial_ends_at?: string | null;
   exp: number; // unix seconds
 }
 
 const COOKIE_NAME = "cms.mw.profile";
-const CACHE_VERSION = 4;
-const TTL_SECONDS = 300; // 5 minutes
+const CACHE_VERSION = 5;
+const TTL_SECONDS = 60; // Access state changes should propagate quickly.
 
 const enc = new TextEncoder();
 

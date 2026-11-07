@@ -107,14 +107,9 @@ function DriverManagementPage() {
   // Phase 29 #10: "n" opens the Add New Driver dialog.
   const searchRef = useRef<HTMLInputElement>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  // After a driver is created, the server returns a one-time temp
-  // password (it generates its own random one - the password field the
-  // operator types is ignored server-side). When the invite email can't
-  // be sent (tenant has no email provider), we keep the dialog open and
-  // show these credentials so the operator can pass them on by hand.
-  // Mirrors the Staff Management page (/[slug]/admin/users).
+  // After a driver is created, show invite delivery status without exposing a password.
   const [createResult, setCreateResult] = useState<
-    { email: string; name: string; tempPassword?: string; loginUrl?: string; emailed?: boolean; reusedInactiveEmail?: boolean } | null
+    { email: string; name: string; loginUrl?: string; emailed?: boolean; reusedInactiveEmail?: boolean } | null
   >(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -462,9 +457,8 @@ function DriverManagementPage() {
     setAddDriverLoading(true);
 
     // ── Validate driver basics ──
-    // No password field: the server generates a per-user random password
-    // and returns it once (security fix, May 2026 - the old typed/shared
-    // password was a hole). We surface that temp password after creation.
+    // No password field: the server generates a private random initial
+    // password and sends a one-time set-password invite when email is available.
     if (!newDriver.name || !newDriver.email || !newDriver.phone) {
       setError("Fill in name, email and phone.");
       setAddDriverLoading(false);
@@ -528,8 +522,6 @@ function DriverManagementPage() {
 
       newDriverId = payload?.user?.id || null;
 
-      // One-time sign-in details the server minted for this driver.
-      const tempPassword = payload?.tempPassword as string | undefined;
       const emailDelivered = !!payload?.emailDelivered;
       const loginUrl = payload?.loginUrl as string | undefined;
 
@@ -646,17 +638,9 @@ function DriverManagementPage() {
         console.error("Failed to refresh vehicles for driver management:", err);
       });
 
-      // Always show the credentials. The server-generated temp password
-      // is a working login even when the invite email goes out (the email
-      // only sends a "set your own password" link, which doesn't
-      // invalidate the temp password). Hiding it on email-success left no
-      // way in if the email never arrived - the random password is lost
-      // and the driver can never sign in. Keep the dialog open and note
-      // whether an invite was also emailed.
       setCreateResult({
         email: newDriver.email,
         name: newDriver.name,
-        tempPassword,
         loginUrl,
         emailed: emailDelivered,
         reusedInactiveEmail: payload?.reusedInactiveEmail === true,
@@ -669,15 +653,15 @@ function DriverManagementPage() {
     }
   };
 
-  // Copy the freshly-created driver's sign-in details as a ready-to-send
-  // message (the operator pastes it into WhatsApp / SMS / email).
+  // Copy non-secret login guidance; password setup links are emailed only.
   const copyDriverCreds = async () => {
     if (!createResult) return;
     const text =
       `Email: ${createResult.email}\n` +
-      (createResult.tempPassword ? `Temporary password: ${createResult.tempPassword}\n` : "") +
       (createResult.loginUrl ? `Sign in at: ${createResult.loginUrl}\n` : "") +
-      `Please change your password after first sign-in.`;
+      (createResult.emailed
+        ? "A one-time password setup link was emailed."
+        : "The invite was not emailed. Configure the sender, then resend the invite from the user list.");
     try {
       await navigator.clipboard.writeText(text);
       toast({ title: "Details copied", description: "Sign-in details copied to clipboard." });
@@ -903,7 +887,7 @@ function DriverManagementPage() {
                   <DialogHeader className="shrink-0 border-b border-slate-200 px-6 py-5">
                     <DialogTitle className="flex items-center gap-2">
                       {createResult ? (
-                        <><MailWarning className="w-5 h-5 text-amber-500" /> Share these sign-in details</>
+                        <><MailWarning className="w-5 h-5 text-amber-500" /> {createResult.emailed ? "Invite sent" : "Invite not sent"}</>
                       ) : (
                         <><UserPlus className="w-5 h-5 text-brand-primary" /> Add New Driver</>
                       )}
@@ -911,8 +895,8 @@ function DriverManagementPage() {
                     <p className="text-sm text-slate-500 mt-1">
                       {createResult
                         ? (createResult.emailed
-                            ? "We emailed the driver a link to set their own password. They can also sign in right away with the temporary password below."
-                            : "We couldn't email the invite (no email sender set up yet). Pass these details to the driver directly.")
+                            ? "We emailed the driver a one-time link to set their own password. No password is shared with admins."
+                            : "We couldn't email the invite. Configure an email sender, then use Resend invite from the user list.")
                         : "Add the sign-in details first. Operational, pay and vehicle settings are optional."}
                     </p>
                   </DialogHeader>
@@ -926,12 +910,6 @@ function DriverManagementPage() {
                       )}
                       <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm space-y-1.5">
                         <div><span className="text-slate-500">Email:</span> <strong>{createResult.email}</strong></div>
-                        {createResult.tempPassword && (
-                          <div>
-                            <span className="text-slate-500">Temporary password:</span>{" "}
-                            <strong className="font-mono">{createResult.tempPassword}</strong>
-                          </div>
-                        )}
                         {createResult.loginUrl && (
                           <div>
                             <span className="text-slate-500">Sign in at:</span>{" "}
@@ -939,7 +917,7 @@ function DriverManagementPage() {
                           </div>
                         )}
                         <p className="text-xs text-slate-500 pt-1">
-                          The driver should change this password after their first sign-in.
+                          {createResult.emailed ? "The driver sets their own password through the email link." : "Send a fresh invite after email delivery is configured."}
                         </p>
                       </div>
                       <div className="flex justify-between gap-2 pt-1">
@@ -1015,7 +993,7 @@ function DriverManagementPage() {
                         </div>
                         <p className="rounded-md bg-slate-50 px-3 py-2.5 text-xs leading-relaxed text-slate-600">
                           <span className="font-semibold text-slate-800">Sign-in details:</span>{" "}
-                          We&apos;ll generate a temporary password and show it after creation. If email is set up, the driver also gets an invite.
+                          The server keeps the initial password private. The driver sets their own password from a one-time email invite.
                         </p>
                       </div>
                     </section>

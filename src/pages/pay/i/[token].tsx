@@ -579,7 +579,7 @@ export default function InvoicePaymentPage() {
       }
 
       // Wave 20 audit: this used to inline-build a PayFast HTML form
-      // from NEXT_PUBLIC_PAYFAST_* env vars, hardcoded to PayFast,
+      // from server-side platform credentials, hardcoded to PayFast,
       // ignoring whichever gateway the tenant actually configured in
       // /admin/payment-gateways. Tenants who switched to Yoco or
       // Stripe still saw "Pay via PayFast" on their public invoice

@@ -18,7 +18,7 @@
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import { log, type LogArea } from "@/lib/logger";
-import { blockIfCompanyUnpaid, isSubscriptionGatedRequest } from "@/lib/subscriptionApiGate";
+import { blockIfCompanyDeactivated, blockIfCompanyUnpaid, isCompanyAccessGatedRequest, isSubscriptionGatedRequest } from "@/lib/subscriptionApiGate";
 import { blockUnlessPlatformAdmin, isPlatformOnlyRequest } from "@/lib/platformApiGate";
 import { redactLogUrl, redactLogValue } from "@/lib/logRedaction";
 
@@ -106,6 +106,7 @@ export function withApiLogging(handler: ApiHandler, areaOverride?: LogArea): Api
 
     try {
       if (isPlatformOnlyRequest(method, url) && await blockUnlessPlatformAdmin(req, res)) return;
+      if (isCompanyAccessGatedRequest(url) && await blockIfCompanyDeactivated(req, res)) return;
       // Unpaid (expired / suspended / cancelled) companies cannot save changes.
       if (isSubscriptionGatedRequest(method, url) && await blockIfCompanyUnpaid(req, res)) return;
       await handler(req, res);
@@ -176,6 +177,7 @@ export function withApiRequestLogging(handler: ApiHandler, areaOverride?: LogAre
     };
 
     try {
+      if (isCompanyAccessGatedRequest(req.url) && await blockIfCompanyDeactivated(req, res)) return;
       await handler(req, res);
     } catch (err: unknown) {
       log("errors", "ERROR", `✗ ${method} ${logUrl} threw after ${Date.now() - start}ms`, {

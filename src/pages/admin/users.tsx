@@ -106,13 +106,9 @@ function AdminUsersPage() {
   const [inviteName, setInviteName] = useState("");
   const [inviteRole, setInviteRole] = useState<UserRole>(UserRole.KITCHEN_STAFF);
   const [inviting, setInviting] = useState(false);
-  // After Add user: the server-generated temp password (a real, working
-  // login) + whether an invite email also went out. Drives the
-  // "sign-in details" panel so the operator always has a way in, even
-  // when no email sender is configured. Mirrors the other admin
-  // add-user surfaces (/[slug]/admin/users, drivers, platform).
+  // After Add user: show invite delivery status without exposing any password.
   const [createResult, setCreateResult] = useState<
-    { email: string; name: string; tempPassword?: string; loginUrl?: string; emailed?: boolean } | null
+    { email: string; name: string; loginUrl?: string; emailed?: boolean } | null
   >(null);
   // USR-C: Deactivate-confirm + role-mutation tracking. Held on a
   // per-user id so two clicks on different rows don't race.
@@ -476,14 +472,7 @@ function AdminUsersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
 
-  // Add-new-user submit handler. Was the magic-link-only invite flow
-  // (staff_invitations + email, no usable login until the invitee
-  // clicked the email). That left no temp password on screen and broke
-  // completely when no email sender was configured. Now routes through
-  // /api/admin/create-user - the same server-side, service-role flow the
-  // other admin surfaces use: it creates an ACTIVE user immediately,
-  // generates a random password, emails an invite when possible, and
-  // returns the temp password so we can always show it on screen.
+  // Create the account server-side and send a one-time password setup link.
   const handleInviteSubmit = async () => {
     if (!user?.company_id || !user.id) return;
     const trimmedEmail = inviteEmail.trim();
@@ -515,13 +504,9 @@ function AdminUsersPage() {
       void loadInvitations();
       const emailed = payload.emailDelivered === true;
 
-      // Always surface the credentials. The temp password is a working
-      // login even when the invite email goes out (the email only sends
-      // a set-password link, which doesn't invalidate the temp password).
       setCreateResult({
         email: trimmedEmail,
         name: trimmedName || trimmedEmail.split("@")[0],
-        tempPassword: (payload as any)?.tempPassword,
         loginUrl: (payload as any)?.loginUrl,
         emailed,
       });
@@ -536,14 +521,15 @@ function AdminUsersPage() {
     }
   };
 
-  // Copy the new user's sign-in details as a ready-to-send message.
+  // Copy only non-secret login guidance; password setup links stay in email.
   const copyCreateResult = async () => {
     if (!createResult) return;
     const text =
       `Email: ${createResult.email}\n` +
-      (createResult.tempPassword ? `Temporary password: ${createResult.tempPassword}\n` : "") +
       (createResult.loginUrl ? `Sign in at: ${createResult.loginUrl}\n` : "") +
-      `Please change your password after first sign-in.`;
+      (createResult.emailed
+        ? "A one-time password setup link was emailed."
+        : "The invite was not emailed. Configure the sender, then resend the invite from the user list.");
     try {
       await navigator.clipboard.writeText(text);
       toast({ title: "Details copied", description: "Sign-in details copied to clipboard." });
@@ -1703,23 +1689,17 @@ function AdminUsersPage() {
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <MailWarning className="w-5 h-5 text-amber-500" />
-                  {createResult.emailed ? "User added - sign-in details" : "Share these sign-in details"}
+                  {createResult.emailed ? "User added - invite sent" : "User added - invite not sent"}
                 </DialogTitle>
                 <DialogDescription>
                   {createResult.emailed
-                    ? "We emailed them a link to set their own password. They can also sign in right away with the temporary password below."
-                    : "No email sender is set up yet, so we couldn't email the invite. Pass these details to the user directly."}
+                    ? "We emailed a one-time link so they can set their own password. No password is shared with admins."
+                    : "We couldn't email the invite. Configure an email sender, then use Resend invite from the user list."}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-3">
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm space-y-1.5">
                   <div><span className="text-slate-500">Email:</span> <strong>{createResult.email}</strong></div>
-                  {createResult.tempPassword && (
-                    <div>
-                      <span className="text-slate-500">Temporary password:</span>{" "}
-                      <strong className="font-mono">{createResult.tempPassword}</strong>
-                    </div>
-                  )}
                   {createResult.loginUrl && (
                     <div>
                       <span className="text-slate-500">Sign in at:</span>{" "}
@@ -1727,7 +1707,7 @@ function AdminUsersPage() {
                     </div>
                   )}
                   <p className="text-xs text-slate-500 pt-1">
-                    They should change this password after their first sign-in.
+                    {createResult.emailed ? "The invitee sets their own password through the email link." : "Send a fresh invite after email delivery is configured."}
                   </p>
                 </div>
               </div>
@@ -1758,7 +1738,7 @@ function AdminUsersPage() {
               Add new user
             </DialogTitle>
             <DialogDescription>
-              They're created right away and we'll show you a temporary password to share. If an email sender is set up, they also get an invite link to set their own password.
+              The account is created on the server and the user receives a one-time email link to set their password. Admins never see or share that password.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">

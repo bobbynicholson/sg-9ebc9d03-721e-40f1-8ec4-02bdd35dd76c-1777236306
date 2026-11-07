@@ -21,6 +21,24 @@ import { hasSubscriptionAccess } from "@/lib/subscriptionAccess";
 
 const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+const DEACTIVATION_EXEMPT_PREFIXES = [
+  "/api/auth/",
+  "/api/webhooks/",
+  "/api/public/",
+  "/api/client-tokens/",
+  "/api/cron/",
+  "/api/platform/",
+  "/api/admin/platform",
+  "/api/log",
+];
+
+/** Company API access is blocked while its workspace is deactivated. */
+export function isCompanyAccessGatedRequest(url: string | undefined): boolean {
+  const path = String(url || "").split("?")[0];
+  if (!path.startsWith("/api/")) return false;
+  return !DEACTIVATION_EXEMPT_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
 /** Routes that must keep working for a lapsed company (sign in, pay, platform). */
 const EXEMPT_PREFIXES = [
   "/api/auth/",
@@ -63,6 +81,55 @@ export function subscriptionAllowsWrite(args: {
 // Short per-instance memory so a burst of saves doesn't repeat the lookups.
 const CACHE_MS = 60_000;
 const cache = new Map<string, { at: number; role: string | null; status: string | null; trialEndsAt: string | null } | null>();
+
+// Keep the status cache short so a platform owner's deactivation decision
+// reaches service-role API routes quickly. Direct Supabase reads and writes
+// are also stopped by the database policies in the deactivation migration.
+const COMPANY_ACTIVE_CACHE_MS = 5_000;
+const companyActiveCache = new Map<string, { at: number; active: boolean }>();
+
+/** Returns true when a deactivated company's request was blocked. */
+export async function blockIfCompanyDeactivated(req: NextApiRequest, res: NextApiResponse): Promise<boolean> {
+  try {
+    const { createPagesServerClient } = await import("@/lib/supabase/server");
+    const ssr: any = createPagesServerClient({ req, res });
+    const { data } = await ssr.auth.getSession();
+    const userId: string | undefined = data?.session?.user?.id;
+    if (!userId) return false;
+
+    let entry = companyActiveCache.get(userId);
+    if (!entry || Date.now() - entry.at > COMPANY_ACTIVE_CACHE_MS) {
+      const { getServiceSupabase } = await import("@/lib/supabase/service");
+      const svc: any = getServiceSupabase();
+      const { data: profile } = await svc
+        .from("profiles")
+        .select("role, company_id")
+        .eq("id", userId)
+        .maybeSingle();
+      if (!profile || profile.role === "super_admin" || !profile.company_id) return false;
+      const { data: company } = await svc
+        .from("companies")
+        .select("is_active, deleted_at")
+        .eq("id", profile.company_id)
+        .maybeSingle();
+      entry = {
+        at: Date.now(),
+        active: Boolean(company && company.is_active !== false && !company.deleted_at),
+      };
+      companyActiveCache.set(userId, entry);
+    }
+
+    if (entry.active) return false;
+    res.status(403).json({
+      error: "This company workspace has been deactivated. Contact your platform owner to restore access.",
+      code: "COMPANY_DEACTIVATED",
+    });
+    return true;
+  } catch (error) {
+    console.warn("[companyAccessGate] check failed (allowing request):", error instanceof Error ? error.message : error);
+    return false;
+  }
+}
 
 /**
  * Returns true when the request was blocked (a 402 response is already

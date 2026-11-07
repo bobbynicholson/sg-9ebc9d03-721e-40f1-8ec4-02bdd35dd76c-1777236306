@@ -24,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Building2, Search, Users, Calendar, MapPin, Edit, Trash2, Eye, CheckCircle, RefreshCw, X } from "lucide-react";
+import { Building2, Search, Users, Calendar, MapPin, Edit, Trash2, Eye, CheckCircle, RefreshCw, X, Power } from "lucide-react";
 import { companyService, normalizeCompanySlug } from "@/services/companyService";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -66,6 +66,7 @@ function CompanyDatabasePage() {
   // an empty "No companies found" table. Persist the error instead.
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deletingCompanyId, setDeletingCompanyId] = useState<string | null>(null);
+  const [updatingCompanyId, setUpdatingCompanyId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   // Deep-link target row. Subscription management's "View company"
@@ -193,10 +194,10 @@ function CompanyDatabasePage() {
   const sortedCompanies = useSortable<any>(fuzzyCompanies, companySortColumns, { defaultKey: "created", defaultDir: "desc" });
   const filteredCompanies = sortedCompanies.rows;
 
-  // Shared by the hero meta chips and the Active stat tile so the two
+  // Shared by the hero meta chips and the Enabled stat tile so the two
   // surfaces can never disagree.
   const activeCompanyCount = useMemo(
-    () => companies.filter((c) => c.subscription_status === "active").length,
+    () => companies.filter((c) => c.is_active !== false).length,
     [companies],
   );
 
@@ -211,7 +212,7 @@ function CompanyDatabasePage() {
         .from("companies")
         .select(`
           id, company_name, slug, owner_id, email, phone, address_line1,
-          city, country, subscription_status, trial_ends_at, created_at,
+          city, country, subscription_status, is_active, trial_ends_at, created_at,
           profiles!companies_owner_id_fkey(full_name)
         `)
         .is("deleted_at", null)
@@ -226,7 +227,7 @@ function CompanyDatabasePage() {
       if (error) {
         const fallbackResult = await supabase
           .from("companies")
-          .select("id, company_name, slug, owner_id, email, phone, address_line1, city, country, subscription_status, trial_ends_at, created_at")
+          .select("id, company_name, slug, owner_id, email, phone, address_line1, city, country, subscription_status, is_active, trial_ends_at, created_at")
           .is("deleted_at", null)
           .order("created_at", { ascending: false });
         companiesData = fallbackResult.data as any[] | null;
@@ -355,8 +356,10 @@ function CompanyDatabasePage() {
 
       if (result.success) {
         toast({
-          title: "Success",
-          description: `Company "${formData.company_name}" created successfully!`,
+          title: result.invitationsSent ? "Company created" : "Company created - invite follow-up needed",
+          description: result.invitationsSent
+            ? `Company "${formData.company_name}" was created and both setup invites were sent.`
+            : `Company "${formData.company_name}" was created, but at least one setup invite was not delivered. Configure email and resend the invite from platform user management.`,
         });
 
         setIsAddModalOpen(false);
@@ -471,6 +474,40 @@ function CompanyDatabasePage() {
     }
   };
 
+  const handleToggleCompanyAccess = async (company: Company) => {
+    if (updatingCompanyId) return;
+    const nextIsActive = company.is_active === false;
+    const action = nextIsActive ? "reactivate" : "deactivate";
+    const explanation = nextIsActive
+      ? `${company.company_name}'s workspace will be enabled. Subscription rules still apply.`
+      : `${company.company_name}'s users will lose workspace access. Company data will be kept, and you can reactivate it later. Billing is unchanged.`;
+    if (!confirm(`${action === "deactivate" ? "Deactivate" : "Reactivate"} "${company.company_name}"? ${explanation}`)) return;
+
+    try {
+      setUpdatingCompanyId(company.id);
+      await companyService.setCompanyActive(company.id, nextIsActive);
+
+      setCompanies((prev) => prev.map((row) => row.id === company.id ? { ...row, is_active: nextIsActive } : row));
+      toast({
+        title: nextIsActive ? "Workspace reactivated" : "Workspace deactivated",
+        description: nextIsActive
+          ? `${company.company_name}'s workspace is enabled again. Subscription rules still apply.`
+          : `${company.company_name} is disabled. Its data is still available to platform owners.`,
+      });
+      void loadCompanies();
+    } catch (error: unknown) {
+      toast({
+        title: `Couldn't ${action} company`,
+        description: error instanceof Error
+          ? error.message
+          : nextIsActive ? "The company could not be reactivated." : "The company could not be deactivated.",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingCompanyId(null);
+    }
+  };
+
   const handleViewCompany = async (company: Company) => {
     try {
       setSelectedCompany(company);
@@ -578,9 +615,9 @@ function CompanyDatabasePage() {
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
                 {companies.length} {companies.length === 1 ? "company" : "companies"}
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                {activeCompanyCount} active
+                {activeCompanyCount} enabled
               </span>
             </>
           }
@@ -609,10 +646,11 @@ function CompanyDatabasePage() {
             hint="Every company on the platform"
             icon={Building2}
           />
-          <StatTile tone="good"
-            label="Active"
+          <StatTile
+            tone="good"
+            label="Enabled"
             value={activeCompanyCount}
-            hint="On a paid subscription now"
+            hint="Workspaces currently available"
             icon={CheckCircle}
           />
           <StatTile tone="info"
@@ -728,19 +766,20 @@ function CompanyDatabasePage() {
                     <TableHead>
                       <SortHeader sortKey="created" activeKey={sortedCompanies.sortKey} activeDir={sortedCompanies.sortDir} onToggle={sortedCompanies.toggle}>Created</SortHeader>
                     </TableHead>
+                    <TableHead className="text-right">Workspace access</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-slate-500 dark:text-slate-400">
+                      <TableCell colSpan={9} className="text-center py-8 text-slate-500 dark:text-slate-400">
                         Loading companies...
                       </TableCell>
                     </TableRow>
                   ) : filteredCompanies.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-slate-500 dark:text-slate-400">
+                      <TableCell colSpan={9} className="text-center py-8 text-slate-500 dark:text-slate-400">
                         No companies found
                       </TableCell>
                     </TableRow>
@@ -788,33 +827,53 @@ function CompanyDatabasePage() {
                         <TableCell className="text-sm text-slate-600 dark:text-slate-400">
                           {new Date(company.created_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
                         </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
+                            variant={company.is_active === false ? "secondary" : "outline"}
+                            disabled={Boolean(updatingCompanyId) || deletingCompanyId === company.id}
+                            onClick={() => void handleToggleCompanyAccess(company)}
+                            aria-label={`${company.is_active === false ? "Reactivate" : "Deactivate"} ${company.company_name}`}
+                          >
+                            <Power className="mr-1.5 h-3.5 w-3.5" />
+                            {updatingCompanyId === company.id ? "Updating..." : company.is_active === false ? "Reactivate" : "Deactivate"}
+                          </Button>
+                        </TableCell>
                         <TableCell>
-                          <div className="flex gap-2 justify-end">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleViewCompany(company)}
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => openEditModal(company)}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={deletingCompanyId === company.id}
-                              onClick={() =>
-                                handleDeleteCompany(company.id, company.company_name)
-                              }
-                              title="Delete company and company data"
-                            >
-                              <Trash2 className="w-4 h-4 text-rose-500" />
-                            </Button>
+                          <div className="flex flex-col items-end gap-1">
+                            <div className="flex gap-2 justify-end">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleViewCompany(company)}
+                                aria-label={`View ${company.company_name}`}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => openEditModal(company)}
+                                aria-label={`Edit ${company.company_name}`}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={Boolean(updatingCompanyId) || deletingCompanyId === company.id || company.is_active !== false}
+                                onClick={() => handleDeleteCompany(company.id, company.company_name)}
+                                title={company.is_active !== false ? "Deactivate this workspace before permanently deleting it" : "Permanently delete this company and its data"}
+                                aria-label={`Permanently delete ${company.company_name}`}
+                              >
+                                <Trash2 className="w-4 h-4 text-rose-500" />
+                              </Button>
+                            </div>
+                            {company.is_active !== false && (
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                                Deactivate before deleting
+                              </span>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

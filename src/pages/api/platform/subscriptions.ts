@@ -17,7 +17,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { PayFastService } from "@/lib/payfastService";
-import { platformStripe } from "@/services/platformPlanBilling";
+import { platformPayfastTestMode, platformStripe } from "@/services/platformPlanBilling";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { getPayfastSubscriptionToken } from "@/lib/platformBillingCredentialVault";
 
@@ -116,14 +116,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
     const payfastToken = await getPayfastSubscriptionToken(db, companyId);
     if (payfastToken) {
-      const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID || "";
+      const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID || "";
       const merchantKey = process.env.PAYFAST_PLATFORM_MERCHANT_KEY || "";
-      const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || process.env.PAYFAST_PASSPHRASE || "";
+      const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || "";
       if (!merchantId || !merchantKey || !passphrase) {
         return res.status(503).json({ error: "PayFast billing credentials are missing, so the PayFast agreement cannot be stopped. Nothing was changed." });
       }
+      const testMode = platformPayfastTestMode();
+      if (testMode === null) return res.status(503).json({ error: "PayFast test/live mode is not configured on the server. Nothing was changed." });
       const svc = new PayFastService({ merchantId, merchantKey, passphrase,
-        testMode: (process.env.PAYFAST_PLATFORM_TEST_MODE || process.env.NEXT_PUBLIC_PAYFAST_TEST_MODE) === "true" });
+        testMode });
       const ok = await svc.cancelSubscription(payfastToken);
       if (!ok) {
         return res.status(502).json({

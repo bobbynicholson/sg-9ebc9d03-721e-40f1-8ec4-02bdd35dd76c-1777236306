@@ -3,7 +3,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { PayFastService } from "@/lib/payfastService";
 import { withApiLogging } from "@/lib/withApiLogging";
-import { platformStripe, syncStripeSubscription } from "@/services/platformPlanBilling";
+import { platformPayfastTestMode, platformStripe, syncStripeSubscription } from "@/services/platformPlanBilling";
 import { getPayfastSubscriptionToken } from "@/lib/platformBillingCredentialVault";
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -82,12 +82,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const token = await getPayfastSubscriptionToken(db, profile.company_id);
     if (!token) return res.status(409).json({ error: "This subscription is not linked to a payment provider." });
-    const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID || "";
+    const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID || "";
     const merchantKey = process.env.PAYFAST_PLATFORM_MERCHANT_KEY || "";
-    const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || process.env.PAYFAST_PASSPHRASE || "";
+    const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || "";
     if (!merchantId || !merchantKey || !passphrase) return res.status(503).json({ error: "PayFast billing is not configured." });
+    const testMode = platformPayfastTestMode();
+    if (testMode === null) return res.status(503).json({ error: "PayFast test/live mode is not configured on the server." });
     const svc = new PayFastService({ merchantId, merchantKey, passphrase,
-      testMode: (process.env.PAYFAST_PLATFORM_TEST_MODE || process.env.NEXT_PUBLIC_PAYFAST_TEST_MODE) === "true" });
+      testMode });
     if (action === "resume" && (subscription.status === "cancelled" || subscription.cancel_at_period_end)) {
       return res.status(409).json({ error: "A cancelled PayFast agreement requires a new checkout." });
     }

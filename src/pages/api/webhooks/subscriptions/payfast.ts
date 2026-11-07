@@ -10,8 +10,8 @@
  *   PAYFAST_PLATFORM_MERCHANT_KEY   - the platform merchant key
  *   PAYFAST_PLATFORM_PASSPHRASE     - the signing passphrase
  *
- * When any are missing, returns 200 OK with `{ scaffold: true }` so
- * PayFast's retry queue doesn't pile up.
+ * If configuration is missing, production returns 503 so PayFast retries;
+ * non-production deployments acknowledge without changing billing state.
  *
  * Signature verification per PayFast docs:
  *   1. Keep POST form fields in received order (excluding `signature`).
@@ -47,6 +47,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import crypto from "node:crypto";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { platformPayfastTestMode } from "@/services/platformPlanBilling";
 import { loadPlatformSubscriptionPlan } from "@/lib/platformSubscriptionPlans";
 import { isPayfastTestPlan, isPayfastTestTenant, PAYFAST_TEST_PLAN_AMOUNT_ZAR } from "@/lib/payfastTestPlan";
 import { findCompanyByPayfastToken, getPayfastSubscriptionToken, storePayfastSubscriptionToken } from "@/lib/platformBillingCredentialVault";
@@ -107,9 +108,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   // Use the same server-side credentials as subscription checkout.
-  const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID;
+  const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID;
   const merchantKey = process.env.PAYFAST_PLATFORM_MERCHANT_KEY;
-  const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || process.env.PAYFAST_PASSPHRASE || "";
+  const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || "";
 
   if (!merchantId || !merchantKey || !passphrase) {
     console.warn(
@@ -150,7 +151,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(401).json({ error: "Invalid signature" });
   }
 
-  const testMode = (process.env.PAYFAST_PLATFORM_TEST_MODE || process.env.NEXT_PUBLIC_PAYFAST_TEST_MODE) === "true";
+  const testMode = platformPayfastTestMode();
+  if (testMode === null) return res.status(503).json({ error: "PayFast test/live mode is not configured on the server." });
   try {
     const validation = await fetch(`https://${testMode ? "sandbox" : "www"}.payfast.co.za/eng/query/validate`, {
       method: "POST",

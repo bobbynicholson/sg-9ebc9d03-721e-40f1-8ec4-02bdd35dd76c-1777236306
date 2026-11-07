@@ -87,13 +87,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       RESEND_WEBHOOK_SECRET: present("RESEND_WEBHOOK_SECRET"),
       EMAIL_UNSUBSCRIBE_SECRET: present("EMAIL_UNSUBSCRIBE_SECRET"),
     },
-    payments_tenant_legacy_fallback: {
-      // Only used when a tenant has NOT configured their own gateway in
-      // payment_gateway_credentials (sandbox vs live lives on that DB row's
-      // is_test flag, not here).
-      NEXT_PUBLIC_PAYFAST_MERCHANT_ID: present("NEXT_PUBLIC_PAYFAST_MERCHANT_ID"),
-      NEXT_PUBLIC_PAYFAST_TEST_MODE: process.env.NEXT_PUBLIC_PAYFAST_TEST_MODE ?? null,
-      PAYFAST_PASSPHRASE: present("PAYFAST_PASSPHRASE"),
+    payments_legacy: {
       PAYFAST_ALLOWED_IPS: present("PAYFAST_ALLOWED_IPS"),
     },
     payments_platform_subscription: {
@@ -101,6 +95,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       PAYFAST_PLATFORM_MERCHANT_ID: present("PAYFAST_PLATFORM_MERCHANT_ID"),
       PAYFAST_PLATFORM_MERCHANT_KEY: present("PAYFAST_PLATFORM_MERCHANT_KEY"),
       PAYFAST_PLATFORM_PASSPHRASE: present("PAYFAST_PLATFORM_PASSPHRASE"),
+      PAYFAST_PLATFORM_TEST_MODE: {
+        configured: process.env.PAYFAST_PLATFORM_TEST_MODE === "true" || process.env.PAYFAST_PLATFORM_TEST_MODE === "false",
+        testMode: process.env.PAYFAST_PLATFORM_TEST_MODE === "true",
+      },
       STRIPE_PLATFORM_SECRET_KEY: stripeMode("STRIPE_PLATFORM_SECRET_KEY"),
       STRIPE_SUBSCRIPTION_WEBHOOK_SECRET: present("STRIPE_SUBSCRIPTION_WEBHOOK_SECRET"),
       // Prepaid Yoco plans; secret from scripts/register-yoco-platform-webhook.mjs.

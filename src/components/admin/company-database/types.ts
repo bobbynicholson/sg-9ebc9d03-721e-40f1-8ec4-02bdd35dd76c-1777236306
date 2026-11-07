@@ -16,6 +16,8 @@ export interface Company {
   city: string;
   country: string;
   subscription_status: string;
+  /** Whether the workspace is enabled on the platform. */
+  is_active?: boolean | null;
   trial_ends_at: string;
   created_at: string;
   owner_name?: string;

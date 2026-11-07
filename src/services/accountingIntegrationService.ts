@@ -1,5 +1,4 @@
 import { customerBillingIdentity } from "@/lib/customerIdentity";
-import { supabase as browserSupabase } from "@/integrations/supabase/client";
 import crypto from "crypto";
 import { decryptSecret, encryptSecret } from "@/lib/credentialVault";
 
@@ -8,27 +7,27 @@ import { decryptSecret, encryptSecret } from "@/lib/credentialVault";
 // (/api/accounting/{xero,quickbooks}/callback.ts) intentionally don't
 // require a Supabase auth session - they're protected by the
 // HttpOnly oauth_state + oauth_company_id cookies set at flow start.
-// That means the browser anon supabase imported here has no session
-// on the server, so RLS hides accounting_integrations writes and the
-// token storage silently fails - the OAuth dance succeeds, the user
-// gets redirected back to /admin/integrations, and the integration is
-// reported as connected when it never landed.
+// The callback writes through the server service-role client because it
+// has no browser session. Browser code never gets direct token-table access.
 //
-// resolveServerClient picks the service-role client when running on
-// the server (require'd lazily so the browser bundle never tries to
-// pull in service env vars), browser anon in the browser.
+// This module handles OAuth tokens and must only touch Supabase from a
+// server request. A lazy proxy lets encryption-format unit tests import the
+// pure crypto helpers without requiring production Supabase env variables.
 function resolveServerClient(): any {
-  if (typeof window !== "undefined") return browserSupabase;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { getServiceSupabase } = require("@/lib/supabase/service") as { getServiceSupabase: () => any };
-    return getServiceSupabase();
-  } catch {
-    return browserSupabase;
+  if (typeof window !== "undefined") {
+    throw new Error("Accounting OAuth tokens may only be accessed by server-side code");
   }
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getServiceSupabase } = require("@/lib/supabase/service") as { getServiceSupabase: () => any };
+  return getServiceSupabase();
 }
-const supabase: any = resolveServerClient();
-
+const supabase: any = new Proxy({}, {
+  get(_target, property) {
+    const client = resolveServerClient();
+    const value = client[property];
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});
 /**
  * ACCOUNTING INTEGRATION SERVICE
  * Complete OAuth 2.0 integration with Xero and QuickBooks

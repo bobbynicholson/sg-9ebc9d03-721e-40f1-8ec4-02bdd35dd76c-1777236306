@@ -402,7 +402,7 @@ const integrationCards: SprintCard[] = [
     accent: "from-rose-500 to-rose-500",
     items: [
       { title: "Sign up at payfast.co.za, get merchant ID + key + passphrase", status: "todo" },
-      { title: "Set env vars: PAYFAST_MERCHANT_ID, PAYFAST_MERCHANT_KEY, PAYFAST_PASSPHRASE", status: "todo" },
+      { title: "Set server-only PayFast platform env vars: PAYFAST_PLATFORM_MERCHANT_ID, PAYFAST_PLATFORM_MERCHANT_KEY, PAYFAST_PLATFORM_PASSPHRASE", status: "todo" },
       { title: "Configure webhook URL in PayFast dashboard: https://cateringms.com/api/webhooks/payment-confirmation", status: "todo" },
       { title: "Test in sandbox: sandbox.payfast.co.za", status: "todo" },
       { title: "Verify monthly subscription payment succeeds", status: "todo" },

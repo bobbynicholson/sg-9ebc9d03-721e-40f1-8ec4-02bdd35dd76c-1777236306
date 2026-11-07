@@ -32,12 +32,26 @@ const STRIPE_API_VERSION = "2024-12-18.acacia" as Stripe.LatestApiVersion;
 export type PlatformPlanProvider = "payfast" | "stripe" | "yoco";
 export type PlanCycle = "monthly" | "yearly";
 
+/**
+ * Production has confirmed live billing, so an absent mode keeps it live.
+ * Preview must be explicit sandbox mode; it must never inherit live mode.
+ */
+export function platformPayfastTestMode(): boolean | null {
+  const value = process.env.PAYFAST_PLATFORM_TEST_MODE;
+  if (process.env.VERCEL_ENV === "preview") return value === "true" ? true : null;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  if (process.env.VERCEL_ENV === "production") return false;
+  return null;
+}
+
 export function platformBillingProviders(): Record<PlatformPlanProvider, boolean> {
   const env = process.env;
   return {
-    payfast: Boolean((env.PAYFAST_PLATFORM_MERCHANT_ID || env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID) &&
+    payfast: Boolean(env.PAYFAST_PLATFORM_MERCHANT_ID &&
       env.PAYFAST_PLATFORM_MERCHANT_KEY &&
-      (env.PAYFAST_PLATFORM_PASSPHRASE || env.PAYFAST_PASSPHRASE)),
+      env.PAYFAST_PLATFORM_PASSPHRASE &&
+      platformPayfastTestMode() !== null),
     stripe: Boolean(env.STRIPE_PLATFORM_SECRET_KEY && env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET),
     yoco: Boolean(env.YOCO_PLATFORM_SECRET_KEY && env.YOCO_PLATFORM_WEBHOOK_SECRET),
   };

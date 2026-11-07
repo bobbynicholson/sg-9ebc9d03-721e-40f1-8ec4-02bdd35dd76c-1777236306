@@ -26,6 +26,7 @@ const PUBLIC_ROUTES = [
   "/privacy",
   "/security",
   "/support",
+  "/company-deactivated",
   "/demo",
   "/blog",
   "/api",
@@ -373,6 +374,7 @@ export async function middleware(request: NextRequest) {
   let userCompanySlug: string | undefined;
   let onboardingCompletedAt: string | null = null;
   let subscriptionStatus: string | null = null;
+  let companyIsActive: boolean | null = null;
   let trialEndsAt: string | null = null;
   let cacheHit = false;
 
@@ -397,6 +399,7 @@ export async function middleware(request: NextRequest) {
     userCompanySlug = cached.slug ?? undefined;
     onboardingCompletedAt = cached.onboarding_completed_at;
     subscriptionStatus = cached.subscription_status ?? null;
+    companyIsActive = cached.company_is_active ?? null;
     trialEndsAt = cached.trial_ends_at ?? null;
     cacheHit = true;
   } else {
@@ -440,13 +443,16 @@ export async function middleware(request: NextRequest) {
       try {
         const { data: company } = await supabase
           .from("companies")
-          .select("slug, onboarding_completed_at, subscription_status, trial_ends_at")
+          .select("slug, onboarding_completed_at, subscription_status, trial_ends_at, is_active, deleted_at")
           .eq("id", profileCompanyId)
           .single();
         userCompanySlug = company?.slug ?? undefined;
         onboardingCompletedAt = company?.onboarding_completed_at ?? null;
-        subscriptionStatus = (company as any)?.subscription_status ?? null;
-        trialEndsAt = (company as any)?.trial_ends_at ?? null;
+        subscriptionStatus = company?.subscription_status ?? null;
+        companyIsActive = company
+          ? company.is_active !== false && !company.deleted_at
+          : null;
+        trialEndsAt = company?.trial_ends_at ?? null;
       } catch (error) {
         console.error("[Middleware] Error fetching user company slug:", error);
       }
@@ -457,6 +463,17 @@ export async function middleware(request: NextRequest) {
     ? getLandingPageForRoleString(profileRole, userCompanySlug)
     : undefined;
   const isSuperAdmin = profileRoles.includes("super_admin");
+
+  // A deactivated tenant gets one readable landing page and no other app
+  // pages. The company row remains readable so middleware can resolve this
+  // state; company data policies and API gates enforce it for direct calls.
+  if (companyIsActive === false && !isSuperAdmin && pathname !== "/company-deactivated") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/company-deactivated";
+    url.search = "";
+    mwLog("DENY", "company_deactivated", { role: profileRole, path: pathname });
+    return NextResponse.redirect(url);
+  }
 
   // Onboarding-aware landing override: a tenant admin/owner with
   // incomplete onboarding lands on /admin/onboarding instead of the
@@ -678,6 +695,7 @@ export async function middleware(request: NextRequest) {
       slug: userCompanySlug ?? null,
       onboarding_completed_at: onboardingCompletedAt,
       subscription_status: subscriptionStatus,
+      company_is_active: companyIsActive,
       trial_ends_at: trialEndsAt,
     });
   }

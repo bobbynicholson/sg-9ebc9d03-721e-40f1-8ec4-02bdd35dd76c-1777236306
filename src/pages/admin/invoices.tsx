@@ -60,11 +60,6 @@ import { FileText, Send, RefreshCw, AlertCircle, Eye, X, Download, Clock, Copy, 
 import { emitOrderUpdated, onOrderUpdated } from "@/lib/events/orderEvents";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import {
-  syncInvoiceToAccounting,
-  getIntegrationStatus,
-  getValidAccessToken,
-} from "@/services/accountingIntegrationService";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { PendingClaimsBanner } from "@/components/billing/PendingClaimsBanner";
 import { InvoiceAgingCard } from "@/components/admin/InvoiceAgingCard";
@@ -391,16 +386,24 @@ function InvoicesPageInner() {
     if (!cid) return;
     let cancelled = false;
     (async () => {
-      for (const provider of ["xero", "quickbooks"] as const) {
-        const status = await getIntegrationStatus(cid, provider);
-        if (!status.connected) continue;
-        const token = await getValidAccessToken(cid, provider);
-        if (!token.success && !cancelled) {
-          setAccountingReconnectNeeded({ provider, reason: token.error });
-          return;
-        }
+      try {
+        const response = await fetch("/api/accounting/legacy/status", {
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) return;
+        const payload = await response.json();
+        if (cancelled) return;
+        const reconnect = ["xero", "quickbooks"].find((provider) =>
+          payload?.integrations?.[provider]?.connected && payload?.integrations?.[provider]?.reconnectNeeded,
+        );
+        setAccountingReconnectNeeded(reconnect ? { provider: reconnect } : null);
+      } catch (error) {
+        captureException(error, {
+          level: "warning",
+          tags: { route: "/admin/invoices", step: "accounting_status" },
+        });
       }
-      if (!cancelled) setAccountingReconnectNeeded(null);
     })();
     return () => { cancelled = true; };
   }, [(user as any)?.company_id]);
@@ -1374,43 +1377,18 @@ function InvoicesPageInner() {
 
     try {
       setGeneratingInvoice(true);
-      const xeroStatus = await getIntegrationStatus(user.company_id, "xero");
-      const qbStatus = await getIntegrationStatus(user.company_id, "quickbooks");
+      const response = await fetch("/api/accounting/legacy/sync-invoice", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          invoice_id: invoice.id,
+          confirm_duplicate: !!invoice.synced_to_accounting,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
 
-      let provider: "xero" | "quickbooks" | null = null;
-      
-      if (xeroStatus.connected) {
-        provider = "xero";
-      } else if (qbStatus.connected) {
-        provider = "quickbooks";
-      }
-
-      if (!provider) {
-        toast({
-          title: "No accounting integration",
-          description: "Please connect Xero or QuickBooks in Settings → Integrations",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const invoiceData = {
-        invoiceNumber: invoice.invoice_number,
-        invoiceDate: invoice.invoice_date,
-        dueDate: invoice.due_date,
-        clientName: invoice.invoice_data.clientName,
-        clientCompanyName: resolveInvoiceCompanyName({ order: invoice.orders, client: invoice.orders?.clients, invoiceData: invoice.invoice_data }),
-        clientEmail: invoice.invoice_data.clientEmail,
-        items: invoice.invoice_data.items,
-        subtotal: invoice.subtotal,
-        taxAmount: invoice.tax_amount || invoice.invoice_data.taxAmount || 0,
-        total: invoice.total_amount,
-        status: invoice.status === "paid" ? "paid" : "sent" as "paid" | "sent" | "draft",
-      };
-
-      const result = await syncInvoiceToAccounting(user.company_id, provider, invoiceData);
-
-      if (!result.success) {
+      if (!response.ok || !result.success) {
         toast({
           title: "Sync Failed",
           description: result.error || "Failed to sync invoice to accounting system",
@@ -1419,20 +1397,10 @@ function InvoicesPageInner() {
         return;
       }
 
-      await supabase
-        .from("invoices")
-        .update({
-          external_id: result.externalId,
-          external_invoice_number: result.externalInvoiceNumber,
-          synced_to_accounting: true,
-          last_synced_at: new Date().toISOString(),
-          sync_error: null,
-        })
-        .eq("id", invoice.id);
 
       toast({
         title: "Synced successfully",
-        description: `Invoice synced to ${provider === "xero" ? "Xero" : "QuickBooks"}.`,
+        description: `Invoice synced to ${result.provider === "xero" ? "Xero" : "QuickBooks"}.`,
       });
 
       loadInvoices();

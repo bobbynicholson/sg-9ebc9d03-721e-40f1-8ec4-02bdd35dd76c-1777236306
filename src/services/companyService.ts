@@ -39,6 +39,18 @@ function buildDefaultRegionCode(slug: string | null | undefined): string {
   return `${base}-${tail}`.slice(0, 12);
 }
 
+async function setCompanyWorkspaceActive(companyId: string, isActive: boolean): Promise<void> {
+  const response = await fetch("/api/admin/platform/company-status", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ companyId, isActive }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result?.error || `The company workspace could not be ${isActive ? "reactivated" : "deactivated"}.`);
+  }
+}
+
 /** Normalize a tenant URL slug to the format enforced by the database. */
 export function normalizeCompanySlug(value: string | null | undefined): string {
   return (value || "")
@@ -220,7 +232,7 @@ export const companyService = {
     admin_name: string;
     admin_email: string;
     admin_password?: string;
-  }): Promise<{ success: boolean; company?: Company; error?: string }> {
+  }): Promise<{ success: boolean; company?: Company; error?: string; invitationsSent?: boolean }> {
     try {
       const adminEmail = data.admin_email.trim().toLowerCase();
       const ownerEmail = data.email.trim().toLowerCase();
@@ -296,8 +308,8 @@ export const companyService = {
         throw companyError;
       }
 
-      // Create separate owner and operations-manager accounts. The API
-      // generates a temporary password and sends each person their own invite.
+      // Create separate owner and operations-manager accounts. The API keeps
+      // each initial password server-side and sends a one-time setup invite.
       const provisionUser = async (email: string, fullName: string, role: "owner" | "company_admin") => {
         let response: Response;
         try {
@@ -317,11 +329,14 @@ export const companyService = {
         if (!response.ok || !payload?.user?.id) {
           throw new Error(platformUserCreationError(response.status, payload, email));
         }
-        return { id: payload.user.id as string, tempPassword: payload.tempPassword as string | null };
+        return {
+          id: payload.user.id as string,
+          emailDelivered: payload.emailDelivered === true,
+        };
       };
 
-      let ownerUser: { id: string; tempPassword: string | null } | null = null;
-      let managerUser: { id: string; tempPassword: string | null } | null = null;
+      let ownerUser: { id: string; emailDelivered: boolean } | null = null;
+      let managerUser: { id: string; emailDelivered: boolean } | null = null;
       try {
         ownerUser = await provisionUser(ownerEmail, data.owner_name || "Company Owner", "owner");
         managerUser = await provisionUser(adminEmail, data.admin_name || "Operations Manager", "company_admin");
@@ -347,22 +362,6 @@ export const companyService = {
       if (!ownerUser || !managerUser) {
         await supabase.from("companies").delete().eq("id", company.id);
         throw new Error("The owner and operations manager accounts could not be created.");
-      }
-
-      // Surface both passwords once so the platform owner can pass them
-      // securely to the owner and operations manager.
-      if (typeof window !== "undefined") {
-        for (const credential of [
-          { name: data.owner_name || "Company Owner", password: ownerUser.tempPassword },
-          { name: data.admin_name || "Operations Manager", password: managerUser.tempPassword },
-        ]) {
-          if (!credential.password) continue;
-          try { await navigator.clipboard.writeText(credential.password); } catch { /* clipboard blocked */ }
-          window.prompt(
-            `Temporary password for ${credential.name} (copied to clipboard).\nShare it securely; this person must change it on first login.`,
-            credential.password,
-          );
-        }
       }
 
       // 3. Link the actual owner account to the company.
@@ -413,7 +412,11 @@ export const companyService = {
         console.warn("[companyService] default region seed failed (non-blocking):", seedErr);
       }
 
-      return { success: true, company };
+      return {
+        success: true,
+        company,
+        invitationsSent: ownerUser.emailDelivered && managerUser.emailDelivered,
+      };
     } catch (error: any) {
       const message = dbErrorMessage(error, {
         entity: "company",
@@ -550,23 +553,13 @@ export const companyService = {
     }
   },
 
-  /**
-   * Deactivate company
-   */
-  async deactivateCompany(companyId: string): Promise<void> {
-    try {
-      const { error } = await supabase
-        .from("companies")
-        .update({
-          is_active: false,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", companyId);
+  /** Change workspace access through the platform-owner endpoint. */
+  async setCompanyActive(companyId: string, isActive: boolean): Promise<void> {
+    await setCompanyWorkspaceActive(companyId, isActive);
+  },
 
-      if (error) throw error;
-    } catch (error) {
-      console.error("Error deactivating company:", error);
-      throw error;
-    }
+  /** Backwards-compatible deactivation helper. */
+  async deactivateCompany(companyId: string): Promise<void> {
+    await setCompanyWorkspaceActive(companyId, false);
   },
 };

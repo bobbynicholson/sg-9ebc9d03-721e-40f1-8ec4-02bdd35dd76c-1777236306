@@ -203,10 +203,9 @@ async function handler(
     // literal "BYPASS_2026". Anyone who had ever read the source or
     // the inline UI hint could log in as any newly-created user
     // across every tenant. Now: server generates a per-user random
-    // password, returns it once in the response so the admin can
-    // share it via their own channel (WhatsApp / in person /
-    // password manager), and the password is never stored or logged
-    // anywhere except the auth.users row.
+    // initial password, keeps it server-side, and sends a one-time
+    // set-password link. The password is never returned to the browser
+    // or logged.
     function generatePassword(): string {
       const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // skipped I O
       const lower = "abcdefghijkmnpqrstuvwxyz"; // skipped l o
@@ -352,13 +351,11 @@ async function handler(
             fullName: full_name,
             role,
             companyId: company_id,
-            tempPassword: password,
             baseUrl,
           });
           return res.status(201).json({
             message: "User restored",
             user: { id: match.id, email },
-            tempPassword: password,
             recovered: true,
             emailDelivered: healInvite.emailed,
             emailErrorCode: healInvite.errorCode,
@@ -493,20 +490,15 @@ async function handler(
       fullName: full_name,
       role,
       companyId: company_id,
-      tempPassword: password,
       baseUrl,
     });
 
-    // Return the temp password + whether the invite actually emailed, so
-    // the UI can either confirm "invite sent" or, when the tenant has no
-    // email provider, show the credentials for the admin to share by
-    // hand. The password is never logged/stored except auth.users
-    // (hashed).
+    // Return invite delivery status only. The server-only initial password
+    // is never exposed to the browser; failed invites can be resent later.
     return res.status(201).json({
       message: "User created successfully",
       user: { id: newUserId, email },
       reusedInactiveEmail,
-      tempPassword: password,
       emailDelivered: inviteResult.emailed,
       emailErrorCode: inviteResult.errorCode,
       loginUrl: inviteResult.loginUrl,

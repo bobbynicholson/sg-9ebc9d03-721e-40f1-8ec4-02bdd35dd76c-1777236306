@@ -16,9 +16,8 @@
  *   - the company_id used for reconciliation comes from the server
  *     session, not client input (can't be spoofed).
  *
- * Credentials come from the PLATFORM PayFast account (this is the tenant
- * paying US), read from server-only env, with the NEXT_PUBLIC_* vars as a
- * backward-compatible fallback.
+ * Credentials come only from server-side PLATFORM PayFast environment
+ * variables. There are no public environment-variable fallbacks.
  *
  * Returns: { ok: true, provider, html } | { ok: true, provider, url, checkoutId } | { error }
  */
@@ -35,6 +34,7 @@ import { getPayfastSubscriptionToken } from "@/lib/platformBillingCredentialVaul
 import {
   currentRenewingSubscription,
   platformBillingProviders,
+  platformPayfastTestMode,
   startStripePlanCheckout,
   startYocoPlanCheckout,
   type PlatformPlanProvider,
@@ -152,11 +152,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     // Platform PayFast credentials are server-only. Merchant IDs are public;
     // signing keys and passphrases must use private environment variables.
-    const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID;
+    const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID;
     const merchantKey = process.env.PAYFAST_PLATFORM_MERCHANT_KEY;
-    const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || process.env.PAYFAST_PASSPHRASE || "";
-    const testMode =
-      (process.env.PAYFAST_PLATFORM_TEST_MODE || process.env.NEXT_PUBLIC_PAYFAST_TEST_MODE) === "true";
+    const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || "";
+    const testMode = platformPayfastTestMode();
+    if (testMode === null) {
+      return res.status(503).json({ error: "PayFast test/live mode is not configured on the server." });
+    }
     if (!merchantId || !merchantKey || !passphrase) {
       return res.status(400).json({
         error: "Plan billing isn't configured yet. Set the platform PayFast credentials.",

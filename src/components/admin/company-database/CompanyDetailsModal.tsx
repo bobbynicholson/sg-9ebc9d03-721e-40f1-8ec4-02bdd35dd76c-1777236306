@@ -56,10 +56,16 @@ export function CompanyDetailsModal({
                 <p className="font-semibold">/{selectedCompany.company_slug}</p>
               </div>
               <div>
-                <Label className="text-slate-600">Status</Label>
+                <Label className="text-slate-600">Subscription status</Label>
                 <div>
                   <CompanyStatusBadge status={selectedCompany.subscription_status} />
                 </div>
+              </div>
+              <div>
+                <Label className="text-slate-600">Workspace access</Label>
+                <p className={selectedCompany.is_active === false ? "font-medium text-rose-700" : "font-medium text-emerald-700"}>
+                  {selectedCompany.is_active === false ? "Deactivated" : "Enabled"}
+                </p>
               </div>
               <div>
                 <Label className="text-slate-600">Email</Label>
