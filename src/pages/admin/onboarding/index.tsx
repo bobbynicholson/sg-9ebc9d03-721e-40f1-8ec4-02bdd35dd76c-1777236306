@@ -27,6 +27,7 @@
  * link for caterers who already have data they want to upload first.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -35,7 +36,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowRight, ArrowLeft, Bell, Check, Loader2, Building2, MapPin, Palette, Landmark, Receipt, CreditCard, Sparkles, FileSpreadsheet, ShieldCheck, Users, Upload, PlayCircle } from "lucide-react";
+import { ArrowRight, ArrowLeft, Bell, Check, Loader2, Building2, MapPin, Palette, Landmark, Receipt, CreditCard, Sparkles, FileSpreadsheet, ShieldCheck, Users, Upload, PlayCircle, MessageCircle } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -591,6 +592,7 @@ function OnboardingWizard() {
                 <WelcomeStep
                   companyName={form.company_name}
                   form={form}
+                  slug={slug}
                   onStart={goNext}
                   onResume={resumeAtFirstIncomplete}
                   onJumpTo={(id) => setStep(id)}
@@ -746,6 +748,7 @@ function OnboardingWizard() {
                 <DoneStep
                   form={form}
                   saving={saving}
+                  slug={slug}
                   onBack={goBack}
                   onFinish={finalizeAndExit}
                 />
@@ -767,10 +770,11 @@ function OnboardingWizard() {
 // ── Step components ──────────────────────────────────────────────────
 
 function WelcomeStep({
-  companyName, form, onStart, onResume, onJumpTo, onSkipToImports, onSkipAll, saving,
+  companyName, form, slug, onStart, onResume, onJumpTo, onSkipToImports, onSkipAll, saving,
 }: {
   companyName: string;
   form: CompanyForm;
+  slug: string;
   onStart: () => void;
   onResume: () => void;
   onJumpTo: (id: StepId) => void;
@@ -846,6 +850,21 @@ function WelcomeStep({
             );
           })}
         </ul>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-emerald-900/60 dark:bg-emerald-950/20">
+        <div className="flex items-start gap-3">
+          <MessageCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />
+          <div>
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">Optional: WhatsApp automation</p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+              Connect your business number, configure Meta delivery and replies, then choose approved templates. You can set this up now or come back after onboarding.
+            </p>
+          </div>
+        </div>
+        <Button asChild variant="outline" size="sm" className="shrink-0 gap-1.5">
+          <Link href={`${slug ? `/${slug}` : ""}/admin/whatsapp`}>Read the setup guide <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>
+        </Button>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2">
@@ -1881,10 +1900,11 @@ function ClientsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
 }
 
 function DoneStep({
-  form, saving, onBack, onFinish,
+  form, saving, slug, onBack, onFinish,
 }: {
   form: CompanyForm;
   saving: boolean;
+  slug: string;
   onBack: () => void;
   onFinish: () => void;
 }) {
@@ -1920,6 +1940,37 @@ function DoneStep({
           ))}
         </dl>
       </div>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5" aria-labelledby="onboarding-whatsapp-title">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+            <MessageCircle className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 id="onboarding-whatsapp-title" className="text-sm font-semibold text-slate-900">Optional: WhatsApp automation</h3>
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">Can do later</span>
+            </div>
+            <p className="mt-1 text-sm leading-relaxed text-slate-600">
+              Send approved templates automatically and manage client replies in CateringMS. You can finish onboarding without enabling WhatsApp.
+            </p>
+          </div>
+        </div>
+        <ol className="mt-4 grid gap-2 text-xs leading-relaxed text-slate-600 sm:grid-cols-2">
+          <li><strong className="text-slate-800">1. Connect:</strong> enter the WhatsApp Business phone number ID, WABA ID, permanent access token and app secret from Meta.</li>
+          <li><strong className="text-slate-800">2. Receive updates:</strong> verify the callback URL in Meta, subscribe to messages, and subscribe this phone number to webhooks.</li>
+          <li><strong className="text-slate-800">3. Prepare sending:</strong> finish Meta billing, choose a Meta-approved template and set which messages are Automatic.</li>
+          <li><strong className="text-slate-800">4. Confirm delivery:</strong> send a test, then check WhatsApp Activity. Sent means Meta accepted it; Delivered means it reached the phone.</li>
+        </ol>
+        <p className="mt-3 text-xs leading-relaxed text-slate-500">
+          Meta may require a payment method before it delivers messages. The WhatsApp setup page explains each field, shows provider errors, and guides you through recovery.
+        </p>
+        <Button asChild variant="outline" size="sm" className="mt-4 gap-1.5">
+          <Link href={`${slug ? `/${slug}` : ""}/admin/whatsapp`}>
+            <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" /> Open WhatsApp setup <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </Link>
+        </Button>
+      </section>
 
       <div className="flex flex-col sm:flex-row gap-2 pt-2">
         <Button variant="outline" onClick={onBack} disabled={saving}>

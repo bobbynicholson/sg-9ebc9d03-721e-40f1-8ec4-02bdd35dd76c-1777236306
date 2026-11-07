@@ -18,10 +18,12 @@ import {
   MESSAGE_PAGE_SIZE,
   cleanSearch,
   decodeCursor,
+  decodeThreadCursor,
   encodeCursor,
   mergeThreadPage,
 } from "@/lib/whatsapp/conversations";
 import { loadWhatsAppCredentials, postWhatsAppMessage } from "@/lib/whatsapp/credentials";
+import { WHATSAPP_AUTOMATIONS, readAutomationSettings } from "@/lib/whatsapp/automations";
 
 const REPLY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -60,34 +62,57 @@ async function listConversations(sb: any, companyId: string, req: NextApiRequest
 }
 
 async function loadThread(sb: any, companyId: string, phone: string, req: NextApiRequest, res: NextApiResponse) {
-  const before = String(req.query.before || "");
-  const validBefore = before && !Number.isNaN(Date.parse(before)) ? before : null;
+  const before = decodeThreadCursor(String(req.query.before || ""));
 
   let received = sb.from("whatsapp_inbound_messages").select("id, contact_name, body, message_type, received_at")
-    .eq("company_id", companyId).eq("from_phone", phone).order("received_at", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
-  let sent = sb.from("whatsapp_messages").select("id, recipient_name, message_content, template_name, status, created_at")
-    .eq("company_id", companyId).eq("recipient_phone", phone).order("created_at", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
-  if (validBefore) {
-    received = received.lt("received_at", validBefore);
-    sent = sent.lt("created_at", validBefore);
+    .eq("company_id", companyId).eq("from_phone", phone).order("received_at", { ascending: false }).order("id", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
+  let sent = sb.from("whatsapp_messages").select("id, recipient_name, message_content, message_type, template_name, status, failure_reason, created_at")
+    .eq("company_id", companyId).eq("recipient_phone", phone).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
+  if (before) {
+    const constrainBefore = (query: any, column: string) => before.id
+      ? query.or(`${column}.lt.${before.at},and(${column}.eq.${before.at},id.lt.${before.id})`)
+      : query.lt(column, before.at);
+    received = constrainBefore(received, "received_at");
+    sent = constrainBefore(sent, "created_at");
   }
-  const [{ data: inbound, error }, { data: outbound }, { data: latest }] = await Promise.all([
+  const [{ data: inbound, error: inboundError }, { data: outbound, error: outboundError }, { data: latest }, { data: integration }] = await Promise.all([
     received,
     sent,
     sb.from("whatsapp_inbound_messages").select("received_at, contact_name")
       .eq("company_id", companyId).eq("from_phone", phone).order("received_at", { ascending: false }).limit(1),
+    sb.from("integrations").select("settings").eq("company_id", companyId).eq("integration_type", "whatsapp").maybeSingle(),
   ]);
+  if (inboundError || outboundError) return res.status(500).json({ error: "Could not load this WhatsApp conversation. Try again." });
+
+  const automationSettings = readAutomationSettings(integration?.settings);
+  const templateLabels = new Map<string, string>();
+  for (const automation of WHATSAPP_AUTOMATIONS) {
+    const templateName = automationSettings[automation.key]?.templateName?.trim();
+    if (templateName) templateLabels.set(templateName, automation.label);
+  }
+  const templateLabel = (name: string | null | undefined) => {
+    if (!name) return null;
+    return templateLabels.get(name) || name.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  };
 
   const page = mergeThreadPage(
-    (inbound || []).map((row: any) => ({ id: row.id, direction: "in" as const, text: row.body || `(${row.message_type} message)`, at: row.received_at })),
+    (inbound || []).map((row: any) => ({ id: row.id, direction: "in" as const, text: row.body || "", kind: row.message_type || "text", at: row.received_at })),
     (outbound || []).map((row: any) => ({
-      id: row.id, direction: "out" as const, text: row.message_content || `Template: ${row.template_name}`, at: row.created_at, status: row.status,
+      id: row.id,
+      direction: "out" as const,
+      text: row.message_content || "",
+      kind: row.message_type || (row.template_name ? "template" : "text"),
+      templateName: row.template_name,
+      templateLabel: templateLabel(row.template_name),
+      at: row.created_at,
+      status: row.status,
+      failureReason: row.failure_reason,
     })),
     MESSAGE_PAGE_SIZE,
   );
   const lastReceived = latest?.[0]?.received_at;
   return res.status(200).json({
-    available: !error,
+    available: true,
     phone,
     name: latest?.[0]?.contact_name || outbound?.find((row: any) => row.recipient_name)?.recipient_name || null,
     canReply: !!lastReceived && Date.now() - new Date(lastReceived).getTime() < REPLY_WINDOW_MS,
@@ -137,9 +162,36 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (!credentials) return res.status(400).json({ error: "Connect WhatsApp first." });
 
     const result = await postWhatsAppMessage(credentials, { to: phone, type: "text", text: { body: text } });
-    if (!result.ok) return res.status(400).json({ error: `Meta refused the reply: ${result.error}` });
+    if (!result.ok) {
+      const responseBody = result.response && typeof result.response === "object" ? result.response as any : {};
+      const providerError = responseBody.error && typeof responseBody.error === "object" ? responseBody.error : {};
+      const providerCode = providerError.code ? `Meta ${providerError.code}` : null;
+      const providerMessage = providerError.error_user_msg || providerError.message || result.error || "Meta did not provide a reason.";
+      const providerTitle = providerError.error_user_title || providerError.title;
+      const diagnostic = [
+        providerCode,
+        providerError.error_subcode ? `Subcode ${providerError.error_subcode}` : null,
+        providerTitle && providerTitle !== providerMessage ? providerTitle : null,
+        providerMessage,
+        providerError.error_data?.details,
+        providerError.fbtrace_id ? `Meta reference ${providerError.fbtrace_id}` : null,
+      ].filter(Boolean).join(": ");
+      const { error: trackingError } = await sb.from("whatsapp_messages").insert({
+        company_id: companyId,
+        recipient_phone: phone,
+        message_type: "text",
+        message_content: text,
+        status: "failed",
+        failed_at: new Date().toISOString(),
+        failure_reason: diagnostic,
+        gateway_response: result.response,
+        enqueued_by: userId,
+      });
+      if (trackingError) console.error("[whatsapp-inbox] Failed-reply tracking insert failed", { code: trackingError.code || null });
+      return res.status(400).json({ error: `Meta refused the reply: ${diagnostic}` });
+    }
     const now = new Date().toISOString();
-    await sb.from("whatsapp_messages").insert({
+    const { error: trackingError } = await sb.from("whatsapp_messages").insert({
       company_id: companyId,
       recipient_phone: phone,
       message_type: "text",
@@ -147,12 +199,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       status: "sent",
       sent_at: now,
       gateway_message_id: result.id,
+      gateway_response: result.response,
       enqueued_by: userId,
     });
     await sb.from("whatsapp_conversations").update({ last_message_at: now, last_preview: text.slice(0, 160) })
       .eq("company_id", companyId).eq("phone", phone);
     await markRead();
-    return res.status(200).json({ success: true });
+    return res.status(200).json({ success: true, tracked: !trackingError && !!result.id });
   }
 
   return res.status(400).json({ error: "Unknown action" });

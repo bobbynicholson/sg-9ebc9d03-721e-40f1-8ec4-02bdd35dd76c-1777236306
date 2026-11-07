@@ -55,7 +55,13 @@ async function applyStatus(sb: any, companyId: string, status: any) {
   const at = status.timestamp ? new Date(Number(status.timestamp) * 1000).toISOString() : new Date().toISOString();
   const failure = status.errors?.[0];
   const failureReason = failure
-    ? [failure.code ? `Meta ${failure.code}` : null, failure.title, failure.error_data?.details].filter(Boolean).join(": ")
+    ? [
+      failure.code ? `Meta ${failure.code}` : null,
+      failure.error_subcode ? `Subcode ${failure.error_subcode}` : null,
+      failure.title,
+      failure.error_data?.details,
+      failure.fbtrace_id ? `Meta reference ${failure.fbtrace_id}` : null,
+    ].filter(Boolean).join(": ")
     : "Meta could not deliver this message";
   const patch: Record<string, unknown> =
     status.status === "delivered" ? { status: "delivered", delivered_at: at }
@@ -102,14 +108,16 @@ async function applyMessage(sb: any, companyId: string, message: any, contacts: 
   const phone = normaliseToE164(message.from);
   const name = contacts.find((contact) => contact.wa_id === message.from)?.profile?.name || null;
   const body = message.text?.body ?? message.button?.text ?? message.interactive?.button_reply?.title ?? null;
+  const receivedAt = message.timestamp ? new Date(Number(message.timestamp) * 1000).toISOString() : new Date().toISOString();
+  const messageType = message.type || "text";
   const { error } = await sb.from("whatsapp_inbound_messages").insert({
     company_id: companyId,
     from_phone: phone,
     contact_name: name,
-    message_type: message.type || "text",
+    message_type: messageType,
     body,
     wa_message_id: message.id,
-    received_at: message.timestamp ? new Date(Number(message.timestamp) * 1000).toISOString() : new Date().toISOString(),
+    received_at: receivedAt,
   });
   if (error) {
     if (String(error.code) !== "23505") console.error("[webhooks/whatsapp] reply not saved:", error.message);
@@ -122,8 +130,8 @@ async function applyMessage(sb: any, companyId: string, message: any, contacts: 
     company_id: companyId,
     phone,
     ...(name ? { contact_name: name } : {}),
-    last_message_at: new Date().toISOString(),
-    last_preview: String(body || `(${message.type || "media"} message)`).slice(0, 160),
+    last_message_at: receivedAt,
+    last_preview: String(body || `${messageType.charAt(0).toUpperCase()}${messageType.slice(1)} received`).slice(0, 160),
     unread_count: unread || 1,
   }, { onConflict: "company_id,phone" });
   const intent = replyIntent(body);

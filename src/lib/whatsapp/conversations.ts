@@ -5,6 +5,10 @@ export interface ThreadMessage {
   text: string;
   at: string;
   status?: string;
+  kind?: string;
+  templateName?: string | null;
+  templateLabel?: string | null;
+  failureReason?: string | null;
 }
 
 export const CONVERSATION_PAGE_SIZE = 25;
@@ -35,13 +39,28 @@ export function cleanSearch(value: unknown): string {
  * holds up to size + 1 rows, newest first, so a spare row means there's more.
  */
 export function mergeThreadPage(received: ThreadMessage[], sent: ThreadMessage[], size: number) {
-  const newestFirst = [...received, ...sent].sort((a, b) => b.at.localeCompare(a.at));
+  const newestFirst = [...received, ...sent].sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id));
   const page = newestFirst.slice(0, size);
+  const oldestShown = page[page.length - 1];
   return {
     messages: page.reverse(),
     hasOlder: newestFirst.length > size,
-    olderCursor: newestFirst.length > size ? page[0].at : null,
+    // Keep timestamp-only cursors for non-UUID callers; database message IDs
+    // are UUIDs and let the inbox page accurately when several messages share
+    // the same timestamp.
+    olderCursor: newestFirst.length > size && oldestShown
+      ? (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(oldestShown.id) ? `${oldestShown.at}|${oldestShown.id}` : oldestShown.at)
+      : null,
   };
+}
+
+export function decodeThreadCursor(value: string): { at: string; id: string | null } | null {
+  const separator = value.lastIndexOf("|");
+  const at = separator >= 0 ? value.slice(0, separator) : value;
+  const id = separator >= 0 ? value.slice(separator + 1) : null;
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(at) || Number.isNaN(Date.parse(at))) return null;
+  if (id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) return null;
+  return { at, id };
 }
 
 /** Puts a fresh first page on top of what's loaded, without losing later pages. */

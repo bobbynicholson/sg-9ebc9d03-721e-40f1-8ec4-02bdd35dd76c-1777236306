@@ -12,6 +12,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { WhatsAppTabs } from "@/components/admin/whatsapp/WhatsAppTabs";
+import { WhatsAppFailureNotice } from "@/components/admin/whatsapp/WhatsAppFailureNotice";
 import { PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
+import { describeWhatsAppFailure, readableWhatsAppError } from "@/lib/whatsapp/failureReason";
 import { getTemplateDefinition, renderTemplate } from "@/lib/messageTemplates/registry";
 import {
   WHATSAPP_AUTOMATIONS,
@@ -177,6 +179,7 @@ function WhatsAppPage() {
   const [templatesStatus, setTemplatesStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [templatesError, setTemplatesError] = useState<string | null>(null);
   const [testPhone, setTestPhone] = useState("");
+  const [testError, setTestError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<string | null>(null);
   const [openGroups, setOpenGroups] = useState<string[]>(() => [...WHATSAPP_GROUPS]);
@@ -201,13 +204,14 @@ function WhatsAppPage() {
       setDraft(json.automations);
       setRules(json.rules);
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : "Could not load WhatsApp settings.");
+      setLoadError(readableWhatsAppError(e, "Could not load WhatsApp settings."));
     }
   }, [url]);
 
   useEffect(() => { void load(); }, [load]);
 
   const post = async (name: string, body: Record<string, unknown>, success: string) => {
+    if (name === "test") setTestError(null);
     setBusy(name);
     try {
       const response = await fetch(url, {
@@ -228,12 +232,17 @@ function WhatsAppPage() {
       toast({ title: success, description: typeof json?.message === "string" ? json.message : undefined });
       return true;
     } catch (e) {
+      const rawMessage = e instanceof Error ? e.message : "Try again.";
       if (name === "test") {
+        setTestError(rawMessage);
         console.error("[whatsapp-test] Browser request failed", {
-          error: e instanceof Error ? e.message : "Unknown request error",
+          error: rawMessage,
         });
+        const failure = describeWhatsAppFailure(rawMessage);
+        toast({ title: failure.title, description: failure.nextStep, variant: "destructive" });
+      } else {
+        toast({ title: "WhatsApp", description: readableWhatsAppError(e, "Try again."), variant: "destructive" });
       }
-      toast({ title: "WhatsApp", description: e instanceof Error ? e.message : "Try again.", variant: "destructive" });
       return false;
     } finally {
       setBusy(null);
@@ -276,7 +285,7 @@ function WhatsAppPage() {
       if (!quiet) toast({ title: "Templates loaded from Meta" });
     } catch (e) {
       setTemplatesStatus("error");
-      setTemplatesError(e instanceof Error ? e.message : "Could not load your templates.");
+      setTemplatesError(readableWhatsAppError(e, "Could not load your templates."));
     }
   }, [url, toast]);
 
@@ -299,13 +308,14 @@ function WhatsAppPage() {
       toast({ title: "Submitted to Meta", description: "Approval usually takes a few minutes. Choose Check status to see it." });
       await load();
     } catch (e) {
-      toast({ title: "WhatsApp", description: e instanceof Error ? e.message : "Try again.", variant: "destructive" });
+      toast({ title: "WhatsApp", description: readableWhatsAppError(e, "Try again."), variant: "destructive" });
     } finally {
       setBusy(null);
     }
   };
 
   const selectMessage = (key: string) => {
+    setTestError(null);
     setSelected(key);
     if (typeof window !== "undefined" && window.innerWidth < 1024) {
       window.requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
@@ -446,6 +456,57 @@ function WhatsAppPage() {
                 <StatTile label="Manual" icon={Hand} value={manualCount} hint="Only sent when you choose" />
               </div>
 
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">WhatsApp setup guide</CardTitle>
+                  <CardDescription className="text-sm">Follow these steps to connect and verify delivery. Automatic messages are controlled one by one in the message settings; currently {automaticCount === 0 ? "none are enabled" : `${automaticCount} ${automaticCount === 1 ? "is" : "are"} enabled`}.</CardDescription>
+                </CardHeader>
+                <CardContent className="py-5">
+                  <ol className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                    <li className="flex gap-3">
+                      <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold", state.connected ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-100" : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200")}>{state.connected ? <CheckCircle2 className="h-4 w-4" aria-label="Complete" /> : "1"}</span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white">Connect your business number</p>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">In Meta, collect the Phone number ID and WhatsApp Business account ID under WhatsApp setup. Create a permanent token in Business Settings, and copy the App secret from App settings.</p>
+                        <a href="#wa-account-setup" className="mt-2 inline-block text-xs font-medium text-brand-primary underline underline-offset-2">Enter connection details</a>
+                      </div>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">2</span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white">Set up replies and delivery updates</p>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">{state.webhookVerifiedAt ? "Callback verified here. In Meta, also subscribe to the messages webhook and this WhatsApp account, then publish the app." : "Copy the callback URL and verify token into Meta. Then subscribe to the messages webhook and this WhatsApp account, and publish the app."} Callback verification alone does not confirm subscriptions.</p>
+                        <a href="#wa-account-setup" className="mt-2 inline-block text-xs font-medium text-brand-primary underline underline-offset-2">View webhook steps</a>
+                      </div>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">3</span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white">Finish Meta billing</p>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">Add a payment method and configure the currency for the WhatsApp Business account. Meta can accept a test request but fail delivery when billing is incomplete.</p>
+                        <a href="https://business.facebook.com/billing_hub/" target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-brand-primary underline underline-offset-2">Open Meta billing <ExternalLink className="h-3 w-3" aria-hidden="true" /></a>
+                      </div>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">4</span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white">Choose an approved template and test</p>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">Click a message below to open its settings. If you need a new template, submit its wording to Meta and wait for approval. Then choose the approved template and language, save, and send a test to a WhatsApp number you can check.</p>
+                        <a href="#wa-message-library" className="mt-2 inline-block text-xs font-medium text-brand-primary underline underline-offset-2">Open message library</a>
+                      </div>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">5</span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white">Confirm delivery in Activity</p>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300"><strong>Sent</strong> means Meta accepted the request. Only <strong>Delivered</strong> confirms it reached the phone. Failed messages show the provider reason and recovery step.</p>
+                        <Link href={withSlug("/admin/whatsapp/activity")} className="mt-2 inline-block text-xs font-medium text-brand-primary underline underline-offset-2">View WhatsApp Activity</Link>
+                      </div>
+                    </li>
+                  </ol>
+                </CardContent>
+              </Card>
+
           {state.attention && (
             <Card className="border-rose-200">
               <CardContent className="py-4 text-sm text-rose-700">{state.attention}</CardContent>
@@ -460,7 +521,7 @@ function WhatsAppPage() {
             </Card>
           )}
 
-              <Card collapsible defaultOpen collapseLabel="WhatsApp Business account" className="w-full">
+              <Card id="wa-account-setup" collapsible defaultOpen={!state.connected} collapseLabel="WhatsApp Business account" className="w-full">
                 <CardHeader>
                   <CardTitle className="text-base">WhatsApp Business account</CardTitle>
                   <CardDescription className="text-xs">
@@ -567,9 +628,15 @@ function WhatsAppPage() {
                     </>
                   )}
                   {!state.connected && (
-                    <p className="text-xs text-slate-500">
-                      Find these details in Meta, under your WhatsApp app. Use a permanent access token so the connection doesn't expire.
-                    </p>
+                    <div className="space-y-2">
+                      <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                        Find the Phone number ID and WhatsApp Business account ID in your Meta app under WhatsApp setup. Create a permanent access token in Meta Business Settings with WhatsApp permissions. Find the App secret under App settings → Basic. Keep the token and secret private.
+                      </p>
+                      <div className="flex flex-wrap gap-3 text-xs font-medium">
+                        <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-brand-primary underline underline-offset-2">Open Meta developer apps <ExternalLink className="h-3 w-3" aria-hidden="true" /></a>
+                        <a href="https://business.facebook.com/settings/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-brand-primary underline underline-offset-2">Open Business Settings <ExternalLink className="h-3 w-3" aria-hidden="true" /></a>
+                      </div>
+                    </div>
                   )}
 
                   {!state.connected && (
@@ -577,23 +644,27 @@ function WhatsAppPage() {
                       <div className="grid gap-3 md:grid-cols-2">
                         <div>
                           <Label htmlFor="wa-phone-id" className="text-xs">Phone number ID</Label>
-                          <Input id="wa-phone-id" inputMode="numeric" value={connection.phoneNumberId}
+                          <Input id="wa-phone-id" inputMode="numeric" aria-describedby="wa-phone-id-help" value={connection.phoneNumberId}
                             onChange={(event) => setConnection({ ...connection, phoneNumberId: event.target.value })} />
+                          <p id="wa-phone-id-help" className="mt-1 text-xs leading-relaxed text-slate-500">The ID for your WhatsApp number; it is different from the phone number customers call.</p>
                         </div>
                         <div>
                           <Label htmlFor="wa-business-id" className="text-xs">WhatsApp Business account ID</Label>
-                          <Input id="wa-business-id" inputMode="numeric" value={connection.businessAccountId}
+                          <Input id="wa-business-id" inputMode="numeric" aria-describedby="wa-business-id-help" value={connection.businessAccountId}
                             onChange={(event) => setConnection({ ...connection, businessAccountId: event.target.value })} />
+                          <p id="wa-business-id-help" className="mt-1 text-xs leading-relaxed text-slate-500">Meta may label this the WABA ID. Find it under your WhatsApp account in the app.</p>
                         </div>
                         <div>
                           <Label htmlFor="wa-token" className="text-xs">Access token</Label>
-                          <Input id="wa-token" type="password" autoComplete="off" value={connection.accessToken}
+                          <Input id="wa-token" type="password" autoComplete="off" aria-describedby="wa-token-help" value={connection.accessToken}
                             onChange={(event) => setConnection({ ...connection, accessToken: event.target.value })} />
+                          <p id="wa-token-help" className="mt-1 text-xs leading-relaxed text-slate-500">Use a permanent system-user token with WhatsApp access. It is stored encrypted and never shown again.</p>
                         </div>
                         <div>
                           <Label htmlFor="wa-secret" className="text-xs">App secret</Label>
-                          <Input id="wa-secret" type="password" autoComplete="off" value={connection.appSecret}
+                          <Input id="wa-secret" type="password" autoComplete="off" aria-describedby="wa-secret-help" value={connection.appSecret}
                             onChange={(event) => setConnection({ ...connection, appSecret: event.target.value })} />
+                          <p id="wa-secret-help" className="mt-1 text-xs leading-relaxed text-slate-500">Meta app dashboard → App settings → Basic. Keep this private.</p>
                         </div>
                       </div>
                       {!state.canConnect && (
@@ -613,7 +684,7 @@ function WhatsAppPage() {
               </Card>
 
               <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-                <Card>
+                <Card id="wa-message-library">
                   <CardContent className="py-5">
                     <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                       <div>
@@ -927,12 +998,14 @@ function WhatsAppPage() {
                                 className="gap-1.5"
                                 disabled={!state.connected || !state.canConnect || !state.automations[automation.key].templateName || !testPhone.trim() || busy === "test"}
                                 title={!state.canConnect ? "This server cannot read the saved WhatsApp credentials" : !state.connected ? "Connect WhatsApp to send a test" : !state.automations[automation.key].templateName ? "Save the Meta template name to send a test" : !testPhone.trim() ? "Enter a test number" : undefined}
-                                onClick={() => void post("test", { action: "test", key: automation.key, phone: testPhone }, "Meta accepted test")}
+                                onClick={() => void post("test", { action: "test", key: automation.key, phone: testPhone }, "Test accepted by Meta")}
                               >
                                 <Send className="h-3.5 w-3.5" />
                                 {busy === "test" ? "Sending..." : "Send test WhatsApp"}
                               </Button>
                             </div>
+                            <p className="text-xs leading-relaxed text-slate-500">A successful request means Meta accepted the message for processing; it does not confirm delivery. Check WhatsApp Activity for Delivered or Failed.</p>
+                            {testError && <WhatsAppFailureNotice reason={testError} />}
                           </div>
                         </>
                       )}

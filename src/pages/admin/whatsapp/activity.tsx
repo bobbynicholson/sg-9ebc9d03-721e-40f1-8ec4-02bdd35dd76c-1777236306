@@ -9,6 +9,7 @@ import { CheckCheck, Clock, Eye, MessageCircle, RefreshCw, Reply, Search, Send, 
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { WhatsAppTabs } from "@/components/admin/whatsapp/WhatsAppTabs";
+import { WhatsAppFailureNotice } from "@/components/admin/whatsapp/WhatsAppFailureNotice";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
@@ -20,6 +21,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { ACTIVITY_PERIODS, statusLabel, type MessageSource } from "@/lib/whatsapp/activity";
+import { readableWhatsAppError } from "@/lib/whatsapp/failureReason";
 import { cn } from "@/lib/utils";
 import { UserRole } from "@/types/app";
 
@@ -99,7 +101,7 @@ function ActivityPage() {
       setData((current) => ({ ...current, ...json }));
       setLoadError(null);
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : "Could not load WhatsApp activity.");
+      setLoadError(readableWhatsAppError(e, "Could not load WhatsApp activity."));
     } finally {
       setLoading(false);
     }
@@ -120,10 +122,10 @@ function ActivityPage() {
       });
       const json = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(json?.error || "Try again.");
-      toast({ title: "Message queued again", description: "It goes out within about 5 minutes." });
+      toast({ title: "Retry queued", description: "WhatsApp will try again within about 5 minutes." });
       await load(true);
     } catch (e) {
-      toast({ title: "WhatsApp", description: e instanceof Error ? e.message : "Try again.", variant: "destructive" });
+      toast({ title: "WhatsApp", description: readableWhatsAppError(e, "Try again."), variant: "destructive" });
     } finally {
       setRetrying(null);
     }
@@ -170,19 +172,26 @@ function ActivityPage() {
             )}
 
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-              <StatTile label="Waiting" icon={Clock} value={totals.waiting ?? "-"} hint="About to send" />
-              <StatTile label="Sent" icon={Send} value={totals.sent ?? "-"} hint="Left the app" />
+              <StatTile label="Waiting" icon={Clock} value={totals.waiting ?? "-"} hint="Queued; usually under 5 min" />
+              <StatTile label="Sent" icon={Send} value={totals.sent ?? "-"} hint="Meta accepted; not delivered yet" />
               <StatTile label="Delivered" icon={CheckCheck} value={totals.delivered ?? "-"} hint="Reached the phone" />
-              <StatTile label="Read" icon={Eye} value={totals.read ?? "-"} hint="Opened" />
-              <StatTile label="Failed" icon={TriangleAlert} value={totals.failed ?? "-"} hint="Needs attention" />
-              <StatTile label="Replies" icon={Reply} value={totals.replies ?? "-"} hint="Came back" />
+              <StatTile label="Read" icon={Eye} value={totals.read ?? "-"} hint="Opened by the recipient" />
+              <StatTile label="Failed" icon={TriangleAlert} value={totals.failed ?? "-"} hint="Reason and next step below" />
+              <StatTile label="Replies" icon={Reply} value={totals.replies ?? "-"} hint="Incoming WhatsApp messages" />
             </div>
+
+            <Card className="border-sky-200 bg-sky-50/70 dark:border-sky-900 dark:bg-sky-950/20">
+              <CardContent className="py-4">
+                <p className="text-sm font-semibold text-sky-950 dark:text-sky-100">How to read delivery status</p>
+                <p className="mt-1 text-sm leading-relaxed text-sky-900 dark:text-sky-200"><strong>Sent</strong> means Meta accepted the request. It does not confirm the recipient got it. <strong>Delivered</strong> means it reached their phone; <strong>Read</strong> means they opened it. Failed messages include Meta’s reason and a suggested next step.</p>
+              </CardContent>
+            </Card>
 
             <Card>
               <CardContent className="py-5">
                 <p className="pb-3 text-sm font-semibold text-slate-900 dark:text-white">By message</p>
                 {data && !data.reportReady ? (
-                  <p className="text-xs text-amber-700">This report will work once the WhatsApp database update has been applied.</p>
+                  <p className="text-sm leading-relaxed text-amber-800 dark:text-amber-200">The message breakdown is temporarily unavailable. Your message history and delivery statuses below are still available; refresh this report later.</p>
                 ) : !data?.report.length ? (
                   <p className="text-xs text-slate-500">Nothing was sent in this period.</p>
                 ) : (
@@ -234,34 +243,52 @@ function ActivityPage() {
                   <div className={cn("transition-opacity", loading && "opacity-60")}>
                     <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                       {data.messages.map((message) => (
-                        <li key={message.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium text-slate-900 dark:text-white">{message.name}</span>
-                            <span className="block truncate text-xs text-slate-500">
-                              {message.recipient} | {new Date(message.at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                        <li key={message.id} className="space-y-3 py-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium text-slate-900 dark:text-white">{message.name}</span>
+                              <span className="block truncate text-xs text-slate-500">
+                                {message.recipient} | {new Date(message.at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                              </span>
                             </span>
-                            {message.failureReason && <span className="block text-xs text-rose-700">{message.failureReason}</span>}
-                          </span>
-                          <span className="flex flex-wrap items-center gap-1.5">
-                            <Badge variant="outline">{message.source}</Badge>
-                            <Badge variant={message.status === "failed" ? "destructive" : "secondary"}>{statusLabel(message.status)}</Badge>
-                            {message.orderId && (
+                            <span className="flex flex-wrap items-center gap-1.5">
+                              <Badge variant="outline">{message.source}</Badge>
+                              <Badge variant={message.status === "failed" ? "destructive" : "secondary"}>{statusLabel(message.status)}</Badge>
+                              {message.orderId && (
+                                <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
+                                  <Link href={withSlug(`/order/${message.orderId}`)}>Open order</Link>
+                                </Button>
+                              )}
                               <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
-                                <Link href={withSlug(`/order/${message.orderId}`)}>Open order</Link>
+                                <Link href={withSlug(`/admin/whatsapp/replies?phone=${encodeURIComponent(message.phone)}`)}>Open conversation</Link>
                               </Button>
-                            )}
-                            <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
-                              <Link href={withSlug(`/admin/whatsapp/replies?phone=${encodeURIComponent(message.phone)}`)}>Open conversation</Link>
-                            </Button>
-                            {message.status === "failed" && (
-                              <Button type="button" variant="outline" size="sm" className="h-7 text-xs" disabled={retrying === message.id} onClick={() => void retry(message.id)}>
-                                {retrying === message.id ? "Sending..." : "Send again"}
-                              </Button>
-                            )}
-                          </span>
+                              {message.status === "failed" && (
+                                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" disabled={retrying === message.id} onClick={() => void retry(message.id)}>
+                                  {retrying === message.id ? "Queueing..." : "Queue retry"}
+                                </Button>
+                              )}
+                            </span>
+                          </div>
+                          {message.failureReason && (message.status === "failed" || message.status === "pending" || message.status === "sending") && (
+                            <WhatsAppFailureNotice reason={message.failureReason} state={message.status === "failed" ? "failed" : "retrying"} />
+                          )}
                         </li>
                       ))}
-                      {data.messages.length === 0 && <li className="py-6 text-center text-xs text-slate-500">No messages match.</li>}
+                      {data.messages.length === 0 && (
+                        <li className="py-6 text-center">
+                          {search.trim() || status ? (
+                            <>
+                              <p className="text-sm text-slate-600 dark:text-slate-300">No messages match these filters.</p>
+                              <Button type="button" variant="link" size="sm" className="mt-1" onClick={() => { setSearch(""); setStatus(""); setPage(1); }}>Clear search and status filter</Button>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-sm text-slate-600 dark:text-slate-300">No WhatsApp messages in this period yet.</p>
+                              <Link href={withSlug("/admin/whatsapp")} className="mt-1 inline-block text-sm font-medium text-brand-primary underline underline-offset-2">Go to setup to send a test</Link>
+                            </>
+                          )}
+                        </li>
+                      )}
                     </ul>
                     {matching > 0 && (
                       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">

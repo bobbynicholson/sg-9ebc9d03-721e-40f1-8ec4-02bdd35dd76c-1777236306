@@ -286,7 +286,37 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         fbtraceId: providerError.fbtrace_id ?? null,
       } : null,
     });
-    if (!result.ok) return res.status(400).json({ error: `Meta refused the test: ${result.error}` });
+    if (!result.ok) {
+      const responseError = providerError || {};
+      const providerCode = responseError.code ? String(responseError.code) : null;
+      const providerMessage = redactPhone(responseError.error_user_msg || responseError.message || result.error || "Meta did not provide a reason.");
+      const providerTitle = redactPhone(responseError.error_user_title || responseError.title || "");
+      const providerDetails = redactPhone(responseError.error_data?.details);
+      const diagnostic = [
+        providerCode ? `Meta ${providerCode}` : null,
+        responseError.error_subcode ? `Subcode ${responseError.error_subcode}` : null,
+        providerTitle && providerTitle !== providerMessage ? providerTitle : null,
+        providerMessage,
+        typeof providerDetails === "string" && providerDetails && providerDetails !== providerMessage ? providerDetails : null,
+        responseError.fbtrace_id ? `Meta reference ${responseError.fbtrace_id}` : null,
+      ].filter(Boolean).join(": ");
+      const { error: trackingError } = await sb.from("whatsapp_messages").insert({
+        company_id: companyId,
+        recipient_phone: to,
+        message_type: "template",
+        template_name: setting.templateName,
+        template_language: setting.language,
+        template_params: { components: templateParams },
+        status: "failed",
+        failed_at: new Date().toISOString(),
+        failure_reason: diagnostic,
+        gateway_response: result.response,
+        dedup_key: `test:${crypto.randomUUID()}`,
+        enqueued_by: userId,
+      });
+      if (trackingError) console.error("[whatsapp-test] Failed-test tracking insert failed", { code: trackingError.code || null });
+      return res.status(400).json({ error: `Meta refused the test: ${diagnostic}` });
+    }
 
     // A 200 from Meta means accepted, not delivered. Keep the returned wamid
     // so the messages webhook can advance this test to delivered/read/failed.
