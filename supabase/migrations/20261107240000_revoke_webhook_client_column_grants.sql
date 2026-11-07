@@ -25,7 +25,7 @@ BEGIN
       AND EXISTS (
         SELECT 1
         FROM unnest(COALESCE(p.proconfig, ARRAY[]::text[])) AS cfg(setting)
-        WHERE cfg.setting ILIKE 'search_path=%'
+        WHERE lower(regexp_replace(cfg.setting, '\s+', '', 'g')) LIKE 'search_path=%'
       )
   ) THEN
     RAISE EXCEPTION 'Could not verify a SECURITY DEFINER webhook dispatcher with fixed search_path; run supabase/verification/webhook-dispatcher-diagnostic.sql and inspect the trigger before retrying';
