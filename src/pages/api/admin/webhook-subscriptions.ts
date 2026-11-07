@@ -13,8 +13,8 @@ const EVENT_TYPES = new Set([
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   res.setHeader("Cache-Control", "private, no-store, max-age=0");
-  if (req.method !== "GET" && req.method !== "POST") {
-    res.setHeader("Allow", "GET, POST");
+  if (!["GET", "POST", "PATCH", "DELETE"].includes(String(req.method))) {
+    res.setHeader("Allow", "GET, POST, PATCH, DELETE");
     return res.status(405).json({ error: "Method not allowed" });
   }
   const actor = await requireActiveApiProfile(req, res, ADMIN_ROLES);
@@ -46,6 +46,38 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     } catch {
       return res.status(503).json({ error: "Could not load webhook settings" });
     }
+  }
+
+  if (req.method === "PATCH") {
+    const subscriptionId = String(req.body?.subscription_id || "");
+    if (!/^[0-9a-f-]{36}$/i.test(subscriptionId) || typeof req.body?.is_active !== "boolean") {
+      return res.status(400).json({ error: "A valid webhook ID and active state are required" });
+    }
+    const { data, error } = await admin.from("webhook_subscriptions")
+      .update({ is_active: req.body.is_active })
+      .eq("id", subscriptionId)
+      .eq("company_id", companyId)
+      .select("id")
+      .maybeSingle();
+    if (error) return res.status(503).json({ error: "Could not update webhook" });
+    if (!data) return res.status(404).json({ error: "Webhook not found" });
+    return res.status(200).json({ ok: true });
+  }
+
+  if (req.method === "DELETE") {
+    const subscriptionId = String(req.body?.subscription_id || "");
+    if (!/^[0-9a-f-]{36}$/i.test(subscriptionId)) {
+      return res.status(400).json({ error: "A valid webhook ID is required" });
+    }
+    const { data, error } = await admin.from("webhook_subscriptions")
+      .delete()
+      .eq("id", subscriptionId)
+      .eq("company_id", companyId)
+      .select("id")
+      .maybeSingle();
+    if (error) return res.status(503).json({ error: "Could not delete webhook" });
+    if (!data) return res.status(404).json({ error: "Webhook not found" });
+    return res.status(200).json({ ok: true });
   }
 
   const label = typeof req.body?.label === "string" ? req.body.label.trim().slice(0, 120) : "";

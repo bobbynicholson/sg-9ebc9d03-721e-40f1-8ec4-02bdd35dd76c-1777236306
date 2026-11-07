@@ -350,9 +350,15 @@ function IntegrationsPage() {
   };
 
   const toggleSub = async (id: string, is_active: boolean) => {
-    const { error } = await supabase.from("webhook_subscriptions").update({ is_active }).eq("id", id);
-    if (error) {
-      toast({ title: "Couldn't update webhook", description: dbErrorMessage(error, { entity: "webhook" }), variant: "destructive" });
+    const response = await fetch("/api/admin/webhook-subscriptions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ subscription_id: id, is_active }),
+    });
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      toast({ title: "Couldn't update webhook", description: result?.error || `HTTP ${response.status}`, variant: "destructive" });
       return;
     }
     toast({ title: is_active ? "Webhook resumed" : "Webhook paused" });
@@ -361,9 +367,15 @@ function IntegrationsPage() {
 
   const deleteSub = async (id: string) => {
     if (!confirm("Delete this webhook subscription?")) return;
-    const { error } = await supabase.from("webhook_subscriptions").delete().eq("id", id);
-    if (error) {
-      toast({ title: "Couldn't delete webhook", description: dbErrorMessage(error, { entity: "webhook" }), variant: "destructive" });
+    const response = await fetch("/api/admin/webhook-subscriptions", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ subscription_id: id }),
+    });
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      toast({ title: "Couldn't delete webhook", description: result?.error || `HTTP ${response.status}`, variant: "destructive" });
       return;
     }
     toast({ title: "Webhook deleted" });

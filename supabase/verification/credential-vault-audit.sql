@@ -256,19 +256,39 @@ BEGIN
 
     SELECT count(*) INTO v_count
     FROM (VALUES ('anon'), ('authenticated')) AS client_roles(role_name)
+    CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')) AS operations(privilege)
+    WHERE has_table_privilege(client_roles.role_name, 'public.webhook_subscriptions', operations.privilege);
+    SELECT v_count + count(*) INTO v_count
+    FROM pg_attribute AS a
+    CROSS JOIN (VALUES ('anon'), ('authenticated')) AS client_roles(role_name)
     CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE')) AS operations(privilege)
-    WHERE has_table_privilege(
-      client_roles.role_name,
-      'public.webhook_subscriptions',
-      operations.privilege
-    );
+    WHERE a.attrelid = 'public.webhook_subscriptions'::regclass
+      AND a.attnum > 0 AND NOT a.attisdropped
+      AND has_column_privilege(
+        client_roles.role_name,
+        'public.webhook_subscriptions',
+        a.attname,
+        operations.privilege
+      );
     INSERT INTO pg_temp.credential_vault_audit_results
     VALUES (
-      'Webhook subscriptions: client table-level read/write grants',
+      'Webhook subscriptions: client table/column privileges',
       CASE WHEN v_count = 0 THEN 'PASS' ELSE 'FAIL' END,
       v_count,
       '0',
-      'This diagnostic separates table-wide grants from protected-column grants.'
+      'Webhook configuration is managed through authenticated server APIs; browser roles need no direct grants.'
+    );
+
+    SELECT count(*) INTO v_count
+    FROM pg_policies AS p
+    WHERE p.schemaname = 'public' AND p.tablename = 'webhook_subscriptions';
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Webhook subscriptions: client RLS policies',
+      CASE WHEN v_count = 0 THEN 'PASS' ELSE 'FAIL' END,
+      v_count,
+      '0',
+      'The table is service-role-only; browser reads and writes use authenticated server APIs.'
     );
 
     SELECT count(*) INTO v_count
@@ -379,6 +399,18 @@ BEGIN
       v_count,
       'Encrypt after moving HMAC dispatch out of database triggers',
       'This column remains plaintext for database dispatch compatibility, although browser roles have no access.'
+    );
+
+    SELECT count(*) INTO v_count
+    FROM public.webhook_subscriptions
+    WHERE NULLIF(target_url, '') IS NOT NULL;
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Webhook target URLs: at-rest storage review',
+      'REVIEW',
+      v_count,
+      'Protect bearer-like URL components from database readers and backups',
+      'Client roles are blocked, but webhook URLs may contain bearer-like path or query values and remain plaintext in the database.'
     );
   END IF;
 
