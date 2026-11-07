@@ -5,9 +5,11 @@
  * their HMAC verification works.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
-import { createPagesServerClient } from "@/lib/supabase/server";
 import crypto from "node:crypto";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { requireActiveApiProfile } from "@/lib/requireActiveApiProfile";
+import { getServiceSupabase } from "@/lib/supabase/service";
+import { parsePublicWebhookUrl } from "@/lib/webhooks/validateTargetUrl";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -16,32 +18,25 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const supabase = createPagesServerClient({ req, res });
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return res.status(401).json({ error: "Not authenticated" });
+  const actor = await requireActiveApiProfile(req, res, new Set(["super_admin", "company_admin", "admin", "owner"]));
+  if (!actor) return;
+  const companyId = actor.profile.company_id;
+  if (!companyId) return res.status(403).json({ error: "Company access required" });
 
-  const { subscription_id } = req.body || {};
-  if (!subscription_id) return res.status(400).json({ error: "Missing subscription_id" });
+  const subscriptionId = String(req.body?.subscription_id || "");
+  if (!/^[0-9a-f-]{36}$/i.test(subscriptionId)) return res.status(400).json({ error: "Missing or invalid webhook ID" });
 
-  const { data: sub, error: subErr } = await supabase
+  const admin = getServiceSupabase();
+  const { data: sub, error: subErr } = await admin
     .from("webhook_subscriptions")
-    .select("*")
-    .eq("id", subscription_id)
+    .select("id, company_id, event_type, target_url, signing_secret, failure_count")
+    .eq("id", subscriptionId)
+    .eq("company_id", companyId)
     .single();
   if (subErr || !sub) return res.status(404).json({ error: "Webhook not found" });
 
-  // Verify caller is in the same company
-  const { data: profile, error: profileErr } = await supabase
-    .from("profiles")
-    .select("company_id, role")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (profileErr) {
-    console.error("[integrations/test-webhook] profiles fetch failed:", profileErr);
-  }
-  if (!profile || profile.company_id !== sub.company_id) {
-    return res.status(403).json({ error: "Not authorised for this webhook" });
-  }
+  const target = parsePublicWebhookUrl(String(sub.target_url || ""));
+  if (!target) return res.status(400).json({ error: "Webhook target must be a public HTTPS URL" });
 
   // Build a representative sample payload for the event type
   const sample = buildSample(sub.event_type);
@@ -62,7 +57,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   let response_body = "";
   let error_message: string | null = null;
   try {
-    const r = await fetch(sub.target_url, {
+    const r = await fetch(target.toString(), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -72,6 +67,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         "X-Cms-Test": "true",
       },
       body: bodyText,
+      redirect: "manual",
     });
     status_code = r.status;
     response_body = await r.text();
@@ -79,7 +75,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     error_message = dbErrorMessage(e) || "Network error";
   }
 
-  await supabase.from("webhook_deliveries").insert({
+  await admin.from("webhook_deliveries").insert({
     subscription_id: sub.id,
     company_id: sub.company_id,
     event_type: sub.event_type,
@@ -89,14 +85,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     error_message,
   });
 
-  await supabase
+  await admin
     .from("webhook_subscriptions")
     .update({
       last_fired_at: new Date().toISOString(),
       last_status: status_code,
-      failure_count: error_message ? sub.failure_count + 1 : sub.failure_count,
+      failure_count: error_message ? Number(sub.failure_count || 0) + 1 : Number(sub.failure_count || 0),
     })
-    .eq("id", sub.id);
+    .eq("id", sub.id)
+    .eq("company_id", companyId);
 
   if (error_message) return res.status(502).json({ error: error_message });
   return res.status(200).json({ status_code, response_body });

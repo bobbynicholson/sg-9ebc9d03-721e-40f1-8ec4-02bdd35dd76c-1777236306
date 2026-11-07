@@ -34,7 +34,8 @@ BEGIN
       ('platform_billing_credentials', 'Platform billing credential vault'),
       ('supplier_bank_details', 'Supplier bank detail vault'),
       ('payment_gateway_credentials', 'Payment gateway credential vault'),
-      ('payment_gateway_credential_versions', 'Checkout credential history vault')
+      ('payment_gateway_credential_versions', 'Checkout credential history vault'),
+      ('email_provider_credential_vault', 'Email provider credential vault')
     ) AS t(table_name, label)
   LOOP
     v_table := to_regclass(format('public.%I', r.table_name));
@@ -129,6 +130,7 @@ BEGIN
       ('companies', 'Company source table'),
       ('suppliers', 'Supplier source table'),
       ('integrations', 'Integration source table'),
+      ('email_provider_settings', 'Email provider source table'),
       ('accounting_integrations', 'Accounting integration table')
     ) AS t(table_name, label)
   LOOP
@@ -142,6 +144,168 @@ BEGIN
       ''
     );
   END LOOP;
+
+  IF to_regclass('public.email_provider_credential_vault') IS NOT NULL THEN
+    SELECT count(*) INTO v_count
+    FROM public.email_provider_credential_vault
+    WHERE jsonb_typeof(credentials) IS DISTINCT FROM 'object'
+       OR NOT (credentials ? '__encrypted_v1');
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Email provider rows missing encrypted envelope',
+      CASE WHEN v_count = 0 THEN 'PASS' ELSE 'FAIL' END,
+      v_count,
+      '0',
+      'Every stored email credential bundle must use the application encrypted envelope.'
+    );
+
+    SELECT count(*) INTO v_count
+    FROM public.email_provider_credential_vault
+    WHERE credentials->>'__encrypted_v1' !~ '^v[12]\.';
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Email provider rows with unrecognized ciphertext format',
+      CASE WHEN v_count = 0 THEN 'PASS' ELSE 'FAIL' END,
+      v_count,
+      '0',
+      'Only ciphertext version prefixes are inspected; values are not returned.'
+    );
+  END IF;
+
+  IF to_regclass('public.email_provider_settings') IS NOT NULL THEN
+    v_table := to_regclass('public.email_provider_settings');
+    SELECT c.relrowsecurity INTO v_rls FROM pg_class AS c WHERE c.oid = v_table;
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Email provider source table: RLS enabled',
+      CASE WHEN v_rls THEN 'PASS' ELSE 'FAIL' END,
+      CASE WHEN v_rls THEN 1 ELSE 0 END,
+      '1',
+      'Email provider metadata remains company-scoped.'
+    );
+
+    SELECT count(*) INTO v_count
+    FROM (VALUES ('anon'), ('authenticated')) AS client_roles(role_name)
+    CROSS JOIN (VALUES ('smtp_pass_encrypted'), ('mailchimp_api_key_encrypted'), ('oauth_refresh_token_encrypted')) AS secret_columns(column_name)
+    CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE')) AS operations(privilege)
+    WHERE has_column_privilege(
+      client_roles.role_name,
+      'public.email_provider_settings',
+      secret_columns.column_name,
+      operations.privilege
+    );
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Email provider legacy secrets: client column privileges',
+      CASE WHEN v_count = 0 THEN 'PASS' ELSE 'FAIL' END,
+      v_count,
+      '0',
+      'Browser roles must use the authenticated server API; legacy credential columns are service-only.'
+    );
+
+    SELECT count(*) INTO v_count
+    FROM public.email_provider_settings
+    WHERE NULLIF(smtp_pass_encrypted, '') IS NOT NULL
+       OR NULLIF(mailchimp_api_key_encrypted, '') IS NOT NULL
+       OR NULLIF(oauth_refresh_token_encrypted, '') IS NOT NULL;
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Legacy email provider credentials remaining',
+      CASE WHEN v_count = 0 THEN 'PASS' ELSE 'FAIL' END,
+      v_count,
+      '0 after email credential backfill',
+      'Legacy SMTP, Mailchimp, and email OAuth credential columns must be empty after vault migration.'
+    );
+  END IF;
+
+  v_table := to_regclass('public.webhook_subscriptions');
+  IF v_table IS NULL THEN
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES ('Webhook subscriptions: table exists', 'FAIL', 0, '1', 'Required webhook table is missing.');
+  ELSE
+    SELECT c.relrowsecurity INTO v_rls FROM pg_class AS c WHERE c.oid = v_table;
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Webhook subscriptions: RLS enabled',
+      CASE WHEN v_rls THEN 'PASS' ELSE 'FAIL' END,
+      CASE WHEN v_rls THEN 1 ELSE 0 END,
+      '1',
+      'Company-scoped webhook metadata must remain behind RLS.'
+    );
+
+    SELECT count(*) INTO v_count
+    FROM (VALUES ('anon'), ('authenticated')) AS client_roles(role_name)
+    CROSS JOIN (VALUES ('signing_secret'), ('target_url')) AS protected_columns(column_name)
+    CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE')) AS operations(privilege)
+    WHERE has_column_privilege(
+      client_roles.role_name,
+      'public.webhook_subscriptions',
+      protected_columns.column_name,
+      operations.privilege
+    );
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Webhook credential columns: client privileges',
+      CASE WHEN v_count = 0 THEN 'PASS' ELSE 'FAIL' END,
+      v_count,
+      '0',
+      'Client roles must not read, insert, or change the HMAC secret or bearer-like target URL.'
+    );
+
+    SELECT count(*) INTO v_count
+    FROM public.webhook_subscriptions
+    WHERE NULLIF(signing_secret, '') IS NOT NULL;
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Webhook signing secret: at-rest storage review',
+      'REVIEW',
+      v_count,
+      'Encrypt after moving HMAC dispatch out of database triggers',
+      'This column remains plaintext for database dispatch compatibility, although browser roles have no access.'
+    );
+  END IF;
+
+  v_table := to_regclass('public.integrations');
+  IF v_table IS NOT NULL THEN
+    SELECT count(*) INTO v_count
+    FROM (VALUES ('anon'), ('authenticated')) AS client_roles(role_name)
+    CROSS JOIN (VALUES ('access_token'), ('refresh_token'), ('credentials')) AS secret_columns(column_name)
+    CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE')) AS operations(privilege)
+    WHERE has_column_privilege(
+      client_roles.role_name,
+      'public.integrations',
+      secret_columns.column_name,
+      operations.privilege
+    );
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Integration credential source: client column privileges',
+      CASE WHEN v_count = 0 THEN 'PASS' ELSE 'FAIL' END,
+      v_count,
+      '0',
+      'Client roles must not access legacy integration access tokens, refresh tokens, or credential JSON.'
+    );
+
+    SELECT count(*) INTO v_count
+    FROM public.integrations
+    WHERE NULLIF(access_token, '') IS NOT NULL
+       OR NULLIF(refresh_token, '') IS NOT NULL
+       OR COALESCE(credentials, '{}'::jsonb) ?| ARRAY[
+         'accessToken', 'refreshToken', 'clientSecret', 'client_secret', 'apiKey', 'api_key',
+         'secret', 'secretKey', 'appSecret', 'accessTokenEncrypted', 'appSecretEncrypted'
+       ]
+       OR COALESCE(settings, '{}'::jsonb) ?| ARRAY[
+         'webhookVerifyToken', 'webhookVerifyTokenEncrypted', 'webhookVerifyTokenHash'
+       ];
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Legacy integration token copies remaining',
+      CASE WHEN v_count = 0 THEN 'PASS' ELSE 'FAIL' END,
+      v_count,
+      '0 after provider-specific migration',
+      'Counts only; raw integrations token columns and known secret JSON keys must be cleared.'
+    );
+  END IF;
 
   -- Exact plaintext/backfill conditions guarded by the billing cleanup
   -- migration. Optional legacy columns may already have been dropped.
@@ -265,9 +429,9 @@ BEGIN
     );
   END IF;
 
-  -- Accounting OAuth tokens are stored in a company-scoped table. New values
-  -- use the same versioned encryption, while older rows may still be raw
-  -- base64 and will be rewritten on refresh. Count only; never return tokens.
+  -- Accounting OAuth tokens are service-only. New values use the versioned
+  -- encryption, while older rows may still be raw base64 and will be rewritten
+  -- on refresh. Count only; never return tokens.
   IF to_regclass('public.accounting_integrations') IS NOT NULL THEN
     SELECT c.relrowsecurity INTO v_rls
     FROM pg_class AS c
@@ -278,7 +442,57 @@ BEGIN
       CASE WHEN v_rls THEN 'PASS' ELSE 'FAIL' END,
       CASE WHEN v_rls THEN 1 ELSE 0 END,
       '1',
-      'Accounting tokens are company-scoped and must remain behind RLS.'
+      'Token rows are server-only and must remain behind RLS.'
+    );
+
+    SELECT count(*) INTO v_count
+    FROM pg_policies AS p
+    WHERE p.schemaname = 'public' AND p.tablename = 'accounting_integrations';
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Accounting integration token table: RLS policies',
+      CASE WHEN v_count = 0 THEN 'PASS' ELSE 'FAIL' END,
+      v_count,
+      '0',
+      'Service-role API routes bypass RLS; no client policy is needed.'
+    );
+
+    SELECT count(*) INTO v_count
+    FROM (
+      SELECT acl.grantee
+      FROM pg_class AS c
+      CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) AS acl
+      WHERE c.oid = 'public.accounting_integrations'::regclass
+      UNION ALL
+      SELECT acl.grantee
+      FROM pg_attribute AS a
+      CROSS JOIN LATERAL aclexplode(a.attacl) AS acl
+      WHERE a.attrelid = 'public.accounting_integrations'::regclass
+        AND a.attnum > 0 AND NOT a.attisdropped
+    ) AS grants
+    WHERE grants.grantee = 0
+       OR grants.grantee IN (SELECT oid FROM pg_roles WHERE rolname IN ('anon', 'authenticated'));
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Accounting integration token table: PUBLIC/anon/authenticated grants',
+      CASE WHEN v_count = 0 THEN 'PASS' ELSE 'FAIL' END,
+      v_count,
+      '0',
+      'No client or public privileges should remain on encrypted OAuth tokens.'
+    );
+
+    SELECT has_table_privilege('service_role', 'public.accounting_integrations', 'SELECT')
+       AND has_table_privilege('service_role', 'public.accounting_integrations', 'INSERT')
+       AND has_table_privilege('service_role', 'public.accounting_integrations', 'UPDATE')
+       AND has_table_privilege('service_role', 'public.accounting_integrations', 'DELETE')
+    INTO v_service_role_access;
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Accounting integration token table: service_role read/write access',
+      CASE WHEN v_service_role_access THEN 'PASS' ELSE 'FAIL' END,
+      CASE WHEN v_service_role_access THEN 1 ELSE 0 END,
+      '1',
+      'Only trusted server code needs CRUD access to accounting tokens.'
     );
 
     SELECT count(*) INTO v_count FROM public.accounting_integrations;
@@ -302,8 +516,49 @@ BEGIN
     );
   END IF;
 
+  IF to_regclass('public.profiles') IS NOT NULL AND to_regclass('public.companies') IS NOT NULL THEN
+    SELECT count(*) INTO v_count
+    FROM public.profiles AS p
+    JOIN public.companies AS c ON c.id = p.company_id
+    WHERE c.slug = 'test-company'
+      AND lower(p.email) IN (
+        'admin@test-company.com',
+        'driver@test-company.com',
+        'kitchen@test-company.com',
+        'shopping@test-company.com',
+        'cleaning@test-company.com',
+        'client@test-company.com'
+      )
+      AND p.is_active IS DISTINCT FROM false;
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Public demo accounts still active',
+      CASE WHEN v_count = 0 THEN 'PASS' ELSE 'FAIL' END,
+      v_count,
+      '0',
+      'Disable the known demo users because their reusable passwords were previously published on /demo.'
+    );
+  END IF;
+
   IF to_regclass('public.integrations') IS NOT NULL
      AND to_regclass('public.whatsapp_credential_vault') IS NOT NULL THEN
+    IF to_regclass('public.companies') IS NOT NULL THEN
+      SELECT count(*) INTO v_count
+      FROM public.integrations AS i
+      JOIN public.companies AS c ON c.id = i.company_id
+      WHERE c.slug = 'test-company'
+        AND i.integration_type = 'whatsapp'
+        AND i.is_active = true;
+      INSERT INTO pg_temp.credential_vault_audit_results
+      VALUES (
+        'Test Company active WhatsApp integrations',
+        CASE WHEN v_count = 0 THEN 'PASS' ELSE 'FAIL' END,
+        v_count,
+        '0',
+        'Public demo accounts must not be able to send through a real WhatsApp integration.'
+      );
+    END IF;
+
     SELECT count(*) INTO v_count
     FROM public.integrations AS i
     WHERE i.integration_type = 'whatsapp'
@@ -415,7 +670,7 @@ BEGIN
     END,
     v_count,
     '0 FAIL checks',
-    'Database-only result. It cannot prove Vercel key availability or successful application decryption.'
+    'Database-only result. It cannot prove application key availability or successful runtime decryption.'
   );
 END
 $audit$;

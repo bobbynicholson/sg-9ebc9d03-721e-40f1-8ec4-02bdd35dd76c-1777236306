@@ -167,6 +167,7 @@ function EmailSettingsPage() {
   const [queueReviewError, setQueueReviewError] = useState<string | null>(null);
   const [sendingQueueId, setSendingQueueId] = useState<string | null>(null);
   const [smtpPass, setSmtpPass] = useState("");
+  const [smtpPasswordConfigured, setSmtpPasswordConfigured] = useState(false);
   const [mailchimpApiKey, setMailchimpApiKey] = useState("");
   const [mailchimpAudienceId, setMailchimpAudienceId] = useState("");
   const [mailchimpConfigured, setMailchimpConfigured] = useState(false);
@@ -214,7 +215,7 @@ function EmailSettingsPage() {
         // cleanly. Save path is unaffected (it filters by provider).
         supabase
           .from("email_provider_settings")
-          .select("*")
+          .select("id, company_id, provider, from_email, from_name, archive_copy_email, smtp_host, smtp_port, smtp_user, smtp_secure, oauth_account_email, daily_send_cap, is_verified, last_test_sent_at, last_test_error, auto_attach_on_quote_sent, auto_attach_on_order_confirmed, auto_attach_on_order_status_change, magic_link_repeat_customers, magic_link_repeat_threshold, revoke_old_links_on_new, automation_preferences, updated_at")
           .eq("company_id", companyId)
           .neq("provider", "mailchimp")
           .order("updated_at", { ascending: false })
@@ -302,7 +303,7 @@ function EmailSettingsPage() {
       // Mailchimp row
       const { data: mc, error: mcError } = await supabase
         .from("email_provider_settings")
-        .select("mailchimp_audience_id, mailchimp_api_key_encrypted")
+        .select("mailchimp_audience_id")
         .eq("company_id", companyId)
         .eq("provider", "mailchimp")
         .maybeSingle();
@@ -313,7 +314,17 @@ function EmailSettingsPage() {
       }
       if (mc) {
         setMailchimpAudienceId(mc.mailchimp_audience_id || "");
-        setMailchimpConfigured(!!mc.mailchimp_api_key_encrypted);
+      }
+      try {
+        const credentialResponse = await fetch("/api/admin/email-provider-credentials");
+        if (!credentialResponse.ok) throw new Error("Credential status unavailable");
+        const credentialStatus = await credentialResponse.json();
+        setSmtpPasswordConfigured(!!credentialStatus?.credentials?.smtp?.configured);
+        setMailchimpConfigured(!!credentialStatus?.credentials?.mailchimp?.configured);
+      } catch (credentialError) {
+        captureException(credentialError, {
+          tags: { route: "/admin/email-settings", step: "load-credential-status", companyId },
+        });
       }
 
       // ES-B (task #221, 2026-05-25): pull the last 7 days of
@@ -386,12 +397,12 @@ function EmailSettingsPage() {
       // again" without any indication why [P1-04].
       const { data: existing } = await supabase
         .from("email_provider_settings")
-        .select("provider, from_email, from_name, smtp_host, smtp_port, smtp_user, smtp_pass_encrypted, is_verified")
+        .select("provider, from_email, from_name, smtp_host, smtp_port, smtp_user, is_verified")
         .eq("company_id", companyId)
         .eq("provider", row.provider)
         .maybeSingle();
 
-      if (row.provider === "smtp" && !smtpPass && !(existing as any)?.smtp_pass_encrypted) {
+      if (row.provider === "smtp" && !smtpPass && !smtpPasswordConfigured) {
         toast({ title: "Enter the SMTP password", description: "A new SMTP sender needs its password before it can send mail.", variant: "destructive" });
         return false;
       }
@@ -417,7 +428,6 @@ function EmailSettingsPage() {
         smtp_host: row.provider === "smtp" ? row.smtp_host : null,
         smtp_port: row.provider === "smtp" ? row.smtp_port : null,
         smtp_user: row.provider === "smtp" ? row.smtp_user : null,
-        smtp_pass_encrypted: row.provider === "smtp" && smtpPass ? smtpPass : undefined,
         smtp_secure: row.smtp_secure,
         daily_send_cap: row.daily_send_cap,
         // Preserve existing verification when the save only touches
@@ -439,6 +449,19 @@ function EmailSettingsPage() {
         .from("email_provider_settings")
         .upsert(payload, { onConflict: "company_id,provider" });
       if (error) throw error;
+      if (row.provider === "smtp" && smtpPass) {
+        const credentialResponse = await fetch("/api/admin/email-provider-credentials", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: "smtp", secret: smtpPass }),
+        });
+        if (!credentialResponse.ok) {
+          const result = await credentialResponse.json().catch(() => ({}));
+          throw new Error(result?.error || "Could not save the encrypted SMTP password");
+        }
+        setSmtpPass("");
+        setSmtpPasswordConfigured(true);
+      }
       // Snapshot the saved form state so hasUnsavedChanges goes back
       // to false. Without this the test-email button keeps blocking
       // with "save first" even after a successful save.
@@ -606,11 +629,21 @@ function EmailSettingsPage() {
         .upsert({
           company_id: companyId,
           provider: "mailchimp",
-          mailchimp_api_key_encrypted: mailchimpApiKey || undefined,
           mailchimp_audience_id: audienceId,
           updated_at: new Date().toISOString(),
         }, { onConflict: "company_id,provider" });
       if (error) throw error;
+      if (mailchimpApiKey.trim()) {
+        const credentialResponse = await fetch("/api/admin/email-provider-credentials", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: "mailchimp", secret: mailchimpApiKey.trim() }),
+        });
+        if (!credentialResponse.ok) {
+          const result = await credentialResponse.json().catch(() => ({}));
+          throw new Error(result?.error || "Could not save the encrypted Mailchimp key");
+        }
+      }
       setMailchimpApiKey(""); // clear local field after save
       setMailchimpConfigured(true);
       toast({ title: "Mailchimp details saved", description: "The API key and Audience ID are stored for the Mailchimp integration. CateringMS transactional emails still use the selected sender above; bulk campaign sending is not active yet." });

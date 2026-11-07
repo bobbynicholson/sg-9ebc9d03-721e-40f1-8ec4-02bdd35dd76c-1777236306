@@ -380,7 +380,7 @@ export const emailService = {
     const sb = client || supabase;
     const { data, error } = await sb
       .from("email_provider_settings")
-      .select("id, company_id, provider, from_email, from_name, archive_copy_email, smtp_host, smtp_port, smtp_user, smtp_pass_encrypted, smtp_secure, is_verified, resend_domain_id, resend_sending_domain, resend_domain_status, resend_domain_verified_at, resend_dns_records, force_platform_sender, created_at, updated_at")
+      .select("id, company_id, provider, from_email, from_name, archive_copy_email, smtp_host, smtp_port, smtp_user, smtp_secure, is_verified, resend_domain_id, resend_sending_domain, resend_domain_status, resend_domain_verified_at, resend_dns_records, force_platform_sender, created_at, updated_at")
       .eq("company_id", companyId)
       .neq("provider", "mailchimp")
       .order("is_verified", { ascending: false })
@@ -398,6 +398,23 @@ export const emailService = {
     }
 
     const port = (data as any).smtp_port ? parseInt(String((data as any).smtp_port), 10) : null;
+    let smtpPassword: string | null = null;
+    if ((data as any).provider === "smtp") {
+      if (typeof window !== "undefined") {
+        throw new Error("SMTP credentials may only be read by server-side email delivery");
+      }
+      try {
+        // Dynamic loading keeps the service-role client out of browser
+        // bundles that import email-related formatting helpers.
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { moveLegacyEmailProviderCredentials } = require("@/lib/email/providerCredentials");
+        const credentials = await moveLegacyEmailProviderCredentials(companyId, "smtp");
+        smtpPassword = credentials.smtpPassword || null;
+      } catch (credentialError) {
+        console.error("Could not load encrypted SMTP credentials for email delivery");
+        throw credentialError;
+      }
+    }
     return {
       id: (data as any).id,
       company_id: (data as any).company_id,
@@ -412,10 +429,7 @@ export const emailService = {
       smtp_host: (data as any).smtp_host,
       smtp_port: port && !isNaN(port) ? port : null,
       smtp_user: (data as any).smtp_user,
-      // Column is NAMED "encrypted" but the UI stores raw text - legacy
-      // misnomer. Read as-is. If we ever wire pgcrypto, the decrypt
-      // happens at the SQL layer and this stays a plain text string.
-      smtp_password: (data as any).smtp_pass_encrypted || null,
+      smtp_password: smtpPassword,
       smtp_secure: (data as any).smtp_secure,
       is_verified: (data as any).is_verified,
       resend_domain_id: (data as any).resend_domain_id || null,

@@ -9,8 +9,9 @@ const SECRET_KEYS = new Set([
   "authorization", "proxyauthorization", "cookie", "setcookie",
   "connectionstring", "databaseurl", "smtpurl",
   "merchantkey", "encryptionkey", "smtppass",
+  "targeturl",
 ]);
-const SECRET_LABEL = String.raw`(?:[a-z\d_.-]*(?:password|passphrase|token|secret|credential|api[_.-]?key|private[_.-]?key|signing[_.-]?key|signature)[a-z\d_.-]*|t|key|code|state|pin|otp|passwd|pwd|authorization|proxy[_.-]?authorization|cookie|set[_.-]?cookie|connection[_.-]?string|database[_.-]?url|smtp[_.-]?(?:url|pass)|merchant[_.-]?key|encryption[_.-]?key)`;
+const SECRET_LABEL = String.raw`(?:[a-z\d_.-]*(?:password|passphrase|token|secret|credential|api[_.-]?key|private[_.-]?key|signing[_.-]?key|signature)[a-z\d_.-]*|t|key|code|state|pin|otp|passwd|pwd|authorization|proxy[_.-]?authorization|cookie|set[_.-]?cookie|connection[_.-]?string|database[_.-]?url|smtp[_.-]?(?:url|pass)|merchant[_.-]?key|encryption[_.-]?key|target[_.-]?url)`;
 const SECRET_ASSIGNMENT = new RegExp(
   String.raw`(^|[^a-z\d_.-])(["']?)(${SECRET_LABEL})(\2\s*[:=]\s*)(\[REDACTED\]|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^,\r\n;}\]]+)`, "gi",
 );

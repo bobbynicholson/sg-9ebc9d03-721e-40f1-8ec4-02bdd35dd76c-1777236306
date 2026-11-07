@@ -5,7 +5,6 @@ import { buildPayInvoiceUrlServer, mintOrderCustomerLink } from "@/lib/customerL
 
 export interface WhatsAppConfig {
   phoneNumberId: string;
-  accessToken: string;
   businessAccountId: string;
   connected: boolean;
 }
@@ -355,30 +354,17 @@ export const whatsappIntegrationService = {
 
   async getWhatsAppConnection(): Promise<WhatsAppConfig | null> {
     try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user?.user) return null;
-
-      const { data: integration, error: integrationErr } = await supabase
-        .from("integrations")
-        .select("*")
-        .eq("user_id", user.user.id)
-        .eq("integration_type", "whatsapp")
-        .eq("is_active", true)
-        .single();
-      if (integrationErr && (integrationErr as any).code !== "PGRST116") console.error("[whatsappIntegrationService/getWhatsAppConnection] integrations lookup failed:", integrationErr);
-
-      if (!integration) return null;
-
-      const credentials = integration.credentials as any;
-
+      const response = await fetch("/api/admin/whatsapp/settings", { credentials: "same-origin" });
+      if (!response.ok) return null;
+      const result = await response.json();
+      if (!result?.connected || !result.phoneNumberId || !result.businessAccountId) return null;
       return {
-        phoneNumberId: credentials.phoneNumberId,
-        accessToken: credentials.accessToken,
-        businessAccountId: credentials.businessAccountId,
-        connected: integration.is_active
+        phoneNumberId: String(result.phoneNumberId),
+        businessAccountId: String(result.businessAccountId),
+        connected: true,
       };
     } catch (error) {
-      console.error("Error getting WhatsApp connection:", error);
+      console.error("Could not check WhatsApp connection status");
       return null;
     }
   }

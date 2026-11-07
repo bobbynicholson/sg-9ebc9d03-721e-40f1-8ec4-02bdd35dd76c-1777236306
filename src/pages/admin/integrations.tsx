@@ -47,7 +47,7 @@ import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { generateApiKey, generateWebhookSecret } from "@/lib/apiKeys";
+import { generateApiKey } from "@/lib/apiKeys";
 
 interface ApiKey {
   id: string;
@@ -64,8 +64,7 @@ interface WebhookSub {
   id: string;
   label: string | null;
   event_type: string;
-  target_url: string;
-  signing_secret: string;
+  target_host: string | null;
   is_active: boolean;
   last_fired_at: string | null;
   last_status: number | null;
@@ -243,23 +242,35 @@ function IntegrationsPage() {
 
   const reload = async () => {
     if (!companyId) return;
-    const [keysRes, subsRes] = await Promise.all([
+    const [keysRes, subsResponse] = await Promise.all([
       supabase.from("api_keys").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
-      supabase.from("webhook_subscriptions").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
+      fetch("/api/admin/webhook-subscriptions"),
     ]);
+    let webhookRows: WebhookSub[] = [];
+    let webhookError: Error | null = null;
+    if (!subsResponse.ok) {
+      webhookError = new Error(`HTTP ${subsResponse.status}`);
+    } else {
+      try {
+        const result = await subsResponse.json();
+        webhookRows = result.webhooks || [];
+      } catch {
+        webhookError = new Error("Invalid webhook response");
+      }
+    }
     // Silent-failure audit: either query dying used to leave an empty
     // table that read as "no keys / no webhooks yet". Surface it.
-    const failed = keysRes.error || subsRes.error;
+    const failed = keysRes.error || webhookError;
     if (failed) {
       captureException(failed, {
-        tags: { route: "/admin/integrations", step: "load-keys-and-webhooks", companyId },
+        tags: { route: "/admin/integrations", step: keysRes.error ? "load-api-keys" : "load-webhooks", companyId },
       });
       setLoadError(dbErrorMessage(failed, { entity: keysRes.error ? "API keys" : "webhooks" }));
     } else {
       setLoadError(null);
     }
     setKeys(keysRes.data || []);
-    setSubs(subsRes.data || []);
+    setSubs(webhookRows);
     setLoading(false);
   };
 
@@ -310,31 +321,27 @@ function IntegrationsPage() {
 
   const createSub = async () => {
     if (!companyId || !newSub.target_url.trim() || !newSub.event_type) return;
-    // Edge case: a pasted URL missing its scheme (or a non-URL string)
-    // would be accepted, stored, and then fail on every dispatch with a
-    // confusing pg_net error. Catch it here with a clear message.
+    // Only public HTTPS destinations are accepted for webhook delivery.
     const targetUrl = newSub.target_url.trim();
-    if (!/^https?:\/\/.+\..+/i.test(targetUrl)) {
+    if (!/^https:\/\/.+\..+/i.test(targetUrl)) {
       toast({
         title: "Check the target URL",
-        description: "It must be a full URL starting with https:// (for example a Zapier catch-hook URL).",
+        description: "Use a public HTTPS URL (for example a Zapier catch-hook URL).",
         variant: "destructive",
       });
       return;
     }
-    const secret = generateWebhookSecret();
-    const { error } = await supabase.from("webhook_subscriptions").insert({
-      company_id: companyId,
-      label: newSub.label || null,
-      event_type: newSub.event_type,
-      target_url: targetUrl,
-      signing_secret: secret,
+    const response = await fetch("/api/admin/webhook-subscriptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label: newSub.label, event_type: newSub.event_type, target_url: targetUrl }),
     });
-    if (error) {
-      captureException(error, {
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      captureException(new Error(result?.error || `HTTP ${response.status}`), {
         tags: { route: "/admin/integrations", step: "create-webhook", companyId },
       });
-      toast({ title: "Couldn't save webhook", description: dbErrorMessage(error, { entity: "webhook" }), variant: "destructive" });
+      toast({ title: "Couldn't save webhook", description: result?.error || "Check the URL and try again.", variant: "destructive" });
       return;
     }
     setNewSub({ label: "", event_type: "lead.created", target_url: "" });
@@ -710,8 +717,8 @@ function IntegrationsPage() {
                             <Badge variant="outline" className="font-mono text-[11px]">{s.event_type}</Badge>
                           </td>
                           <td className="py-3 max-w-xs">
-                            <div className="text-xs font-mono text-slate-600 truncate" title={s.target_url}>
-                              {s.target_url}
+                            <div className="text-xs font-mono text-slate-600 truncate" title={s.target_host || "Target unavailable"}>
+                              {s.target_host || "Target unavailable"}
                             </div>
                           </td>
                           <td className="py-3 text-xs text-slate-500">

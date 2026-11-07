@@ -12,11 +12,10 @@ function randomBase62(len: number): string {
   const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   // Web Crypto in browser, node:crypto on server.
   const bytes = new Uint8Array(len);
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-    crypto.getRandomValues(bytes);
-  } else {
-    for (let i = 0; i < len; i++) bytes[i] = Math.floor(Math.random() * 256);
+  if (typeof crypto === "undefined" || !crypto.getRandomValues) {
+    throw new Error("Secure random number generation is unavailable");
   }
+  crypto.getRandomValues(bytes);
   let out = "";
   for (let i = 0; i < len; i++) out += ALPHA[bytes[i] % ALPHA.length];
   return out;
