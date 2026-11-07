@@ -28,7 +28,7 @@ BEGIN
         WHERE cfg.setting ILIKE 'search_path=%'
       )
   ) THEN
-    RAISE EXCEPTION 'Could not verify a SECURITY DEFINER webhook dispatcher with fixed search_path';
+    RAISE EXCEPTION 'Could not verify a SECURITY DEFINER webhook dispatcher with fixed search_path; run supabase/verification/webhook-dispatcher-diagnostic.sql and inspect the trigger before retrying';
   END IF;
 
   SELECT string_agg(format('%I', column_name), ', ' ORDER BY ordinal_position)
