@@ -13,25 +13,57 @@ BEGIN
     RAISE EXCEPTION 'webhook_subscriptions is missing';
   END IF;
 
-  -- The event trigger must already read and sign as a tightly controlled
-  -- SECURITY DEFINER function. If its source is not visible here, stop and
-  -- inspect the live trigger before removing client column grants.
+  -- The event trigger wrappers call dispatch_webhook; the helper reads and
+  -- signs subscriptions. Verify both sides of that chain before revoking
+  -- client grants. Checking the wrapper body for table/column names is too
+  -- strict because those names are intentionally confined to the helper.
   IF NOT EXISTS (
     SELECT 1
-    FROM pg_proc AS p
-    JOIN pg_namespace AS n ON n.oid = p.pronamespace
-    JOIN pg_trigger AS t ON t.tgfoid = p.oid AND NOT t.tgisinternal
-    WHERE n.nspname = 'public'
-      AND p.prosecdef IS TRUE
-      AND p.prosrc ILIKE '%webhook_subscriptions%'
-      AND p.prosrc ILIKE '%signing_secret%'
+    FROM pg_proc AS helper
+    WHERE helper.oid = to_regprocedure('public.dispatch_webhook(uuid, text, jsonb)')
+      AND helper.prosecdef IS TRUE
+      AND helper.prosrc ILIKE '%webhook_subscriptions%'
+      AND helper.prosrc ILIKE '%signing_secret%'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM aclexplode(COALESCE(helper.proacl, acldefault('f', helper.proowner))) AS acl
+        WHERE acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'
+      )
+      AND NOT has_function_privilege('anon', helper.oid, 'EXECUTE')
+      AND NOT has_function_privilege('authenticated', helper.oid, 'EXECUTE')
       AND EXISTS (
         SELECT 1
-        FROM unnest(COALESCE(p.proconfig, ARRAY[]::text[])) AS cfg(setting)
-        WHERE cfg.setting ILIKE 'search_path=%'
+        FROM unnest(COALESCE(helper.proconfig, ARRAY[]::text[])) AS cfg(setting)
+        WHERE lower(regexp_replace(cfg.setting, '\s+', '', 'g')) LIKE 'search_path=%'
+      )
+  ) OR NOT EXISTS (
+    SELECT 1
+    FROM pg_trigger AS trigger_row
+    JOIN pg_proc AS wrapper ON wrapper.oid = trigger_row.tgfoid
+    WHERE NOT trigger_row.tgisinternal
+      AND wrapper.prosrc ILIKE '%dispatch_webhook%'
+      AND wrapper.prosecdef IS TRUE
+      AND EXISTS (
+        SELECT 1
+        FROM unnest(COALESCE(wrapper.proconfig, ARRAY[]::text[])) AS cfg(setting)
+        WHERE lower(regexp_replace(cfg.setting, '\s+', '', 'g')) LIKE 'search_path=%'
+      )
+  ) OR EXISTS (
+    SELECT 1
+    FROM pg_trigger AS trigger_row
+    JOIN pg_proc AS wrapper ON wrapper.oid = trigger_row.tgfoid
+    WHERE NOT trigger_row.tgisinternal
+      AND wrapper.prosrc ILIKE '%dispatch_webhook%'
+      AND (
+        wrapper.prosecdef IS DISTINCT FROM TRUE
+        OR NOT EXISTS (
+          SELECT 1
+          FROM unnest(COALESCE(wrapper.proconfig, ARRAY[]::text[])) AS cfg(setting)
+          WHERE lower(regexp_replace(cfg.setting, '\s+', '', 'g')) LIKE 'search_path=%'
+        )
       )
   ) THEN
-    RAISE EXCEPTION 'Could not verify a SECURITY DEFINER webhook dispatcher with a fixed search_path; inspect the live trigger before applying client grant changes';
+    RAISE EXCEPTION 'Could not verify the protected dispatch_webhook helper/trigger chain; run supabase/verification/webhook-dispatcher-diagnostic.sql before retrying';
   END IF;
 
   SELECT string_agg(format('%I', column_name), ', ' ORDER BY ordinal_position)

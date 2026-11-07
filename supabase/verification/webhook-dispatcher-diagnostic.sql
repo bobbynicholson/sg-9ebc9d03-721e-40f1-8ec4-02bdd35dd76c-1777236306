@@ -2,41 +2,48 @@
 -- Returns trigger/function metadata and booleans only; it never returns
 -- function source code or webhook secrets.
 
+-- Trigger wrappers should call the protected dispatch_webhook helper,
+-- run SECURITY DEFINER, and have a pinned search_path.
 SELECT
   trigger_ns.nspname AS trigger_schema,
   trigger_table.relname AS trigger_table,
   trigger_row.tgname AS trigger_name,
   function_ns.nspname AS function_schema,
-  function_row.proname AS function_name,
-  function_row.prosecdef AS security_definer,
-  COALESCE(function_row.proconfig, ARRAY[]::text[]) AS function_settings,
-  function_row.prosrc ILIKE '%webhook_subscriptions%' AS mentions_subscription_table,
-  function_row.prosrc ILIKE '%signing_secret%' AS mentions_signing_secret,
+  wrapper.proname AS function_name,
+  wrapper.prosecdef AS security_definer,
+  COALESCE(wrapper.proconfig, ARRAY[]::text[]) AS function_settings,
+  wrapper.prosrc ILIKE '%dispatch_webhook%' AS calls_dispatch_webhook,
   EXISTS (
     SELECT 1
-    FROM unnest(COALESCE(function_row.proconfig, ARRAY[]::text[])) AS cfg(setting)
+    FROM unnest(COALESCE(wrapper.proconfig, ARRAY[]::text[])) AS cfg(setting)
     WHERE lower(regexp_replace(cfg.setting, '\s+', '', 'g')) LIKE 'search_path=%'
-  ) AS has_fixed_search_path,
-  (
-    function_row.prosecdef IS TRUE
-    AND function_row.prosrc ILIKE '%webhook_subscriptions%'
-    AND function_row.prosrc ILIKE '%signing_secret%'
-    AND EXISTS (
-      SELECT 1
-      FROM unnest(COALESCE(function_row.proconfig, ARRAY[]::text[])) AS cfg(setting)
-      WHERE lower(regexp_replace(cfg.setting, '\s+', '', 'g')) LIKE 'search_path=%'
-    )
-  ) AS matches_current_migration_guard
+  ) AS has_fixed_search_path
 FROM pg_trigger AS trigger_row
 JOIN pg_class AS trigger_table ON trigger_table.oid = trigger_row.tgrelid
 JOIN pg_namespace AS trigger_ns ON trigger_ns.oid = trigger_table.relnamespace
-JOIN pg_proc AS function_row ON function_row.oid = trigger_row.tgfoid
-JOIN pg_namespace AS function_ns ON function_ns.oid = function_row.pronamespace
+JOIN pg_proc AS wrapper ON wrapper.oid = trigger_row.tgfoid
+JOIN pg_namespace AS function_ns ON function_ns.oid = wrapper.pronamespace
 WHERE NOT trigger_row.tgisinternal
-  AND (
-    trigger_row.tgname ILIKE '%webhook%'
-    OR function_row.proname ILIKE '%webhook%'
-    OR function_row.prosrc ILIKE '%webhook%'
-    OR function_row.prosrc ILIKE '%signing_secret%'
-  )
+  AND wrapper.prosrc ILIKE '%dispatch_webhook%'
 ORDER BY trigger_ns.nspname, trigger_table.relname, trigger_row.tgname;
+
+-- The helper itself should read/sign subscriptions, be protected, and not
+-- be callable by anon/authenticated roles.
+SELECT
+  n.nspname AS function_schema,
+  p.proname AS function_name,
+  pg_get_function_identity_arguments(p.oid) AS arguments,
+  p.prosecdef AS security_definer,
+  COALESCE(p.proconfig, ARRAY[]::text[]) AS function_settings,
+  p.prosrc ILIKE '%webhook_subscriptions%' AS mentions_subscription_table,
+  p.prosrc ILIKE '%signing_secret%' AS mentions_signing_secret,
+  EXISTS (
+    SELECT 1
+    FROM unnest(COALESCE(p.proconfig, ARRAY[]::text[])) AS cfg(setting)
+    WHERE lower(regexp_replace(cfg.setting, '\s+', '', 'g')) LIKE 'search_path=%'
+  ) AS has_fixed_search_path,
+  has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_can_execute,
+  has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_can_execute
+FROM pg_proc AS p
+JOIN pg_namespace AS n ON n.oid = p.pronamespace
+WHERE p.oid = to_regprocedure('public.dispatch_webhook(uuid, text, jsonb)');
