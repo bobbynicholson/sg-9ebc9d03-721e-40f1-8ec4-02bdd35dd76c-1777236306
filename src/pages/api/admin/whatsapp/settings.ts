@@ -58,6 +58,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const row = await loadRow(sb, companyId);
     res.setHeader("Cache-Control", "no-store");
     const revealVerifyToken = req.query.revealToken === "1";
+    if (row?.is_active && revealVerifyToken && !canStoreWhatsAppToken()) {
+      return res.status(503).json({
+        error: "WhatsApp credential encryption is misconfigured. Set the existing 32-byte hex or base64 key in the server environment; a new key cannot decrypt saved credentials.",
+      });
+    }
     const verifyToken = row?.is_active && revealVerifyToken
       ? await loadWhatsAppWebhookVerifyToken(sb, companyId, row.settings) : null;
     const verifyTokenAvailable = !!(row?.is_active && await hasWhatsAppWebhookVerifyToken(sb, companyId, row.settings));
@@ -228,6 +233,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (!isValidTemplateName(setting.templateName)) {
       return res.status(400).json({ error: `Save the Meta template name for "${automation.label}" first.` });
     }
+    if (!canStoreWhatsAppToken()) {
+      return res.status(503).json({
+        error: "WhatsApp credential encryption is misconfigured. Set the existing 32-byte hex or base64 key in the server environment; a new key cannot decrypt saved credentials.",
+      });
+    }
     const credentials = await loadWhatsAppCredentials(sb, companyId);
     if (!credentials) return res.status(400).json({ error: "Connect WhatsApp first." });
     if (!credentials.businessAccountId) return res.status(400).json({ error: "Reconnect WhatsApp with your Business account ID." });
@@ -250,6 +260,32 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         components: templateParams,
       },
     });
+    const providerBody = result.response && typeof result.response === "object"
+      ? result.response as Record<string, any>
+      : {};
+    const providerError = providerBody.error && typeof providerBody.error === "object" ? providerBody.error : null;
+    const maskedRecipient = `***${to.slice(-4)}`;
+    const redactPhone = (value: unknown) => {
+      if (typeof value !== "string") return value ?? null;
+      return value.replaceAll(to, maskedRecipient).replaceAll(`+${to}`, maskedRecipient);
+    };
+    console.info("[whatsapp-test] Meta send response", {
+      accepted: result.ok,
+      providerHttpStatus: result.httpStatus,
+      recipient: maskedRecipient,
+      templateName: setting.templateName,
+      language: setting.language,
+      messageIdSuffix: result.id?.slice(-12) || null,
+      error: providerError ? {
+        code: providerError.code ?? null,
+        subcode: providerError.error_subcode ?? null,
+        type: providerError.type ?? null,
+        title: redactPhone(providerError.error_user_title || providerError.title),
+        message: redactPhone(providerError.error_user_msg || providerError.message),
+        details: redactPhone(providerError.error_data?.details),
+        fbtraceId: providerError.fbtrace_id ?? null,
+      } : null,
+    });
     if (!result.ok) return res.status(400).json({ error: `Meta refused the test: ${result.error}` });
 
     // A 200 from Meta means accepted, not delivered. Keep the returned wamid
@@ -269,12 +305,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       enqueued_by: userId,
     });
     if (trackingError) {
-      console.error("[admin/whatsapp/settings] Meta accepted test but tracking insert failed:", trackingError.message);
+      console.error("[whatsapp-test] Tracking insert failed", { code: trackingError.code || null });
       return res.status(200).json({
         success: true,
         message: "Meta accepted the test, but CateringMS couldn't record its delivery status. Check the destination phone directly.",
       });
     }
+    console.info("[whatsapp-test] Delivery tracking row saved", {
+      recipient: maskedRecipient,
+      messageIdSuffix: result.id?.slice(-12) || null,
+    });
     return res.status(200).json({
       success: true,
       message: result.id

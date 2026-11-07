@@ -13,8 +13,14 @@ describe("shared log redaction", () => {
     expect(input.rows[0].password).toBe("password-marker");
   });
 
-  it.each(["secretKey", "secret_key", "CLIENT-SECRET", "webhookSigningSecret", "provisionToken", "apiKey", "x-api-key", "private_key", "passphrase", "refreshToken", "token_hash", "otp", "merchantKey", "encryption_key", "smtpPass"])("redacts the %s alias", key => {
+  it.each(["secretKey", "secret_key", "CLIENT-SECRET", "webhookSigningSecret", "provisionToken", "apiKey", "x-api-key", "private_key", "passphrase", "refreshToken", "token_hash", "otp", "merchantKey", "encryption_key", "smtpPass", "phone", "phoneNumber", "phone_number_id", "recipient_phone", "recipient_id"])("redacts the %s alias", key => {
     expect(redactLogValue({ [key]: "alias-marker" })).toEqual({ [key]: REDACTED });
+  });
+
+  it("redacts WhatsApp numbers from request log text", () => {
+    const safe = redactLogText('request body: {"phone":"918866631491","recipient_phone":"918866631491"}');
+    expect(safe).not.toContain("918866631491");
+    expect(safe).toContain(REDACTED);
   });
 
   it.each([

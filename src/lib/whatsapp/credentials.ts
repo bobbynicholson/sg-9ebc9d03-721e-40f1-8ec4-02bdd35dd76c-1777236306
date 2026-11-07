@@ -126,7 +126,7 @@ export async function verifyWhatsAppCredentials(phoneNumberId: string, accessTok
 export async function postWhatsAppMessage(
   credentials: StoredWhatsAppCredentials,
   message: Record<string, unknown>,
-): Promise<{ ok: boolean; id: string | null; error: string | null; response: unknown }> {
+): Promise<{ ok: boolean; id: string | null; error: string | null; httpStatus: number; response: unknown }> {
   const response = await fetch(`${GRAPH_URL}/${encodeURIComponent(credentials.phoneNumberId)}/messages`, {
     method: "POST",
     headers: {
@@ -140,6 +140,7 @@ export async function postWhatsAppMessage(
     ok: response.ok,
     id: json?.messages?.[0]?.id || null,
     error: response.ok ? null : json?.error?.message || `HTTP ${response.status}`,
+    httpStatus: response.status,
     response: json,
   };
 }

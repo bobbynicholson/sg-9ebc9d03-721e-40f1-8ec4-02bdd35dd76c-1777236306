@@ -216,10 +216,23 @@ function WhatsAppPage() {
         body: JSON.stringify(body),
       });
       const json = await response.json().catch(() => ({}));
+      if (name === "test") {
+        console.info("[whatsapp-test] Browser received API response", {
+          httpStatus: response.status,
+          success: json?.success === true,
+          message: typeof json?.message === "string" ? json.message : null,
+          error: typeof json?.error === "string" ? json.error : null,
+        });
+      }
       if (!response.ok) throw new Error(json?.error || "That didn't work. Try again.");
       toast({ title: success, description: typeof json?.message === "string" ? json.message : undefined });
       return true;
     } catch (e) {
+      if (name === "test") {
+        console.error("[whatsapp-test] Browser request failed", {
+          error: e instanceof Error ? e.message : "Unknown request error",
+        });
+      }
       toast({ title: "WhatsApp", description: e instanceof Error ? e.message : "Try again.", variant: "destructive" });
       return false;
     } finally {
@@ -433,11 +446,19 @@ function WhatsAppPage() {
                 <StatTile label="Manual" icon={Hand} value={manualCount} hint="Only sent when you choose" />
               </div>
 
-              {state.attention && (
-                <Card className="border-rose-200">
-                  <CardContent className="py-4 text-sm text-rose-700">{state.attention}</CardContent>
-                </Card>
-              )}
+          {state.attention && (
+            <Card className="border-rose-200">
+              <CardContent className="py-4 text-sm text-rose-700">{state.attention}</CardContent>
+            </Card>
+          )}
+
+          {state.connected && !state.canConnect && (
+            <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+              <CardContent className="py-4 text-sm text-amber-900 dark:text-amber-200">
+                WhatsApp is connected, but this server cannot read its saved credentials. Configure the existing credential encryption key in the server environment and restart the app. Do not generate a replacement key; it would not decrypt the saved credentials.
+              </CardContent>
+            </Card>
+          )}
 
               <Card collapsible defaultOpen collapseLabel="WhatsApp Business account" className="w-full">
                 <CardHeader>
@@ -904,8 +925,8 @@ function WhatsAppPage() {
                                 type="button"
                                 variant="outline"
                                 className="gap-1.5"
-                                disabled={!state.connected || !state.automations[automation.key].templateName || !testPhone.trim() || busy === "test"}
-                                title={!state.connected ? "Connect WhatsApp to send a test" : !state.automations[automation.key].templateName ? "Save the Meta template name to send a test" : !testPhone.trim() ? "Enter a test number" : undefined}
+                                disabled={!state.connected || !state.canConnect || !state.automations[automation.key].templateName || !testPhone.trim() || busy === "test"}
+                                title={!state.canConnect ? "This server cannot read the saved WhatsApp credentials" : !state.connected ? "Connect WhatsApp to send a test" : !state.automations[automation.key].templateName ? "Save the Meta template name to send a test" : !testPhone.trim() ? "Enter a test number" : undefined}
                                 onClick={() => void post("test", { action: "test", key: automation.key, phone: testPhone }, "Meta accepted test")}
                               >
                                 <Send className="h-3.5 w-3.5" />

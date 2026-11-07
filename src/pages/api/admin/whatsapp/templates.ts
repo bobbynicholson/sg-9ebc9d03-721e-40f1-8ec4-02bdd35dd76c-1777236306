@@ -16,7 +16,7 @@ import {
   readAutomationSettings,
   wordingProblem,
 } from "@/lib/whatsapp/automations";
-import { callMeta, loadWhatsAppCredentials } from "@/lib/whatsapp/credentials";
+import { callMeta, canStoreWhatsAppToken, loadWhatsAppCredentials } from "@/lib/whatsapp/credentials";
 
 function bodyVariableCount(components: any[] | undefined): number {
   const body = (components || []).find((component) => component.type === "BODY")?.text || "";
@@ -27,6 +27,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const access = await companyForAdmin(req, res);
   if (!access) return;
   const sb: any = getServiceSupabase();
+  if (!canStoreWhatsAppToken()) {
+    return res.status(503).json({
+      error: "WhatsApp credential encryption is misconfigured. Set the existing 32-byte hex or base64 key in the server environment; a new key cannot decrypt saved credentials.",
+    });
+  }
   const credentials = await loadWhatsAppCredentials(sb, access.companyId);
   if (!credentials) return res.status(400).json({ error: "Connect WhatsApp first." });
   if (!credentials.businessAccountId) return res.status(400).json({ error: "Reconnect WhatsApp with your Business account ID." });

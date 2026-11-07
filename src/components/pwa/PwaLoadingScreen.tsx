@@ -80,7 +80,6 @@ export function PwaLoadingScreen({ initialBranding }: { initialBranding?: Initia
               width={76}
               height={76}
               loading="eager"
-              fetchPriority="high"
               referrerPolicy="no-referrer"
               className="absolute inset-0 h-full w-full object-contain p-2"
               onLoad={() => setLogoLoaded(true)}

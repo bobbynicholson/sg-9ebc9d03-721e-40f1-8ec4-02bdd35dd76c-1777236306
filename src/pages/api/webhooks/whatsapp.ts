@@ -43,6 +43,15 @@ async function readRawBody(req: NextApiRequest): Promise<Buffer> {
 }
 
 async function applyStatus(sb: any, companyId: string, status: any) {
+  const messageIdSuffix = typeof status.id === "string" ? status.id.slice(-12) : null;
+  const recipient = typeof status.recipient_id === "string" ? `***${status.recipient_id.slice(-4)}` : null;
+  console.info("[whatsapp-webhook] Meta delivery status received", {
+    status: status.status || "unknown",
+    messageIdSuffix,
+    recipient,
+    errorCode: status.errors?.[0]?.code ?? null,
+    errorTitle: status.errors?.[0]?.title ?? null,
+  });
   const at = status.timestamp ? new Date(Number(status.timestamp) * 1000).toISOString() : new Date().toISOString();
   const failure = status.errors?.[0];
   const failureReason = failure
@@ -57,7 +66,20 @@ async function applyStatus(sb: any, companyId: string, status: any) {
   let update = sb.from("whatsapp_messages").update(patch).eq("company_id", companyId).eq("gateway_message_id", status.id);
   // Updates can arrive out of order, so a late "delivered" never undoes "read".
   if (status.status === "delivered") update = update.neq("status", "read");
-  await update;
+  const { data, error } = await update.select("id");
+  if (error) {
+    console.error("[whatsapp-webhook] Could not save Meta delivery status", {
+      status: status.status,
+      messageIdSuffix,
+      errorCode: error.code || null,
+    });
+    return;
+  }
+  if (!data?.length) {
+    console.warn("[whatsapp-webhook] Delivery status had no matching saved message", { status: status.status, messageIdSuffix });
+  } else {
+    console.info("[whatsapp-webhook] Meta delivery status saved", { status: status.status, messageIdSuffix });
+  }
 }
 
 async function setOptOut(sb: any, companyId: string, phone: string, optedOut: boolean) {
