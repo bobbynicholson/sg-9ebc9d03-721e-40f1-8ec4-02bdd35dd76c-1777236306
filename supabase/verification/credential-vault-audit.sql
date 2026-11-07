@@ -293,6 +293,83 @@ BEGIN
     );
 
     SELECT count(*) INTO v_count
+    FROM pg_namespace AS schema_row
+    WHERE schema_row.nspname IN ('public', 'extensions')
+      AND (
+        has_schema_privilege('anon', schema_row.oid, 'CREATE') OR
+        has_schema_privilege('authenticated', schema_row.oid, 'CREATE')
+      );
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Webhook SECURITY DEFINER schemas: client CREATE access',
+      CASE WHEN v_count = 0 THEN 'PASS' ELSE 'FAIL' END,
+      v_count,
+      '0',
+      'Schemas on the dispatcher search_path must not be writable by client roles.'
+    );
+
+    SELECT count(*) INTO v_count
+    FROM pg_proc AS helper
+    WHERE helper.oid = to_regprocedure('public.dispatch_webhook(uuid, text, jsonb)')
+      AND helper.prosecdef IS TRUE
+      AND helper.prosrc ILIKE '%webhook_subscriptions%'
+      AND helper.prosrc ILIKE '%signing_secret%'
+      AND NOT has_function_privilege('anon', helper.oid, 'EXECUTE')
+      AND NOT has_function_privilege('authenticated', helper.oid, 'EXECUTE')
+      AND NOT EXISTS (
+        SELECT 1
+        FROM aclexplode(COALESCE(helper.proacl, acldefault('f', helper.proowner))) AS acl
+        WHERE acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM unnest(COALESCE(helper.proconfig, ARRAY[]::text[])) AS cfg(setting)
+        WHERE lower(regexp_replace(cfg.setting, '\s+', '', 'g')) =
+          'search_path=pg_catalog,public,extensions,pg_temp'
+      );
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Webhook dispatcher helper: safe definer/search_path/execute grants',
+      CASE WHEN v_count = 1 THEN 'PASS' ELSE 'FAIL' END,
+      v_count,
+      '1',
+      'Requires the protected helper, explicit pg_temp-last path, and no PUBLIC/anon/authenticated EXECUTE grants.'
+    );
+
+    SELECT count(*) INTO v_count
+    FROM (
+      SELECT DISTINCT wrapper.oid, wrapper.prosecdef, wrapper.proconfig
+      FROM pg_trigger AS trigger_row
+      JOIN pg_proc AS wrapper ON wrapper.oid = trigger_row.tgfoid
+      WHERE NOT trigger_row.tgisinternal
+        AND wrapper.prosrc ILIKE '%dispatch_webhook%'
+    ) AS webhook_wrappers
+    WHERE webhook_wrappers.prosecdef IS DISTINCT FROM TRUE
+       OR NOT EXISTS (
+         SELECT 1
+         FROM unnest(COALESCE(webhook_wrappers.proconfig, ARRAY[]::text[])) AS cfg(setting)
+         WHERE lower(regexp_replace(cfg.setting, '\s+', '', 'g')) =
+           'search_path=pg_catalog,public,pg_temp'
+       );
+    IF v_count = 0 AND NOT EXISTS (
+      SELECT 1
+      FROM pg_trigger AS trigger_row
+      JOIN pg_proc AS wrapper ON wrapper.oid = trigger_row.tgfoid
+      WHERE NOT trigger_row.tgisinternal
+        AND wrapper.prosrc ILIKE '%dispatch_webhook%'
+    ) THEN
+      v_count := 1;
+    END IF;
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Webhook trigger wrappers: SECURITY DEFINER and safe search_path',
+      CASE WHEN v_count = 0 THEN 'PASS' ELSE 'FAIL' END,
+      v_count,
+      '0 failing wrappers; at least one wrapper required',
+      'Every trigger wrapper calling dispatch_webhook must be SECURITY DEFINER with pg_catalog first and pg_temp last.'
+    );
+
+    SELECT count(*) INTO v_count
     FROM public.webhook_subscriptions
     WHERE NULLIF(signing_secret, '') IS NOT NULL;
     INSERT INTO pg_temp.credential_vault_audit_results

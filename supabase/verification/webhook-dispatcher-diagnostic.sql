@@ -17,7 +17,13 @@ SELECT
     SELECT 1
     FROM unnest(COALESCE(wrapper.proconfig, ARRAY[]::text[])) AS cfg(setting)
     WHERE lower(regexp_replace(cfg.setting, '\s+', '', 'g')) LIKE 'search_path=%'
-  ) AS has_fixed_search_path
+  ) AS has_fixed_search_path,
+  EXISTS (
+    SELECT 1
+    FROM unnest(COALESCE(wrapper.proconfig, ARRAY[]::text[])) AS cfg(setting)
+    WHERE lower(regexp_replace(cfg.setting, '\s+', '', 'g')) =
+      'search_path=pg_catalog,public,pg_temp'
+  ) AS has_safe_search_path
 FROM pg_trigger AS trigger_row
 JOIN pg_class AS trigger_table ON trigger_table.oid = trigger_row.tgrelid
 JOIN pg_namespace AS trigger_ns ON trigger_ns.oid = trigger_table.relnamespace
@@ -42,8 +48,23 @@ SELECT
     FROM unnest(COALESCE(p.proconfig, ARRAY[]::text[])) AS cfg(setting)
     WHERE lower(regexp_replace(cfg.setting, '\s+', '', 'g')) LIKE 'search_path=%'
   ) AS has_fixed_search_path,
+  EXISTS (
+    SELECT 1
+    FROM unnest(COALESCE(p.proconfig, ARRAY[]::text[])) AS cfg(setting)
+    WHERE lower(regexp_replace(cfg.setting, '\s+', '', 'g')) =
+      'search_path=pg_catalog,public,extensions,pg_temp'
+  ) AS has_safe_search_path,
   has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_can_execute,
   has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_can_execute
 FROM pg_proc AS p
 JOIN pg_namespace AS n ON n.oid = p.pronamespace
 WHERE p.oid = to_regprocedure('public.dispatch_webhook(uuid, text, jsonb)');
+
+-- Effective client CREATE privileges on any schema used by the helper.
+SELECT
+  schema_row.nspname AS schema_name,
+  has_schema_privilege('anon', schema_row.oid, 'CREATE') AS anon_can_create,
+  has_schema_privilege('authenticated', schema_row.oid, 'CREATE') AS authenticated_can_create
+FROM pg_namespace AS schema_row
+WHERE schema_row.nspname IN ('public', 'extensions')
+ORDER BY schema_row.nspname;
