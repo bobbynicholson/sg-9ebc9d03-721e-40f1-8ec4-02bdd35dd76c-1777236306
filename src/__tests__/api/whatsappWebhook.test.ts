@@ -83,7 +83,7 @@ const reply = (body: string, id = "wamid.1") => ({
 
 describe("WhatsApp webhook", () => {
   beforeEach(() => {
-    process.env.ENCRYPTION_KEY = "test-key";
+    process.env.ENCRYPTION_KEY = "0123456789abcdef".repeat(4);
     for (const key of Object.keys(mockTables)) delete mockTables[key];
     mockUpdates.length = 0;
     mockDeletes.length = 0;

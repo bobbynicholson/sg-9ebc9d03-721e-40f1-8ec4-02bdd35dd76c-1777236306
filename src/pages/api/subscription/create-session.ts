@@ -31,6 +31,7 @@ import { isPayfastTestPlan, isPayfastTestTenant, PAYFAST_TEST_PLAN_AMOUNT_ZAR } 
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { publicAppOrigin } from "@/lib/publicAppOrigin";
+import { getPayfastSubscriptionToken } from "@/lib/platformBillingCredentialVault";
 import {
   currentRenewingSubscription,
   platformBillingProviders,
@@ -75,7 +76,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const admin = getServiceSupabase();
     const { data: companyRow, error: companyError } = await admin
       .from("companies")
-      .select("trial_ends_at, subscription_status, payfast_subscription_token, slug")
+      .select("trial_ends_at, subscription_status, slug")
       .eq("id", companyId)
       .maybeSingle();
     if (companyError) throw companyError;
@@ -89,7 +90,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (isTestPlan && plan.monthlyPrice !== PAYFAST_TEST_PLAN_AMOUNT_ZAR) {
       return res.status(503).json({ error: "The R5 test plan is not configured at the expected one-time price." });
     }
-    if (companyRow.payfast_subscription_token && ["active", "trial", "past_due"].includes(companyRow.subscription_status)) {
+    const existingPayfastToken = await getPayfastSubscriptionToken(admin, companyId);
+    if (existingPayfastToken && ["active", "trial", "past_due"].includes(companyRow.subscription_status)) {
       return res.status(409).json({ error: "This company already has recurring billing. Manage the existing subscription before starting another." });
     }
 

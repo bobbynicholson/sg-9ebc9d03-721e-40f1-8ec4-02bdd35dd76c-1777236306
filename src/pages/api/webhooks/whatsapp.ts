@@ -13,7 +13,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { normaliseToE164 } from "@/lib/whatsapp";
 import { alertWhatsAppReply } from "@/lib/whatsapp/alerts";
-import { decryptWhatsAppToken, isValidMetaSignature } from "@/lib/whatsapp/credentials";
+import { canStoreWhatsAppToken, decryptWhatsAppToken, encryptWhatsAppToken, isValidMetaSignature, matchesWhatsAppWebhookVerifyToken, readWhatsAppWebhookVerifyToken } from "@/lib/whatsapp/credentials";
+import { keyedSecretHash } from "@/lib/credentialVault";
 import { replyIntent } from "@/lib/whatsapp/rules";
 
 export const config = { api: { bodyParser: false } };
@@ -108,14 +109,30 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   if (req.method === "GET") {
     const token = String(req.query["hub.verify_token"] || "");
-    const { data } = token
-      ? await sb.from("integrations").select("id, settings").eq("integration_type", "whatsapp").eq("is_active", true).eq("settings->>webhookVerifyToken", token).limit(1)
+    const tokenHash = token ? await keyedSecretHash(token) : "";
+    const { data: hashedRows } = tokenHash
+      ? await sb.from("integrations").select("id, settings").eq("integration_type", "whatsapp").eq("is_active", true)
+        .eq("settings->>webhookVerifyTokenHash", tokenHash).limit(1)
       : { data: [] };
-    if (req.query["hub.mode"] === "subscribe" && data?.length) {
-      const row = data[0];
+    const { data: legacyRows } = !hashedRows?.length && token
+      ? await sb.from("integrations").select("id, settings").eq("integration_type", "whatsapp").eq("is_active", true)
+        .eq("settings->>webhookVerifyToken", token).limit(1)
+      : { data: [] };
+    const row = [...(hashedRows || []), ...(legacyRows || [])].find((candidate: any) => matchesWhatsAppWebhookVerifyToken(candidate.settings, token));
+    if (req.query["hub.mode"] === "subscribe" && row) {
+      const verifyToken = readWhatsAppWebhookVerifyToken(row.settings);
+      const { webhookVerifyToken: _legacyToken, ...safeSettings } = row.settings || {};
+      const canSecureVerifyToken = !!verifyToken && canStoreWhatsAppToken();
       const { error } = await sb.from("integrations")
-        .update({ settings: { ...(row.settings || {}), webhookVerifiedAt: new Date().toISOString() } })
-        .eq("id", row.id).eq("is_active", true).eq("settings->>webhookVerifyToken", token);
+        .update({ settings: {
+          ...(canSecureVerifyToken ? safeSettings : row.settings || {}),
+          ...(canSecureVerifyToken && verifyToken ? {
+            webhookVerifyTokenEncrypted: row.settings?.webhookVerifyTokenEncrypted || encryptWhatsAppToken(verifyToken),
+            webhookVerifyTokenHash: tokenHash,
+          } : {}),
+          webhookVerifiedAt: new Date().toISOString(),
+        } })
+        .eq("id", row.id).eq("is_active", true);
       if (error) return res.status(500).json({ error: "Could not record verification" });
       return res.status(200).send(String(req.query["hub.challenge"] || ""));
     }

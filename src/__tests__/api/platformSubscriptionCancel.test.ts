@@ -4,6 +4,7 @@ const updates: Array<{ table: string; values: any }> = [];
 let company: any;
 let renewing: any[];
 let role = "super_admin";
+let mockPayfastToken: string | null = null;
 const stripeCancel = jest.fn();
 const payfastCancel = jest.fn();
 
@@ -25,6 +26,7 @@ jest.mock("@/lib/supabase/server", () => ({ createPagesServerClient: () => ({
 }) }));
 jest.mock("@/services/platformPlanBilling", () => ({ platformStripe: () => ({ subscriptions: { cancel: stripeCancel } }) }));
 jest.mock("@/lib/payfastService", () => ({ PayFastService: jest.fn().mockImplementation(() => ({ cancelSubscription: payfastCancel })) }));
+jest.mock("@/lib/platformBillingCredentialVault", () => ({ getPayfastSubscriptionToken: async () => mockPayfastToken }));
 
 import handler from "@/pages/api/platform/subscriptions";
 
@@ -38,7 +40,8 @@ async function cancel() {
 beforeEach(() => {
   updates.length = 0;
   role = "super_admin";
-  company = { id: COMPANY, payfast_subscription_token: null, subscription_status: "active" };
+  company = { id: COMPANY, subscription_status: "active" };
+  mockPayfastToken = null;
   renewing = [];
   stripeCancel.mockReset().mockResolvedValue({});
   payfastCancel.mockReset().mockResolvedValue(true);
@@ -75,7 +78,7 @@ test("an already-deleted Stripe subscription still lets the cancel finish", asyn
 });
 
 test("PayFast agreement is cancelled; a refusal leaves the company billed and unchanged", async () => {
-  company.payfast_subscription_token = "tok";
+  mockPayfastToken = "tok";
   expect((await cancel()).body.stopped).toEqual(["PayFast"]);
   updates.length = 0;
   payfastCancel.mockResolvedValue(false);

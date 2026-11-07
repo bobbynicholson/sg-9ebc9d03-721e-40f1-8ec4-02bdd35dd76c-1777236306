@@ -19,6 +19,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { PayFastService } from "@/lib/payfastService";
 import { platformStripe } from "@/services/platformPlanBilling";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { getPayfastSubscriptionToken } from "@/lib/platformBillingCredentialVault";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -34,10 +35,10 @@ async function requireSuperAdmin(req: NextApiRequest, res: NextApiResponse) {
   return user;
 }
 
-function providerOf(sub: any, company: any): "stripe" | "yoco" | "payfast" | null {
+function providerOf(sub: any, hasPayfastToken: boolean): "stripe" | "yoco" | "payfast" | null {
   if (sub?.stripe_subscription_id || sub?.payment_provider === "stripe") return "stripe";
   if (sub?.payment_provider === "yoco") return "yoco";
-  if (sub?.payment_provider === "payfast" || company?.payfast_subscription_token) return "payfast";
+  if (sub?.payment_provider === "payfast" || hasPayfastToken) return "payfast";
   return null;
 }
 
@@ -48,19 +49,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   try {
     if (req.method === "GET") {
-      const [{ data: subs, error: subsError }, { data: companies, error: companyError }] = await Promise.all([
+      const [{ data: subs, error: subsError }, { data: companies, error: companyError }, { data: payfastAccounts, error: tokenError }] = await Promise.all([
         db.from("subscriptions").select("*").in("status", ["active", "trial", "past_due"])
           .order("current_period_end", { ascending: false }).limit(10000),
-        db.from("companies").select("id, payfast_subscription_token").limit(10000),
+        db.from("companies").select("id").limit(10000),
+        db.from("platform_billing_credentials").select("company_id"),
       ]);
       if (subsError) throw subsError;
       if (companyError) throw companyError;
-      const tokenByCompany = new Map((companies || []).map((c: any) => [c.id, c.payfast_subscription_token]));
+      if (tokenError) throw tokenError;
+      const companiesWithPayfast = new Set((payfastAccounts || []).map((row: any) => row.company_id));
       const billing: Record<string, any> = {};
       for (const sub of subs || []) {
         if (billing[sub.company_id]) continue; // newest period wins
         billing[sub.company_id] = {
-          provider: providerOf(sub, { payfast_subscription_token: tokenByCompany.get(sub.company_id) }),
+          provider: providerOf(sub, companiesWithPayfast.has(sub.company_id)),
           billing_cycle: sub.billing_cycle === "yearly" || sub.billing_cycle === "annual" ? "yearly" : "monthly",
           amount: Number(sub.amount) || 0,
           currency: sub.currency || "ZAR",
@@ -70,7 +73,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         };
       }
       for (const company of companies || []) {
-        if (!billing[company.id] && company.payfast_subscription_token) {
+        if (!billing[company.id] && companiesWithPayfast.has(company.id)) {
           billing[company.id] = { provider: "payfast", billing_cycle: "monthly", amount: null };
         }
       }
@@ -88,7 +91,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const { data: company, error: companyError } = await db.from("companies")
-      .select("id, payfast_subscription_token, subscription_status").eq("id", companyId).maybeSingle();
+      .select("id, subscription_status").eq("id", companyId).maybeSingle();
     if (companyError) throw companyError;
     if (!company) return res.status(404).json({ error: "Company not found" });
     const { data: renewing, error: subsError } = await db.from("subscriptions").select("*")
@@ -111,7 +114,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         }
       }
     }
-    if (company.payfast_subscription_token) {
+    const payfastToken = await getPayfastSubscriptionToken(db, companyId);
+    if (payfastToken) {
       const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID || "";
       const merchantKey = process.env.PAYFAST_PLATFORM_MERCHANT_KEY || "";
       const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || process.env.PAYFAST_PASSPHRASE || "";
@@ -120,7 +124,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
       const svc = new PayFastService({ merchantId, merchantKey, passphrase,
         testMode: (process.env.PAYFAST_PLATFORM_TEST_MODE || process.env.NEXT_PUBLIC_PAYFAST_TEST_MODE) === "true" });
-      const ok = await svc.cancelSubscription(company.payfast_subscription_token);
+      const ok = await svc.cancelSubscription(payfastToken);
       if (!ok) {
         return res.status(502).json({
           error: `PayFast did not confirm the cancellation.${stopped.length ? ` ${stopped.join(", ")} billing was already stopped.` : ""} The company was not marked cancelled - retry.`,

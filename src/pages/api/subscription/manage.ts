@@ -4,9 +4,10 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { PayFastService } from "@/lib/payfastService";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { platformStripe, syncStripeSubscription } from "@/services/platformPlanBilling";
+import { getPayfastSubscriptionToken } from "@/lib/platformBillingCredentialVault";
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST" && req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
   try {
     const client = createPagesServerClient({ req, res });
     const { data: { user } } = await client.auth.getUser();
@@ -16,6 +17,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(403).json({ error: "Only company administrators can manage billing." });
     }
     const db = getServiceSupabase();
+    if (req.method === "GET") {
+      const { data: linked } = await db.from("subscriptions").select("stripe_subscription_id, payment_provider")
+        .eq("id", String(req.query.subscriptionId || "")).eq("company_id", profile.company_id).maybeSingle();
+      if (!linked) return res.status(404).json({ error: "Subscription not found." });
+      const payfastToken = await getPayfastSubscriptionToken(db, profile.company_id);
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(200).json({ providerManaged: !!linked.stripe_subscription_id ||
+        linked.payment_provider === "stripe" || linked.payment_provider === "yoco" || !!payfastToken });
+    }
     const { data: subscription, error } = await db.from("subscriptions").select("*")
       .eq("id", String(req.body?.subscriptionId || "")).eq("company_id", profile.company_id).single();
     if (error || !subscription) return res.status(404).json({ error: "Subscription not found." });
@@ -70,9 +80,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ ok: true, subscription: updated });
     }
 
-    const { data: company } = await db.from("companies").select("payfast_subscription_token")
-      .eq("id", profile.company_id).single();
-    if (!company?.payfast_subscription_token) return res.status(409).json({ error: "This subscription is not linked to a payment provider." });
+    const token = await getPayfastSubscriptionToken(db, profile.company_id);
+    if (!token) return res.status(409).json({ error: "This subscription is not linked to a payment provider." });
     const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID || "";
     const merchantKey = process.env.PAYFAST_PLATFORM_MERCHANT_KEY || "";
     const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || process.env.PAYFAST_PASSPHRASE || "";
@@ -82,7 +91,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (action === "resume" && (subscription.status === "cancelled" || subscription.cancel_at_period_end)) {
       return res.status(409).json({ error: "A cancelled PayFast agreement requires a new checkout." });
     }
-    const token = company.payfast_subscription_token;
     const ok = action === "resume" ? await svc.unpauseSubscription(token)
       : await svc.cancelSubscription(token);
     if (!ok) return res.status(502).json({ error: "PayFast did not confirm the billing change. Please retry." });

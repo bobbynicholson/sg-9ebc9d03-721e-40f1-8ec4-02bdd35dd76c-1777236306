@@ -6,6 +6,7 @@
  * Meta. It is never returned to the browser.
  */
 import crypto from "crypto";
+import { hasStrongEncryptionKey } from "@/lib/credentialVault";
 
 const GRAPH_URL = "https://graph.facebook.com/v25.0";
 const VERSION = "v1";
@@ -25,10 +26,11 @@ function encryptionKey(): Buffer {
 }
 
 export function canStoreWhatsAppToken(): boolean {
-  return !!process.env.ENCRYPTION_KEY;
+  return hasStrongEncryptionKey();
 }
 
 export function encryptWhatsAppToken(token: string): string {
+  if (!hasStrongEncryptionKey()) throw new Error("ENCRYPTION_KEY must be a 32-byte hex or base64 value");
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv("aes-256-gcm", encryptionKey(), iv);
   const encrypted = Buffer.concat([cipher.update(token, "utf8"), cipher.final()]);
@@ -41,6 +43,22 @@ export function decryptWhatsAppToken(stored: string): string {
   const decipher = crypto.createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(iv, "base64url"));
   decipher.setAuthTag(Buffer.from(tag, "base64url"));
   return Buffer.concat([decipher.update(Buffer.from(encrypted, "base64url")), decipher.final()]).toString("utf8");
+}
+
+/** Read a webhook verify token stored encrypted; plaintext is accepted only for lazy migration. */
+export function readWhatsAppWebhookVerifyToken(settings: Record<string, unknown> | null | undefined): string | null {
+  const encrypted = typeof settings?.webhookVerifyTokenEncrypted === "string" ? settings.webhookVerifyTokenEncrypted : "";
+  if (encrypted) return decryptWhatsAppToken(encrypted);
+  const legacy = typeof settings?.webhookVerifyToken === "string" ? settings.webhookVerifyToken : "";
+  return legacy || null;
+}
+
+export function matchesWhatsAppWebhookVerifyToken(settings: Record<string, unknown> | null | undefined, candidate: string): boolean {
+  const saved = readWhatsAppWebhookVerifyToken(settings);
+  if (!saved || !candidate) return false;
+  const expected = Buffer.from(saved);
+  const actual = Buffer.from(candidate);
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
 }
 
 /** Asks Meta whether these details work before they are saved. */

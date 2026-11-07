@@ -204,6 +204,7 @@ const KNOWN_TABLES = new Set([
   "payment_gateway_events", "payment_receipt_outbox", // 20261003140000
   "payfast_recovery_cursors", // 20261003150000
   "payment_gateway_credential_versions", // 20261003160000
+  "platform_billing_credentials", "supplier_bank_details", // 20261106100000: service-only payment/bank credential vaults
   "payment_credit_redemptions", // 20261004090000
   "refund_reconciliation_events", // 20261004100000
   "platform_subscription_checkouts", // 20261004150000

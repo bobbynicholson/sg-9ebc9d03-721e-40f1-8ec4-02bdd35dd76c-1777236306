@@ -31,6 +31,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { createPaymentSession, resolveActivePaymentGateway } from "@/lib/paymentService";
+import { encryptCredentialBundle } from "@/lib/credentialVault";
 import { publicAppOrigin } from "@/lib/publicAppOrigin";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import {
@@ -353,7 +354,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return checkoutError(400, { code: "payment_amount_below_minimum", error: "PayFast live checkout requires a payment of at least R5.00. Increase the amount or contact the company for another payment option." });
     }
     const { data: gatewayVersionId, error: versionError } = await (admin as any).rpc("capture_checkout_gateway_credentials", {
-      p_gateway_id: activeGateway.gateway.id, p_credentials: activeGateway.credentials, p_is_test: activeGateway.gateway.is_test,
+      p_gateway_id: activeGateway.gateway.id,
+      p_credentials: await encryptCredentialBundle(activeGateway.credentials, String(activeGateway.gateway.is_test)),
+      p_is_test: activeGateway.gateway.is_test,
     });
     if (versionError || !gatewayVersionId) return checkoutError(503, { error: "Could not save checkout merchant configuration. Please retry." });
     // Create the correlation row before calling the provider. This closes

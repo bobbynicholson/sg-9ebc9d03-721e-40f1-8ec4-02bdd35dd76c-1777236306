@@ -411,7 +411,7 @@ describe("message previews", () => {
 
 describe("WhatsApp safety", () => {
   it("stores the access token encrypted and can read it back", () => {
-    process.env.ENCRYPTION_KEY = "test-key";
+    process.env.ENCRYPTION_KEY = "0123456789abcdef".repeat(4);
     const stored = encryptWhatsAppToken("secret-token");
     expect(stored).not.toContain("secret-token");
     expect(decryptWhatsAppToken(stored)).toBe("secret-token");

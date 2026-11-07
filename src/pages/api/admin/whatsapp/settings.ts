@@ -33,8 +33,10 @@ import {
   encryptWhatsAppToken,
   loadWhatsAppCredentials,
   postWhatsAppMessage,
+  readWhatsAppWebhookVerifyToken,
   verifyWhatsAppCredentials,
 } from "@/lib/whatsapp/credentials";
+import { keyedSecretHash } from "@/lib/credentialVault";
 
 async function loadRow(sb: any, companyId: string) {
   const { data, error } = await sb.from("integrations").select("id, credentials, settings, is_active, connected_at, status")
@@ -52,6 +54,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   if (req.method === "GET") {
     const row = await loadRow(sb, companyId);
+    res.setHeader("Cache-Control", "no-store");
+    const revealVerifyToken = req.query.revealToken === "1";
+    const verifyToken = row?.is_active && revealVerifyToken ? readWhatsAppWebhookVerifyToken(row.settings) : null;
+    const verifyTokenAvailable = !!(row?.is_active && (
+      row.settings?.webhookVerifyTokenEncrypted || row.settings?.webhookVerifyToken
+    ));
     return res.status(200).json({
       connected: !!row?.is_active,
       connectedAt: row?.connected_at || null,
@@ -65,8 +73,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       webhookUrl: `https://${req.headers.host || "cateringms.com"}/api/webhooks/whatsapp`,
       // Fetch only when the admin chooses Show or Copy; do not include the
       // verify token in every routine page load.
-      webhookVerifyToken: row?.is_active && req.query.revealToken === "1" ? row?.settings?.webhookVerifyToken || null : null,
-      verifyTokenAvailable: !!(row?.is_active && row?.settings?.webhookVerifyToken),
+      webhookVerifyToken: revealVerifyToken ? verifyToken : null,
+      verifyTokenAvailable,
       webhookVerifiedAt: row?.is_active ? row?.settings?.webhookVerifiedAt || null : null,
     });
   }
@@ -74,12 +82,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const body = (req.body || {}) as any;
 
   if (body.action === "rotate_verify_token") {
+    if (!canStoreWhatsAppToken()) return res.status(503).json({ error: "Set a strong ENCRYPTION_KEY before changing the verify token." });
     const row = await loadRow(sb, companyId);
     if (!row?.is_active) return res.status(400).json({ error: "Connect WhatsApp before replacing the verify token." });
+    const verifyToken = crypto.randomBytes(24).toString("hex");
+    const { webhookVerifyToken: _legacyVerifyToken, ...safeSettings } = row.settings || {};
     const { error } = await sb.from("integrations").update({
       settings: {
-        ...(row.settings || {}),
-        webhookVerifyToken: crypto.randomBytes(24).toString("hex"),
+        ...safeSettings,
+        webhookVerifyTokenEncrypted: encryptWhatsAppToken(verifyToken),
+        webhookVerifyTokenHash: await keyedSecretHash(verifyToken),
         webhookVerifiedAt: null,
       },
     }).eq("id", row.id).eq("company_id", companyId);
@@ -102,6 +114,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (!check.ok) return res.status(400).json({ error: "Meta didn't accept these details. Check the Phone number ID and access token." });
 
     const existing = await loadRow(sb, companyId);
+    const priorVerifyToken = readWhatsAppWebhookVerifyToken(existing?.settings);
+    const verifyToken = priorVerifyToken || crypto.randomBytes(24).toString("hex");
+    const { webhookVerifyToken: _legacyVerifyToken, ...safeSettings } = existing?.settings || {};
     const connectionRow = {
       company_id: companyId,
       user_id: userId,
@@ -113,10 +128,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         appSecretEncrypted: encryptWhatsAppToken(appSecret),
       },
       settings: {
-        ...(existing?.settings || {}),
+        ...safeSettings,
         displayNumber: check.displayNumber || null,
         attention: null,
-        webhookVerifyToken: existing?.settings?.webhookVerifyToken || crypto.randomBytes(24).toString("hex"),
+        webhookVerifyTokenEncrypted: existing?.settings?.webhookVerifyTokenEncrypted || encryptWhatsAppToken(verifyToken),
+        webhookVerifyTokenHash: await keyedSecretHash(verifyToken),
         webhookVerifiedAt: existing?.settings?.webhookVerifiedAt || null,
       },
       is_active: true,

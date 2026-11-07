@@ -1524,7 +1524,6 @@ export type Database = {
           onboarding_completed_at: string | null
           onboarding_dismissed_at: string | null
           owner_id: string | null
-          payfast_subscription_token: string | null
           peak_season_end_month: number | null
           peak_season_start_month: number | null
           phone: string | null
@@ -1613,7 +1612,6 @@ export type Database = {
           onboarding_completed_at?: string | null
           onboarding_dismissed_at?: string | null
           owner_id?: string | null
-          payfast_subscription_token?: string | null
           peak_season_end_month?: number | null
           peak_season_start_month?: number | null
           phone?: string | null
@@ -1702,7 +1700,6 @@ export type Database = {
           onboarding_completed_at?: string | null
           onboarding_dismissed_at?: string | null
           owner_id?: string | null
-          payfast_subscription_token?: string | null
           peak_season_end_month?: number | null
           peak_season_start_month?: number | null
           phone?: string | null
@@ -10009,7 +10006,6 @@ export type Database = {
       }
       suppliers: {
         Row: {
-          account_number: string | null
           active: boolean | null
           address_line1: string | null
           address_line2: string | null
@@ -10037,7 +10033,6 @@ export type Database = {
           website: string | null
         }
         Insert: {
-          account_number?: string | null
           active?: boolean | null
           address_line1?: string | null
           address_line2?: string | null
@@ -10065,7 +10060,6 @@ export type Database = {
           website?: string | null
         }
         Update: {
-          account_number?: string | null
           active?: boolean | null
           address_line1?: string | null
           address_line2?: string | null

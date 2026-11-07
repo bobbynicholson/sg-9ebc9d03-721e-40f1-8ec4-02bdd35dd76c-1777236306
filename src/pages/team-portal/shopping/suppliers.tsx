@@ -36,7 +36,7 @@ interface Supplier {
   city: string | null;
   postal_code: string | null;
   payment_terms: number | null;
-  account_number: string | null;
+  account_number?: string | null;
   rating: number | null;
   is_active: boolean | null;
   active: boolean | null;
@@ -52,6 +52,7 @@ const blank: Partial<Supplier> = {
   address_line1: "",
   city: "",
   payment_terms: 30,
+  account_number: "",
   rating: 5,
   is_active: true,
   active: true,
@@ -74,6 +75,7 @@ function ShoppingSuppliersPageInner() {
 
   const [editing, setEditing] = useState<Partial<Supplier> | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loadingBankDetails, setLoadingBankDetails] = useState(false);
 
   useEffect(() => {
     if (!user?.company_id) return;
@@ -143,8 +145,29 @@ function ShoppingSuppliersPageInner() {
     return { total, active, avgRating };
   }, [items]);
 
-  const openNew = () => setEditing({ ...blank });
-  const openEdit = (s: Supplier) => setEditing(s);
+  const openNew = () => {
+    setLoadingBankDetails(false);
+    setEditing({ ...blank });
+  };
+  const openEdit = async (s: Supplier) => {
+    setEditing({ ...s, account_number: "" });
+    setLoadingBankDetails(true);
+    try {
+      const response = await fetch(`/api/suppliers/${encodeURIComponent(s.id)}/bank-details`, { cache: "no-store" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Could not load supplier bank details");
+      setEditing((current) => current?.id === s.id ? { ...current, account_number: result.accountNumber || "" } : current);
+    } catch (error) {
+      toast({
+        title: "Could not load supplier bank details",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "destructive",
+      });
+      setEditing((current) => current?.id === s.id ? null : current);
+    } finally {
+      setLoadingBankDetails(false);
+    }
+  };
   const close = () => setEditing(null);
 
   const save = async () => {
@@ -154,6 +177,8 @@ function ShoppingSuppliersPageInner() {
     }
     setSaving(true);
     try {
+      const isNewSupplier = !editing.id;
+      let supplierId = editing.id;
       const sharedPayload = {
         supplier_name: editing.supplier_name.trim(),
         email: editing.email ?? null,
@@ -165,7 +190,6 @@ function ShoppingSuppliersPageInner() {
         city: editing.city ?? null,
         postal_code: editing.postal_code ?? null,
         notes: editing.notes ?? null,
-        account_number: editing.account_number ?? null,
         rating: editing.rating ?? null,
         emergency_contact: editing.emergency_contact ?? null,
       };
@@ -174,15 +198,24 @@ function ShoppingSuppliersPageInner() {
           ...sharedPayload,
           is_active: editing.is_active !== false,
         } as never);
-        toast({ title: "Supplier updated" });
       } else {
-        await supplierService.create({
+        const created = await supplierService.create({
           companyId: user.company_id,
           ...sharedPayload,
           is_active: editing.is_active !== false,
         });
-        toast({ title: "Supplier added" });
+        if (!created?.id) throw new Error("Supplier could not be created");
+        supplierId = created.id;
+        setEditing((current) => current ? { ...current, id: created.id } : current);
       }
+      const bankResponse = await fetch(`/api/suppliers/${encodeURIComponent(supplierId!)}/bank-details`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountNumber: editing.account_number || "" }),
+      });
+      const bankResult = await bankResponse.json().catch(() => ({}));
+      if (!bankResponse.ok) throw new Error(bankResult?.error || "Supplier was saved, but bank details could not be secured");
+      toast({ title: isNewSupplier ? "Supplier added" : "Supplier updated" });
       close();
       load();
     } catch (e: unknown) {
@@ -423,7 +456,7 @@ function ShoppingSuppliersPageInner() {
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>{editing?.id ? "Edit supplier" : "New supplier"}</DialogTitle>
-            <DialogDescription>Contact info, location, payment terms</DialogDescription>
+            <DialogDescription>Contact info, bank details, location and payment terms</DialogDescription>
           </DialogHeader>
           {editing && (
             <div className="grid grid-cols-2 gap-3 max-h-[70vh] overflow-y-auto">
@@ -442,6 +475,19 @@ function ShoppingSuppliersPageInner() {
               <div className="col-span-2 space-y-1.5">
                 <Label htmlFor="em">Email</Label>
                 <Input id="em" type="email" value={editing.email ?? ""} onChange={(e) => update("email", e.target.value)} />
+              </div>
+              <div className="col-span-2 space-y-1.5">
+                <Label htmlFor="supplier-account-number">Bank account number</Label>
+                <Input
+                  id="supplier-account-number"
+                  type="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={editing.account_number ?? ""}
+                  disabled={loadingBankDetails || saving}
+                  onChange={(e) => update("account_number", e.target.value)}
+                />
+                <p className="text-xs text-slate-500">Stored encrypted and available only to signed-in members of this company.</p>
               </div>
               <div className="col-span-2 space-y-1.5">
                 <Label htmlFor="a1">Address</Label>
@@ -475,7 +521,7 @@ function ShoppingSuppliersPageInner() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={close} disabled={saving} className="rounded-lg">Cancel</Button>
-            <Button onClick={save} disabled={saving} className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg">
+            <Button onClick={save} disabled={saving || loadingBankDetails} className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : editing?.id ? "Save changes" : "Add supplier"}
             </Button>
           </DialogFooter>

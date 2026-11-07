@@ -26,6 +26,10 @@ import type { Tables } from "@/integrations/supabase/types";
 export type Supplier = Tables<"suppliers">;
 export type InventoryItemSupplier = Tables<"inventory_item_suppliers">;
 
+// Select supplier fields explicitly so legacy bank data in the old schema
+// column cannot be serialized into browser responses during the rollout.
+const SUPPLIER_PUBLIC_COLUMNS = "id, company_id, supplier_name, contact_person, email, phone, address_line1, address_line2, city, postal_code, payment_terms, rating, is_active, active, notes, emergency_contact, payment_terms_note, payment_method, preferred_contact_method, supplier_categories, vat_number, website, created_at, updated_at, deleted_at";
+
 export interface SupplierWithStats extends Supplier {
   product_count: number;
   spend_30d: number;
@@ -91,7 +95,7 @@ export const supplierService = {
   async listForCompany(companyId: string): Promise<SupplierWithStats[]> {
     const { data: suppliers, error: suppErr } = await supabase
       .from("suppliers")
-      .select("*")
+      .select(SUPPLIER_PUBLIC_COLUMNS)
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .order("supplier_name", { ascending: true });
@@ -271,7 +275,7 @@ export const supplierService = {
   async getById(supplierId: string, companyId: string): Promise<Supplier | null> {
     const { data, error } = await supabase
       .from("suppliers")
-      .select("*")
+      .select(SUPPLIER_PUBLIC_COLUMNS)
       .eq("id", supplierId)
       .eq("company_id", companyId)
       .maybeSingle();
@@ -300,9 +304,6 @@ export const supplierService = {
     notes?: string | null;
     // SUP-C: SARS VAT registration number.
     vat_number?: string | null;
-    // SUP-C: fields the team-portal/shopping/suppliers page captures.
-    // Centralising here so both surfaces write the same way.
-    account_number?: string | null;
     rating?: number | null;
     emergency_contact?: string | null;
     is_active?: boolean;
@@ -327,13 +328,12 @@ export const supplierService = {
         supplier_categories: args.supplier_categories ?? [],
         notes: args.notes ?? null,
         vat_number: args.vat_number ?? null,
-        account_number: args.account_number ?? null,
         rating: args.rating ?? null,
         emergency_contact: args.emergency_contact ?? null,
         is_active: args.is_active ?? true,
         active: args.is_active ?? true,
       })
-      .select()
+      .select(SUPPLIER_PUBLIC_COLUMNS)
       .single();
     // Throw (don't swallow -> null) so the caller's try/catch fires. The
     // suppliers page awaited this and always toasted "Supplier added" even

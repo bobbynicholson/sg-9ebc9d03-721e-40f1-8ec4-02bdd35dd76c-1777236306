@@ -24,6 +24,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase as defaultClient } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { decryptCredentialBundle, encryptCredentialBundle } from "@/lib/credentialVault";
 
 export type PaymentGatewayProvider = "payfast" | "yoco" | "stripe";
 
@@ -105,6 +106,12 @@ function toDTO(
   };
 }
 
+async function readStoredCredentials(value: unknown): Promise<Record<string, string>> {
+  // Legacy plaintext is read during the staged vault rollout. The scheduled
+  // batch job performs migration so ordinary reads never write stale values.
+  return decryptCredentialBundle(value);
+}
+
 export const paymentGatewayService = {
   /**
    * List every non-deleted gateway row for the company. Browser-safe:
@@ -169,7 +176,8 @@ export const paymentGatewayService = {
       credentials: Record<string, string> | null;
     }>) {
       const hints: Record<string, string> = {};
-      for (const [k, v] of Object.entries(row.credentials || {})) {
+      const credentials = await readStoredCredentials(row.credentials);
+      for (const [k, v] of Object.entries(credentials)) {
         const hint = buildHint(String(v ?? ""));
         if (hint) hints[k] = hint;
       }
@@ -200,7 +208,7 @@ export const paymentGatewayService = {
 
     const { data, error } = await serviceClient.rpc("configure_company_payment_gateway", {
       p_company_id: companyId, p_actor_id: actorUserId, p_provider: input.provider,
-      p_is_test: input.is_test, p_credentials: input.credentials,
+      p_is_test: input.is_test, p_credentials: await encryptCredentialBundle(input.credentials, String(input.is_test)),
       p_success_url: input.success_url || null, p_cancel_url: input.cancel_url || null, p_notify_url: input.notify_url || null,
     });
     if (error || !data) return { ok: false, error: error?.message || "Gateway save did not commit" };
@@ -324,7 +332,9 @@ export const paymentGatewayService = {
       p_company_id: companyId, p_gateway_id: null, p_include_deleted: false,
     });
     if (error) throw new Error("Could not load company payment configuration");
-    return data || null;
+    if (!data) return null;
+    const credentials = await readStoredCredentials(data.credentials);
+    return { ...data, credentials };
   },
 
   /**
@@ -346,7 +356,9 @@ export const paymentGatewayService = {
       p_company_id: null, p_gateway_id: gatewayId, p_include_deleted: includeDeleted,
     });
     if (error) throw new Error("Could not load saved payment configuration");
-    return data || null;
+    if (!data) return null;
+    const credentials = await readStoredCredentials(data.credentials);
+    return { ...data, credentials };
   },
 
   /**
@@ -395,7 +407,8 @@ export const paymentGatewayService = {
       gateway_id: string;
       credentials: Record<string, string> | null;
     }>) {
-      credentialsByGateway.set(row.gateway_id, row.credentials || {});
+      const credentials = await readStoredCredentials(row.credentials);
+      credentialsByGateway.set(row.gateway_id, credentials);
     }
 
     return rows.map((gateway) => ({

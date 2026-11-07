@@ -75,7 +75,7 @@ export function planAmount(plan: SubscriptionPlan, cycle: PlanCycle): number {
 
 async function loadCompany(admin: any, companyId: string) {
   const { data, error } = await admin.from("companies")
-    .select("id, slug, company_name, email, owner_id, subscription_status, subscription_plan, trial_ends_at, stripe_customer_id, payfast_subscription_token")
+    .select("id, slug, company_name, email, owner_id, subscription_status, subscription_plan, trial_ends_at, stripe_customer_id")
     .eq("id", companyId).single();
   if (error || !data) throw error || new Error("Company not found");
   return data as any;

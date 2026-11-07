@@ -5,6 +5,8 @@ import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { recoverPayFastGateway } from "@/lib/paymentRecovery";
+import { decryptCredentialBundle } from "@/lib/credentialVault";
+import { paymentGatewayService } from "@/services/paymentGatewayService";
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!["GET", "POST"].includes(req.method || "")) return res.status(405).json({ error: "Method not allowed" });
   const auth = await requireCronAuth(req, res); if (!auth.ok) return;
@@ -28,14 +30,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       seen.add(key); sources.push({ ...gateway, credentials, recoverySourceId: sourceId });
     };
     for (const gateway of gateways || []) {
-      const { data: row, error: credentialError } = await sb.from("payment_gateway_credentials")
-        .select("credentials").eq("gateway_id", gateway.id).maybeSingle();
-      if (credentialError) throw credentialError;
-      if (row?.credentials?.merchantId) addSource(gateway, row.credentials, gateway.id);
+      const saved = await paymentGatewayService.getByIdWithCredentials(gateway.id, sb, true);
+      if (saved?.credentials?.merchantId) addSource(gateway, saved.credentials, gateway.id);
     }
     for (const version of versions || []) {
-      if (version.credentials?.merchantId) addSource({ id: version.gateway_id,
-        company_id: version.company_id, is_test: version.is_test }, version.credentials, version.id);
+      const credentials = await decryptCredentialBundle(version.credentials);
+      if (credentials.merchantId) addSource({ id: version.gateway_id,
+        company_id: version.company_id, is_test: version.is_test }, credentials, version.id);
     }
     const { data: cursors, error: cursorError } = await sb.from("payfast_recovery_cursors").select("source_id, last_checked_at");
     if (cursorError) throw cursorError;

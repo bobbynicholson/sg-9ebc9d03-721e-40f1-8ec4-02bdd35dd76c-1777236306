@@ -3,9 +3,14 @@ node_modules/
 .next/
 .next-dev/
 .next-verify/
+/.next*/
 out/
 build/
 coverage/
+tmp/
+output/
+uploads/
+supabase/.temp/
 
 # Local-only tooling, logs, and browser profiles
 logs/

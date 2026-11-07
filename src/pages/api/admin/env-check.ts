@@ -15,6 +15,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { hasStrongEncryptionKey } from "@/lib/credentialVault";
 
 function present(name: string) {
   const v = process.env[name];
@@ -61,6 +62,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const report = {
     node_env: process.env.NODE_ENV || null,
+    encryption: {
+      ENCRYPTION_KEY: {
+        ...present("ENCRYPTION_KEY"),
+        recommendedLength: 32,
+        meetsRecommendedLength: Buffer.byteLength(process.env.ENCRYPTION_KEY || "", "utf8") >= 32,
+        validKeyFormat: hasStrongEncryptionKey(),
+        requiredFormat: "32-byte hex or base64",
+      },
+    },
     supabase: {
       NEXT_PUBLIC_SUPABASE_URL: present("NEXT_PUBLIC_SUPABASE_URL"),
       NEXT_PUBLIC_SUPABASE_ANON_KEY: present("NEXT_PUBLIC_SUPABASE_ANON_KEY"),

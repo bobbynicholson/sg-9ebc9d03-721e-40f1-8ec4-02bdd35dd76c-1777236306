@@ -188,7 +188,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           success_url: body.success_url ?? null,
           cancel_url: body.cancel_url ?? null,
           notify_url: body.notify_url ?? null,
-          credentials: cleanCreds,
+          // The vault stores a complete encrypted bundle. This also preserves
+          // credentials omitted from the form when an operator rotates one key.
+          credentials: effectiveCredentials,
         },
         sb,
       );

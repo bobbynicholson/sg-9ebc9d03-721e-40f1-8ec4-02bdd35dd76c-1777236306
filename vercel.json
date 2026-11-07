@@ -68,6 +68,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/secure-billing-vault",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/equipment-service-due",
       "schedule": "0 5 * * *"
     },

@@ -38,10 +38,9 @@
  *                                                     flip to past_due
  *
  * Tenant lookup: the create-subscription flow stores PayFast's
- * `billing_token` in companies.payfast_subscription_token. ITN payloads
- * include `token` on subscription events, so we resolve company by
- * token. Fall back to `custom_str1` (which we'll populate with
- * companyId at sub-create time) for safety.
+ * `billing_token` in the service-only encrypted billing vault. ITN
+ * payloads include `token` on subscription events, so we resolve by its
+ * keyed hash. Fall back to `custom_str1` (companyId) for first delivery.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
@@ -50,6 +49,8 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { loadPlatformSubscriptionPlan } from "@/lib/platformSubscriptionPlans";
 import { isPayfastTestPlan, isPayfastTestTenant, PAYFAST_TEST_PLAN_AMOUNT_ZAR } from "@/lib/payfastTestPlan";
+import { findCompanyByPayfastToken, getPayfastSubscriptionToken, storePayfastSubscriptionToken } from "@/lib/platformBillingCredentialVault";
+import { keyedSecretHash } from "@/lib/credentialVault";
 
 
 export const config = { api: { bodyParser: true } };
@@ -145,10 +146,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const expectedSig = computePayfastSignature(body, passphrase || null);
   const providedSig = (body.signature || "").toLowerCase();
   if (expectedSig.toLowerCase() !== providedSig) {
-    console.warn("[subscriptions/payfast] signature mismatch", {
-      expected: expectedSig,
-      provided: providedSig,
-    });
+    console.warn("[subscriptions/payfast] signature mismatch");
     return res.status(401).json({ error: "Invalid signature" });
   }
 
@@ -170,8 +168,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Idempotency key: PayFast pf_payment_id is the canonical per-event
   // identifier. m_payment_id is our own reference passed at create
   // time. Use pf_payment_id when present, fall back to m_payment_id.
+  const rawToken = typeof body.token === "string" ? body.token.trim()
+    : typeof body.billing_token === "string" ? body.billing_token.trim() : "";
+  const tokenEventHash = rawToken ? await keyedSecretHash(rawToken) : "";
   const eventId = body.pf_payment_id ? `${body.pf_payment_id}:${body.payment_status}` :
-    (body.token && `${body.token}:${body.payment_status}:${body.billing_date || ""}`) || body.m_payment_id;
+    (rawToken && `token:${tokenEventHash}:${body.payment_status}:${body.billing_date || ""}`) || body.m_payment_id;
   if (!eventId) return res.status(400).json({ error: "Missing payment reference" });
   const eventType = body.payment_status
     ? `payment_status.${(body.payment_status as string).toLowerCase()}`
@@ -184,7 +185,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       event_id: eventId,
       event_type: eventType,
       // eslint-disable-next-line no-restricted-syntax -- table added by 20260522080000_subscription_webhook_scaffold; types regen pending
-      raw: body as any,
+      // Retain the verified event for support while excluding the recurring
+      // billing token and signature from the durable webhook log.
+      raw: Object.fromEntries(Object.entries(body).filter(([key]) => !/(?:token|signature|secret|passphrase)/i.test(key))) as any,
       rejection_reason: "processing",
     });
   if (logErr) {
@@ -208,18 +211,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   // Resolve tenant. Prefer the billing_token (PayFast's subscription
-  // identifier persisted at create time on companies.payfast_subscription_token).
+  // identifier persisted in the service-only encrypted billing vault.
   // Fall back to custom_str1 which we populate with companyId.
-  const token = (body.token || body.billing_token || "").trim();
+  const token = rawToken;
   const customCompanyId = (body.custom_str1 || "").trim();
   let companyId: string | null = null;
   if (token) {
-    const { data: companyRow } = await sb
-      .from("companies")
-      .select("id")
-      .eq("payfast_subscription_token", token)
-      .maybeSingle();
-    companyId = (companyRow as any)?.id ?? null;
+    companyId = await findCompanyByPayfastToken(sb, token);
   }
   if (!companyId && customCompanyId) {
     const { data: companyRow } = await sb
@@ -246,6 +244,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   try {
     const paymentStatus = (body.payment_status || "").toUpperCase();
+    if (token) await storePayfastSubscriptionToken(sb, companyId, token);
     if (!["COMPLETE", "FAILED", "CANCELLED"].includes(paymentStatus)) {
       const { error } = await sb.from("subscription_webhook_events").update({ rejection_reason: null })
         .eq("provider", "payfast").eq("event_id", eventId);
@@ -255,17 +254,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     let isFirstPayment = body.subscription_type === "1";
     const newStatus = mapPayfastToStatus(paymentStatus, isFirstPayment);
 
-    // Companies row update - source of truth for "is this tenant
-    // active right now". Token is persisted on first event so future
-    // ITNs resolve via the token path above.
+    // Companies row update - source of truth for "is this tenant active right now".
     const companyPatch: Record<string, unknown> = { subscription_status: newStatus };
-    if (token) companyPatch.payfast_subscription_token = token;
     // custom_str2 carries the plan id (createSubscriptionParams sets it),
     // so the company's stored plan reflects what they actually bought.
     const { data: currentCompany, error: currentError } = await sb.from("companies")
-      .select("subscription_plan, subscription_status, trial_ends_at, payfast_subscription_token, slug").eq("id", companyId).single();
+      .select("subscription_plan, subscription_status, trial_ends_at, slug").eq("id", companyId).single();
     if (currentError) throw currentError;
-    const subscriptionToken = token || currentCompany.payfast_subscription_token;
+    const subscriptionToken = token || await getPayfastSubscriptionToken(sb, companyId);
     const planFromCustom = (body.custom_str2 || currentCompany.subscription_plan || "").trim();
     const isTestPlan = isPayfastTestPlan(planFromCustom);
     if (isTestPlan && !isPayfastTestTenant(currentCompany.slug)) {

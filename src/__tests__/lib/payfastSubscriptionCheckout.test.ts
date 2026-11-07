@@ -1,10 +1,13 @@
 import handler from "@/pages/api/subscription/create-session";
 
+let mockPayfastToken: string | null = null;
+
 jest.mock("@/lib/withApiLogging", () => ({ withApiLogging: (fn: unknown) => fn }));
 jest.mock("@/lib/supabase/server", () => ({ createPagesServerClient: () => ({
   auth: { getUser: async () => ({ data: { user: mockUser } }) },
   from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: mockProfile }) }) }) }),
 }) }));
+jest.mock("@/lib/platformBillingCredentialVault", () => ({ getPayfastSubscriptionToken: async () => mockPayfastToken }));
 jest.mock("@/lib/supabase/service", () => ({ getServiceSupabase: () => ({
   from: (table: string) => ({ select: () => ({ eq: (_column: string, value: string) => ({ maybeSingle: async () => ({
     data: table === "platform_pricing_plans"
@@ -25,7 +28,8 @@ let mockCompany: any;
 beforeEach(() => {
   mockUser = { id: "owner-1", email: "owner@example.com" };
   mockProfile = { company_id: "company-1", role: "company_admin", full_name: "Owner Buyer" };
-  mockCompany = { subscription_status: "trial", trial_ends_at: "2099-01-01", payfast_subscription_token: null, slug: "test-company" };
+  mockCompany = { subscription_status: "trial", trial_ends_at: "2099-01-01", slug: "test-company" };
+  mockPayfastToken = null;
   process.env.PAYFAST_PLATFORM_MERCHANT_ID = "merchant";
   process.env.PAYFAST_PLATFORM_MERCHANT_KEY = "key";
   process.env.PAYFAST_PLATFORM_PASSPHRASE = "secret";
@@ -50,7 +54,7 @@ it("rejects localhost before sending a buyer to PayFast", async () => {
   expect((await checkout("http://localhost:3001")).statusCode).toBe(400);
 });
 it("prevents starting a second recurring agreement", async () => {
-  mockCompany.payfast_subscription_token = "existing-token";
+  mockPayfastToken = "existing-token";
   expect((await checkout()).statusCode).toBe(409);
 });
 it("requires authentication and a billing administrator", async () => {

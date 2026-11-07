@@ -17,6 +17,7 @@ import {
   PAYFAST_TEST_PLAN_AMOUNT_ZAR,
 } from "@/lib/payfastTestPlan";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { getPayfastSubscriptionToken } from "@/lib/platformBillingCredentialVault";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -68,7 +69,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const admin = getServiceSupabase() as any;
     const { data: company, error: companyError } = await admin.from("companies")
-      .select("id, slug, owner_id, subscription_status, subscription_plan, trial_ends_at, payfast_subscription_token")
+      .select("id, slug, owner_id, subscription_status, subscription_plan, trial_ends_at")
       .eq("id", companyId)
       .maybeSingle();
     if (companyError) throw companyError;
@@ -129,7 +130,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (String(company.subscription_status || "").toLowerCase() === "active") {
       return res.status(200).json({ ok: true, confirmed: true, alreadyActive: true });
     }
-    if (company.payfast_subscription_token) {
+    if (await getPayfastSubscriptionToken(admin, companyId)) {
       return res.status(409).json({ error: "An existing recurring subscription must be confirmed by its PayFast notification." });
     }
     if (!company.owner_id) throw new Error("Company owner is missing.");

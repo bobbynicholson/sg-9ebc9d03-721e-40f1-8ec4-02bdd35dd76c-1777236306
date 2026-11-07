@@ -15,6 +15,13 @@ jest.mock("@/services/billingEmailService", () => ({ billingEmailService: {
 } }));
 jest.mock("@/services/notificationService", () => ({ notificationService: { broadcastNotification: jest.fn() } }));
 
+let mockPayfastToken: string | null = null;
+jest.mock("@/lib/platformBillingCredentialVault", () => ({
+  findCompanyByPayfastToken: async (_admin: unknown, token: string) => token ? mockCompany?.id ?? null : null,
+  getPayfastSubscriptionToken: async () => mockPayfastToken,
+  storePayfastSubscriptionToken: async (_admin: unknown, _companyId: string, token: string) => { mockPayfastToken = token; },
+}));
+
 const mockEvents = new Map<string, any>();
 const mockLedger = new Map<string, any>();
 const mockSubscriptions = new Map<string, any>();
@@ -84,7 +91,7 @@ async function manage(body: any) {
 }
 beforeEach(() => {
   jest.clearAllMocks();
-  mockEvents.clear(); mockLedger.clear(); mockSubscriptions.clear(); mockActivationFailure = false;
+  mockEvents.clear(); mockLedger.clear(); mockSubscriptions.clear(); mockActivationFailure = false; mockPayfastToken = null;
   mockCompany = { id: "company-1", owner_id: "owner-1", slug: "test-company", subscription_plan: plan.id, subscription_status: "trial", trial_ends_at: "2099-01-01" };
   process.env.PAYFAST_PLATFORM_MERCHANT_ID = "merchant";
   process.env.PAYFAST_PLATFORM_MERCHANT_KEY = "key";
@@ -100,7 +107,7 @@ it("signs received fields in wire order with PHP punctuation encoding", () => {
 it("activates the company and records one ledger entry across duplicate delivery", async () => {
   expect((await deliver(notification())).statusCode).toBe(200);
   expect(mockCompany.subscription_status).toBe("active");
-  expect(mockCompany.payfast_subscription_token).toBe("token-1");
+  expect(mockPayfastToken).toBe("token-1");
   expect((await deliver(notification())).body.duplicate).toBe(true);
   expect(mockLedger.size).toBe(1);
   expect(billingEmailService.notifySubscriptionStarted).toHaveBeenCalledTimes(1);
@@ -130,7 +137,7 @@ it("rejects an underpayment without granting paid access", async () => {
 it("keeps a verified zero-amount trial setup in trial", async () => {
   expect((await deliver(notification({ amount_gross: "0.00" }))).statusCode).toBe(200);
   expect(mockCompany.subscription_status).toBe("trial");
-  expect(mockCompany.payfast_subscription_token).toBe("token-1");
+  expect(mockPayfastToken).toBe("token-1");
   expect(billingEmailService.notifySubscriptionStarted).toHaveBeenCalledWith("owner-1", expect.objectContaining({
     amount: plan.monthlyPrice, paid_amount: 0, subscription_status: "trial",
   }));
@@ -201,7 +208,7 @@ it("activates only the dedicated test tenant from a verified one-time R5 notific
   expect(result.statusCode).toBe(200);
   expect(mockCompany.subscription_status).toBe("active");
   expect(mockCompany.subscription_plan).toBe("payfast-test");
-  expect(mockCompany.payfast_subscription_token).toBeUndefined();
+  expect(mockPayfastToken).toBeNull();
   expect([...mockSubscriptions.values()][0].amount).toBe(5);
   expect(billingEmailService.notifyPaymentSucceeded).toHaveBeenCalledWith("owner-1", expect.objectContaining({
     amount: 5, billing_mode: "one_time", recurring_amount: 0,

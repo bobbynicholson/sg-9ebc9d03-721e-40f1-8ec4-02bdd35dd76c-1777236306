@@ -12,6 +12,10 @@ jest.mock("@/lib/whatsapp/adminAccess", () => ({
 jest.mock("@/lib/whatsapp/credentials", () => ({
   canStoreWhatsAppToken: () => true,
   encryptWhatsAppToken: (value: string) => `encrypted:${value}`,
+  readWhatsAppWebhookVerifyToken: (settings: Record<string, unknown> | null | undefined) => {
+    const encrypted = String(settings?.webhookVerifyTokenEncrypted || "");
+    return encrypted.startsWith("encrypted:") ? encrypted.slice("encrypted:".length) : String(settings?.webhookVerifyToken || "") || null;
+  },
   verifyWhatsAppCredentials: async () => ({ ok: true, displayNumber: "+27826411373" }),
 }));
 jest.mock("@/lib/supabase/service", () => ({
@@ -74,8 +78,9 @@ describe("WhatsApp connection storage", () => {
     expect(response.statusCode).toBe(200);
     expect(mockWrites[0].kind).toBe("update");
     const settings = mockWrites[0].row.settings as Record<string, unknown>;
-    expect(settings.webhookVerifyToken).toMatch(/^[0-9a-f]{48}$/);
-    expect(settings.webhookVerifyToken).not.toBe("old-token");
+    expect(settings.webhookVerifyToken).toBeUndefined();
+    expect(settings.webhookVerifyTokenEncrypted).toMatch(/^encrypted:[0-9a-f]{48}$/);
+    expect(settings.webhookVerifyTokenEncrypted).not.toBe("encrypted:old-token");
     expect(settings.webhookVerifiedAt).toBeNull();
   });
 

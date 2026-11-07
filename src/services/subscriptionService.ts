@@ -53,6 +53,14 @@ type BillingHistory = Database["public"]["Tables"]["billing_history"]["Row"];
 type CancellationRequest = Database["public"]["Tables"]["cancellation_requests"]["Row"];
 type AccountDeletionRequest = Database["public"]["Tables"]["account_deletion_requests"]["Row"];
 
+async function providerManagesSubscription(subscriptionId: string): Promise<boolean> {
+  const query = new URLSearchParams({ subscriptionId });
+  const response = await fetch(`/api/subscription/manage?${query.toString()}`, { cache: "no-store" });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || "Could not check the billing provider.");
+  return result.providerManaged === true;
+}
+
 export const subscriptionService = {
   // ==================== SUBSCRIPTION MANAGEMENT ====================
   
@@ -177,10 +185,9 @@ export const subscriptionService = {
   ): Promise<CancellationRequest | null> {
     const { data: linkedSubscription } = await supabase.from("subscriptions").select("*").eq("id", subscriptionId).single();
     if (linkedSubscription) {
-      const { data: company } = await supabase.from("companies").select("payfast_subscription_token").eq("id", linkedSubscription.company_id).single();
       // Provider-managed plans (PayFast token, Stripe, Yoco) must change
       // through the server so the provider and our rows stay in step.
-      if (company?.payfast_subscription_token || (linkedSubscription as any).stripe_subscription_id ||
+      if (await providerManagesSubscription(subscriptionId) || (linkedSubscription as any).stripe_subscription_id ||
           (linkedSubscription as any).payment_provider === "yoco") {
         const response = await fetch("/api/subscription/manage", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -232,10 +239,9 @@ export const subscriptionService = {
   async reactivateSubscription(subscriptionId: string): Promise<Subscription | null> {
     const { data: linkedSubscription } = await supabase.from("subscriptions").select("*").eq("id", subscriptionId).single();
     if (linkedSubscription) {
-      const { data: company } = await supabase.from("companies").select("payfast_subscription_token").eq("id", linkedSubscription.company_id).single();
       // Provider-managed plans (PayFast token, Stripe, Yoco) must change
       // through the server so the provider and our rows stay in step.
-      if (company?.payfast_subscription_token || (linkedSubscription as any).stripe_subscription_id ||
+      if (await providerManagesSubscription(subscriptionId) || (linkedSubscription as any).stripe_subscription_id ||
           (linkedSubscription as any).payment_provider === "yoco") {
         const response = await fetch("/api/subscription/manage", {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "resume", subscriptionId }),
