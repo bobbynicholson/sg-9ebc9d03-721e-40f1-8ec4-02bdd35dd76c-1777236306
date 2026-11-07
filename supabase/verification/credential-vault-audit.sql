@@ -255,6 +255,44 @@ BEGIN
     );
 
     SELECT count(*) INTO v_count
+    FROM (VALUES ('anon'), ('authenticated')) AS client_roles(role_name)
+    CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE')) AS operations(privilege)
+    WHERE has_table_privilege(
+      client_roles.role_name,
+      'public.webhook_subscriptions',
+      operations.privilege
+    );
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Webhook subscriptions: client table-level read/write grants',
+      CASE WHEN v_count = 0 THEN 'PASS' ELSE 'FAIL' END,
+      v_count,
+      '0',
+      'This diagnostic separates table-wide grants from protected-column grants.'
+    );
+
+    SELECT count(*) INTO v_count
+    FROM pg_attribute AS a
+    CROSS JOIN LATERAL aclexplode(a.attacl) AS acl
+    WHERE a.attrelid = 'public.webhook_subscriptions'::regclass
+      AND a.attname IN ('signing_secret', 'target_url')
+      AND a.attnum > 0
+      AND NOT a.attisdropped
+      AND acl.privilege_type IN ('SELECT', 'INSERT', 'UPDATE')
+      AND (
+        acl.grantee = 0 OR
+        acl.grantee IN (SELECT oid FROM pg_roles WHERE rolname IN ('anon', 'authenticated'))
+      );
+    INSERT INTO pg_temp.credential_vault_audit_results
+    VALUES (
+      'Webhook credential columns: direct client column ACLs',
+      CASE WHEN v_count = 0 THEN 'PASS' ELSE 'FAIL' END,
+      v_count,
+      '0',
+      'This diagnostic counts direct column ACLs; the effective privilege check above also detects inherited grants.'
+    );
+
+    SELECT count(*) INTO v_count
     FROM public.webhook_subscriptions
     WHERE NULLIF(signing_secret, '') IS NOT NULL;
     INSERT INTO pg_temp.credential_vault_audit_results
