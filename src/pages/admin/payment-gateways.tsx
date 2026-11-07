@@ -55,12 +55,10 @@ import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import {
-  paymentGatewayService,
-  type PaymentGatewayConfigDTO,
-} from "@/services/paymentGatewayService";
+import type { PaymentGatewayConfigDTO } from "@/services/paymentGatewayService";
+import { getPaymentGatewayCatalogue, type PaymentGatewayProviderCatalogueEntry } from "@/lib/paymentGatewayCatalogue";
 
-type ProviderEntry = ReturnType<typeof paymentGatewayService.getProviderCatalogue>[number];
+type ProviderEntry = PaymentGatewayProviderCatalogueEntry;
 
 // The REAL webhook targets the runtime listens on, per provider. These
 // are what the operator must paste into the provider dashboard - the
@@ -104,7 +102,7 @@ function PaymentGatewaysPage() {
   const isSuperAdmin = role === "super_admin";
   const profileCompanyId: string | null = profile?.company_id ?? null;
 
-  const catalogue = useMemo(() => paymentGatewayService.getProviderCatalogue(), []);
+  const catalogue = useMemo(() => getPaymentGatewayCatalogue(), []);
   const [configs, setConfigs] = useState<PaymentGatewayConfigDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);

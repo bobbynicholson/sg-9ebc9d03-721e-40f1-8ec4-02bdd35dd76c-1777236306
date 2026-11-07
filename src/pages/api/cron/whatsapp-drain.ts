@@ -42,7 +42,7 @@ import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { alertWhatsAppFailures, flagWhatsAppConnectionProblem, isConnectionProblem } from "@/lib/whatsapp/alerts";
-import { postWhatsAppMessage, type StoredWhatsAppCredentials } from "@/lib/whatsapp/credentials";
+import { loadWhatsAppCredentials, postWhatsAppMessage, type StoredWhatsAppCredentials } from "@/lib/whatsapp/credentials";
 
 
 const MAX_ATTEMPTS = 5;
@@ -60,10 +60,6 @@ interface QueueRow {
   template_language: string | null;
   template_params: Record<string, unknown> | null;
   attempts: number;
-}
-
-interface Integration {
-  credentials: StoredWhatsAppCredentials;
 }
 
 function backoffMinutes(attempts: number): number {
@@ -112,7 +108,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   // Cache integrations by company so each row doesn't re-fetch.
-  const integrationByCompany: Record<string, Integration | null> = {};
+  const integrationByCompany: Record<string, StoredWhatsAppCredentials | null> = {};
 
   // Claim a batch. Optimistic: select then update status to
   // 'sending' so a second worker skips them.
@@ -164,17 +160,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     try {
       // Per-company credentials, cached for the batch.
       if (!(row.company_id in integrationByCompany)) {
-        const { data: integration } = await supabase
-          .from("integrations")
-          .select("credentials")
-          .eq("company_id", row.company_id)
-          .eq("integration_type", "whatsapp")
-          .eq("is_active", true)
-          .maybeSingle();
-        integrationByCompany[row.company_id] = (integration as Integration | null) || null;
+        integrationByCompany[row.company_id] = await loadWhatsAppCredentials(supabase, row.company_id);
       }
       const integration = integrationByCompany[row.company_id];
-      if (!integration?.credentials?.phoneNumberId || !integration?.credentials?.accessTokenEncrypted) {
+      if (!integration?.phoneNumberId || !integration.accessTokenEncrypted) {
         throw new Error("WhatsApp integration credentials missing");
       }
 
@@ -194,7 +183,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         };
       }
 
-      const result = await postWhatsAppMessage(integration.credentials, body);
+      const result = await postWhatsAppMessage(integration, body);
       gatewayResponse = result.response;
       if (!result.ok) throw new Error(result.error || "WhatsApp send failed");
       gatewayId = result.id;

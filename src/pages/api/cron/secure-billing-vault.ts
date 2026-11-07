@@ -2,9 +2,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
-import { decryptCredentialBundle, decryptSecret, encryptCredentialBundle, encryptSecret, keyedSecretHash } from "@/lib/credentialVault";
+import { decryptCredentialBundle, decryptSecret, encryptCredentialBundle, encryptSecret } from "@/lib/credentialVault";
 import { migrateLegacyPayfastTokens } from "@/lib/platformBillingCredentialVault";
-import { encryptWhatsAppToken } from "@/lib/whatsapp/credentials";
+import { decryptWhatsAppToken, storeWhatsAppCredentials } from "@/lib/whatsapp/credentials";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 async function applyBatch<T>(rows: T[], updateRow: (row: T) => Promise<{ data: any[] | null; error: any }>): Promise<number> {
@@ -203,20 +203,28 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const payfastMigration = await migrateCompanyPayfastTokens(admin, batchSize);
     const supplierMigration = await migrateLegacySupplierAccounts(admin, batchSize);
     const { data: whatsappRows, error: whatsappError } = await admin.from("integrations")
-      .select("id, settings").eq("integration_type", "whatsapp")
+      .select("id, company_id, credentials, settings").eq("integration_type", "whatsapp")
       .not("settings->>webhookVerifyToken", "is", null)
       .neq("settings->>webhookVerifyToken", "")
       .is("settings->>webhookVerifyTokenEncrypted", null).limit(batchSize);
     if (whatsappError) throw whatsappError;
     const whatsappMigrated = await applyBatch((whatsappRows || []).filter((row: any) => row.settings?.webhookVerifyToken), async (row: any) => {
       const token = String(row.settings?.webhookVerifyToken || "");
-      const { webhookVerifyToken: _legacyToken, ...safeSettings } = row.settings || {};
-      return admin.from("integrations").update({ settings: {
-        ...safeSettings,
-        webhookVerifyTokenEncrypted: encryptWhatsAppToken(token),
-        webhookVerifyTokenHash: await keyedSecretHash(token),
-      } }).eq("id", row.id).eq("settings", JSON.stringify(row.settings))
-        .is("settings->>webhookVerifyTokenEncrypted", null).select("id");
+      const { data: vault, error: vaultError } = await admin.from("whatsapp_credential_vault")
+        .select("access_token_ciphertext, app_secret_ciphertext")
+        .eq("integration_id", row.id).maybeSingle();
+      if (vaultError) throw vaultError;
+      const accessCiphertext = vault?.access_token_ciphertext || row.credentials?.accessTokenEncrypted;
+      const appSecretCiphertext = vault?.app_secret_ciphertext || row.credentials?.appSecretEncrypted;
+      const accessToken = accessCiphertext ? await decryptWhatsAppToken(accessCiphertext) : "";
+      const appSecret = appSecretCiphertext ? await decryptWhatsAppToken(appSecretCiphertext) : "";
+      if (!accessToken || !appSecret || !token) return { data: [], error: null };
+      await storeWhatsAppCredentials(admin, row.id, row.company_id, { accessToken, appSecret, verifyToken: token });
+      const { webhookVerifyToken: _legacyToken, webhookVerifyTokenEncrypted: _legacyEncrypted,
+        webhookVerifyTokenHash: _legacyHash, ...safeSettings } = row.settings || {};
+      const { accessTokenEncrypted: _oldAccess, appSecretEncrypted: _oldAppSecret, ...safeCredentials } = row.credentials || {};
+      return admin.from("integrations").update({ settings: safeSettings, credentials: safeCredentials })
+        .eq("id", row.id).eq("settings", JSON.stringify(row.settings)).select("id");
     });
     const morePending = currentRows?.length === batchSize || versionRows?.length === batchSize ||
       payfastMigration.scanned === batchSize || payfastMigration.encrypted === batchSize ||

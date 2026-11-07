@@ -1,97 +1,64 @@
-/**
- * TIGHTEN I.105: round-trip + legacy detection coverage for the
- * AES-256-GCM token encryption introduced in accountingIntegrationService.
- *
- * Test boots without ENCRYPTION_KEY set in the environment so it
- * exercises the dev-fallback derived key. NODE_ENV defaults to 'test'
- * in jest, so the prod-throw branch isn't triggered here - separate
- * integration check verifies the prod throw.
- */
-
-// Mock the supabase browser client - the module is imported transitively
-// but the encryption helpers don't touch it. The test only exercises the
-// __testEncryption surface.
+/** @jest-environment node */
 jest.mock("@/integrations/supabase/client", () => ({
   supabase: { from: jest.fn() },
 }));
 
+import crypto from "crypto";
 import { __testEncryption } from "@/services/accountingIntegrationService";
 
-describe("accountingIntegrationService encryption (TIGHTEN I.105)", () => {
+describe("accounting token encryption", () => {
   const { encryptOne, decryptOne, isLegacyToken, ENCRYPTION_VERSION } = __testEncryption;
+  const priorKey = process.env.ENCRYPTION_KEY;
 
-  describe("round-trip", () => {
-    it("encrypts a short string and recovers the plaintext", () => {
-      const plain = "xyz-access-token-123";
-      const ct = encryptOne(plain);
-      expect(ct.startsWith(`${ENCRYPTION_VERSION}:`)).toBe(true);
-      expect(ct).not.toContain(plain);
-      expect(decryptOne(ct)).toBe(plain);
-    });
-
-    it("produces a different ciphertext for the same plaintext each call (random IV)", () => {
-      const plain = "deterministic-plaintext";
-      const ct1 = encryptOne(plain);
-      const ct2 = encryptOne(plain);
-      expect(ct1).not.toBe(ct2);
-      expect(decryptOne(ct1)).toBe(plain);
-      expect(decryptOne(ct2)).toBe(plain);
-    });
-
-    it("round-trips a long, high-entropy token (real OAuth refresh shape)", () => {
-      const plain = "eyJhbGciOiJIUzI1NiJ9." + "x".repeat(512) + ".sig";
-      const ct = encryptOne(plain);
-      expect(decryptOne(ct)).toBe(plain);
-    });
-
-    it("round-trips UTF-8 / non-ASCII payloads", () => {
-      const plain = "héllo wörld - caterer's token";
-      expect(decryptOne(encryptOne(plain))).toBe(plain);
-    });
+  beforeAll(() => { process.env.ENCRYPTION_KEY = "0123456789abcdef".repeat(4); });
+  afterAll(() => {
+    if (priorKey === undefined) delete process.env.ENCRYPTION_KEY;
+    else process.env.ENCRYPTION_KEY = priorKey;
   });
 
-  describe("legacy detection + transparent decode", () => {
-    it("flags a raw base64 string as legacy", () => {
-      const legacy = Buffer.from("legacy-access-token").toString("base64");
-      expect(isLegacyToken(legacy)).toBe(true);
-    });
-
-    it("does not flag a v1-prefixed ciphertext as legacy", () => {
-      const ct = encryptOne("anything");
-      expect(isLegacyToken(ct)).toBe(false);
-    });
-
-    it("decrypts a legacy row transparently (returns the original plaintext)", () => {
-      const plain = "old-style-token";
-      const legacyStored = Buffer.from(plain).toString("base64");
-      expect(decryptOne(legacyStored)).toBe(plain);
-    });
+  it.each([
+    "xyz-access-token-123",
+    "deterministic-plaintext",
+    "eyJhbGciOiJIUzI1NiJ9." + "x".repeat(512) + ".sig",
+    "héllo world - caterer's token",
+  ])("encrypts and recovers OAuth tokens", async (plain) => {
+    const encrypted = await encryptOne(plain);
+    expect(encrypted.startsWith(`${ENCRYPTION_VERSION}.`)).toBe(true);
+    expect(encrypted).not.toContain(plain);
+    await expect(decryptOne(encrypted)).resolves.toBe(plain);
   });
 
-  describe("malformed input", () => {
-    it("throws on a v1 payload with the wrong shape", () => {
-      expect(() => decryptOne("v1:not-three-parts")).toThrow(/Malformed/);
-      expect(() => decryptOne("v1:one.two")).toThrow(/Malformed/);
-    });
+  it("uses a fresh nonce for each encryption", async () => {
+    const first = await encryptOne("same input");
+    const second = await encryptOne("same input");
+    expect(first).not.toBe(second);
+    await expect(decryptOne(first)).resolves.toBe("same input");
+    await expect(decryptOne(second)).resolves.toBe("same input");
+  });
 
-    it("throws on a v1 payload with a corrupt tag (auth check fails)", () => {
-      const ct = encryptOne("payload");
-      const [version, body] = ct.split(":");
-      const [iv, , ciphertext] = body.split(".");
-      // Replace the entire tag with zeros - guarantees auth mismatch.
-      const zeroTag = Buffer.alloc(16, 0).toString("base64url");
-      const corrupted = `${version}:${iv}.${zeroTag}.${ciphertext}`;
-      expect(() => decryptOne(corrupted)).toThrow();
-    });
+  it("reads legacy base64 tokens and v1 AES-GCM tokens", async () => {
+    const legacyBase64 = Buffer.from("old-style-token").toString("base64");
+    expect(isLegacyToken(legacyBase64)).toBe(true);
+    await expect(decryptOne(legacyBase64)).resolves.toBe("old-style-token");
 
-    it("throws on a v1 payload with a corrupt ciphertext (auth check fails)", () => {
-      const ct = encryptOne("payload");
-      const [version, body] = ct.split(":");
-      const [iv, tag] = body.split(".");
-      // Replace ciphertext with random bytes of the same length.
-      const fake = Buffer.alloc(7, 0xaa).toString("base64url");
-      const corrupted = `${version}:${iv}.${tag}.${fake}`;
-      expect(() => decryptOne(corrupted)).toThrow();
-    });
+    const legacyEncrypted = legacyV1("legacy encrypted refresh");
+    expect(isLegacyToken(legacyEncrypted)).toBe(false);
+    await expect(decryptOne(legacyEncrypted)).resolves.toBe("legacy encrypted refresh");
+  });
+
+  it("rejects malformed or modified legacy ciphertext", async () => {
+    await expect(decryptOne("v1:not-three-parts")).rejects.toThrow(/Malformed/);
+    const [version, body] = legacyV1("payload").split(":");
+    const [iv, , ciphertext] = body.split(".");
+    const corrupted = `${version}:${iv}.${Buffer.alloc(16, 0).toString("base64url")}.${ciphertext}`;
+    await expect(decryptOne(corrupted)).rejects.toThrow();
   });
 });
+
+function legacyV1(plaintext: string): string {
+  const key = Buffer.from("0123456789abcdef".repeat(4), "hex");
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  return `v1:${iv.toString("base64url")}.${cipher.getAuthTag().toString("base64url")}.${ciphertext.toString("base64url")}`;
+}

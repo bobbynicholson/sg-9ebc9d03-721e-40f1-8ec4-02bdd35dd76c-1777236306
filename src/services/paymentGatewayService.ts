@@ -25,8 +25,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase as defaultClient } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { decryptCredentialBundle, encryptCredentialBundle } from "@/lib/credentialVault";
+import { getPaymentGatewayCatalogue, type PaymentGatewayProviderCatalogueEntry, type PaymentGatewayProvider } from "@/lib/paymentGatewayCatalogue";
 
-export type PaymentGatewayProvider = "payfast" | "yoco" | "stripe";
+export type { PaymentGatewayProvider } from "@/lib/paymentGatewayCatalogue";
 
 export const PAYMENT_GATEWAY_PROVIDERS: ReadonlyArray<PaymentGatewayProvider> =
   Object.freeze(["payfast", "yoco", "stripe"] as const);
@@ -274,44 +275,8 @@ export const paymentGatewayService = {
    * operator to enter. Drives the configure dialog. Single source of
    * truth: page imports this rather than hard-coding its own list.
    */
-  getProviderCatalogue(): Array<{
-    provider: PaymentGatewayProvider;
-    name: string;
-    description: string;
-    fields: Array<{ key: string; label: string; type: "text" | "password"; required: boolean }>;
-  }> {
-    return [
-      {
-        provider: "payfast",
-        name: "PayFast",
-        description: "South Africa's leading payment gateway",
-        fields: [
-          { key: "merchantId", label: "Merchant ID", type: "text", required: true },
-          { key: "merchantKey", label: "Merchant Key", type: "password", required: true },
-          { key: "passphrase", label: "Passphrase", type: "password", required: false },
-        ],
-      },
-      {
-        provider: "yoco",
-        name: "Yoco",
-        description: "Simple, affordable card payments for South African businesses",
-        fields: [
-          { key: "secretKey", label: "Secret Key", type: "password", required: true },
-          { key: "publicKey", label: "Public Key", type: "text", required: true },
-          { key: "webhookSecret", label: "Webhook Signing Secret (auto-registered if blank)", type: "password", required: false },
-        ],
-      },
-      {
-        provider: "stripe",
-        name: "Stripe",
-        description: "International card payments via Stripe Checkout",
-        fields: [
-          { key: "secretKey", label: "Secret Key (sk_...)", type: "password", required: true },
-          { key: "publishableKey", label: "Publishable Key (pk_...)", type: "text", required: true },
-          { key: "webhookSigningSecret", label: "Webhook Signing Secret (whsec_...)", type: "password", required: true },
-        ],
-      },
-    ];
+  getProviderCatalogue(): PaymentGatewayProviderCatalogueEntry[] {
+    return getPaymentGatewayCatalogue();
   },
 
   /**

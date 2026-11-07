@@ -1,15 +1,8 @@
-/**
- * Server-only handling of a company's WhatsApp Business access token.
- *
- * Company users can read their own integrations row, so the token is stored
- * encrypted (AES-256-GCM) and is only ever decrypted on the server to call
- * Meta. It is never returned to the browser.
- */
+/** Server-side handling of a company's WhatsApp Business credentials. */
 import crypto from "crypto";
-import { hasStrongEncryptionKey } from "@/lib/credentialVault";
+import { decryptSecret, encryptSecret, hasStrongEncryptionKey, keyedSecretHash } from "@/lib/credentialVault";
 
 const GRAPH_URL = "https://graph.facebook.com/v25.0";
-const VERSION = "v1";
 
 export interface StoredWhatsAppCredentials {
   phoneNumberId: string;
@@ -19,46 +12,105 @@ export interface StoredWhatsAppCredentials {
   appSecretEncrypted?: string;
 }
 
-function encryptionKey(): Buffer {
-  const secret = process.env.ENCRYPTION_KEY;
-  if (!secret) throw new Error("ENCRYPTION_KEY is not set");
-  return crypto.createHash("sha256").update(secret).digest();
+/**
+ * New WhatsApp ciphertext uses the shared versioned credential envelope.
+ * The four-part v1 envelope remains readable until legacy rows are migrated.
+ */
+export async function encryptWhatsAppToken(token: string): Promise<string> {
+  return encryptSecret(token);
+}
+
+export async function decryptWhatsAppToken(stored: string): Promise<string> {
+  return decryptSecret(stored);
 }
 
 export function canStoreWhatsAppToken(): boolean {
   return hasStrongEncryptionKey();
 }
 
-export function encryptWhatsAppToken(token: string): string {
-  if (!hasStrongEncryptionKey()) throw new Error("ENCRYPTION_KEY must be a 32-byte hex or base64 value");
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv("aes-256-gcm", encryptionKey(), iv);
-  const encrypted = Buffer.concat([cipher.update(token, "utf8"), cipher.final()]);
-  return [VERSION, iv.toString("base64url"), cipher.getAuthTag().toString("base64url"), encrypted.toString("base64url")].join(".");
+/** Do not let a reconnect mutate its integration row before the vault migration exists. */
+export async function isWhatsAppCredentialVaultAvailable(sb: any): Promise<boolean> {
+  const { error } = await sb.from("whatsapp_credential_vault").select("integration_id").limit(1);
+  return !error;
 }
 
-export function decryptWhatsAppToken(stored: string): string {
-  const [version, iv, tag, encrypted] = stored.split(".");
-  if (version !== VERSION || !iv || !tag || !encrypted) throw new Error("Saved WhatsApp token is not readable");
-  const decipher = crypto.createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(iv, "base64url"));
-  decipher.setAuthTag(Buffer.from(tag, "base64url"));
-  return Buffer.concat([decipher.update(Buffer.from(encrypted, "base64url")), decipher.final()]).toString("utf8");
-}
-
-/** Read a webhook verify token stored encrypted; plaintext is accepted only for lazy migration. */
-export function readWhatsAppWebhookVerifyToken(settings: Record<string, unknown> | null | undefined): string | null {
+/** Read an encrypted or legacy plaintext verification token during rollout. */
+export async function readWhatsAppWebhookVerifyToken(
+  settings: Record<string, unknown> | null | undefined,
+): Promise<string | null> {
   const encrypted = typeof settings?.webhookVerifyTokenEncrypted === "string" ? settings.webhookVerifyTokenEncrypted : "";
   if (encrypted) return decryptWhatsAppToken(encrypted);
   const legacy = typeof settings?.webhookVerifyToken === "string" ? settings.webhookVerifyToken : "";
   return legacy || null;
 }
 
-export function matchesWhatsAppWebhookVerifyToken(settings: Record<string, unknown> | null | undefined, candidate: string): boolean {
-  const saved = readWhatsAppWebhookVerifyToken(settings);
-  if (!saved || !candidate) return false;
-  const expected = Buffer.from(saved);
-  const actual = Buffer.from(candidate);
-  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+export async function loadWhatsAppWebhookVerifyToken(
+  sb: any,
+  companyId: string,
+  legacySettings?: Record<string, unknown> | null,
+): Promise<string | null> {
+  const { data: integration, error: integrationError } = await sb.from("integrations")
+    .select("id, settings").eq("company_id", companyId).eq("integration_type", "whatsapp").maybeSingle();
+  if (integrationError) throw integrationError;
+  if (!integration) return null;
+  const { data: vault, error: vaultError } = await sb.from("whatsapp_credential_vault")
+    .select("webhook_verify_token_ciphertext")
+    .eq("integration_id", integration.id).maybeSingle();
+  if (vaultError && !integration.settings?.webhookVerifyTokenEncrypted && !integration.settings?.webhookVerifyToken) {
+    throw vaultError;
+  }
+  if (vault?.webhook_verify_token_ciphertext) return decryptWhatsAppToken(vault.webhook_verify_token_ciphertext);
+  return readWhatsAppWebhookVerifyToken(legacySettings || integration.settings);
+}
+
+export async function hasWhatsAppWebhookVerifyToken(sb: any, companyId: string, legacySettings?: Record<string, unknown> | null): Promise<boolean> {
+  const { data: integration, error } = await sb.from("integrations")
+    .select("id, settings").eq("company_id", companyId).eq("integration_type", "whatsapp").maybeSingle();
+  if (error) throw error;
+  if (!integration) return false;
+  const { data: vault, error: vaultError } = await sb.from("whatsapp_credential_vault")
+    .select("webhook_verify_token_hash").eq("integration_id", integration.id).maybeSingle();
+  if (vaultError && !integration.settings?.webhookVerifyTokenEncrypted && !integration.settings?.webhookVerifyToken) {
+    throw vaultError;
+  }
+  return !!(vault?.webhook_verify_token_hash || legacySettings?.webhookVerifyTokenHash ||
+    integration.settings?.webhookVerifyTokenHash || integration.settings?.webhookVerifyTokenEncrypted ||
+    integration.settings?.webhookVerifyToken);
+}
+
+/** Save new token values only in the service-role credential vault table. */
+export async function storeWhatsAppCredentials(
+  sb: any,
+  integrationId: string,
+  companyId: string,
+  values: { accessToken: string; appSecret: string; verifyToken: string },
+): Promise<void> {
+  const { error } = await sb.from("whatsapp_credential_vault").upsert({
+    integration_id: integrationId,
+    company_id: companyId,
+    access_token_ciphertext: await encryptWhatsAppToken(values.accessToken),
+    app_secret_ciphertext: await encryptWhatsAppToken(values.appSecret),
+    webhook_verify_token_ciphertext: await encryptWhatsAppToken(values.verifyToken),
+    webhook_verify_token_hash: await keyedSecretHash(values.verifyToken),
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "integration_id" });
+  if (error) throw error;
+}
+
+export async function storeWhatsAppVerifyToken(sb: any, integrationId: string, verifyToken: string): Promise<void> {
+  const { data: existing, error: readError } = await sb.from("whatsapp_credential_vault")
+    .select("access_token_ciphertext, app_secret_ciphertext")
+    .eq("integration_id", integrationId).maybeSingle();
+  if (readError) throw readError;
+  if (!existing?.access_token_ciphertext || !existing?.app_secret_ciphertext) {
+    throw new Error("WhatsApp credential vault entry is missing; reconnect WhatsApp before rotating its verify token");
+  }
+  const { error } = await sb.from("whatsapp_credential_vault").update({
+    webhook_verify_token_ciphertext: await encryptWhatsAppToken(verifyToken),
+    webhook_verify_token_hash: await keyedSecretHash(verifyToken),
+    updated_at: new Date().toISOString(),
+  }).eq("integration_id", integrationId);
+  if (error) throw error;
 }
 
 /** Asks Meta whether these details work before they are saved. */
@@ -78,7 +130,7 @@ export async function postWhatsAppMessage(
   const response = await fetch(`${GRAPH_URL}/${encodeURIComponent(credentials.phoneNumberId)}/messages`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${decryptWhatsAppToken(credentials.accessTokenEncrypted)}`,
+      Authorization: `Bearer ${await decryptWhatsAppToken(credentials.accessTokenEncrypted)}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ messaging_product: "whatsapp", ...message }),
@@ -101,7 +153,7 @@ export async function callMeta(
   const response = await fetch(`${GRAPH_URL}/${path}`, {
     method: options.method || "GET",
     headers: {
-      Authorization: `Bearer ${decryptWhatsAppToken(credentials.accessTokenEncrypted)}`,
+      Authorization: `Bearer ${await decryptWhatsAppToken(credentials.accessTokenEncrypted)}`,
       "Content-Type": "application/json",
     },
     ...(options.body ? { body: JSON.stringify(options.body) } : {}),
@@ -124,13 +176,28 @@ export function isValidMetaSignature(rawBody: string | Buffer, header: string, a
 
 /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
 export async function loadWhatsAppCredentials(sb: any, companyId: string): Promise<StoredWhatsAppCredentials | null> {
-  const { data } = await sb
-    .from("integrations")
-    .select("credentials")
+  const { data: integration, error } = await sb.from("integrations")
+    .select("id, credentials")
     .eq("company_id", companyId)
     .eq("integration_type", "whatsapp")
     .eq("is_active", true)
     .maybeSingle();
-  const credentials = data?.credentials as StoredWhatsAppCredentials | undefined;
-  return credentials?.phoneNumberId && credentials?.accessTokenEncrypted ? credentials : null;
+  if (error) throw error;
+  if (!integration) return null;
+
+  const metadata = integration.credentials || {};
+  const { data: vault, error: vaultError } = await sb.from("whatsapp_credential_vault")
+    .select("access_token_ciphertext, app_secret_ciphertext")
+    .eq("integration_id", integration.id).maybeSingle();
+  const legacy = metadata as Partial<StoredWhatsAppCredentials>;
+  if (vaultError && !legacy.accessTokenEncrypted) throw vaultError;
+  const accessTokenEncrypted = vault?.access_token_ciphertext || legacy.accessTokenEncrypted || "";
+  const appSecretEncrypted = vault?.app_secret_ciphertext || legacy.appSecretEncrypted;
+  if (!metadata.phoneNumberId || !accessTokenEncrypted) return null;
+  return {
+    phoneNumberId: String(metadata.phoneNumberId),
+    businessAccountId: String(metadata.businessAccountId || ""),
+    accessTokenEncrypted,
+    ...(appSecretEncrypted ? { appSecretEncrypted } : {}),
+  };
 }

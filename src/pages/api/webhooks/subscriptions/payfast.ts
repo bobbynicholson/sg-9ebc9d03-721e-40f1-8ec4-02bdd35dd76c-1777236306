@@ -50,7 +50,7 @@ import { withApiLogging } from "@/lib/withApiLogging";
 import { loadPlatformSubscriptionPlan } from "@/lib/platformSubscriptionPlans";
 import { isPayfastTestPlan, isPayfastTestTenant, PAYFAST_TEST_PLAN_AMOUNT_ZAR } from "@/lib/payfastTestPlan";
 import { findCompanyByPayfastToken, getPayfastSubscriptionToken, storePayfastSubscriptionToken } from "@/lib/platformBillingCredentialVault";
-import { keyedSecretHash } from "@/lib/credentialVault";
+import { keyedSecretHashLegacy } from "@/lib/credentialVault";
 
 
 export const config = { api: { bodyParser: true } };
@@ -170,7 +170,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // time. Use pf_payment_id when present, fall back to m_payment_id.
   const rawToken = typeof body.token === "string" ? body.token.trim()
     : typeof body.billing_token === "string" ? body.billing_token.trim() : "";
-  const tokenEventHash = rawToken ? await keyedSecretHash(rawToken) : "";
+  const tokenEventHash = rawToken ? await keyedSecretHashLegacy(rawToken) : "";
   const eventId = body.pf_payment_id ? `${body.pf_payment_id}:${body.payment_status}` :
     (rawToken && `token:${tokenEventHash}:${body.payment_status}:${body.billing_date || ""}`) || body.m_payment_id;
   if (!eventId) return res.status(400).json({ error: "Missing payment reference" });

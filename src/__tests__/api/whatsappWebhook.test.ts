@@ -26,11 +26,12 @@ jest.mock("@/lib/supabase/service", () => ({
           const [column, field] = key.split("->>");
           return row[column]?.[field] === value;
         }
-        return row[key] === value;
+        return Array.isArray(value) ? value.includes(row[key]) : row[key] === value;
       }));
       const chain: any = {
         select: () => chain,
         eq: (column: string, value: unknown) => { filters[column] = value; return chain; },
+        in: (column: string, value: unknown[]) => { filters[column] = value; return chain; },
         neq: (column: string, value: unknown) => { neq[column] = value; return chain; },
         limit: () => chain,
         is: () => chain,
@@ -51,6 +52,7 @@ jest.mock("@/lib/supabase/service", () => ({
           if (mode === "delete") mockDeletes.push(filters);
           return Promise.resolve({ data: rows(), error: null }).then(resolve);
         },
+        maybeSingle: async () => ({ data: rows()[0] || null, error: null }),
       };
       return chain;
     },
@@ -82,7 +84,7 @@ const reply = (body: string, id = "wamid.1") => ({
 });
 
 describe("WhatsApp webhook", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     process.env.ENCRYPTION_KEY = "0123456789abcdef".repeat(4);
     for (const key of Object.keys(mockTables)) delete mockTables[key];
     mockUpdates.length = 0;
@@ -94,8 +96,14 @@ describe("WhatsApp webhook", () => {
       company_id: "company-1",
       integration_type: "whatsapp",
       is_active: true,
-      credentials: { phoneNumberId: "111", appSecretEncrypted: encryptWhatsAppToken(SECRET) },
+      credentials: { phoneNumberId: "111" },
       settings: { webhookVerifyToken: "verify-me" },
+    }];
+    mockTables.whatsapp_credential_vault = [{
+      integration_id: "integration-1",
+      company_id: "company-1",
+      app_secret_ciphertext: await encryptWhatsAppToken(SECRET),
+      webhook_verify_token_hash: "unused-in-post-test",
     }];
   });
 

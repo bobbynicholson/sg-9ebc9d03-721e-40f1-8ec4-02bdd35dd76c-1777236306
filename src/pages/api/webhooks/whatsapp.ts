@@ -10,11 +10,12 @@
  * text or phone numbers.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
+import crypto from "crypto";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { normaliseToE164 } from "@/lib/whatsapp";
 import { alertWhatsAppReply } from "@/lib/whatsapp/alerts";
-import { canStoreWhatsAppToken, decryptWhatsAppToken, encryptWhatsAppToken, isValidMetaSignature, matchesWhatsAppWebhookVerifyToken, readWhatsAppWebhookVerifyToken } from "@/lib/whatsapp/credentials";
-import { keyedSecretHash } from "@/lib/credentialVault";
+import { decryptWhatsAppToken, isValidMetaSignature, readWhatsAppWebhookVerifyToken } from "@/lib/whatsapp/credentials";
+import { keyedSecretHashCandidates } from "@/lib/credentialVault";
 import { replyIntent } from "@/lib/whatsapp/rules";
 
 export const config = { api: { bodyParser: false } };
@@ -109,27 +110,37 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   if (req.method === "GET") {
     const token = String(req.query["hub.verify_token"] || "");
-    const tokenHash = token ? await keyedSecretHash(token) : "";
-    const { data: hashedRows } = tokenHash
-      ? await sb.from("integrations").select("id, settings").eq("integration_type", "whatsapp").eq("is_active", true)
-        .eq("settings->>webhookVerifyTokenHash", tokenHash).limit(1)
+    const tokenHashes = token ? await keyedSecretHashCandidates(token) : [];
+    const { data: vaultRows } = tokenHashes.length
+      ? await sb.from("whatsapp_credential_vault").select("integration_id, webhook_verify_token_hash")
+        .in("webhook_verify_token_hash", tokenHashes).limit(1)
       : { data: [] };
-    const { data: legacyRows } = !hashedRows?.length && token
+    const matchedVault = vaultRows?.[0];
+    const { data: legacyHashedRows } = !matchedVault && tokenHashes.length
+      ? await sb.from("integrations").select("id, settings").eq("integration_type", "whatsapp").eq("is_active", true)
+        .in("settings->>webhookVerifyTokenHash", tokenHashes).limit(1)
+      : { data: [] };
+    const { data: legacyPlainRows } = !matchedVault && !legacyHashedRows?.length && token
       ? await sb.from("integrations").select("id, settings").eq("integration_type", "whatsapp").eq("is_active", true)
         .eq("settings->>webhookVerifyToken", token).limit(1)
       : { data: [] };
-    const row = [...(hashedRows || []), ...(legacyRows || [])].find((candidate: any) => matchesWhatsAppWebhookVerifyToken(candidate.settings, token));
+    let row: any = null;
+    if (matchedVault?.integration_id) {
+      const { data } = await sb.from("integrations").select("id, settings")
+        .eq("id", matchedVault.integration_id).eq("is_active", true).maybeSingle();
+      row = data;
+    }
+    const legacyRows = [...(legacyHashedRows || []), ...(legacyPlainRows || [])];
+    if (!row && legacyRows.length) {
+      const candidate = legacyRows[0];
+      const legacyToken = await readWhatsAppWebhookVerifyToken(candidate.settings);
+      if (legacyToken && legacyToken.length === token.length &&
+        crypto.timingSafeEqual(Buffer.from(legacyToken), Buffer.from(token))) row = candidate;
+    }
     if (req.query["hub.mode"] === "subscribe" && row) {
-      const verifyToken = readWhatsAppWebhookVerifyToken(row.settings);
-      const { webhookVerifyToken: _legacyToken, ...safeSettings } = row.settings || {};
-      const canSecureVerifyToken = !!verifyToken && canStoreWhatsAppToken();
       const { error } = await sb.from("integrations")
         .update({ settings: {
-          ...(canSecureVerifyToken ? safeSettings : row.settings || {}),
-          ...(canSecureVerifyToken && verifyToken ? {
-            webhookVerifyTokenEncrypted: row.settings?.webhookVerifyTokenEncrypted || encryptWhatsAppToken(verifyToken),
-            webhookVerifyTokenHash: tokenHash,
-          } : {}),
+          ...(row.settings || {}),
           webhookVerifiedAt: new Date().toISOString(),
         } })
         .eq("id", row.id).eq("is_active", true);
@@ -166,13 +177,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const numberId = String(value?.metadata?.phone_number_id || "");
     if (!numberId) return res.status(401).json({ error: "Invalid signature" });
     if (!companyByNumber.has(numberId)) {
-      const { data: rows } = await sb.from("integrations").select("company_id, credentials")
+      const { data: rows } = await sb.from("integrations").select("id, company_id, credentials")
         .eq("integration_type", "whatsapp").eq("is_active", true).eq("credentials->>phoneNumberId", numberId).limit(1);
       const row = rows?.[0];
       let valid = false;
       try {
-        valid = !!row?.credentials?.appSecretEncrypted
-          && isValidMetaSignature(raw, signature, decryptWhatsAppToken(row.credentials.appSecretEncrypted));
+        if (row?.id) {
+          const { data: vault } = await sb.from("whatsapp_credential_vault")
+            .select("app_secret_ciphertext").eq("integration_id", row.id).maybeSingle();
+          const appSecretCiphertext = vault?.app_secret_ciphertext || row.credentials?.appSecretEncrypted;
+          valid = !!appSecretCiphertext && isValidMetaSignature(raw, signature, await decryptWhatsAppToken(appSecretCiphertext));
+        }
       } catch {
         valid = false;
       }

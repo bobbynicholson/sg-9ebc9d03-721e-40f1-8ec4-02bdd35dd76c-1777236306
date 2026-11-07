@@ -410,14 +410,14 @@ describe("message previews", () => {
 });
 
 describe("WhatsApp safety", () => {
-  it("stores the access token encrypted and can read it back", () => {
+  it("stores the access token encrypted and can read it back", async () => {
     process.env.ENCRYPTION_KEY = "0123456789abcdef".repeat(4);
-    const stored = encryptWhatsAppToken("secret-token");
+    const stored = await encryptWhatsAppToken("secret-token");
     expect(stored).not.toContain("secret-token");
-    expect(decryptWhatsAppToken(stored)).toBe("secret-token");
+    await expect(decryptWhatsAppToken(stored)).resolves.toBe("secret-token");
     const parts = stored.split(".");
     parts[3] = `${parts[3].slice(0, -2)}xx`;
-    expect(() => decryptWhatsAppToken(parts.join("."))).toThrow();
+    await expect(decryptWhatsAppToken(parts.join("."))).rejects.toThrow();
   });
 
   it("refuses the older automatic send path", async () => {

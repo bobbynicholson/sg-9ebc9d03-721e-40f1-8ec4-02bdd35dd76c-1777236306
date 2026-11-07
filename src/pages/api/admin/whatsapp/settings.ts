@@ -30,13 +30,15 @@ import {
 import {
   canStoreWhatsAppToken,
   callMeta,
-  encryptWhatsAppToken,
+  hasWhatsAppWebhookVerifyToken,
+  isWhatsAppCredentialVaultAvailable,
+  loadWhatsAppWebhookVerifyToken,
   loadWhatsAppCredentials,
   postWhatsAppMessage,
-  readWhatsAppWebhookVerifyToken,
+  storeWhatsAppCredentials,
+  storeWhatsAppVerifyToken,
   verifyWhatsAppCredentials,
 } from "@/lib/whatsapp/credentials";
-import { keyedSecretHash } from "@/lib/credentialVault";
 
 async function loadRow(sb: any, companyId: string) {
   const { data, error } = await sb.from("integrations").select("id, credentials, settings, is_active, connected_at, status")
@@ -56,10 +58,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const row = await loadRow(sb, companyId);
     res.setHeader("Cache-Control", "no-store");
     const revealVerifyToken = req.query.revealToken === "1";
-    const verifyToken = row?.is_active && revealVerifyToken ? readWhatsAppWebhookVerifyToken(row.settings) : null;
-    const verifyTokenAvailable = !!(row?.is_active && (
-      row.settings?.webhookVerifyTokenEncrypted || row.settings?.webhookVerifyToken
-    ));
+    const verifyToken = row?.is_active && revealVerifyToken
+      ? await loadWhatsAppWebhookVerifyToken(sb, companyId, row.settings) : null;
+    const verifyTokenAvailable = !!(row?.is_active && await hasWhatsAppWebhookVerifyToken(sb, companyId, row.settings));
     return res.status(200).json({
       connected: !!row?.is_active,
       connectedAt: row?.connected_at || null,
@@ -86,12 +87,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const row = await loadRow(sb, companyId);
     if (!row?.is_active) return res.status(400).json({ error: "Connect WhatsApp before replacing the verify token." });
     const verifyToken = crypto.randomBytes(24).toString("hex");
-    const { webhookVerifyToken: _legacyVerifyToken, ...safeSettings } = row.settings || {};
+    const { webhookVerifyToken: _legacyVerifyToken, webhookVerifyTokenEncrypted: _legacyEncryptedToken,
+      webhookVerifyTokenHash: _legacyTokenHash, ...safeSettings } = row.settings || {};
+    await storeWhatsAppVerifyToken(sb, row.id, verifyToken);
     const { error } = await sb.from("integrations").update({
       settings: {
         ...safeSettings,
-        webhookVerifyTokenEncrypted: encryptWhatsAppToken(verifyToken),
-        webhookVerifyTokenHash: await keyedSecretHash(verifyToken),
         webhookVerifiedAt: null,
       },
     }).eq("id", row.id).eq("company_id", companyId);
@@ -110,29 +111,27 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (!canStoreWhatsAppToken()) {
       return res.status(503).json({ error: "WhatsApp can't be connected from here. Connect it on the live site." });
     }
+    if (!await isWhatsAppCredentialVaultAvailable(sb)) {
+      return res.status(503).json({ error: "WhatsApp's secure credential vault is being prepared. Try again after the database migration is applied." });
+    }
     const check = await verifyWhatsAppCredentials(phoneNumberId, accessToken);
     if (!check.ok) return res.status(400).json({ error: "Meta didn't accept these details. Check the Phone number ID and access token." });
 
     const existing = await loadRow(sb, companyId);
-    const priorVerifyToken = readWhatsAppWebhookVerifyToken(existing?.settings);
+    const priorVerifyToken = existing
+      ? await loadWhatsAppWebhookVerifyToken(sb, companyId, existing.settings) : null;
     const verifyToken = priorVerifyToken || crypto.randomBytes(24).toString("hex");
-    const { webhookVerifyToken: _legacyVerifyToken, ...safeSettings } = existing?.settings || {};
+    const { webhookVerifyToken: _legacyVerifyToken, webhookVerifyTokenEncrypted: _legacyEncryptedToken,
+      webhookVerifyTokenHash: _legacyTokenHash, ...safeSettings } = existing?.settings || {};
     const connectionRow = {
       company_id: companyId,
       user_id: userId,
       integration_type: "whatsapp",
-      credentials: {
-        phoneNumberId,
-        businessAccountId,
-        accessTokenEncrypted: encryptWhatsAppToken(accessToken),
-        appSecretEncrypted: encryptWhatsAppToken(appSecret),
-      },
+      credentials: { phoneNumberId, businessAccountId },
       settings: {
         ...safeSettings,
         displayNumber: check.displayNumber || null,
         attention: null,
-        webhookVerifyTokenEncrypted: existing?.settings?.webhookVerifyTokenEncrypted || encryptWhatsAppToken(verifyToken),
-        webhookVerifyTokenHash: await keyedSecretHash(verifyToken),
         webhookVerifiedAt: existing?.settings?.webhookVerifiedAt || null,
       },
       is_active: true,
@@ -142,6 +141,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // The database has a partial unique index on (company_id, integration_type).
     // PostgREST's onConflict cannot specify its WHERE clause, so an upsert on
     // those columns fails with 42P10. Update the existing row or insert it.
+    let previousRow = existing;
     let { error } = existing
       ? await sb.from("integrations").update(connectionRow).eq("id", existing.id).eq("company_id", companyId)
       : await sb.from("integrations").insert(connectionRow);
@@ -149,20 +149,46 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // Another request created the row after loadRow; use that row instead.
       const concurrent = await loadRow(sb, companyId);
       if (concurrent) {
+        previousRow = concurrent;
         ({ error } = await sb.from("integrations").update(connectionRow).eq("id", concurrent.id).eq("company_id", companyId));
       }
     }
     if (error) throw error;
+    const saved = await loadRow(sb, companyId);
+    if (!saved?.id) throw new Error("WhatsApp integration was saved without an integration id");
+    try {
+      await storeWhatsAppCredentials(sb, saved.id, companyId, { accessToken, appSecret, verifyToken });
+    } catch (vaultError) {
+      // Restore the prior integration row if storing credentials failed. This
+      // keeps a transient vault error from disconnecting an existing account.
+      if (previousRow) {
+        await sb.from("integrations").update({
+          credentials: previousRow.credentials || {},
+          settings: previousRow.settings || {},
+          is_active: !!previousRow.is_active,
+          ...(previousRow.status ? { status: previousRow.status } : {}),
+          ...(previousRow.connected_at ? { connected_at: previousRow.connected_at } : {}),
+        }).eq("id", saved.id).eq("company_id", companyId);
+      } else {
+        await sb.from("integrations").delete().eq("id", saved.id).eq("company_id", companyId);
+      }
+      throw vaultError;
+    }
     return res.status(200).json({ success: true });
   }
 
   if (body.action === "disconnect") {
     // Removes the token and turns every message off, so reconnecting later
     // sends nothing until the company chooses again.
+    const row = await loadRow(sb, companyId);
     const { error } = await sb.from("integrations")
       .update({ is_active: false, status: "disconnected", credentials: {}, settings: {} })
       .eq("company_id", companyId).eq("integration_type", "whatsapp");
     if (error) throw error;
+    if (row?.id) {
+      const { error: vaultError } = await sb.from("whatsapp_credential_vault").delete().eq("integration_id", row.id);
+      if (vaultError) throw vaultError;
+    }
     // Otherwise reconnecting later would suddenly send old messages.
     await sb.from("whatsapp_messages").update({ status: "cancelled", failure_reason: "WhatsApp was disconnected" })
       .eq("company_id", companyId).in("status", ["pending", "sending"]);

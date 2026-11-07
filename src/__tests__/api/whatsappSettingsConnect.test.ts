@@ -3,6 +3,7 @@ import handler from "@/pages/api/admin/whatsapp/settings";
 
 let mockExisting: { id: string; settings: Record<string, unknown>; is_active?: boolean } | null = null;
 const mockWrites: Array<{ kind: string; row: Record<string, unknown>; filters?: Array<[string, unknown]> }> = [];
+const mockVaultAvailable = jest.fn();
 
 jest.mock("@/lib/subscriptionApiGate", () => ({ isSubscriptionGatedRequest: () => false, blockIfCompanyUnpaid: jest.fn() }));
 jest.mock("@/lib/platformApiGate", () => ({ isPlatformOnlyRequest: () => false, blockUnlessPlatformAdmin: jest.fn() }));
@@ -11,11 +12,14 @@ jest.mock("@/lib/whatsapp/adminAccess", () => ({
 }));
 jest.mock("@/lib/whatsapp/credentials", () => ({
   canStoreWhatsAppToken: () => true,
-  encryptWhatsAppToken: (value: string) => `encrypted:${value}`,
-  readWhatsAppWebhookVerifyToken: (settings: Record<string, unknown> | null | undefined) => {
-    const encrypted = String(settings?.webhookVerifyTokenEncrypted || "");
-    return encrypted.startsWith("encrypted:") ? encrypted.slice("encrypted:".length) : String(settings?.webhookVerifyToken || "") || null;
-  },
+  isWhatsAppCredentialVaultAvailable: (...args: unknown[]) => mockVaultAvailable(...args),
+  hasWhatsAppWebhookVerifyToken: async (_sb: unknown, _companyId: string, settings: Record<string, unknown> | null | undefined) => !!settings?.webhookVerifyToken,
+  loadWhatsAppWebhookVerifyToken: async (_sb: unknown, _companyId: string, settings: Record<string, unknown> | null | undefined) => String(settings?.webhookVerifyToken || "") || null,
+  storeWhatsAppCredentials: jest.fn().mockResolvedValue(undefined),
+  storeWhatsAppVerifyToken: jest.fn().mockResolvedValue(undefined),
+  loadWhatsAppCredentials: jest.fn().mockResolvedValue(null),
+  postWhatsAppMessage: jest.fn(),
+  callMeta: jest.fn(),
   verifyWhatsAppCredentials: async () => ({ ok: true, displayNumber: "+27826411373" }),
 }));
 jest.mock("@/lib/supabase/service", () => ({
@@ -26,7 +30,11 @@ jest.mock("@/lib/supabase/service", () => ({
         select: () => chain,
         eq: (key: string, value: unknown) => { filters.push([key, value]); return chain; },
         maybeSingle: async () => ({ data: mockExisting, error: null }),
-        insert: async (row: Record<string, unknown>) => { mockWrites.push({ kind: "insert", row }); return { error: null }; },
+        insert: async (row: Record<string, unknown>) => {
+          mockWrites.push({ kind: "insert", row });
+          mockExisting = { id: "integration-new", settings: row.settings as Record<string, unknown>, is_active: true };
+          return { error: null };
+        },
         update: (row: Record<string, unknown>) => {
           mockWrites.push({ kind: "update", row, filters });
           return chain;
@@ -53,7 +61,15 @@ async function call(body: Record<string, unknown> = { action: "connect", phoneNu
 }
 
 describe("WhatsApp connection storage", () => {
-  beforeEach(() => { mockExisting = null; mockWrites.length = 0; });
+  beforeEach(() => { mockExisting = null; mockWrites.length = 0; mockVaultAvailable.mockResolvedValue(true); });
+
+  it("does not alter existing credentials before the service-only vault exists", async () => {
+    mockExisting = { id: "integration-1", settings: { preserved: true }, is_active: true };
+    mockVaultAvailable.mockResolvedValue(false);
+    const response = await call();
+    expect(response.statusCode).toBe(503);
+    expect(mockWrites).toHaveLength(0);
+  });
 
   it("inserts a new connection without a partial-index upsert", async () => {
     const response = await call();
@@ -79,8 +95,8 @@ describe("WhatsApp connection storage", () => {
     expect(mockWrites[0].kind).toBe("update");
     const settings = mockWrites[0].row.settings as Record<string, unknown>;
     expect(settings.webhookVerifyToken).toBeUndefined();
-    expect(settings.webhookVerifyTokenEncrypted).toMatch(/^encrypted:[0-9a-f]{48}$/);
-    expect(settings.webhookVerifyTokenEncrypted).not.toBe("encrypted:old-token");
+    expect(settings.webhookVerifyTokenEncrypted).toBeUndefined();
+    expect(settings.webhookVerifyTokenHash).toBeUndefined();
     expect(settings.webhookVerifiedAt).toBeNull();
   });
 

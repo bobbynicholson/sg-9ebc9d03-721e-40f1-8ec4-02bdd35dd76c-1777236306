@@ -1,4 +1,4 @@
-import { decryptSecret, encryptSecret, keyedSecretHash } from "@/lib/credentialVault";
+import { decryptSecret, encryptSecret, keyedSecretHash, keyedSecretHashCandidates } from "@/lib/credentialVault";
 
 /** PayFast billing tokens are readable only by service-role server code. */
 export async function getPayfastSubscriptionToken(admin: any, companyId: string): Promise<string | null> {
@@ -33,9 +33,9 @@ export async function storePayfastSubscriptionToken(admin: any, companyId: strin
 export async function findCompanyByPayfastToken(admin: any, token: string): Promise<string | null> {
   const clean = String(token || "").trim();
   if (!clean) return null;
-  const hash = await keyedSecretHash(clean);
+  const hashes = await keyedSecretHashCandidates(clean);
   const { data: hashed, error: hashError } = await admin.from("platform_billing_credentials")
-    .select("company_id").eq("token_hash", hash).maybeSingle();
+    .select("company_id").in("token_hash", hashes).limit(1).maybeSingle();
   if (hashError) throw hashError;
   if (hashed?.company_id) return hashed.company_id;
 
