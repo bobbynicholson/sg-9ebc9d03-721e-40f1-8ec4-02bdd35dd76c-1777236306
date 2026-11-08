@@ -89,12 +89,22 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
   useEffect(() => {
     const companyId = user?.company_id;
     if (!companyId) return;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    const refresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => setTick((value) => value + 1), 250);
+    };
     const channel = supabase
-      .channel(`team-manager:${department}:${companyId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: department === "kitchen" ? "kitchen_duty_shifts" : "cleaning_duty_logs", filter: `company_id=eq.${companyId}` }, () => setTick((value) => value + 1))
-      .on("postgres_changes", { event: "*", schema: "public", table: "team_manager_notes", filter: `company_id=eq.${companyId}` }, () => setTick((value) => value + 1))
+      .channel(`team-manager:${department}:${companyId}:${Math.random().toString(36).slice(2, 8)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `company_id=eq.${companyId}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: department === "kitchen" ? "kitchen_duty_shifts" : "cleaning_duty_logs", filter: `company_id=eq.${companyId}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "team_manager_notes", filter: `company_id=eq.${companyId}` }, refresh)
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      void supabase.removeChannel(channel);
+    };
   }, [department, user?.company_id]);
 
   const onDuty = useMemo(() => members.filter((member) => member.status.on_duty).length, [members]);
@@ -157,6 +167,9 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
           <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{onDuty} on duty · Manage the roster and keep today&apos;s handover notes in one place.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => setTick((value) => value + 1)} disabled={loading || !!saving} className="h-10 gap-1.5 bg-white dark:bg-slate-900">
+            <RefreshCw aria-hidden="true" className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh roster
+          </Button>
           <Button type="button" variant="outline" size="sm" aria-expanded={workspaceOpen} aria-controls={`${department}-team-controls-content`} aria-label={`${workspaceOpen ? "Collapse" : "Expand"} team controls`} onClick={() => setWorkspaceOpen(value => !value)} disabled={!!saving} className="min-h-10 gap-1.5 bg-white dark:bg-slate-900">
             {workspaceOpen ? "Collapse" : "Expand"}<ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${workspaceOpen ? "rotate-180" : ""}`} />
           </Button>
