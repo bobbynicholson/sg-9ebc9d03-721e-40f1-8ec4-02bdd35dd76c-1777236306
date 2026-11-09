@@ -126,8 +126,8 @@ const SETTINGS_SHORTCUTS: SettingsShortcut[] = [
     source: "companies.kitchen_settings",
   },
   {
-    title: "Daily operations",
-    description: "Daily cleaning times, reminders and who receives them.",
+    title: "Cleaning schedules",
+    description: "Choose cleaning days, times and who receives reminders.",
     href: "/admin/daily-operations",
     icon: Sparkles,
     source: "company_daily_operations_settings",

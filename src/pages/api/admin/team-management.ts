@@ -7,6 +7,7 @@ import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { UserRole } from "@/types/app";
 import { teamBucketsForUser, type TeamRoleDepartmentRow } from "@/lib/teamRoleBuckets";
+import { mergeTeamDirectoryMemberships } from "@/lib/teamDirectoryMemberships";
 import { beginRoleClock, endCurrentRoleClock, saveRoleHandoffNote } from "@/services/roleClockService";
 
 type Department = "kitchen" | "cleaning";
@@ -18,6 +19,7 @@ type Member = {
   active_role: string | null;
   avatar_url?: string | null;
   is_active: boolean | null;
+  departments?: string[] | null;
 };
 
 const ADMIN_ROLES = new Set<string>([
@@ -31,14 +33,6 @@ function cleanDepartment(value: unknown): Department | null {
 
 function text(value: unknown, max = 4000): string {
   return String(value || "").trim().slice(0, max);
-}
-
-function memberBelongsToDepartment(
-  profile: Member,
-  departmentRows: TeamRoleDepartmentRow[],
-  department: Department,
-): boolean {
-  return teamBucketsForUser(profile, departmentRows).has(department);
 }
 
 async function getCompanyContext(req: NextApiRequest, res: NextApiResponse) {
@@ -106,18 +100,40 @@ async function loadTeam(
     ? await (admin as any).from("user_departments").select("user_id, department, is_primary").in("user_id", ids)
     : { data: [] };
   const departmentRows = (departments || []) as TeamRoleDepartmentRow[];
-  const members = profileRows.filter((profile) => memberBelongsToDepartment(profile, departmentRows, department));
-  const memberIds = members.map((member) => member.id);
+  const { data: directoryRows, error: directoryError } = await (admin as any)
+    .from("kitchen_staff_members")
+    .select("id, linked_profile_id, email, full_name, role_title, departments")
+    .eq("company_id", companyId)
+    .eq("is_active", true)
+    .contains("departments", [department])
+    .is("deleted_at", null);
+  if (directoryError) throw directoryError;
+  const directoryMembers = (directoryRows || []) as Array<{
+    id: string; linked_profile_id: string | null; email: string | null;
+    full_name: string | null; role_title: string | null; departments: string[] | null;
+  }>;
+  const merged = mergeTeamDirectoryMemberships(profileRows, departmentRows, directoryMembers);
+  const rosterProfiles = merged.profiles.filter((profile) =>
+    teamBucketsForUser(profile, merged.departmentRows).has(department),
+  ) as Array<Member & { departments?: string[] }>;
+  const directoryByRosterId = new Map<string, typeof directoryMembers[number]>();
+  for (const member of directoryMembers) {
+    const identity = merged.directoryIdentity.get(member.id);
+    if (identity) directoryByRosterId.set(identity.teamMemberId, member);
+  }
+  const profileRosterIds = rosterProfiles
+    .filter((member) => !member.id.startsWith("staff-member:"))
+    .map((member) => member.id);
 
   const statusByUser = new Map<string, { on_duty: boolean; started_at: string | null; shift_id: string | null; source: string }>();
-  if (memberIds.length) {
+  if (profileRosterIds.length) {
     if (department === "cleaning") {
       const { data: logs, error } = await (admin as any)
         .from("cleaning_duty_logs")
         .select("id, user_id, duty_started_at, created_at")
         .eq("company_id", companyId)
         .eq("on_duty", true)
-        .in("user_id", memberIds)
+        .in("user_id", profileRosterIds)
         .order("duty_started_at", { ascending: false });
       if (error) throw error;
       for (const row of logs || []) {
@@ -131,7 +147,7 @@ async function loadTeam(
         .select("id, staff_id, shift_start")
         .eq("company_id", companyId)
         .eq("is_active", true)
-        .in("staff_id", memberIds)
+        .in("staff_id", profileRosterIds)
         .order("shift_start", { ascending: false });
       if (error) throw error;
       for (const row of shifts || []) {
@@ -139,6 +155,30 @@ async function loadTeam(
           on_duty: true, started_at: row.shift_start, shift_id: row.id, source: "kitchen_duty_shifts",
         });
       }
+    }
+  }
+
+  const directoryMemberIds = directoryMembers.map((member) => member.id);
+  if (directoryMemberIds.length) {
+    const { data: tabletShifts, error: tabletShiftError } = await (admin as any)
+      .from("kitchen_staff_shifts")
+      .select("id, staff_member_id, shift_start")
+      .eq("company_id", companyId)
+      .eq("department", department)
+      .in("staff_member_id", directoryMemberIds)
+      .is("shift_end", null)
+      .is("deleted_at", null)
+      .order("shift_start", { ascending: false });
+    if (tabletShiftError) throw tabletShiftError;
+    for (const row of tabletShifts || []) {
+      const identity = merged.directoryIdentity.get(row.staff_member_id);
+      if (!identity || statusByUser.has(identity.teamMemberId)) continue;
+      statusByUser.set(identity.teamMemberId, {
+        on_duty: true,
+        started_at: row.shift_start,
+        shift_id: row.id,
+        source: "kitchen_staff_shifts",
+      });
     }
   }
 
@@ -162,10 +202,18 @@ async function loadTeam(
 
   return {
     company_id: companyId,
-    members: members.map((member) => ({
+    members: rosterProfiles.map((member) => {
+      const directory = directoryByRosterId.get(member.id);
+      const isDirectoryOnly = member.id.startsWith("staff-member:");
+      return {
       ...member,
+      full_name: member.full_name || directory?.full_name || "Cleaning / kitchen team member",
+      email: member.email || directory?.email || null,
+      role: member.role || directory?.role_title || `${department}_staff`,
+      directory_only: isDirectoryOnly,
+      staff_member_id: directory?.id || null,
       status: statusByUser.get(member.id) || { on_duty: false, started_at: null, shift_id: null, source: null },
-    })),
+    }; }),
     notes: noteRows,
     diary_available: !notesError,
   };
@@ -182,6 +230,9 @@ async function handleClock(
   const team = await loadTeam(context, department);
   const member = team.members.find((candidate) => candidate.id === memberId);
   if (!member) throw Object.assign(new Error("That user is not an active member of this team"), { statusCode: 400 });
+  if (member.directory_only) {
+    throw Object.assign(new Error("This clock-in-only staff member must use the staff tablet"), { statusCode: 409 });
+  }
   const memberIsManager = member.active_role === `${department}_manager` || member.role === `${department}_manager`;
   if (memberIsManager) {
     throw Object.assign(new Error(`A ${department} manager must use the manager work clock, not the ${department} staff clock`), { statusCode: 409 });
@@ -320,7 +371,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       const noteDate = text(req.body?.note_date, 20) || new Date().toISOString().slice(0, 10);
       if (!body) return res.status(400).json({ error: "Write a note before saving" });
       const team = await loadTeam(context, department);
-      if (memberId && !team.members.some((member) => member.id === memberId)) {
+      if (memberId && !team.members.some((member) => member.id === memberId && !member.directory_only)) {
         return res.status(400).json({ error: "That user is not an active member of this team" });
       }
       const { data, error } = await (context.admin as any).from("team_manager_notes").insert({

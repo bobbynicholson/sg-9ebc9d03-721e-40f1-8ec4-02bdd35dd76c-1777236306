@@ -1074,11 +1074,18 @@ function KitchenStaffPage() {
                                 view tells the operator which team
                                 each row belongs to. */}
                             {depts.length > 0 && (
-                              <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 border-slate-200 inline-flex items-center gap-0.5">
-                                <Tag className="w-2.5 h-2.5" />
-                                {depts.slice(0, 2).map((d) => (ALL_DEPARTMENTS.find((x) => x.id === d)?.label || d)).join(" / ")}
-                                {depts.length > 2 ? ` +${depts.length - 2}` : ""}
-                              </Badge>
+                              <span
+                                role="group"
+                                aria-label={`Assigned teams: ${depts.map((d) => ALL_DEPARTMENTS.find((x) => x.id === d)?.label || d).join(", ")}`}
+                                className="inline-flex flex-wrap items-center gap-1"
+                              >
+                                {depts.map((d) => (
+                                  <Badge key={d} variant="outline" className="text-[10px] bg-slate-50 text-slate-600 border-slate-200 inline-flex items-center gap-0.5">
+                                    <Tag className="w-2.5 h-2.5" aria-hidden="true" />
+                                    {ALL_DEPARTMENTS.find((x) => x.id === d)?.label || d}
+                                  </Badge>
+                                ))}
+                              </span>
                             )}
                             {archived && <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-500">Archived</Badge>}
                             {s.linked_profile_id ? (
@@ -1695,8 +1702,16 @@ function KitchenStaffPage() {
                           </Badge>
                         )}
                         {Array.isArray(s.departments) && s.departments.length > 0 && (
-                          <span className="text-slate-400">
-                            {s.departments.slice(0, 2).map((d) => ALL_DEPARTMENTS.find((x) => x.id === d)?.label || d).join(" / ")}
+                          <span
+                            role="group"
+                            aria-label={`Assigned teams: ${s.departments.map((d) => ALL_DEPARTMENTS.find((x) => x.id === d)?.label || d).join(", ")}`}
+                            className="inline-flex flex-wrap gap-1"
+                          >
+                            {s.departments.map((d) => (
+                              <Badge key={d} variant="outline" className="text-[9px] px-1 py-0">
+                                {ALL_DEPARTMENTS.find((x) => x.id === d)?.label || d}
+                              </Badge>
+                            ))}
                           </span>
                         )}
                       </div>

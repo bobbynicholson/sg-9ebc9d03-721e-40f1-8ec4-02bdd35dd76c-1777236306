@@ -14,6 +14,8 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import type { ChatIntentMatch } from "@/lib/chatbot/intents/types";
 import { normalizeChatRole } from "@/lib/chatbot/roles";
 import { normalizeChatMessage } from "@/lib/chatbot/intents/normalize";
+import { mergeTeamDirectoryMemberships } from "@/lib/teamDirectoryMemberships";
+import { teamBucketsForUser } from "@/lib/teamRoleBuckets";
 
 export type LiveToolId =
   | "current_user_profile"
@@ -172,7 +174,7 @@ const BASE_LIVE_TOOL_DEFINITIONS = [
   { id: "work_clock_status", label: "Work clock status", description: "The signed-in user's single active role timer, recent role switches, and end notes", category: "operations", roles: WORKER_ROLES, keywords: ["clock", "clocked in", "clocked out", "timer", "timers", "active timer", "active clock", "on duty", "off duty", "role switch", "work session"] },
   { id: "work_hours", label: "Work hours", description: "The signed-in user's recorded work sessions and hours, or company staff hours for authorized administrators", category: "finance", roles: WORK_HOURS_ROLES, keywords: ["work hours", "hours worked", "worked hours", "timesheet", "timesheets", "shift hours", "my shifts", "my hours", "staff hours", "clock hours", "hours today", "hours this week", "hours this month"] },
   { id: "order_work_hours", label: "Order-specific work hours", description: "Order-linked role sessions, duration, role, and handoff notes", category: "operations", roles: [...WORKER_ROLES, ...ADMIN, "region_admin"], keywords: ["order hours", "order-specific hours", "order specific hours", "hours for this order", "worked on this order", "who worked", "work on order", "time on order", "role hours", "hours by order"] },
-  { id: "daily_operations_tasks", label: "Daily operations tasks", description: "Configured daily kitchen and equipment cleaning tasks, schedule, assignment, status, and notifications", category: "operations", roles: [...WORKER_ROLES, ...ADMIN, "region_admin"], keywords: ["daily operations", "daily cleaning", "daily clean", "kitchen clean", "equipment clean", "clean equipment", "clean kitchen", "hygiene task", "cleaning reminder", "cleaning configuration"] },
+  { id: "daily_operations_tasks", label: "Cleaning tasks", description: "Kitchen and equipment cleaning tasks, schedule, team assignment, status, and notifications", category: "operations", roles: [...WORKER_ROLES, ...ADMIN, "region_admin"], keywords: ["cleaning schedule", "kitchen cleaning", "equipment cleaning", "clean equipment", "clean kitchen", "hygiene task", "cleaning reminder", "cleaning configuration", "daily operations"] },
   { id: "staff_shift_schedule", label: "Staff shift schedule", description: "Planned and actual staff shifts and shift tasks for the signed-in role", category: "operations", roles: [...WORKER_ROLES, ...ADMIN, "region_admin"], keywords: ["schedule", "scheduled shift", "shift", "shifts", "roster", "rota", "work schedule", "my schedule", "planned work", "planned shift"] },
   { id: "waiter_service_assignments", label: "Service assignments", description: "Waiter event attendance, service phases, timings, and service notes", category: "operations", roles: ["waiter", ...ADMIN, "region_admin"], keywords: ["waiter", "waitering", "service assignment", "service assignments", "event attendance", "event service", "service timing", "guests arrived", "service started"] },
   { id: "cleaning_work_tasks", label: "Cleaning work tasks", description: "Cleaning jobs for equipment availability, planned windows, actual work, and status", category: "operations", roles: ["cleaning_manager", "cleaning_staff", "kitchen_manager", "kitchen_staff", ...ADMIN, "region_admin"], keywords: ["cleaning job", "cleaning jobs", "cleaning task", "cleaning tasks", "equipment cleaning task", "cleaning status", "planned cleaning", "cleaning window"] },
@@ -240,7 +242,7 @@ const LIVE_TOOL_DATA_SCOPES: Record<LiveToolId, string> = {
   work_clock_status: "The signed-in user's shared one-active-role clock, recent role sessions, and handoff notes",
   work_hours: "The signed-in user's recorded staff work sessions; authorized administrators may see company staff hours",
   order_work_hours: "Order-linked role sessions and durations, restricted to the signed-in worker or authorized company administrators",
-  daily_operations_tasks: "Company-configured daily kitchen and equipment cleaning tasks, filtered to the signed-in worker's target roles or company administration",
+  daily_operations_tasks: "Company-configured kitchen and equipment cleaning tasks, filtered to the signed-in worker's target roles or company administration",
   staff_shift_schedule: "Planned and actual staff shifts and shift tasks for the signed-in worker or authorized company administration",
   waiter_service_assignments: "Waiter event attendance and service phases for the signed-in waiter or authorized company administration",
   cleaning_work_tasks: "Company cleaning jobs and planned equipment-availability windows, filtered to cleaning and kitchen operations",
@@ -1720,7 +1722,7 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
         : members;
     }
     case "team_roster": {
-      const profiles = await rows(db, "profiles", (q) => q.select("id, full_name, role, active_role, is_active").eq("company_id", companyId).neq("is_active", false).is("deleted_at", null).order("full_name", { ascending: true }).limit(300));
+      const profiles = await rows(db, "profiles", (q) => q.select("id, full_name, email, role, active_role, is_active").eq("company_id", companyId).neq("is_active", false).is("deleted_at", null).order("full_name", { ascending: true }).limit(300));
       const profileIds = profiles.map((profile: any) => profile.id).filter(Boolean);
       const departmentRows = profileIds.length
         ? await rows(db, "user_departments", (q) => q.select("user_id, department").in("user_id", profileIds))
@@ -1732,24 +1734,67 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
       const department = hasCompanyStaffScope(identity.role)
         ? requested
         : teamDepartmentForRole(identity.role);
+      const directoryMembers = await rows(db, "kitchen_staff_members", (q) => {
+        let query = q.select("id, linked_profile_id, email, full_name, role_title, departments, region_id")
+          .eq("company_id", companyId).eq("is_active", true).is("deleted_at", null);
+        if (department === "kitchen" || department === "cleaning") {
+          query = query.contains("departments", [department]);
+        } else if (department) {
+          return query.eq("id", "00000000-0000-0000-0000-000000000000");
+        }
+        return scopeRegionQuery(query, identity);
+      });
+      const mergedRoster = mergeTeamDirectoryMemberships(profiles, departmentRows, directoryMembers);
+      const isKitchenOrCleaning = department === "kitchen" || department === "cleaning";
       const filtered = department
-        ? profiles.filter((profile: any) => profileBelongsToTeam(profile, departmentRows, department))
-        : profiles;
-      const filteredIds = filtered.map((profile: any) => profile.id).filter(Boolean);
+        ? mergedRoster.profiles.filter((profile: any) => isKitchenOrCleaning
+            ? teamBucketsForUser(profile, mergedRoster.departmentRows).has(department)
+            : profileBelongsToTeam(profile, mergedRoster.departmentRows, department))
+        : mergedRoster.profiles;
+      const filteredIds = filtered.map((profile: any) => profile.id).filter((id: string) => !id.startsWith("staff-member:"));
       const activeSessions = filteredIds.length
         ? await rows(db, "role_work_sessions", (q) => q.select("user_id, started_at").eq("company_id", companyId).in("user_id", filteredIds).is("ended_at", null))
         : [];
       const activeByUser = new Map(activeSessions.map((session: any) => [String(session.user_id), session]));
+      const tabletDepartments = department === "kitchen" || department === "cleaning"
+        ? [department]
+        : department
+          ? []
+          : ["kitchen", "cleaning"];
+      const relevantDirectoryRows = directoryMembers.filter((member: any) =>
+        !department || tabletDepartments.some((team) => (member.departments || []).includes(team)),
+      );
+      const activeTabletShifts = relevantDirectoryRows.length && tabletDepartments.length
+        ? await rows(db, "kitchen_staff_shifts", (q) => q.select("staff_member_id, department")
+            .eq("company_id", companyId)
+            .in("staff_member_id", relevantDirectoryRows.map((member: any) => member.id))
+            .in("department", tabletDepartments)
+            .is("shift_end", null)
+            .is("deleted_at", null))
+        : [];
+      const activeTabletMembers = new Set<string>();
+      for (const shift of activeTabletShifts as any[]) {
+        const directoryIdentity = mergedRoster.directoryIdentity.get(String(shift.staff_member_id));
+        if (directoryIdentity) activeTabletMembers.add(directoryIdentity.teamMemberId);
+      }
+      const directoryByRosterId = new Map<string, any>();
+      for (const member of directoryMembers as any[]) {
+        const directoryIdentity = mergedRoster.directoryIdentity.get(member.id);
+        if (directoryIdentity) directoryByRosterId.set(directoryIdentity.teamMemberId, member);
+      }
       return {
         department,
-        members: filtered.map((profile: any) => ({
-          id: profile.id,
-          full_name: profile.full_name,
-          role: profile.role,
-          active_role: profile.active_role,
-          is_active: profile.is_active !== false,
-          duty_status: activeByUser.has(String(profile.id)) ? "on duty" : "off duty",
-        })),
+        members: filtered.slice(0, 300).map((profile: any) => {
+          const directory = directoryByRosterId.get(String(profile.id));
+          return {
+            id: profile.id,
+            full_name: profile.full_name || directory?.full_name || "Kitchen / cleaning team member",
+            role: profile.role || directory?.role_title || null,
+            active_role: profile.active_role || null,
+            is_active: profile.is_active !== false,
+            duty_status: activeByUser.has(String(profile.id)) || activeTabletMembers.has(String(profile.id)) ? "on duty" : "off duty",
+          };
+        }),
         private_fields_excluded: ["email", "phone", "hourly_rate", "earnings"],
       };
     }

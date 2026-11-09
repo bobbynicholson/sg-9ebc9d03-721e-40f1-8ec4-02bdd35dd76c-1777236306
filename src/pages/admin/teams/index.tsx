@@ -51,6 +51,7 @@ import { orderDisplayName } from "@/lib/orderDisplayName";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { whatsappIntegrationService } from "@/services/whatsappIntegrationService";
 import { countTeamBuckets, teamBucketsForUser, type TeamRoleBucket } from "@/lib/teamRoleBuckets";
+import { mergeTeamDirectoryMemberships } from "@/lib/teamDirectoryMemberships";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose,
   DialogDescription,
@@ -232,6 +233,7 @@ function TeamsIndexPage() {
         .from("kitchen_staff_shifts")
         .select(staffShiftsSelect)
         .eq("company_id", companyId)
+        .eq("department", "kitchen")
         .is("deleted_at", null)
         .gte("shift_start", weekStartISO);
       if (regionFilterId) {
@@ -243,17 +245,23 @@ function TeamsIndexPage() {
       // Separate from the week aggregate so we don't double-walk the
       // bigger payload.
       const todayStartISO = `${todayISO}T00:00:00`;
-      const [staffRowsRes, activeDuty, staffShiftsThisWeek, staffShiftsToday] = await Promise.all([
+      const activeKitchenTabletQ = supabase.from("kitchen_staff_shifts")
+        .select("staff_member_id, shift_start")
+        .eq("company_id", companyId)
+        .eq("department", "kitchen")
+        .is("shift_end", null)
+        .is("deleted_at", null);
+      const [staffRowsRes, activeDuty, staffShiftsThisWeek, staffShiftsToday, activeKitchenTablet] = await Promise.all([
         // Active staff per team. Counts role + active_role + user_departments
         // so manager roles and cross-trained staff land in the right team
         // bucket without collapsing their role labels elsewhere.
         supabase
           .from("profiles")
-          .select("id, role, active_role, is_active")
+          .select("id, email, role, active_role, is_active")
           .eq("company_id", companyId),
         supabase
           .from("kitchen_duty_shifts")
-          .select("id, shift_start, is_active")
+          .select("id, staff_id, shift_start, is_active")
           .eq("company_id", companyId)
           .eq("is_active", true)
           .gte("shift_start", weekStartISO),
@@ -264,10 +272,12 @@ function TeamsIndexPage() {
           .from("kitchen_staff_shifts")
           .select("standard_min, overtime_min, sunday_holiday_min, kitchen_staff_members!inner(hourly_rate)")
           .eq("company_id", companyId)
+          .eq("department", "kitchen")
           .is("deleted_at", null)
           .gte("shift_start", todayStartISO),
+        activeKitchenTabletQ,
       ]);
-      for (const res of [staffRowsRes, activeDuty, staffShiftsThisWeek, staffShiftsToday]) {
+      for (const res of [staffRowsRes, activeDuty, staffShiftsThisWeek, staffShiftsToday, activeKitchenTablet]) {
         if (res.error) throw new Error(res.error.message || "Query failed");
       }
 
@@ -281,24 +291,43 @@ function TeamsIndexPage() {
             .select("user_id, department, is_primary")
             .in("user_id", staffIds))
         : [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }>;
-      const staffByTeam = countTeamBuckets(activeStaffRows, departmentRows || []);
+      const { data: kitchenCleaningDirectory, error: directoryError } = await (supabase as any)
+        .from("kitchen_staff_members")
+        .select("id, linked_profile_id, email, departments")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .is("deleted_at", null);
+      if (directoryError) throw new Error(directoryError.message || "Could not load kitchen and cleaning assignments");
+      const mergedTeamDirectory = mergeTeamDirectoryMemberships(
+        activeStaffRows,
+        departmentRows || [],
+        kitchenCleaningDirectory || [],
+      );
+      const staffByTeam = countTeamBuckets(mergedTeamDirectory.profiles, mergedTeamDirectory.departmentRows);
 
-      let kitchenMissingClockOut = 0;
-      let kitchenClockedNow = 0;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      for (const s of (activeDuty.data || []) as any[]) {
-        const start = s.shift_start ? new Date(s.shift_start).getTime() : 0;
-        if (start && start < stale) {
-          // Command-centre audit (2026-07-02): a stale is_active session
-          // (>16h old, i.e. a missing clock-out) counted toward
-          // "Clocked: X / Y" too, so a forgotten Tuesday clock-out
-          // inflated Friday's on-duty number while ALSO being flagged
-          // as an anomaly. Stale sessions now only feed the anomaly count.
-          kitchenMissingClockOut += 1;
-        } else {
-          kitchenClockedNow += 1;
-        }
+      const eligibleKitchenIds = new Set(mergedTeamDirectory.profiles
+        .filter((profile) => teamBucketsForUser(profile, mergedTeamDirectory.departmentRows).has("kitchen"))
+        .map((profile) => profile.id));
+      const currentKitchenDutyIds = new Set<string>();
+      const staleKitchenDutyIds = new Set<string>();
+      const recordKitchenDuty = (memberId: string | null, shiftStart: string | null) => {
+        if (!memberId || !shiftStart || !eligibleKitchenIds.has(memberId)) return;
+        const start = new Date(shiftStart).getTime();
+        if (!start || Number.isNaN(start)) return;
+        if (start < stale) staleKitchenDutyIds.add(memberId);
+        else currentKitchenDutyIds.add(memberId);
+      };
+      for (const row of (activeDuty.data || []) as Array<{ staff_id: string | null; shift_start: string | null }>) {
+        recordKitchenDuty(row.staff_id, row.shift_start);
       }
+      for (const row of (activeKitchenTablet.data || []) as Array<{ staff_member_id: string | null; shift_start: string | null }>) {
+        const identity = row.staff_member_id ? mergedTeamDirectory.directoryIdentity.get(row.staff_member_id) : null;
+        recordKitchenDuty(identity?.teamMemberId || null, row.shift_start);
+      }
+      // A worker with an open timer is either currently on duty or has a
+      // stale forgotten clock-out. Count each person once across both clocks.
+      const kitchenMissingClockOut = staleKitchenDutyIds.size;
+      const kitchenClockedNow = currentKitchenDutyIds.size;
 
       let kitchenHours = 0;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -876,6 +905,7 @@ function TeamsIndexPage() {
       .channel(`teams-hub:${companyId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_members", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_duty_shifts", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_shifts", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "driver_assignments", filter: `company_id=eq.${companyId}` }, bump)

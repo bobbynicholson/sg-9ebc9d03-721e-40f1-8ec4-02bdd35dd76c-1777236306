@@ -19,6 +19,8 @@ type TeamMember = {
   email: string | null;
   role: string | null;
   active_role: string | null;
+  directory_only?: boolean;
+  staff_member_id?: string | null;
   status: { on_duty: boolean; started_at: string | null; shift_id: string | null; source: string | null };
 };
 type TeamNote = {
@@ -98,6 +100,8 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
       .channel(`team-manager:${department}:${companyId}:${Math.random().toString(36).slice(2, 8)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `company_id=eq.${companyId}` }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_members", filter: `company_id=eq.${companyId}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_shifts", filter: `company_id=eq.${companyId}` }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: department === "kitchen" ? "kitchen_duty_shifts" : "cleaning_duty_logs", filter: `company_id=eq.${companyId}` }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "team_manager_notes", filter: `company_id=eq.${companyId}` }, refresh)
       .subscribe();
@@ -214,7 +218,15 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
                     <p className={`mt-1 flex items-center gap-1 text-xs ${member.status.on_duty ? "text-emerald-700" : "text-slate-500"}`}>{member.status.on_duty ? <><Activity className="h-3 w-3" /> On duty{member.status.started_at ? ` · ${elapsed(member.status.started_at)}` : ""}</> : <><Clock className="h-3 w-3" /> Off duty</>}</p>
                   );
                 })()}</div></div>
-                {managerMember ? <span className="max-w-[220px] text-right text-xs text-slate-500">Manager work is tracked from the manager portal, not as a crew shift.</span> : <Button size="sm" variant={member.status.on_duty ? "destructive" : "default"} disabled={busy} onClick={() => void submitClock(member)} className="shrink-0 gap-2">{member.status.on_duty ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}{busy ? "Updating..." : member.status.on_duty ? "Clock out" : "Clock in"}</Button>}
+                {member.directory_only ? (
+                  <Badge variant="outline" className="shrink-0 border-slate-200 bg-slate-50 text-slate-600">Clock-in only · use staff tablet</Badge>
+                ) : member.status.source === "kitchen_staff_shifts" ? (
+                  <Badge variant="outline" className="shrink-0 border-blue-200 bg-blue-50 text-blue-700">Clock out on staff tablet</Badge>
+                ) : managerMember ? (
+                  <span className="max-w-[220px] text-right text-xs text-slate-500">Manager work is tracked from the manager portal, not as a crew shift.</span>
+                ) : (
+                  <Button size="sm" variant={member.status.on_duty ? "destructive" : "default"} disabled={busy} onClick={() => void submitClock(member)} className="shrink-0 gap-2">{member.status.on_duty ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}{busy ? "Updating..." : member.status.on_duty ? "Clock out" : "Clock in"}</Button>
+                )}
               </div>;
             })}
           </CardContent>
@@ -224,7 +236,7 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
           <CardHeader className="pb-3"><CardTitle className="flex items-center justify-between gap-3 text-base"><span className="flex items-center gap-2"><BookOpen className="h-4 w-4 text-brand-primary" /> Daily work diary</span></CardTitle><CardDescription>Record completed work, issues and handovers. Unsaved notes stay here when collapsed.</CardDescription></CardHeader>
           <CardContent className="space-y-3">
             <p className="text-xs text-slate-500">Record completed work, handovers, issues, or follow-ups. Notes are stored for the {teamName} team.</p>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1"><label className="text-xs font-medium text-slate-700">Date<input type="date" value={noteDate} onChange={(event) => setNoteDate(event.target.value)} className="mt-1 block h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm" /></label><label className="text-xs font-medium text-slate-700">For<input type="hidden" value={noteMember} readOnly /><Select value={noteMember} onValueChange={setNoteMember}><SelectTrigger className="mt-1"><SelectValue placeholder="Whole team" /></SelectTrigger><SelectContent><SelectItem value="team">Whole team</SelectItem>{members.map((member) => <SelectItem key={member.id} value={member.id}>{member.full_name || member.email || "Team member"}</SelectItem>)}</SelectContent></Select></label></div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1"><label className="text-xs font-medium text-slate-700">Date<input type="date" value={noteDate} onChange={(event) => setNoteDate(event.target.value)} className="mt-1 block h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm" /></label><label className="text-xs font-medium text-slate-700">For<input type="hidden" value={noteMember} readOnly /><Select value={noteMember} onValueChange={setNoteMember}><SelectTrigger className="mt-1"><SelectValue placeholder="Whole team" /></SelectTrigger><SelectContent><SelectItem value="team">Whole team</SelectItem>{members.filter((member) => !member.directory_only).map((member) => <SelectItem key={member.id} value={member.id}>{member.full_name || member.email || "Team member"}</SelectItem>)}</SelectContent></Select></label></div>
             <Textarea value={noteBody} onChange={(event) => setNoteBody(event.target.value)} placeholder="Example: Deep-cleaned the prep area, checked chemical stock, and handed over the late return..." rows={5} maxLength={4000} />
             <div className="flex justify-end"><Button onClick={() => void saveNote()} disabled={saving === "note" || !noteBody.trim()} className="gap-2">{saving === "note" ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />} Save note</Button></div>
           </CardContent>

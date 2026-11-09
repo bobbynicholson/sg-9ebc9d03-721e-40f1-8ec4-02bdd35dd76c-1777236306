@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-08T23:36:20.000Z",
+  "title": "Design System: CateringMS Admin",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Company Primary",
+        "canonical": "var(--brand-primary)",
+        "tonalRamp": [
+          "color-mix(in srgb, var(--brand-primary) 88%, black)",
+          "color-mix(in srgb, var(--brand-primary) 76%, black)",
+          "color-mix(in srgb, var(--brand-primary) 64%, black)",
+          "color-mix(in srgb, var(--brand-primary) 100%, white)",
+          "color-mix(in srgb, var(--brand-primary) 78%, white)",
+          "color-mix(in srgb, var(--brand-primary) 56%, white)",
+          "color-mix(in srgb, var(--brand-primary) 34%, white)",
+          "color-mix(in srgb, var(--brand-primary) 12%, white)"
+        ]
+      },
+      "secondary": {
+        "role": "secondary",
+        "displayName": "Company Secondary",
+        "canonical": "var(--brand-secondary)",
+        "tonalRamp": [
+          "color-mix(in srgb, var(--brand-secondary) 88%, black)",
+          "color-mix(in srgb, var(--brand-secondary) 76%, black)",
+          "color-mix(in srgb, var(--brand-secondary) 64%, black)",
+          "color-mix(in srgb, var(--brand-secondary) 100%, white)",
+          "color-mix(in srgb, var(--brand-secondary) 78%, white)",
+          "color-mix(in srgb, var(--brand-secondary) 56%, white)",
+          "color-mix(in srgb, var(--brand-secondary) 34%, white)",
+          "color-mix(in srgb, var(--brand-secondary) 12%, white)"
+        ]
+      },
+      "tertiary": {
+        "role": "tertiary",
+        "displayName": "Company Accent",
+        "canonical": "var(--brand-accent)",
+        "tonalRamp": [
+          "color-mix(in srgb, var(--brand-accent) 88%, black)",
+          "color-mix(in srgb, var(--brand-accent) 76%, black)",
+          "color-mix(in srgb, var(--brand-accent) 64%, black)",
+          "color-mix(in srgb, var(--brand-accent) 100%, white)",
+          "color-mix(in srgb, var(--brand-accent) 78%, white)",
+          "color-mix(in srgb, var(--brand-accent) 56%, white)",
+          "color-mix(in srgb, var(--brand-accent) 34%, white)",
+          "color-mix(in srgb, var(--brand-accent) 12%, white)"
+        ]
+      },
+      "neutral-bg": {
+        "role": "neutral",
+        "displayName": "White Canvas",
+        "canonical": "#ffffff",
+        "tonalRamp": ["#111827", "#1f2937", "#374151", "#4b5563", "#64748b", "#cbd5e1", "#e2e8f0", "#ffffff"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Company Heading Face",
+        "purpose": "Uses the company's configured heading font, with inherited fallback."
+      },
+      "body": {
+        "displayName": "Company Body Face",
+        "purpose": "Uses the company's configured body font, with the existing system sans fallback."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card-edge",
+        "value": "0 2px 8px rgb(15 23 42 / 4%)",
+        "purpose": "Subtle separation for white admin panels."
+      }
+    ],
+    "motion": [
+      {
+        "name": "directory-hover",
+        "value": "140ms ease",
+        "purpose": "Small hover response on role filters and staff rows."
+      }
+    ],
+    "breakpoints": [
+      { "name": "directory-stack", "value": "1279px" },
+      { "name": "mobile", "value": "767px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main action, colored by the current tenant.",
+      "html": "<button class=\"ds-button-primary\">Invite staff</button>",
+      "css": ".ds-button-primary { background: var(--brand-primary); color: #fff; border: 1px solid var(--brand-primary); border-radius: 6px; padding: 8px 12px; font: inherit; font-size: 14px; font-weight: 600; transition: background 150ms ease; } .ds-button-primary:hover { background: color-mix(in srgb, var(--brand-primary) 88%, #111827); } .ds-button-primary:focus-visible { outline: 3px solid rgb(var(--brand-primary-rgb) / 30%); outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "White secondary action with a tenant-colored label.",
+      "html": "<button class=\"ds-button-secondary\">Refresh</button>",
+      "css": ".ds-button-secondary { background: #fff; color: var(--brand-primary); border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 12px; font: inherit; font-size: 14px; font-weight: 500; transition: background 150ms ease; } .ds-button-secondary:hover { background: #f8fafc; } .ds-button-secondary:focus-visible { outline: 3px solid rgb(var(--brand-primary-rgb) / 30%); outline-offset: 2px; }"
+    },
+    {
+      "name": "Staff Directory Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "White panel separating the roster from the page canvas.",
+      "html": "<section class=\"ds-card\"><h2>Staff directory</h2><p>15 staff users</p></section>",
+      "css": ".ds-card { background: #fff; color: #0f172a; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgb(15 23 42 / 4%); font: inherit; }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "White search field with a brand focus ring.",
+      "html": "<input class=\"ds-search\" aria-label=\"Search staff\" placeholder=\"Search name, email, or role\" />",
+      "css": ".ds-search { width: 100%; background: #fff; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 10px; font: inherit; font-size: 14px; } .ds-search:focus-visible { border-color: var(--brand-primary); outline: 3px solid rgb(var(--brand-primary-rgb) / 20%); outline-offset: 1px; }"
+    },
+    {
+      "name": "Primary Role Chip",
+      "kind": "chip",
+      "refersTo": "role-primary-chip",
+      "description": "Distinguishes the primary login role without relying on color alone.",
+      "html": "<span class=\"ds-role-chip\">Driver <strong>Primary</strong></span>",
+      "css": ".ds-role-chip { display: inline-flex; align-items: center; gap: 6px; background: rgb(var(--brand-primary-rgb) / 9%); color: #0f172a; border: 1px solid rgb(var(--brand-primary-rgb) / 28%); border-left: 3px solid var(--brand-primary); border-radius: 4px; padding: 3px 7px; font: inherit; font-size: 11px; } .ds-role-chip strong { color: inherit; font-size: 10px; }"
+    },
+    {
+      "name": "Selected Role Filter",
+      "kind": "nav",
+      "refersTo": "role-filter-selected",
+      "description": "Shows the active access filter using the tenant primary color.",
+      "html": "<button class=\"ds-role-filter\" aria-pressed=\"true\">Driver <span>6</span></button>",
+      "css": ".ds-role-filter { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 34px; background: var(--brand-primary); color: #fff; border: 1px solid var(--brand-primary); border-radius: 6px; padding: 5px 8px; font: inherit; font-size: 12px; } .ds-role-filter:hover { filter: brightness(.94); } .ds-role-filter:focus-visible { outline: 3px solid rgb(var(--brand-primary-rgb) / 30%); outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Tenant Service Desk",
+    "overview": "The admin workspace keeps a white canvas and familiar application typography, then uses each company's configured brand colors for primary actions, active filters, and small status accents. Content stays direct and information-dense so operators can scan a roster and take action without learning a new visual language. The people directory places role filters beside the staff list on wide screens and stacks them on narrow screens. Its primary-role chip adds a brand-colored edge to distinguish the landing role while keeping the text readable against a light surface.",
+    "keyCharacteristics": [
+      "White page and card backgrounds.",
+      "Tenant colors come from the existing brand variables.",
+      "Heading and body fonts come from company branding settings.",
+      "Neutral borders and compact controls keep large rosters easy to scan."
+    ],
+    "rules": [
+      { "name": "The Tenant Color Rule", "body": "Use the active company's brand variables for actions and selected states; keep headings and long-form text on neutral colors for contrast.", "section": "colors" },
+      { "name": "The Company Type Rule", "body": "Inherit heading and body faces from the tenant branding variables; do not add a font family in a page stylesheet.", "section": "typography" },
+      { "name": "The White Surface Rule", "body": "Keep page and primary content surfaces white; use borders and small tonal state cues for grouping.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep the page and main content surfaces white.",
+      "Do read identity colors and heading/body fonts from company branding variables.",
+      "Do use neutral text and borders for information that is not an action or status.",
+      "Do keep primary and active role states distinguishable without relying on color alone."
+    ],
+    "donts": [
+      "Don't add an unconfigured typeface to a tenant-facing page.",
+      "Don't replace the company's brand colors with a fixed page palette.",
+      "Don't use a tinted canvas behind the staff directory or its primary panels."
+    ]
+  }
+}

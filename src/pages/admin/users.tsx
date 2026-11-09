@@ -20,10 +20,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader,
-  PageWorkbench,
-  StatTile,
-} from "@/components/portal/ui";
 import { AdminSearchField } from "@/components/admin/AdminControlSurface";
 import {
   Users,
@@ -53,7 +49,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
-import { userManagementService, UserWithDepartments } from "@/services/userManagementService";
+import { userManagementService, StaffDirectoryUser } from "@/services/userManagementService";
 import { notificationService } from "@/services/notificationService";
 import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -67,6 +63,7 @@ import { loginActivityBucket } from "@/lib/loginActivity";
 import { toLocalISO } from "@/lib/localDate";
 import { normalizeRoleValue as normalizeAppRoleValue } from "@/lib/roleDerivation";
 import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
+import styles from "./users.module.css";
 
 // USR-C (task #208, 2026-05-24): pending-invite shape used by the
 // new Pending tab + Invite dialog.
@@ -93,10 +90,15 @@ function AdminUsersPage() {
       ? { Authorization: `Bearer ${session.access_token}` }
       : {};
   };
-  const [users, setUsers] = useState<UserWithDepartments[]>([]);
+  const [users, setUsers] = useState<StaffDirectoryUser[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const usersLoadedRef = useRef(false);
+  const usersRequestRef = useRef<Promise<void> | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState<UserRole | null>(null);
   const [invitations, setInvitations] = useState<PendingInvitation[]>([]);
   const [invitationsLoading, setInvitationsLoading] = useState(false);
+  const invitationsLoadedRef = useRef(false);
   // Surfaced in the Pending invitations panel; a silent failure here
   // looked identical to "no pending invitations".
   const [invitationsError, setInvitationsError] = useState<string | null>(null);
@@ -112,7 +114,7 @@ function AdminUsersPage() {
   >(null);
   // USR-C: Deactivate-confirm + role-mutation tracking. Held on a
   // per-user id so two clicks on different rows don't race.
-  const [confirmDeactivate, setConfirmDeactivate] = useState<UserWithDepartments | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<StaffDirectoryUser | null>(null);
   const [statusBusy, setStatusBusy] = useState<string | null>(null);
   const [resendingUserId, setResendingUserId] = useState<string | null>(null);
   // Phase 26 #6: "/" or Cmd-F focuses the search input.
@@ -286,7 +288,7 @@ function AdminUsersPage() {
   // active portal, primary department, and every durable department row.
   // The admin view must show all roles even when a manager also has the
   // matching staff role; hiding one makes cross-trained access ambiguous.
-  const userAccessRoles = (targetUser: UserWithDepartments): UserRole[] => {
+  const userAccessRoles = (targetUser: StaffDirectoryUser): UserRole[] => {
     const baseRole = normalizeRoleValue(targetUser.role as string | null | undefined);
     const activeRole = normalizeRoleValue(targetUser.active_role, baseRole);
     const fallbackRole = activeRole || baseRole;
@@ -339,25 +341,36 @@ function AdminUsersPage() {
     }
   }, [user]);
 
-  const loadUsers = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const fetchedUsers = await userManagementService.getAllUsers(user?.company_id, {
-        excludeRoles: ["client"],
-      });
-      setUsers(fetchedUsers);
-    } catch (error) {
-      console.error("Error loading users:", error);
-      setError("Failed to load users. Please try again.");
-      toast({
-        title: "Error",
-        description: "Failed to load users",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+  const loadUsers = async (refreshAfterPending = false): Promise<void> => {
+    if (usersRequestRef.current) {
+      if (!refreshAfterPending) return usersRequestRef.current;
+      await usersRequestRef.current;
+      return loadUsers();
     }
+
+    const isInitialLoad = !usersLoadedRef.current;
+    if (isInitialLoad) setLoading(true);
+    else setRefreshing(true);
+
+    const request = (async () => {
+      try {
+        const fetchedUsers = await userManagementService.getStaffDirectory(user?.company_id);
+        usersLoadedRef.current = true;
+        setUsers(fetchedUsers);
+        setError(null);
+      } catch (error) {
+        console.error("Error loading users:", error);
+        setError(usersLoadedRef.current
+          ? "Couldn't refresh the team list. Showing the last loaded roster."
+          : "Failed to load users. Please try again.");
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+        usersRequestRef.current = null;
+      }
+    })();
+    usersRequestRef.current = request;
+    return request;
   };
 
   // USR-C (task #208, 2026-05-24): pending invitations loader.
@@ -366,7 +379,7 @@ function AdminUsersPage() {
   // or cancel.
   const loadInvitations = async () => {
     if (!user?.company_id) return;
-    setInvitationsLoading(true);
+    if (!invitationsLoadedRef.current) setInvitationsLoading(true);
     setInvitationsError(null);
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -407,6 +420,7 @@ function AdminUsersPage() {
         }
       }
       setInvitations(rows);
+      invitationsLoadedRef.current = true;
     } catch (err) {
       console.error("Error loading invitations:", err);
       setInvitationsError(err instanceof Error ? err.message : "Couldn't load pending invitations.");
@@ -440,27 +454,29 @@ function AdminUsersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm]);
 
-  // USR-C: realtime debounce. New signup / department change /
-  // invitation accept should refresh the page without manual click.
-  // 1500ms because role / department admin work tends to cluster.
+  // Refresh only the panel affected by a live change. A short debounce
+  // folds profile + department events from one role save together.
   useEffect(() => {
     if (!user?.company_id) return;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const bump = () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        void loadUsers();
-        void loadInvitations();
-      }, 1500);
+    let usersTimer: ReturnType<typeof setTimeout> | null = null;
+    let invitationsTimer: ReturnType<typeof setTimeout> | null = null;
+    const bumpUsers = () => {
+      if (usersTimer) clearTimeout(usersTimer);
+      usersTimer = setTimeout(() => void loadUsers(), 300);
+    };
+    const bumpInvitations = () => {
+      if (invitationsTimer) clearTimeout(invitationsTimer);
+      invitationsTimer = setTimeout(() => void loadInvitations(), 300);
     };
     const channel = supabase
       .channel(`admin-users:${user.company_id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `company_id=eq.${user.company_id}` }, bump)
-      .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, bump)
-      .on("postgres_changes", { event: "*", schema: "public", table: "staff_invitations", filter: `company_id=eq.${user.company_id}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `company_id=eq.${user.company_id}` }, bumpUsers)
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, bumpUsers)
+      .on("postgres_changes", { event: "*", schema: "public", table: "staff_invitations", filter: `company_id=eq.${user.company_id}` }, bumpInvitations)
       .subscribe();
     return () => {
-      if (timer) clearTimeout(timer);
+      if (usersTimer) clearTimeout(usersTimer);
+      if (invitationsTimer) clearTimeout(invitationsTimer);
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -500,7 +516,7 @@ function AdminUsersPage() {
         return;
       }
 
-      void loadUsers();
+      void loadUsers(true);
       void loadInvitations();
       const emailed = payload.emailDelivered === true;
 
@@ -541,7 +557,7 @@ function AdminUsersPage() {
   // USR-C: toggle is_active via the service. Audit-logged at the
   // service layer. Confirms before deactivating (a click-by-mistake
   // here locks someone out); re-activation is single-click.
-  const handleStatusToggle = async (targetUser: UserWithDepartments, nextActive: boolean) => {
+  const handleStatusToggle = async (targetUser: StaffDirectoryUser, nextActive: boolean) => {
     if (!user?.id) return;
     setStatusBusy(targetUser.id);
     try {
@@ -551,26 +567,24 @@ function AdminUsersPage() {
       // the status change. Deactivation skips the notify (they cannot
       // sign in to read it; the row would only confuse them later).
       if (nextActive) {
-        try {
-          await notificationService.createNotification({
+        void notificationService.createNotification({
             company_id: user.company_id,
             recipient_id: targetUser.id,
             notification_type: "account_reactivated",
             title: "Your account was reactivated",
             message: "An administrator restored your access. You can sign in again.",
             dedup: true,
-          });
-        } catch {
-          // best-effort only
-        }
+          }).catch(() => undefined);
       }
+      setUsers((current) => current.map((item) => item.id === targetUser.id
+        ? { ...item, is_active: nextActive }
+        : item));
       toast({
         title: nextActive ? "User reactivated" : "User deactivated",
         description: nextActive
           ? `${targetUser.full_name || targetUser.email} can sign in again.`
           : `${targetUser.full_name || targetUser.email} can no longer sign in. Reactivate from this page.`,
       });
-      await loadUsers();
     } catch (err) {
       toast({
         title: "Could not update",
@@ -587,7 +601,7 @@ function AdminUsersPage() {
   // The server endpoint is tenant-scoped and is also used by the platform
   // user-management page, so this works for both pending invites and users
   // who already signed in but need a new login link.
-  const handleResendInvite = async (targetUser: UserWithDepartments) => {
+  const handleResendInvite = async (targetUser: StaffDirectoryUser) => {
     if (!targetUser.email) {
       toast({
         title: "Email required",
@@ -631,8 +645,8 @@ function AdminUsersPage() {
   const handleCancelInvitation = async (invitationId: string) => {
     try {
       await userManagementService.cancelInvitation(invitationId);
+      setInvitations((current) => current.filter((invitation) => invitation.id !== invitationId));
       toast({ title: "Invitation cancelled" });
-      void loadInvitations();
     } catch (err) {
       toast({
         title: "Could not cancel",
@@ -713,10 +727,9 @@ function AdminUsersPage() {
       // Command-centre audit (2026-07-02): the affected user should hear
       // about an access change without waiting to trip over a missing
       // (or new) portal. Best-effort + dedup; never blocks the save.
-      try {
+      if (userId !== user?.id) {
         const primaryLabel = roleMetaFor(normalizedPrimary)?.label || String(normalizedPrimary);
-        // Skip self-edits: no point notifying yourself about your own change.
-        if (userId !== user?.id) await notificationService.createNotification({
+        void notificationService.createNotification({
           company_id: user?.company_id,
           recipient_id: userId,
           notification_type: "access_updated",
@@ -724,12 +737,18 @@ function AdminUsersPage() {
           message: `An administrator updated your portal access. Your primary role is now ${primaryLabel}.`,
           dedup: true,
           dedupWindowMinutes: 10,
-        });
-      } catch {
-        // best-effort only
+        }).catch(() => undefined);
       }
 
-      await loadUsers();
+      setUsers((current) => current.map((targetUser) => targetUser.id === userId
+        ? {
+            ...targetUser,
+            active_role: normalizedPrimary,
+            is_active: true,
+            departments: normalizedDepartments,
+            primary_department: normalizedPrimary,
+          }
+        : targetUser));
 
       setEditingUser(null);
       setSelectedDepartments([]);
@@ -794,7 +813,25 @@ function AdminUsersPage() {
         throw new Error(result?.error || "Failed to assign the role");
       }
 
-      await loadUsers();
+      const assignedUsers = new Set(selectedUserIds);
+      setUsers((current) => current.map((targetUser) => {
+        if (!assignedUsers.has(targetUser.id)) return targetUser;
+        const departments = Array.from(new Set([...(targetUser.departments || []), bulkRole]));
+        const currentPrimaryRole = normalizeRoleValue(
+          targetUser.primary_department,
+          normalizeRoleValue(
+            targetUser.active_role,
+            normalizeRoleValue(targetUser.role as string | null | undefined),
+          ),
+        );
+        return {
+          ...targetUser,
+          is_active: true,
+          departments,
+          primary_department: currentPrimaryRole || bulkRole,
+          active_role: targetUser.active_role || targetUser.role || bulkRole,
+        };
+      }));
       setSelectedUserIds([]);
       setBulkRole(undefined);
       const roleLabel = roleMetaFor(bulkRole)?.label || bulkRole;
@@ -866,14 +903,17 @@ function AdminUsersPage() {
   }, [users]);
 
   const fuzzyOrAll = searchTerm ? fuzzyUsers : users;
+  const roleFilteredUsers = roleFilter
+    ? fuzzyOrAll.filter((targetUser) => userAccessRoles(targetUser).includes(roleFilter))
+    : fuzzyOrAll;
 
-  const userSortColumns: ColumnDef<UserWithDepartments>[] = useMemo(() => [
+  const userSortColumns: ColumnDef<StaffDirectoryUser>[] = useMemo(() => [
     { key: "name",    accessor: (u) => u.full_name || u.email,                type: "string" },
     { key: "role",    accessor: (u) => (u.role || "").toString(),             type: "string" },
     { key: "email",   accessor: (u) => u.email || "",                         type: "string" },
     { key: "created", accessor: (u) => u.created_at,                          type: "date"   },
   ], []);
-  const userSort = useSortable<UserWithDepartments>(fuzzyOrAll, userSortColumns, { defaultKey: "name", defaultDir: "asc" });
+  const userSort = useSortable<StaffDirectoryUser>(roleFilteredUsers, userSortColumns, { defaultKey: "name", defaultDir: "asc" });
   const filteredUsers = userSort.rows;
   const visibleUserIds = filteredUsers.map((targetUser) => targetUser.id);
   const allVisibleUsersSelected = visibleUserIds.length > 0 && visibleUserIds.every((id) => selectedUserIds.includes(id));
@@ -882,10 +922,11 @@ function AdminUsersPage() {
   const pendingInviteCount = invitations.length;
   const roleCount = (role: UserRole) =>
     users.filter((targetUser) => userAccessRoles(targetUser).includes(role)).length;
-  const visibleUserLabel =
-    filteredUsers.length === users.length
-      ? `${users.length} staff users`
-      : `${filteredUsers.length} of ${users.length} staff users`;
+  const visibleUserLabel = roleFilter
+    ? `${filteredUsers.length} ${roleMetaFor(roleFilter)?.label || "role"} staff · ${users.length} total`
+    : searchTerm
+      ? `${filteredUsers.length} of ${users.length} staff`
+      : `${users.length} staff users`;
 
   if (loading) {
     return (
@@ -898,33 +939,24 @@ function AdminUsersPage() {
         
         <AdminNav />
 
-        {/* Command-centre audit (2026-07-02): the loading state now
-            renders INSIDE the shell (hero + workbench + skeleton) so the
-            page chrome never disappears while the roster loads. */}
-        <div className="admin-page-shell">
-          <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-            <PortalHeader
-              variant="hero"
-              title="User management"
-              icon={Users}
-              subtitle="Invite staff and manage their roles and access; manage client accounts in Contacts."
-            />
-            <PageWorkbench />
-            <div className="grid grid-cols-2 gap-4 mb-6 lg:grid-cols-4" aria-hidden="true">
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white dark:border-slate-800 dark:bg-slate-900/95" />
-              ))}
+        <div className={`admin-page-shell ${styles.shell}`}>
+          <div className={styles.content}>
+            <div className={styles.eyebrow}>Staff directory · access management</div>
+            <header className={styles.header}>
+              <div>
+                <h1 className={styles.title}>People &amp; access</h1>
+                <p className={styles.subtitle}>Loading the latest team roster and access assignments…</p>
+              </div>
+            </header>
+            <div className={styles.summaryGrid} aria-hidden="true">
+              {[0, 1, 2, 3].map((i) => <div key={i} className={`${styles.loadingCard} animate-pulse`} />)}
             </div>
-            <div className="space-y-4">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="h-24 animate-pulse rounded-lg border border-slate-200 bg-white shadow-sm" />
-              ))}
-            </div>
-            <p className="mt-6 text-center text-sm text-slate-500">
+            <div className={styles.loadingCard} aria-hidden="true" />
+            <p className="mt-5 text-center text-sm text-slate-600">
               <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-              Loading users...
+              Loading users…
             </p>
-          </PortalShell>
+          </div>
         </div>
       </>
     );
@@ -941,9 +973,9 @@ function AdminUsersPage() {
         
         <AdminNav />
         
-        <div className="admin-page-shell">
-          <div className="px-4 py-8">
-            <Card className="border-2 border-rose-200 bg-rose-50">
+        <div className={`admin-page-shell ${styles.shell}`}>
+          <div className={styles.content}>
+            <Card className="mx-auto max-w-2xl border border-rose-200 bg-white">
               <CardContent className="pt-12 pb-12 text-center">
                 <AlertCircle className="w-16 h-16 text-rose-500 mx-auto mb-4" />
                 <p className="text-xl font-semibold text-gray-900 mb-2">Access Denied</p>
@@ -971,182 +1003,157 @@ function AdminUsersPage() {
       
       <AdminNav />
       
-      <div className="admin-page-shell">
-        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          {/* USR-A (task #207, 2026-05-24): copy fix. Pre-fix
-              the subtitle claimed clients were listed too, but
-              the loadUsers call passes excludeRoles=["client"]
-              so they are not. Same line also promised "Assign
-              roles and revoke access here" - role edit ships
-              via Edit Departments; revoke isn't surfaced yet
-              (deferred to #208). Honest framing now. */}
-          <PortalHeader
-            variant="hero"
-            title="User management"
-            icon={Users}
-            subtitle="Invite staff and manage their roles and access; manage client accounts in Contacts."
-            meta={
-              !error && (
-                <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                    {activeUserCount} active
-                  </span>
-                  {inactiveUserCount > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                      {inactiveUserCount} inactive
-                    </span>
-                  )}
-                  {pendingInviteCount > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                      {pendingInviteCount} pending invite{pendingInviteCount === 1 ? "" : "s"}
-                    </span>
-                  )}
-                </>
-              )
-            }
-            actions={
-            <>
-                <InfoTooltip
-                  content={"Refresh the user list to pick up the latest changes and department assignments."}
-                  side="left"
-                  className="text-white/70 hover:text-white"
-                />
-                {/* Phase 20 #2: team roster CSV export. HR + payroll
-                    regularly want a flat list of every login on the
-                    tenant with their email + primary department for
-                    handover docs, audits, and identity reviews. */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (filteredUsers.length === 0) {
-                      toast({ title: "Nothing to export", description: "Adjust your search until at least one user is visible." });
-                      return;
-                    }
-                    const esc = (v: any) => {
-                      if (v == null) return "";
-                      const s = String(v).replace(/"/g, '""');
-                      return /[",\n]/.test(s) ? `"${s}"` : s;
-                    };
-                    const headers = ["Name", "Email", "Phone", "Primary department", "All departments", "Created"];
-                    const lines = [headers.join(",")];
-                    for (const u of filteredUsers as any[]) {
-                      lines.push([
-                        esc(u.full_name || ""),
-                        esc(u.email || ""),
-                        // Command-centre audit (2026-07-02): profiles has
-                        // phone_number / mobile_number, not `phone` - the
-                        // CSV Phone column exported empty for every row.
-                        esc(u.phone_number || u.mobile_number || ""),
-                        esc(u.primary_department || ""),
-                        esc((u.departments || []).join("; ")),
-                        esc(u.created_at ? toLocalISO(new Date(u.created_at)) : ""),
-                      ].join(","));
-                    }
-                    // USR-A (task #207, 2026-05-24): UTF-8 BOM so
-                    // Excel-ZA reads SA surnames with diacritics
-                    // (Müller, Naudé, etc.) correctly. Matches every
-                    // other export in this codebase.
-                    const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `team-${toLocalISO(new Date())}.csv`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                  }}
-                  disabled={loading}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Export CSV
-                </Button>
-                {/* Opens the staff account form. Accounts are provisioned
-                    by the authenticated server endpoint and assigned to
-                    this company before the invitation is sent. */}
-                <Button
-                  size="sm"
-                  onClick={() => setInviteOpen(true)}
-                  className="bg-brand-primary hover:opacity-90 gap-1.5"
-                >
-                  <UserPlus className="w-4 h-4" />
-                  Add user
-                </Button>
-            </>
-            }
-          />
-          <PageWorkbench />
+      <div className={`admin-page-shell ${styles.shell}`}>
+        <div className={styles.content}>
+          <div className={styles.eyebrow}>Staff directory · access management</div>
+          <header className={styles.header}>
+            <div>
+              <h1 className={styles.title}>People &amp; access</h1>
+              <p className={styles.subtitle}>Manage staff accounts, team assignments, and portal access. Client accounts are managed in Contacts.</p>
+            </div>
+            <div className={styles.headerActions}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { void Promise.all([loadUsers(), loadInvitations()]); }}
+                disabled={loading || refreshing || invitationsLoading}
+                aria-label="Refresh users and invitations"
+                title="Refresh users and invitations"
+                className={styles.secondaryAction}
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${refreshing || invitationsLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (filteredUsers.length === 0) {
+                    toast({ title: "Nothing to export", description: "Adjust your search until at least one user is visible." });
+                    return;
+                  }
+                  const esc = (v: any) => {
+                    if (v == null) return "";
+                    const s = String(v).replace(/"/g, '""');
+                    return /[",\n]/.test(s) ? `"${s}"` : s;
+                  };
+                  const headers = ["Name", "Email", "Phone", "Primary department", "All departments", "Created"];
+                  const lines = [headers.join(",")];
+                  for (const u of filteredUsers as any[]) {
+                    lines.push([
+                      esc(u.full_name || ""),
+                      esc(u.email || ""),
+                      esc(u.phone_number || u.mobile_number || ""),
+                      esc(u.primary_department || ""),
+                      esc((u.departments || []).join("; ")),
+                      esc(u.created_at ? toLocalISO(new Date(u.created_at)) : ""),
+                    ].join(","));
+                  }
+                  const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `team-${toLocalISO(new Date())}.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+                disabled={loading}
+                className={styles.secondaryAction}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setInviteOpen(true)}
+                className={styles.primaryAction}
+              >
+                <UserPlus className="mr-2 h-4 w-4" />
+                Invite staff
+              </Button>
+            </div>
+          </header>
 
-          {/* Logged-in load failure. Pre-audit `error` only rendered
-              on the logged-out branch, so a failed getAllUsers left
-              the roster showing "No users found" - which reads as an
-              empty tenant, not a broken fetch. */}
+          {/* Logged-in load failure remains visible alongside the last roster. */}
           {error && user && (
-            <div className="mb-5 rounded-lg border border-rose-200 bg-white p-4 shadow-sm">
-              <p className="text-sm font-semibold text-rose-900">Couldn&apos;t load the team list</p>
-              <p className="mt-1 text-sm text-slate-600">{error}</p>
-              <Button size="sm" variant="outline" className="mt-3" onClick={loadUsers} disabled={loading}>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Retry
+            <div className={styles.errorBanner}>
+              <p className="text-sm font-semibold">
+                {usersLoadedRef.current ? "Couldn't refresh the team list" : "Couldn't load the team list"}
+              </p>
+              <p className="mt-1 text-sm">{error}</p>
+              <Button size="sm" variant="outline" className="mt-3" onClick={() => { void loadUsers(); }} disabled={loading || refreshing}>
+                <RefreshCw className="mr-2 h-4 w-4" />Retry
               </Button>
             </div>
           )}
 
-          {/* Command-centre restructure (2026-07-02): the roster
-              aggregates moved out of the sticky aside into the standard
-              StatTile row directly under the workbench, matching the
-              financial-dashboard composition. All four values are real
-              aggregates off the loaded roster + invitations. */}
-          <div className="grid grid-cols-2 gap-4 mb-6 lg:grid-cols-4">
-            <StatTile
-              label="Staff logins"
-              value={users.length}
-              icon={Users}
-              hint="Client portal users live under Contacts."
-            />
-            <StatTile label="Active" value={activeUserCount} icon={UserCheck} hint="Can sign in right now." />
-            <StatTile label="Inactive" value={inactiveUserCount} icon={UserX} hint="Deactivated. Reactivate below." />
-            <StatTile
-              label="Pending invites"
-              value={pendingInviteCount}
-              icon={Mail}
-              hint="Waiting to accept or expire."
-            />
+          <div className={styles.summaryGrid}>
+            <div className={styles.metric}>
+              <span className={styles.metricLabel}>Staff accounts</span>
+              <strong className={styles.metricValue}>{users.length}</strong>
+              <span className={styles.metricNote}>All teams in this company</span>
+            </div>
+            <div className={styles.metric}>
+              <span className={styles.metricLabel}>Active</span>
+              <strong className={styles.metricValue}>{activeUserCount}</strong>
+              <span className={styles.metricNote}>Can sign in</span>
+            </div>
+            <div className={styles.metric}>
+              <span className={styles.metricLabel}>Inactive</span>
+              <strong className={styles.metricValue}>{inactiveUserCount}</strong>
+              <span className={styles.metricNote}>Can be reactivated here</span>
+            </div>
+            <div className={styles.metric}>
+              <span className={styles.metricLabel}>Invitations waiting</span>
+              <strong className={styles.metricValue}>{pendingInviteCount}</strong>
+              <span className={styles.metricNote}>Pending staff sign-in</span>
+            </div>
           </div>
 
-          <div className="grid gap-5 xl:grid-cols-[minmax(240px,300px)_minmax(0,1fr)]">
-            <aside className="order-2 space-y-4 xl:order-1 xl:sticky xl:top-6 xl:self-start">
-              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <h2 className="text-sm font-semibold text-slate-950">Role map</h2>
-                  <span className="text-xs text-slate-500">Counts from visible tenant</span>
+          <div className={styles.layout}>
+            <aside className={styles.aside}>
+              <section className={styles.panel}>
+                <div className={styles.panelHeader}>
+                  <div>
+                    <h2 className={styles.panelTitle}>Access overview</h2>
+                    <span className={styles.panelHint}>Choose a role to filter staff</span>
+                  </div>
+                  {roleFilter && (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setRoleFilter(null)} className="h-7 px-2 text-xs text-emerald-900">
+                      Clear
+                    </Button>
+                  )}
                 </div>
-                <div className="space-y-4">
-                  {ROLE_GROUPS.map((group) => {
+                <div className={styles.roleGroups}>
+                  {ROLE_GROUPS.filter((group) => group.key !== "client").map((group) => {
                     const rolesInGroup = roleConfig.filter((role) => role.group === group.key);
                     if (rolesInGroup.length === 0) return null;
                     return (
-                      <div key={group.key} className="space-y-1.5">
-                        <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-1.5">
-                          <p className="text-xs font-semibold text-slate-700">{group.label}</p>
-                          <p className="max-w-[150px] truncate text-[11px] text-slate-500">{group.hint}</p>
+                      <div key={group.key} className={styles.roleGroup}>
+                        <div className={styles.roleGroupHeader}>
+                          <p className={styles.roleGroupTitle}>{group.label}</p>
+                          <p className={styles.roleGroupHint}>{group.key === "operational" ? "Portal assignments" : group.key === "administrative" ? "Company access" : "Full access"}</p>
                         </div>
-                        <div className="space-y-1">
+                        <div className={styles.roleList}>
                           {rolesInGroup.map((role) => {
                             const count = roleCount(role.value);
                             return (
-                              <div key={role.value} className="flex min-h-9 items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-slate-50">
-                                <span className="flex min-w-0 items-center gap-2">
-                                  <role.icon className="h-4 w-4 shrink-0 text-slate-500" />
-                                  <span className="truncate text-sm text-slate-800">{role.label}</span>
+                              <button
+                                key={role.value}
+                                type="button"
+                                className={styles.roleFilter}
+                                aria-pressed={roleFilter === role.value}
+                                onClick={() => setRoleFilter((current) => current === role.value ? null : role.value)}
+                                title={`Show ${count} ${role.label} ${count === 1 ? "staff member" : "staff members"}`}
+                              >
+                                <span className={styles.roleFilterName}>
+                                  <role.icon className={`${styles.roleIcon} h-3.5 w-3.5`} aria-hidden="true" />
+                                  <span className="truncate">{role.label}</span>
                                 </span>
-                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-slate-700">
-                                  {count}
-                                </span>
-                              </div>
+                                <span className={styles.roleCount}>{count}</span>
+                              </button>
                             );
                           })}
                         </div>
@@ -1157,14 +1164,22 @@ function AdminUsersPage() {
               </section>
             </aside>
 
-            <main className="order-1 space-y-4 xl:order-2">
-              <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-                <div className="flex flex-col gap-3 border-b border-slate-200 p-4 lg:flex-row lg:items-center lg:justify-between">
+            <main className={styles.mainColumn}>
+              <section className={styles.directoryPanel}>
+                <div className={styles.directoryHeader}>
                   <div>
-                    <h2 className="text-base font-semibold text-slate-950">Team members</h2>
-                    <p className="text-xs text-slate-500">{visibleUserLabel}</p>
+                    <h2 className={styles.directoryHeading}>Staff directory</h2>
+                    <div className={styles.directorySubhead}>
+                      <span>{visibleUserLabel}</span>
+                      {refreshing && (
+                        <span role="status" aria-live="polite" className={styles.updating}>
+                          <Loader2 className="h-3 w-3 animate-spin" /> Updating
+                        </span>
+                      )}
+                      {roleFilter && <span>· {roleMetaFor(roleFilter)?.label}</span>}
+                    </div>
                   </div>
-                  <div className="grid w-full gap-2 sm:grid-cols-[minmax(0,1fr)_auto] lg:max-w-[560px]">
+                  <div className={styles.tools}>
                     <AdminSearchField
                       inputRef={searchRef}
                       placeholder="Search name, email, or role"
@@ -1176,20 +1191,19 @@ function AdminUsersPage() {
                       activeDir={userSort.sortDir}
                       onPick={userSort.setSort}
                       options={[
-                        { key: "name",    dir: "asc",  label: "Name (A to Z)" },
-                        { key: "name",    dir: "desc", label: "Name (Z to A)" },
-                        { key: "role",    dir: "asc",  label: "Role (A to Z)" },
-                        { key: "email",   dir: "asc",  label: "Email (A to Z)" },
+                        { key: "name", dir: "asc", label: "Name (A to Z)" },
+                        { key: "name", dir: "desc", label: "Name (Z to A)" },
+                        { key: "role", dir: "asc", label: "Role (A to Z)" },
+                        { key: "email", dir: "asc", label: "Email (A to Z)" },
                         { key: "created", dir: "desc", label: "Newest first" },
-                        { key: "created", dir: "asc",  label: "Oldest first" },
+                        { key: "created", dir: "asc", label: "Oldest first" },
                       ]}
                     />
                   </div>
                 </div>
-
-                <div className="border-b border-slate-200 bg-slate-50/70 px-4 py-3">
+                <div className={styles.selectionBar}>
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
+                    <label className={styles.selectAll}>
                       <Checkbox
                         id="select-visible-users"
                         checked={allVisibleUsersSelected}
@@ -1221,15 +1235,15 @@ function AdminUsersPage() {
                   </div>
 
                   {selectedUserIds.length > 0 && (
-                    <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                    <div className={styles.bulkBox}>
                       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                         <div>
-                          <p className="text-sm font-semibold text-blue-950">Add one role to the selected users</p>
-                          <p className="mt-0.5 text-xs text-blue-900/80">
+                          <p className={styles.bulkTitle}>Add one role to the selected users</p>
+                          <p className={styles.bulkDescription}>
                             This adds the role to everyone selected. Their existing roles and login destination stay unchanged.
                           </p>
                         </div>
-                        <div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
+                        <div className={styles.bulkActions}>
                           <Select value={bulkRole} onValueChange={(value) => setBulkRole(value as UserRole)}>
                             <SelectTrigger className="w-full bg-white sm:w-[220px]">
                               <SelectValue placeholder="Choose a role to add" />
@@ -1260,15 +1274,15 @@ function AdminUsersPage() {
                 </div>
 
                 {filteredUsers.length === 0 ? (
-                  <div className="p-10 text-center">
+                  <div className={styles.emptyState}>
                     <Users className="mx-auto mb-3 h-12 w-12 text-slate-300" />
-                    <p className="text-base font-semibold text-slate-950">No users found</p>
-                    <p className="mt-1 text-sm text-slate-600">
+                    <p className={styles.emptyTitle}>No users found</p>
+                    <p className={styles.emptyCopy}>
                       {searchTerm ? "Clear the search or try another role name." : "Add the first staff login from the button above."}
                     </p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-slate-200">
+                  <div className={styles.staffList}>
                     {filteredUsers.map((targetUser) => {
                       const roles = userAccessRoles(targetUser);
                       const primaryFallbackRole = normalizeRoleValue(
@@ -1284,9 +1298,9 @@ function AdminUsersPage() {
                       const activeRoleValue = normalizeRoleValue(targetUser.active_role, primaryFallbackRole);
                       const activity = loginActivityBucket(targetUser.last_sign_in_at);
                       return (
-                        <div key={targetUser.id} className="p-4 transition-colors hover:bg-slate-50/70">
-                          <div className="grid gap-4 xl:grid-cols-[minmax(190px,1.1fr)_minmax(180px,1fr)_130px_176px] xl:items-start">
-                            <div className="min-w-0">
+                        <div key={targetUser.id} className={styles.staffRow}>
+                          <div className={styles.staffGrid}>
+                            <div className={styles.personCell}>
                               <div className="flex min-w-0 items-center gap-3">
                                 <Checkbox
                                   id={`select-user-${targetUser.id}`}
@@ -1294,15 +1308,15 @@ function AdminUsersPage() {
                                   onCheckedChange={(checked) => toggleUserSelection(targetUser.id, checked === true)}
                                   aria-label={`Select ${targetUser.full_name || targetUser.email || "staff user"}`}
                                 />
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 text-sm font-semibold text-slate-700">
+                                <div className={styles.avatar}>
                                   {(targetUser.full_name || targetUser.email || "?").slice(0, 2).toUpperCase()}
                                 </div>
                                 <div className="min-w-0">
                                   <div className="flex min-w-0 flex-wrap items-center gap-2">
-                                    <h3 className="truncate text-sm font-semibold text-slate-950">
+                                    <h3 className={styles.personName}>
                                       {targetUser.full_name || "Unnamed User"}
                                     </h3>
-                                    <Badge className={targetUser.is_active ? "border-brand-primary/20 bg-brand-primary/10 text-brand-primary" : "border-slate-200 bg-slate-100 text-slate-700"}>
+                                    <Badge className={`${styles.accountStatus} ${targetUser.is_active ? "" : styles.inactiveStatus}`}>
                                       {targetUser.is_active ? "Active" : "Inactive"}
                                     </Badge>
                                   </div>
@@ -1316,7 +1330,7 @@ function AdminUsersPage() {
                                         toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
                                       }
                                     }}
-                                    className="mt-0.5 block max-w-full truncate text-left text-xs text-slate-600 hover:text-slate-950 hover:underline"
+                                    className={styles.emailButton}
                                     title="Copy email"
                                   >
                                     {targetUser.email || "No email"}
@@ -1325,7 +1339,7 @@ function AdminUsersPage() {
                               </div>
                             </div>
 
-                            <div className="min-w-0">
+                            <div className={styles.accessCell}>
                               <div className="mb-2 flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
                                 <PrimaryIcon className="h-3.5 w-3.5" />
                                 <span>Access</span>
@@ -1345,7 +1359,7 @@ function AdminUsersPage() {
                                         key={dept}
                                         title={`${config?.label || dept}${isPrimary ? " · primary role" : ""}${isActive ? " · active portal" : ""}`}
                                         aria-label={`${config?.label || dept}${isPrimary ? ", primary role" : ""}${isActive ? ", active portal" : ""}`}
-                                        className={`max-w-full flex-wrap justify-start gap-x-1 whitespace-normal text-left text-xs leading-4 ${config?.color} ${isPrimary ? "ring-2 ring-offset-1 ring-slate-500" : ""}`}
+                                        className={`${styles.roleChip} ${isPrimary ? styles.primaryRoleChip : styles.secondaryRoleChip}`}
                                       >
                                         <Icon className="h-3 w-3 shrink-0" />
                                         <span className="min-w-0">{config?.label || dept}</span>
@@ -1355,15 +1369,16 @@ function AdminUsersPage() {
                                     );
                                   })
                                 ) : (
-                                  <Badge className="bg-slate-100 text-slate-600">No access assigned</Badge>
+                                  <Badge className={styles.secondaryRoleChip}>No access assigned</Badge>
                                 )}
                               </div>
                             </div>
 
-                            <div className="text-xs text-slate-600">
-                              <p className="font-medium text-slate-950">Activity</p>
+                            <div className={styles.activityCell}>
+                              <span className={styles.activityLabel}>Activity</span>
                               <span
-                                className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${activity.tone}`}
+                                className={styles.activityPill}
+                                data-activity={activity.kind}
                                 title={
                                   targetUser.last_sign_in_at
                                     ? `Last sign-in: ${new Date(targetUser.last_sign_in_at).toLocaleString("en-ZA")}`
@@ -1372,7 +1387,7 @@ function AdminUsersPage() {
                               >
                                 {activity.label}
                               </span>
-                              <p className="mt-1">
+                              <p className={styles.personMeta}>
                                 {/* No fake fallback: showing today's date
                                     for a missing created_at claimed the
                                     user joined just now. */}
@@ -1389,7 +1404,7 @@ function AdminUsersPage() {
                                       toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
                                     }
                                   }}
-                                  className="mt-1 block text-slate-700 hover:text-slate-950 hover:underline"
+                                  className={styles.phoneButton}
                                   title="Copy phone number"
                                 >
                                   {targetUser.phone_number}
@@ -1415,7 +1430,7 @@ function AdminUsersPage() {
                             </div>
 
                             {editingUser !== targetUser.id && (
-                              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-start xl:justify-end">
+                              <div className={styles.actionsCell}>
                                 {targetUser.is_active && targetUser.email && targetUser.id !== user?.id && (
                                   <Button
                                     variant="outline"
@@ -1423,7 +1438,7 @@ function AdminUsersPage() {
                                     onClick={() => handleResendInvite(targetUser)}
                                     disabled={resendingUserId === targetUser.id}
                                     title={targetUser.last_sign_in_at ? "Send a fresh login link" : "Resend the expired or missing invite"}
-                                    className="h-9 w-full justify-center border-amber-300 text-sm text-amber-800 hover:bg-amber-50 sm:w-auto"
+                                    className={styles.resendAction}
                                   >
                                     {resendingUserId === targetUser.id ? (
                                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1441,7 +1456,6 @@ function AdminUsersPage() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => handleEditUser(targetUser.id)}
-                                  className="h-9 w-full justify-center text-sm sm:w-auto"
                                 >
                                   <Edit className="mr-2 h-4 w-4" />
                                   Edit access
@@ -1453,7 +1467,7 @@ function AdminUsersPage() {
                                     onClick={() => setConfirmDeactivate(targetUser)}
                                     disabled={statusBusy === targetUser.id || targetUser.id === user?.id}
                                     title={targetUser.id === user?.id ? "You can't deactivate yourself" : "Stop this user from signing in"}
-                                    className="h-9 w-full justify-center border-rose-300 text-sm text-rose-700 hover:bg-rose-50 sm:w-auto"
+                                    className={styles.dangerAction}
                                   >
                                     <UserX className="mr-2 h-4 w-4" />
                                     Deactivate
@@ -1464,7 +1478,7 @@ function AdminUsersPage() {
                                     size="sm"
                                     onClick={() => handleStatusToggle(targetUser, true)}
                                     disabled={statusBusy === targetUser.id}
-                                    className="h-9 w-full justify-center border-brand-primary/30 text-sm text-brand-primary hover:bg-brand-primary/10 sm:w-auto"
+                                    className={styles.reactivateAction}
                                   >
                                     <UserCheck className="mr-2 h-4 w-4" />
                                     {statusBusy === targetUser.id ? "Saving..." : "Reactivate"}
@@ -1475,7 +1489,7 @@ function AdminUsersPage() {
                           </div>
 
                       {editingUser === targetUser.id && (
-                        <div className="mt-4 space-y-4 rounded-lg border border-slate-200 bg-slate-50 p-3 md:p-4">
+                        <div className={styles.editor}>
                           {/* USR-D (task #209, 2026-05-25): grouped
                               picker with per-role descriptions. The
                               old flat 7-checkbox grid gave no hint
@@ -1518,7 +1532,7 @@ function AdminUsersPage() {
                                 const rolesInGroup = roleConfig.filter((r) => r.group === group.key);
                                 if (rolesInGroup.length === 0) return null;
                                 return (
-                                  <div key={group.key} className="rounded-lg border border-slate-200 bg-white p-2.5">
+                                  <div key={group.key} className={`${styles.editorGroup} rounded-lg border p-2.5`}>
                                     <div className="flex items-baseline justify-between gap-2 mb-1.5 flex-wrap">
                                       <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
                                         {group.label}
@@ -1532,13 +1546,7 @@ function AdminUsersPage() {
                                         return (
                                           <div
                                             key={role.value}
-                                            className={`relative rounded-md border-2 transition-all p-2.5 ${
-                                              isPrimary
-                                                ? "border-slate-500 bg-slate-50"
-                                                : isSelected
-                                                  ? "border-slate-400 bg-white"
-                                                  : "border-slate-200 bg-slate-50/60 hover:bg-white"
-                                            }`}
+                                            className={`${styles.editorChoice} ${isPrimary ? styles.editorPrimary : ""} ${isSelected ? styles.editorChoiceSelected : ""} relative rounded-md border p-2.5`}
                                           >
                                             <div className="flex items-start gap-2">
                                               <Checkbox
@@ -1638,18 +1646,18 @@ function AdminUsersPage() {
                 )}
               </section>
 
-              <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-center justify-between gap-3 border-b border-slate-200 p-4">
+              <section className={`${styles.panel} ${styles.pendingPanel}`}>
+                <div className={styles.panelHeader}>
                   <div>
-                    <h2 className="text-base font-semibold text-slate-950">Pending invitations</h2>
-                    <p className="text-xs text-slate-500">{pendingInviteCount} waiting to accept</p>
+                    <h2 className={styles.panelTitle}>Pending invitations</h2>
+                    <p className={styles.panelHint}>{pendingInviteCount} waiting to accept</p>
                   </div>
                 </div>
-                <div className="p-4">
+                <div className={styles.pendingBody}>
                   {invitationsError ? (
-                    <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-6 text-center">
-                      <p className="text-sm font-semibold text-rose-900">Couldn&apos;t load pending invitations</p>
-                      <p className="mt-1 text-sm text-rose-800/80">{invitationsError}</p>
+                    <div className={styles.errorBanner}>
+                      <p className="text-sm font-semibold">Couldn&apos;t load pending invitations</p>
+                      <p className="mt-1 text-sm">{invitationsError}</p>
                       <Button size="sm" variant="outline" className="mt-3" onClick={loadInvitations} disabled={invitationsLoading}>
                         Retry
                       </Button>
@@ -1665,7 +1673,7 @@ function AdminUsersPage() {
               </section>
             </main>
           </div>
-        </PortalShell>
+        </div>
       </div>
 
       {/* The dialog provisions a company-scoped account through the
@@ -1683,7 +1691,7 @@ function AdminUsersPage() {
           }
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className={`${styles.dialog} max-w-md`}>
           {createResult ? (
             <>
               <DialogHeader>
@@ -1812,7 +1820,7 @@ function AdminUsersPage() {
       {/* USR-C: deactivate confirm. Locking someone out is destructive
           enough to deserve a confirm. Reactivation skips it. */}
       <AlertDialog open={!!confirmDeactivate} onOpenChange={(o) => { if (!o) setConfirmDeactivate(null); }}>
-        <AlertDialogContent>
+        <AlertDialogContent className={styles.dialog}>
           <AlertDialogHeader>
             <AlertDialogTitle>Deactivate this user?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1853,27 +1861,27 @@ function PendingInvitationsList({
   }
   if (invitations.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center">
+      <div className={styles.pendingEmpty}>
         <Mail className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-        <p className="text-sm font-semibold text-slate-950">No pending invitations</p>
-        <p className="mt-1 text-sm text-slate-600">New staff you add will appear here until they accept or expire.</p>
+        <p className={styles.pendingEmptyTitle}>No pending invitations</p>
+        <p className={styles.pendingEmptyCopy}>New staff you add will appear here until they accept or expire.</p>
       </div>
     );
   }
   const nowMs = Date.now();
   return (
-    <div className="divide-y divide-slate-200 rounded-xl border border-slate-200">
+    <div className={styles.pendingList}>
       {invitations.map((inv) => {
         const expiresMs = inv.expires_at ? new Date(inv.expires_at).getTime() : null;
         const expired = expiresMs != null && expiresMs < nowMs;
         return (
-          <div key={inv.id} className="flex flex-wrap items-center gap-3 p-3">
-              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-amber-100">
+          <div key={inv.id} className={styles.pendingRow}>
+              <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${styles.inviteAvatar}`}>
                 <Mail className="h-4 w-4 text-amber-700" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="truncate text-sm font-semibold text-slate-950">{inv.full_name || inv.email || "Invitee"}</p>
+                  <p className={styles.inviteName}>{inv.full_name || inv.email || "Invitee"}</p>
                   {inv.role && (
                     <Badge variant="outline" className="text-[10px]">
                       {inv.role}
@@ -1887,8 +1895,8 @@ function PendingInvitationsList({
                     <Badge variant="secondary" className="text-[10px]">Pending</Badge>
                   )}
                 </div>
-                <p className="mt-0.5 truncate text-xs text-slate-600">{inv.email || "(no email captured)"}</p>
-                <p className="mt-0.5 text-[11px] text-slate-500">
+                <p className={styles.inviteMeta}>{inv.email || "(no email captured)"}</p>
+                <p className={styles.inviteMeta}>
                   Invited {inv.created_at ? formatLocalDate(inv.created_at) : "-"}
                   {inv.expires_at && (
                     <span className="ml-2">
@@ -1901,7 +1909,7 @@ function PendingInvitationsList({
                 variant="outline"
                 size="sm"
                 onClick={() => onCancel(inv.id)}
-                className="gap-1.5 border-rose-300 text-rose-700 hover:bg-rose-50"
+                className={styles.cancelInvite}
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 Cancel

@@ -310,7 +310,7 @@ function KitchenScheduleGrid() {
         // unless their profile/active role or department says kitchen.
         (supabase as any)
           .from("profiles")
-          .select("id, full_name, email, role, active_role, phone_number, mobile_number")
+          .select("id, full_name, email, role, active_role, is_active, phone_number, mobile_number")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .order("full_name", { ascending: true }),
@@ -369,7 +369,9 @@ function KitchenScheduleGrid() {
       if (dutyAttendanceRes.error) console.warn("Could not load legacy kitchen duty attendance:", dutyAttendanceRes.error);
       if (tileAttendanceRes.error) console.warn("Could not load kitchen tablet attendance:", tileAttendanceRes.error);
       if (kitchenMembersRes.error) console.warn("Could not load kitchen staff directory:", kitchenMembersRes.error);
-      const staffRows = ((staffRes.data || []) as Array<Omit<Staffer, "profile_id" | "staff_member_id">>).map((row) => ({
+      const staffRows = ((staffRes.data || []) as Array<Omit<Staffer, "profile_id" | "staff_member_id"> & { is_active?: boolean | null }>)
+        .filter((row) => row.is_active !== false)
+        .map((row) => ({
         ...row,
         profile_id: row.id,
         staff_member_id: null,
@@ -429,7 +431,17 @@ function KitchenScheduleGrid() {
         }
       }
       setStaff(Array.from(rosterStaff.values()).sort((a, b) => a.full_name.localeCompare(b.full_name)));
-      const shiftRows = (shiftsRes.data || []) as ShiftRow[];
+      const profileIdByStaffMember = new Map<string, string>();
+      for (const member of staffMemberLinks) {
+        const profileId = member.linked_profile_id ||
+          (member.email ? profileByEmail.get(member.email.trim().toLowerCase()) : null);
+        if (profileId) profileIdByStaffMember.set(member.id, profileId);
+      }
+      const shiftRows = ((shiftsRes.data || []) as ShiftRow[]).map((shift) => {
+        if (shift.staff_id || !shift.staff_member_id) return shift;
+        const linkedProfileId = profileIdByStaffMember.get(shift.staff_member_id);
+        return linkedProfileId ? { ...shift, staff_id: linkedProfileId } : shift;
+      });
       const tileAttendance = (tileAttendanceRes.data || []) as TileAttendanceRow[];
 
       // Keep the earliest live start if a person has entries in both clock-in
@@ -893,7 +905,7 @@ function KitchenScheduleGrid() {
                   {staff.length} chef{staff.length === 1 ? "" : "s"}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Cells show planned hours. Once the chef clocks in, the cell flips to actual hours and surfaces lateness inline.
+                  Cells show planned hours. A clock-in from the team portal or staff tablet updates actual hours and lateness here.
                 </CardDescription>
               </CardHeader>
               <CardContent>

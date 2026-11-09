@@ -39,7 +39,7 @@ export function pwaIconUrl(branding: PwaBranding | null, size: 180 | 192 | 512):
 
 export function pwaManifestUrl(branding: PwaBranding | null): string {
   if (branding?.slug && isCompanySlug(branding.slug)) {
-    // Keep the manifest location stable; its contents and versioned icon URLs
+    // Keep the manifest URL stable; its contents and versioned icon URLs
     // change with tenant branding while the installed app keeps one identity.
     return `/api/pwa/manifest?slug=${encodeURIComponent(branding.slug)}`;
   }

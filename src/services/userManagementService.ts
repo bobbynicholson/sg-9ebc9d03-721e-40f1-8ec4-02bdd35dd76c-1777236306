@@ -10,6 +10,23 @@ export interface UserWithDepartments extends Profile {
   primary_department?: UserRole;
 }
 
+export type StaffDirectoryUser = Pick<
+  Profile,
+  | "id"
+  | "full_name"
+  | "email"
+  | "phone_number"
+  | "mobile_number"
+  | "role"
+  | "active_role"
+  | "is_active"
+  | "last_sign_in_at"
+  | "created_at"
+> & {
+  departments: UserRole[];
+  primary_department?: UserRole;
+};
+
 export interface DepartmentAssignment {
   department: UserRole;
   is_primary: boolean;
@@ -111,13 +128,20 @@ export const userManagementService = {
         ? { data: [], error: null as null | { message: string } }
         : await supabase
             .from("user_departments")
-            .select("*")
+            .select("user_id, department, is_primary")
             .in("user_id", profileIds);
 
       if (deptError) throw deptError;
 
+      const departmentsByUser = new Map<string, typeof departments>();
+      for (const department of departments || []) {
+        const assignments = departmentsByUser.get(department.user_id) || [];
+        assignments.push(department);
+        departmentsByUser.set(department.user_id, assignments);
+      }
+
       const usersWithDepts: UserWithDepartments[] = profiles.map((profile) => {
-        const userDepts = departments?.filter((d) => d.user_id === profile.id) || [];
+        const userDepts = departmentsByUser.get(profile.id) || [];
         const deptList = userDepts.map((d) => d.department as UserRole);
         const primaryDept = userDepts.find((d) => d.is_primary)?.department as UserRole | undefined;
 
@@ -133,6 +157,51 @@ export const userManagementService = {
       console.error("Error fetching users:", error);
       throw error;
     }
+  },
+
+  /**
+   * Load only the fields used by the tenant staff directory. Kept separate
+   * from getAllUsers because driver-management also relies on its full profile
+   * rows for pay and vehicle details.
+   */
+  async getStaffDirectory(companyId?: string): Promise<StaffDirectoryUser[]> {
+    if (!companyId) return [];
+
+    const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, phone_number, mobile_number, role, active_role, is_active, last_sign_in_at, created_at")
+      .eq("company_id", companyId)
+      .not("role", "in", '("client")')
+      .order("created_at", { ascending: false });
+
+    if (profilesError) throw profilesError;
+    const profileIds = (profiles || []).map((profile) => profile.id);
+    if (profileIds.length === 0) return [];
+
+    const { data: departments, error: departmentsError } = await supabase
+      .from("user_departments")
+      .select("user_id, department, is_primary")
+      .in("user_id", profileIds);
+
+    if (departmentsError) throw departmentsError;
+
+    const departmentsByUser = new Map<string, typeof departments>();
+    for (const department of departments || []) {
+      const assignments = departmentsByUser.get(department.user_id) || [];
+      assignments.push(department);
+      departmentsByUser.set(department.user_id, assignments);
+    }
+
+    return profiles.map((profile) => {
+      const userDepartments = departmentsByUser.get(profile.id) || [];
+      const departmentRoles = userDepartments.map((row) => row.department as UserRole);
+      const primaryDepartment = userDepartments.find((row) => row.is_primary)?.department as UserRole | undefined;
+      return {
+        ...profile,
+        departments: departmentRoles,
+        primary_department: primaryDepartment || departmentRoles[0],
+      };
+    });
   },
 
   /**

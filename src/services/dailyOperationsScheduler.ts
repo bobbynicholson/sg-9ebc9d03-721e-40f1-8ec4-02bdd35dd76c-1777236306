@@ -1,10 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { cleanDailyOperationsTaskTitle } from "@/lib/dailyOperationsCopy";
 import { toZonedISO, DEFAULT_TENANT_TIMEZONE } from "@/lib/localDate";
 
 const TASK_LINK = "/team-portal/cleaning/tasks";
 const ADMIN_LINK = "/admin/daily-operations";
 type Target = "kitchen" | "cleaning" | "both";
+type ScheduleMode = "every_day" | "selected_weekdays" | "staff_scheduled";
+const AUTO_SKIP_PREFIX = "[cleaning task schedule] ";
 
 function localParts(now: Date, timezone: string) {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -31,6 +34,62 @@ function humanTime(value: string): string {
   const [h, m] = value.slice(0, 5).split(":").map(Number);
   const suffix = h >= 12 ? "PM" : "AM";
   return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${suffix}`;
+}
+
+function isSelectedWeekday(taskDate: string, weekdays: number[]): boolean {
+  const weekday = new Date(`${taskDate}T00:00:00.000Z`).getUTCDay();
+  return weekdays.includes(weekday);
+}
+
+function shiftTypesForTarget(target: Target): string[] {
+  if (target === "kitchen") return ["kitchen", "kitchen_and_cleaning"];
+  if (target === "cleaning") return ["cleaning", "kitchen_and_cleaning"];
+  return ["kitchen", "cleaning", "kitchen_and_cleaning"];
+}
+
+async function hasScheduledStaff(sb: any, companyId: string, taskDate: string, target: Target): Promise<boolean> {
+  const { data, error } = await sb
+    .from("kitchen_shifts")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("shift_date", taskDate)
+    .in("shift_type", shiftTypesForTarget(target))
+    .neq("status", "cancelled")
+    .is("deleted_at", null)
+    .limit(1);
+  if (error) throw error;
+  return (data || []).length > 0;
+}
+
+async function suppressPendingTask(sb: any, companyId: string, taskKind: string, taskDate: string, reason: string) {
+  const { data: existing, error } = await sb
+    .from("daily_operations_tasks")
+    .select("id, status, staff_notified_at")
+    .eq("company_id", companyId)
+    .eq("task_kind", taskKind)
+    .eq("task_date", taskDate)
+    .maybeSingle();
+  if (error) throw error;
+  if (!existing || existing.status !== "scheduled" || existing.staff_notified_at) return;
+  const { error: updateError } = await sb
+    .from("daily_operations_tasks")
+    .update({ status: "skipped", notes: `${AUTO_SKIP_PREFIX}${reason}` })
+    .eq("id", existing.id)
+    .eq("status", "scheduled")
+    .is("staff_notified_at", null);
+  if (updateError) throw updateError;
+}
+
+async function reviveAutomaticallySkippedTask(sb: any, task: any): Promise<any> {
+  if (task?.status !== "skipped" || !String(task.notes || "").startsWith(AUTO_SKIP_PREFIX) || task.staff_notified_at) return task;
+  const { error } = await sb
+    .from("daily_operations_tasks")
+    .update({ status: "scheduled", notes: null })
+    .eq("id", task.id)
+    .eq("status", "skipped")
+    .is("staff_notified_at", null);
+  if (error) throw error;
+  return { ...task, status: "scheduled", notes: null };
 }
 
 async function notifyUsers(sb: any, userIds: string[], payload: Record<string, any>) {
@@ -73,7 +132,7 @@ async function notifyTask(sb: any, task: any, companyId: string, adminNotificati
   const staffCount = await notifyUsers(sb, staffIds, {
     company_id: companyId,
     task_id: task.id,
-    title: `Daily task: ${task.title}`,
+    title: `Cleaning task: ${task.title}`,
     message: `${task.title} is scheduled for ${dateLabel} at ${nowLabel}. ${task.description || "Open the task board to start it."}`,
     link: TASK_LINK,
   });
@@ -86,7 +145,7 @@ async function notifyTask(sb: any, task: any, companyId: string, adminNotificati
     adminCount = await notifyUsers(sb, Array.from(new Set(admins.map((p: any) => p.id))), {
       company_id: companyId,
       task_id: task.id,
-      title: `Daily operations scheduled: ${task.title}`,
+      title: `Cleaning task scheduled: ${task.title}`,
       message: `${task.title} is scheduled for ${dateLabel} at ${nowLabel}. Staff will be reminded according to the configured lead time.`,
       link: ADMIN_LINK,
     });
@@ -110,13 +169,21 @@ export async function runDailyOperationsScheduler(now = new Date(), client?: any
     const currentMinutes = parts.hour * 60 + parts.minute;
     summary.companies += 1;
     const definitions = [
-      { kind: "kitchen_cleaning", enabled: row.kitchen_cleaning_enabled, time: row.kitchen_cleaning_time, title: row.kitchen_cleaning_title, description: row.kitchen_cleaning_description, lead: Number(row.kitchen_cleaning_lead_hours || 0), target: row.kitchen_cleaning_target as Target },
-      { kind: "equipment_cleaning", enabled: row.equipment_cleaning_enabled, time: row.equipment_cleaning_time, title: row.equipment_cleaning_title, description: row.equipment_cleaning_description, lead: Number(row.equipment_cleaning_lead_hours || 0), target: row.equipment_cleaning_target as Target },
+      { kind: "kitchen_cleaning", enabled: row.kitchen_cleaning_enabled, time: row.kitchen_cleaning_time, title: cleanDailyOperationsTaskTitle("kitchen_cleaning", String(row.kitchen_cleaning_title || "Kitchen area cleaning")), description: row.kitchen_cleaning_description, lead: Number(row.kitchen_cleaning_lead_hours || 0), target: (row.kitchen_cleaning_target || "kitchen") as Target, scheduleMode: (row.kitchen_cleaning_schedule_mode || "staff_scheduled") as ScheduleMode, weekdays: (row.kitchen_cleaning_weekdays || [0, 1, 2, 3, 4, 5, 6]) as number[] },
+      { kind: "equipment_cleaning", enabled: row.equipment_cleaning_enabled, time: row.equipment_cleaning_time, title: cleanDailyOperationsTaskTitle("equipment_cleaning", String(row.equipment_cleaning_title || "Kitchen equipment cleaning")), description: row.equipment_cleaning_description, lead: Number(row.equipment_cleaning_lead_hours || 0), target: (row.equipment_cleaning_target || "cleaning") as Target, scheduleMode: (row.equipment_cleaning_schedule_mode || "staff_scheduled") as ScheduleMode, weekdays: (row.equipment_cleaning_weekdays || [0, 1, 2, 3, 4, 5, 6]) as number[] },
     ];
 
     for (const definition of definitions) {
       if (!definition.enabled) continue;
       try {
+        if (definition.scheduleMode === "selected_weekdays" && !isSelectedWeekday(taskDate, definition.weekdays)) {
+          await suppressPendingTask(sb, companyId, definition.kind, taskDate, "This weekday is not selected.");
+          continue;
+        }
+        if (definition.scheduleMode === "staff_scheduled" && !(await hasScheduledStaff(sb, companyId, taskDate, definition.target))) {
+          await suppressPendingTask(sb, companyId, definition.kind, taskDate, "No matching team shift is scheduled.");
+          continue;
+        }
         const taskPayload = {
           company_id: companyId,
           task_kind: definition.kind,
@@ -131,7 +198,7 @@ export async function runDailyOperationsScheduler(now = new Date(), client?: any
           .from("daily_operations_tasks")
           .upsert(taskPayload, { onConflict: "company_id,task_kind,task_date", ignoreDuplicates: true });
         if (upsertError) throw upsertError;
-        const { data: task, error: readError } = await sb
+        const { data: taskRow, error: readError } = await sb
           .from("daily_operations_tasks")
           .select("*")
           .eq("company_id", companyId)
@@ -139,7 +206,9 @@ export async function runDailyOperationsScheduler(now = new Date(), client?: any
           .eq("task_date", taskDate)
           .maybeSingle();
         if (readError) throw readError;
-        if (!task) continue;
+        if (!taskRow) continue;
+        const task = await reviveAutomaticallySkippedTask(sb, taskRow);
+        if (task.status === "skipped") continue;
         summary.tasksCreated += 1;
         const scheduledMinutes = minutesForTime(task.scheduled_time);
         const dueForStaff = currentMinutes >= scheduledMinutes - Math.round(definition.lead * 60);

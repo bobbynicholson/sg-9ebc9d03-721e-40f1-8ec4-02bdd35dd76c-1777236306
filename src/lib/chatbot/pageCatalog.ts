@@ -111,7 +111,7 @@ export const PAGE_NAVIGATION_REFS: ChatNavigationRef[] = [
   page("admin.onboarding.clients", "Import clients", "/admin/onboarding/clients", "Import and validate the initial client book", ["import clients", "client import"], ADMIN),
   page("admin.onboarding.receipts", "Import receipts", "/admin/onboarding/receipts", "Import historical purchase receipts", ["import receipts", "receipt import"], ADMIN),
   page("admin.settings", "Admin settings", "/admin/settings", "Open the central company configuration area", ["admin settings", "settings"], ADMIN),
-  page("admin.daily-operations", "Daily operations", "/admin/daily-operations", "Configure the daily kitchen clean, equipment clean, and reminder lead time", ["daily operations", "daily kitchen clean", "equipment clean schedule", "daily cleaning configuration"], ADMIN),
+  page("admin.daily-operations", "Cleaning schedules", "/admin/daily-operations", "Set kitchen area and equipment cleaning days, reminders, and assigned teams", ["cleaning schedules", "kitchen cleaning", "equipment cleaning schedule", "staff cleaning reminders", "daily operations"], ADMIN),
   page("admin.ai-brain", "AI brain", "/admin/ai-brain", "Manage approved assistant documents and knowledge sources", ["ai brain", "assistant knowledge", "rag", "resync knowledge"], FINANCE),
   page("admin.ai-brain.access", "AI access", "/admin/ai-brain/access", "Manage role access and create read-only assistant tools", ["ai access", "assistant permissions", "live data access", "tool access", "custom tools"], FINANCE),
 

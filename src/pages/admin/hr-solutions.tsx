@@ -61,6 +61,7 @@ import { canAccessFinance } from "@/lib/authGuards";
 import { captureException } from "@/lib/observability";
 import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { teamBucketsForUser } from "@/lib/teamRoleBuckets";
+import { mergeTeamDirectoryMemberships } from "@/lib/teamDirectoryMemberships";
 import {
   Users, Clock, Calendar, TrendingUp, Award, FileText,
   Banknote, UserPlus, Loader2, ChefHat, Sparkles, Truck,
@@ -128,6 +129,7 @@ function AdminHRSolutions() {
       .channel(`hr-solutions:${companyId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_members", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "staff_invitations", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_shifts", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_duty_shifts", filter: `company_id=eq.${companyId}` }, bump)
@@ -154,7 +156,7 @@ function AdminHRSolutions() {
         // Staff by role + region scope. Pulls the full role list so
         // we can bucket into kitchen / cleaning / drivers / other.
         let staffQ = supabase.from("profiles")
-          .select("id, role, active_role, is_active")
+          .select("id, email, role, active_role, is_active")
           .eq("company_id", companyId);
         if (regionFilterId) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -169,15 +171,22 @@ function AdminHRSolutions() {
           .order("created_at", { ascending: false })
           .limit(5);
 
-        // Kitchen shifts this week. canonical wage source.
+        // Kitchen and cleaning tablet shifts this week. Canonical wage source.
         let kitchenShiftsQ = supabase.from("kitchen_staff_shifts")
-          .select("standard_min, overtime_min, sunday_holiday_min, shift_start, kitchen_staff_members!inner(region_id, hourly_rate)")
+          .select("department, standard_min, overtime_min, sunday_holiday_min, shift_start, kitchen_staff_members!inner(region_id, hourly_rate)")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("shift_start", weekStartISO);
         if (regionFilterId) {
           kitchenShiftsQ = kitchenShiftsQ.eq("kitchen_staff_members.region_id", regionFilterId);
         }
+
+        let staffDirectoryQ = (supabase as any).from("kitchen_staff_members")
+          .select("id, linked_profile_id, email, departments")
+          .eq("company_id", companyId)
+          .eq("is_active", true)
+          .is("deleted_at", null);
+        if (regionFilterId) staffDirectoryQ = staffDirectoryQ.eq("region_id", regionFilterId);
 
         // Cleaning duty logs this week. (Mins via duty_started_at ->
         // duty_ended_at; no rate column on this table - wage burn
@@ -197,9 +206,17 @@ function AdminHRSolutions() {
 
         // Kitchen duty shifts is_active=true (clocked-now bucket A).
         const kitchenClockedQ = supabase.from("kitchen_duty_shifts")
-          .select("id", { count: "exact", head: true })
+          .select("id, staff_id, shift_start")
           .eq("company_id", companyId)
           .eq("is_active", true);
+
+        let tabletClockedQ = (supabase as any).from("kitchen_staff_shifts")
+          .select("staff_member_id, department, shift_start, kitchen_staff_members!inner(region_id)")
+          .eq("company_id", companyId)
+          .in("department", ["kitchen", "cleaning"])
+          .is("shift_end", null)
+          .is("deleted_at", null);
+        if (regionFilterId) tabletClockedQ = tabletClockedQ.eq("kitchen_staff_members.region_id", regionFilterId);
 
         // Cleaning duty on_duty=true (clocked-now bucket B).
         const cleaningClockedQ = supabase.from("cleaning_duty_logs")
@@ -218,10 +235,12 @@ function AdminHRSolutions() {
           staffRes, invitesRes,
           kitchenShiftsRes, cleaningDutyRes, driverShiftsRes,
           kitchenClockedRes, cleaningClockedRes, driverClockedRes,
+          staffDirectoryRes, tabletClockedRes,
         ] = await Promise.all([
           staffQ, invitesQ,
           kitchenShiftsQ, cleaningDutyQ, driverShiftsQ,
           kitchenClockedQ, cleaningClockedQ, driverClockedQ,
+          staffDirectoryQ, tabletClockedQ,
         ]);
 
         // Supabase queries resolve with {data, error} instead of
@@ -232,11 +251,13 @@ function AdminHRSolutions() {
           staffRes.error, invitesRes.error,
           kitchenShiftsRes.error, cleaningDutyRes.error, driverShiftsRes.error,
           kitchenClockedRes.error, cleaningClockedRes.error, driverClockedRes.error,
+          staffDirectoryRes.error, tabletClockedRes.error,
         ].find(Boolean);
         if (firstError) throw firstError;
 
         const activeStaffRows = ((staffRes.data || []) as Array<{
           id: string;
+          email: string | null;
           role: string | null;
           active_role: string | null;
           is_active?: boolean | null;
@@ -252,32 +273,42 @@ function AdminHRSolutions() {
         // "other" pre-audit; fail loudly instead.
         if (deptRes.error) throw deptRes.error;
         const staffDepartmentRows = deptRes.data;
+        const directoryRows = (staffDirectoryRes.data || []) as Array<{
+          id: string; linked_profile_id: string | null; email: string | null; departments: string[] | null;
+        }>;
+        const teamRoster = mergeTeamDirectoryMemberships(
+          activeStaffRows,
+          staffDepartmentRows || [],
+          directoryRows,
+        );
 
         // Bucket staff by resolved access. Managers and staff stay
         // distinct role labels, but both land in their department.
         const byDept: DeptCount = { kitchen: 0, cleaning: 0, drivers: 0, other: 0 };
         const staffIdByRole: Record<string, Set<string>> = { kitchen: new Set(), cleaning: new Set(), drivers: new Set(), other: new Set() };
-        for (const p of activeStaffRows) {
-          const buckets = teamBucketsForUser(p, staffDepartmentRows || []);
+        for (const p of teamRoster.profiles) {
+          const buckets = teamBucketsForUser(p, teamRoster.departmentRows);
           let operational = false;
           if (buckets.has("kitchen")) { byDept.kitchen += 1; staffIdByRole.kitchen.add(p.id); operational = true; }
           if (buckets.has("cleaning")) { byDept.cleaning += 1; staffIdByRole.cleaning.add(p.id); operational = true; }
           if (buckets.has("drivers")) { byDept.drivers += 1; staffIdByRole.drivers.add(p.id); operational = true; }
           if (!operational) { byDept.other += 1; staffIdByRole.other.add(p.id); }
         }
-        const staffTotal = activeStaffRows.length;
+        const staffTotal = teamRoster.profiles.length;
 
         // Hours by department.
         const hoursByDept: DeptCount = { kitchen: 0, cleaning: 0, drivers: 0, other: 0 };
         // Accumulate the wage estimate in integer cents so per-shift
         // float products can't drift the weekly figure.
         let wageBurnWeekCents = 0;
-        // Kitchen mins + wage rate.
+        // Split tablet hours by department while applying the same staff
+        // rate to both teams for the wage estimate.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const s of ((kitchenShiftsRes.data || []) as any[])) {
           const mins = Number(s.standard_min || 0) + Number(s.overtime_min || 0) + Number(s.sunday_holiday_min || 0);
           if (mins <= 0) continue;
-          hoursByDept.kitchen += mins / 60;
+          if (s.department === "cleaning") hoursByDept.cleaning += mins / 60;
+          else hoursByDept.kitchen += mins / 60;
           const rate = Number(s.kitchen_staff_members?.hourly_rate || 0);
           if (rate > 0) wageBurnWeekCents += Math.round((mins / 60) * rate * 100);
         }
@@ -305,11 +336,28 @@ function AdminHRSolutions() {
         hoursByDept.drivers = Math.round(hoursByDept.drivers);
 
         const hoursWeek = hoursByDept.kitchen + hoursByDept.cleaning + hoursByDept.drivers;
-        const cleaningClocked = ((cleaningClockedRes.data || []) as Array<{ user_id: string | null }>)
-          .filter((row) => row.user_id && staffIdByRole.cleaning.has(row.user_id)).length;
+        const clockedMemberIds = new Set<string>();
+        const kitchenRosterIds = new Set(teamRoster.profiles
+          .filter((person) => teamBucketsForUser(person, teamRoster.departmentRows).has("kitchen"))
+          .map((person) => person.id));
+        const cleaningRosterIds = new Set(teamRoster.profiles
+          .filter((person) => teamBucketsForUser(person, teamRoster.departmentRows).has("cleaning"))
+          .map((person) => person.id));
+        for (const row of (kitchenClockedRes.data || []) as Array<{ staff_id: string | null }>) {
+          if (row.staff_id && kitchenRosterIds.has(row.staff_id)) clockedMemberIds.add(row.staff_id);
+        }
+        for (const row of (cleaningClockedRes.data || []) as Array<{ user_id: string | null }>) {
+          if (row.user_id && cleaningRosterIds.has(row.user_id)) clockedMemberIds.add(row.user_id);
+        }
+        for (const row of (tabletClockedRes.data || []) as Array<{ staff_member_id: string | null; department: string | null }>) {
+          const identity = row.staff_member_id ? teamRoster.directoryIdentity.get(row.staff_member_id) : null;
+          const eligible = row.department === "cleaning" ? cleaningRosterIds : kitchenRosterIds;
+          if (identity && eligible.has(identity.teamMemberId)) clockedMemberIds.add(identity.teamMemberId);
+        }
         const driverClocked = ((driverClockedRes.data || []) as Array<{ driver_id: string | null }>)
-          .filter((row) => row.driver_id && staffIdByRole.drivers.has(row.driver_id)).length;
-        const clockedNow = (kitchenClockedRes.count ?? 0) + cleaningClocked + driverClocked;
+          .filter((row) => row.driver_id && staffIdByRole.drivers.has(row.driver_id));
+        for (const row of driverClocked) if (row.driver_id) clockedMemberIds.add(row.driver_id);
+        const clockedNow = clockedMemberIds.size;
 
         // staff_invitations.email + full_name are added by the
         // USR-C migration (20260524230000) but the generated types

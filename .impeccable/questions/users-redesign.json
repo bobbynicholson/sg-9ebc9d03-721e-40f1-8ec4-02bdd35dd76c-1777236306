@@ -1,0 +1,132 @@
+{
+  "title": "Choose the users page direction",
+  "question": "Choose the visual world for the Spit Braai Delivery staff directory. Each option keeps the same user management tasks and navigation; the visual system changes.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Cape Fynbos Field Guide",
+      "kicker": "THE ROLL",
+      "lineage": "Cape floral field guides and herbarium specimen labels",
+      "thesis": "A carefully indexed team directory, grounded in the Cape's botanical field guides.",
+      "palette": ["#F5F1E7", "#23483D", "#CC623A", "#D8AE48", "#29332E"],
+      "materials": ["warm uncoated paper", "fine botanical rule work", "humanist sans labels"],
+      "viewport": "A quiet evergreen admin rail frames a live staff roster, compact access overview, and clear invite action. A role's primary department uses one concise specimen-style color label; its written name stays legible without color.",
+      "risk": "Botanical cues can turn decorative if access categories lose their sharp labels.",
+      "raised": [
+        {"from": "challenger-cassette", "raise": "Primary access reads as one clear label; secondary team assignments stay grouped beneath it."},
+        {"from": "challenger-factory", "raise": "Each staff row has one strong name and primary-role focal point; contact details sit one tier lower."},
+        {"from": "challenger-streaming", "raise": "Role and status filters scope the roster directly, keeping staff records as the page's focus."},
+        {"from": "challenger-emission", "raise": "Every status and selection is identified by text and shape as well as color."}
+      ],
+      "comp": ".impeccable/mocks/decision/assigned.webp",
+      "html": ".impeccable/mocks/decision/assigned.html"
+    },
+    {
+      "id": "model-pick",
+      "label": "Cape Market Crate Labels",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "Cape produce-market crate labels and working kitchen prep labels",
+      "thesis": "Make each person's access as quick to scan as a well-marked delivery crate.",
+      "palette": ["#F5EBDD", "#202723", "#D95E37", "#D6AB3D", "#315C49"],
+      "materials": ["kraft-paper ground", "bold offset-ink bands", "compact grotesk typography"],
+      "viewport": "A dark ink navigation rail sits beside a warm paper directory. Department counts lead; each row carries a crisp name, email, team label, and active status. A small printed role tab makes primary access recognizable from a glance.",
+      "risk": "This is the most familiar fit for catering operations, so its strongest trait is clarity rather than surprise.",
+      "comp": ".impeccable/mocks/decision/model-pick.webp",
+      "html": ".impeccable/mocks/decision/model-pick.html"
+    },
+    {
+      "id": "challenger-wayfinding",
+      "label": "Staff Access Wayfinding",
+      "verdict": "competitive",
+      "lineage": "Cape Town airport and civic wayfinding systems",
+      "thesis": "Give every portal, role, and account state an unmistakable visual destination.",
+      "palette": ["#F8F7F1", "#202724", "#E7B83D", "#467760", "#BE4D40"],
+      "materials": ["matte charcoal", "high-visibility saffron", "clean humanist grotesk"],
+      "viewport": "A conventional staff table stays at the center of the page, with clear role tags and strong active or inactive labels. Access counts sit above the roster, while standard filters and search quickly narrow the people being managed.",
+      "case": "Strong for role and account clarity; slightly less connected to the local catering team's own visual culture.",
+      "risk": "Overusing high-visibility yellow could make routine actions feel like alerts.",
+      "comp": ".impeccable/mocks/decision/challenger-wayfinding.webp",
+      "html": ".impeccable/mocks/decision/challenger-wayfinding.html",
+      "hero": "https://impeccable.style/worlds/cards/wayfinding-cartography-signage-terminal-yellow-wayfinding-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/wayfinding-cartography-signage-terminal-yellow-wayfinding.webp"
+    },
+    {
+      "id": "challenger-timetable",
+      "label": "Cape Rail Timetable",
+      "verdict": "competitive",
+      "lineage": "1970s South African Railways pocket timetables",
+      "thesis": "Put every access fact in its own steady, easy-to-compare column.",
+      "palette": ["#F1E7D3", "#344B5A", "#A75538", "#547362", "#282E2B"],
+      "materials": ["tinted paper", "disciplined column spacing", "compact clear sans"],
+      "viewport": "The staff roster leads with fixed columns for name, portal, team, and status. A narrow access summary stays alongside the list, and filters sit directly above the records they refine.",
+      "case": "Its fixed columns make assignments easy to compare, while the field-guide direction is more distinctive to the local team.",
+      "risk": "Tight columns could feel dense on smaller screens unless they collapse deliberately.",
+      "comp": ".impeccable/mocks/decision/challenger-timetable.webp",
+      "html": ".impeccable/mocks/decision/challenger-timetable.html",
+      "hero": "https://impeccable.style/worlds/cards/rw-timetable-slide-rack-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/rw-timetable-slide-rack.webp"
+    },
+    {
+      "id": "challenger-cassette",
+      "label": "Cassette J-card",
+      "verdict": "declined",
+      "lineage": "South African mixtape cassette inlay cards",
+      "thesis": "A compact directory inspired by the small print that made a cassette personal.",
+      "palette": ["#EAE3D3", "#263735", "#BD5E3B", "#E3B94C"],
+      "materials": ["folded paper", "two-tone ink", "handwritten accent"],
+      "case": "The personal, layered inlay has less connection to the staff access task than the field-guide system.",
+      "kept": "Primary access reads as one clear label, with secondary team assignments grouped beneath it.",
+      "hero": "https://impeccable.style/worlds/cards/vernacular-ephemera-cassette-j-card-hero.webp"
+    },
+    {
+      "id": "challenger-factory",
+      "label": "Factory Records Sleeve",
+      "verdict": "declined",
+      "lineage": "Factory Records album-sleeve identity system",
+      "thesis": "Reduce each staff entry to a name and a single strong mark of access.",
+      "palette": ["#F2EFE6", "#202324", "#D0643E", "#485E55"],
+      "materials": ["matte sleeve stock", "precise typographic hierarchy", "single vivid ink accent"],
+      "case": "Its identity-led restraint underspecifies the department and account details this page must expose.",
+      "kept": "Give each staff row one clear name and primary-role focal point, with contact details secondary.",
+      "hero": "https://impeccable.style/worlds/cards/brand-identity-canon-saville-catalog-sleeve-hero.webp"
+    },
+    {
+      "id": "challenger-streaming",
+      "label": "Streaming Catalog Wall",
+      "verdict": "declined",
+      "lineage": "Modern streaming title-catalog indexes",
+      "thesis": "Scan a large staff directory through clear categories and compact previews.",
+      "palette": ["#F5F3ED", "#242927", "#356B55", "#D46A42"],
+      "materials": ["low-contrast page ground", "compact display type", "quiet role markers"],
+      "case": "The tile catalog treats people like content and offers less direct comparison than the roster needs.",
+      "kept": "Let role and status filters narrow the roster directly, while keeping staff records at the center.",
+      "hero": "https://impeccable.style/worlds/cards/pop-culture-shelf-streaming-title-card-wall-hero.webp"
+    },
+    {
+      "id": "challenger-emission",
+      "label": "Emission Line Rail",
+      "verdict": "declined",
+      "lineage": "Spectral emission-line charts",
+      "thesis": "Use carefully separated color bands to make access groups easy to recognize.",
+      "palette": ["#262B2A", "#E5764D", "#E1BA55", "#80A68E", "#EEE9DB"],
+      "materials": ["charcoal ground", "bright spectral marks", "precise sans typography"],
+      "case": "A dark scientific palette has less audience connection and less accessible status nuance for this work.",
+      "kept": "Always pair status and selection color with readable labels and clear shape differences.",
+      "hero": "https://impeccable.style/worlds/cards/operate-c-emission-line-rail-hero.webp"
+    }
+  ],
+  "reroll": {"registers": ["safer", "bolder"]},
+  "buildPath": {"value": "code", "toggle": true},
+  "canon": true,
+  "canonCard": {
+    "label": "The category standard",
+    "thesis": "A polished, familiar team administration screen with a clear table and quiet controls.",
+    "palette": ["#FFFFFF", "#172033", "#DDE3EA", "#335ED1", "#D98A23"],
+    "materials": ["white work surface", "neutral sans typography", "clear hairline borders"],
+    "viewport": "A standard admin rail frames active staff counts, a role filter, search, and a sortable roster. Add-user and bulk-role controls stay easy to find.",
+    "risk": "The familiar pattern is easy to learn but has little connection to Spit Braai Delivery's local identity.",
+    "comp": ".impeccable/mocks/decision/canon.webp",
+    "html": ".impeccable/mocks/decision/canon.html"
+  },
+  "steer": true
+}

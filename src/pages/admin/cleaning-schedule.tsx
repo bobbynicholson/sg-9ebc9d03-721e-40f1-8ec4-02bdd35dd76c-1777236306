@@ -58,11 +58,17 @@ interface Staffer {
   email: string;
   role: string;
   active_role: string | null;
+  /** Profile id for login-backed staff, null for tablet-only staff. */
+  profile_id: string | null;
+  /** Staff-directory id for tablet-only staff. */
+  staff_member_id: string | null;
+  phone: string | null;
 }
 
 interface ShiftRow {
   id: string;
-  staff_id: string;
+  staff_id: string | null;
+  staff_member_id: string | null;
   shift_date: string;
   planned_start: string | null;
   planned_end: string | null;
@@ -73,6 +79,20 @@ interface ShiftRow {
   notes: string | null;
   shift_type: string;
   order_id: string | null;
+}
+
+interface TileAttendanceRow {
+  staff_member_id: string | null;
+  shift_start: string | null;
+}
+
+interface StaffMemberLinkRow {
+  id: string;
+  linked_profile_id: string | null;
+  email: string | null;
+  full_name: string | null;
+  role_title: string | null;
+  phone: string | null;
 }
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -108,6 +128,40 @@ function actualHours(start: string | null, end: string | null): number {
 
 const fmtTime = (t: string | null): string => (t ? t.slice(0, 5) : "");
 
+function staffRosterKey(profileId: string | null | undefined, staffMemberId: string | null | undefined): string {
+  return profileId || (staffMemberId ? `member:${staffMemberId}` : "");
+}
+
+async function loadCleaningShifts(
+  companyId: string,
+  fromIso: string,
+  toIso: string,
+): Promise<{ data: ShiftRow[] | null; error: any }> {
+  const base = (columns: string) => (supabase as any)
+    .from("kitchen_shifts")
+    .select(columns)
+    .eq("company_id", companyId)
+    .in("shift_type", ["cleaning", "kitchen_and_cleaning"])
+    .gte("shift_date", fromIso)
+    .lte("shift_date", toIso)
+    .is("deleted_at", null);
+
+  const current = await base("id, staff_id, staff_member_id, shift_date, planned_start, planned_end, actual_start, actual_end, status, rate_multiplier, notes, shift_type, order_id");
+  if (!current.error) return current as { data: ShiftRow[] | null; error: any };
+
+  // Deploys may receive the web change before the tablet-staff migration.
+  // Keep profile-backed schedules usable while the column rolls out.
+  const legacy = await base("id, staff_id, shift_date, planned_start, planned_end, actual_start, actual_end, status, rate_multiplier, notes, shift_type, order_id");
+  if (legacy.error) return legacy as { data: ShiftRow[] | null; error: any };
+  return {
+    data: ((legacy.data || []) as Omit<ShiftRow, "staff_member_id">[]).map((shift) => ({
+      ...shift,
+      staff_member_id: null,
+    })),
+    error: null,
+  };
+}
+
 function CleaningScheduleGrid() {
   const { user } = useAuth() as any;
   const userRole = ((user as any)?.active_role || (user as any)?.role || UserRole.ADMIN).toString();
@@ -137,7 +191,7 @@ function CleaningScheduleGrid() {
   // Tenant wall clock for the "today" highlight + missed-shift
   // detection (same pattern as kitchen-schedule / dashboard).
   const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
-  const [logTarget, setLogTarget] = useState<{ staffId: string; staffName: string; date: string } | null>(null);
+  const [logTarget, setLogTarget] = useState<{ staffId: string | null; staffMemberId: string | null; staffName: string; date: string } | null>(null);
   // Wave 41 Phase 3 - per-shift task chips. Cleaning grid defaults
   // new tasks to 'cleaning' but the operator can pick anything.
   const [tasksByShift, setTasksByShift] = useState<Map<string, ShiftTaskRow[]>>(new Map());
@@ -169,28 +223,46 @@ function CleaningScheduleGrid() {
     try {
       const fromIso = toLocalISO(weekStart);
       const toIso = toLocalISO(addDays(weekStart, 6));
-      const [staffRes, shiftsRes] = await Promise.all([
+      const [staffRes, shiftsRes, cleaningMembersRes, tileAttendanceRes] = await Promise.all([
         // Cleaning roster eligibility is department-specific. Admins
         // can manage the page, but they should not appear as cleaners
         // unless their profile/active role or department says cleaning.
         (supabase as any)
           .from("profiles")
-          .select("id, full_name, email, role, active_role")
+          .select("id, full_name, email, role, active_role, is_active, phone_number, mobile_number")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .order("full_name", { ascending: true }),
+        loadCleaningShifts(companyId, fromIso, toIso),
+        // Cleaning staff in the shared staff directory may clock in on
+        // the tablet without having an application login/profile.
         (supabase as any)
-          .from("kitchen_shifts")
-          .select("id, staff_id, shift_date, planned_start, planned_end, actual_start, actual_end, status, rate_multiplier, notes, shift_type, order_id")
+          .from("kitchen_staff_members")
+          .select("id, linked_profile_id, email, full_name, role_title, phone")
           .eq("company_id", companyId)
-          .in("shift_type", ["cleaning", "kitchen_and_cleaning"])
-          .gte("shift_date", fromIso)
-          .lte("shift_date", toIso)
+          .eq("is_active", true)
+          .contains("departments", ["cleaning"])
+          .is("deleted_at", null),
+        (supabase as any)
+          .from("kitchen_staff_shifts")
+          .select("staff_member_id, shift_start")
+          .eq("company_id", companyId)
+          .eq("department", "cleaning")
+          .is("shift_end", null)
           .is("deleted_at", null),
       ]);
       if (staffRes.error) throw staffRes.error;
       if (shiftsRes.error) throw shiftsRes.error;
-      const staffRows = (staffRes.data || []) as Staffer[];
+      if (cleaningMembersRes.error) throw cleaningMembersRes.error;
+      if (tileAttendanceRes.error) console.warn("Could not load cleaning tablet attendance:", tileAttendanceRes.error);
+      const profileRows = ((staffRes.data || []) as Array<Omit<Staffer, "profile_id" | "staff_member_id" | "phone"> & { is_active?: boolean | null; phone_number?: string | null; mobile_number?: string | null }>)
+        .filter((row) => row.is_active !== false);
+      const staffRows: Staffer[] = profileRows.map((row) => ({
+        ...row,
+        profile_id: row.id,
+        staff_member_id: null,
+        phone: row.mobile_number || row.phone_number || null,
+      }));
       let departmentRows: RosterDepartmentRow[] = [];
       if (staffRows.length > 0) {
         const departmentRes = await (supabase as any)
@@ -203,9 +275,102 @@ function CleaningScheduleGrid() {
         if (departmentRes.error) throw departmentRes.error;
         departmentRows = (departmentRes.data || []) as RosterDepartmentRow[];
       }
-      setStaff(filterRosterStaff(staffRows, departmentRows, "cleaning"));
-      const shiftRows = (shiftsRes.data || []) as ShiftRow[];
-      setShifts(shiftRows);
+      const profileByEmail = new Map(
+        staffRows
+          .filter((row) => !!row.email)
+          .map((row) => [row.email.trim().toLowerCase(), row.id]),
+      );
+      const cleaningProfileIds = new Set(
+        filterRosterStaff(staffRows, departmentRows, "cleaning").map((row) => row.id),
+      );
+      const rosterStaff = new Map<string, Staffer>();
+      for (const profile of staffRows) {
+        if (cleaningProfileIds.has(profile.id)) rosterStaff.set(profile.id, profile);
+      }
+      const staffMemberLinks = (cleaningMembersRes.data || []) as StaffMemberLinkRow[];
+      for (const member of staffMemberLinks) {
+        const profileId = member.linked_profile_id ||
+          (member.email ? profileByEmail.get(member.email.trim().toLowerCase()) : null);
+        if (profileId) {
+          const profile = staffRows.find((row) => row.id === profileId);
+          if (profile) rosterStaff.set(profile.id, { ...profile, phone: profile.phone || member.phone });
+        } else {
+          rosterStaff.set(`member:${member.id}`, {
+            id: `member:${member.id}`,
+            profile_id: null,
+            staff_member_id: member.id,
+            full_name: member.full_name || member.email || "Cleaning team member",
+            email: member.email || "",
+            role: member.role_title || "cleaning staff",
+            active_role: null,
+            phone: member.phone,
+          });
+        }
+      }
+      const rosterRows = Array.from(rosterStaff.values()).sort((a, b) => a.full_name.localeCompare(b.full_name));
+      setStaff(rosterRows);
+      const profileIdByStaffMember = new Map<string, string>();
+      for (const member of staffMemberLinks) {
+        const profileId = member.linked_profile_id ||
+          (member.email ? profileByEmail.get(member.email.trim().toLowerCase()) : null);
+        if (profileId) profileIdByStaffMember.set(member.id, profileId);
+      }
+      const shiftRows = ((shiftsRes.data || []) as ShiftRow[]).map((shift) => {
+        if (shift.staff_id || !shift.staff_member_id) return shift;
+        const linkedProfileId = profileIdByStaffMember.get(shift.staff_member_id);
+        return linkedProfileId ? { ...shift, staff_id: linkedProfileId } : shift;
+      });
+
+      const activeStartByStaff = new Map<string, string>();
+      const recordActiveStart = (staffKey: string, start: string | null) => {
+        if (!staffKey || !start || Number.isNaN(new Date(start).getTime())) return;
+        const current = activeStartByStaff.get(staffKey);
+        if (!current || new Date(start).getTime() < new Date(current).getTime()) {
+          activeStartByStaff.set(staffKey, start);
+        }
+      };
+      const memberById = new Map(staffMemberLinks.map((member) => [member.id, member]));
+      for (const row of (tileAttendanceRes.data || []) as TileAttendanceRow[]) {
+        const member = memberById.get(row.staff_member_id || "");
+        const profileId = member?.linked_profile_id ||
+          (member?.email ? profileByEmail.get(member.email.trim().toLowerCase()) : null) ||
+          null;
+        recordActiveStart(staffRosterKey(profileId, null), row.shift_start);
+        recordActiveStart(staffRosterKey(null, row.staff_member_id), row.shift_start);
+      }
+
+      const scheduleRows = shiftRows.map((shift) => {
+        const liveStart = activeStartByStaff.get(staffRosterKey(shift.staff_id, shift.staff_member_id));
+        if (!liveStart || toLocalISO(new Date(liveStart)) !== shift.shift_date) return shift;
+        return {
+          ...shift,
+          actual_start: shift.actual_start || liveStart,
+          status: shift.actual_end ? shift.status : "active",
+        };
+      });
+      const scheduledKeys = new Set(scheduleRows.map((shift) => `${staffRosterKey(shift.staff_id, shift.staff_member_id)}|${shift.shift_date}`));
+      for (const [key, liveStart] of activeStartByStaff) {
+        const shiftDate = toLocalISO(new Date(liveStart));
+        if (shiftDate < fromIso || shiftDate > toIso || scheduledKeys.has(`${key}|${shiftDate}`)) continue;
+        const person = rosterStaff.get(key);
+        if (!person) continue;
+        scheduleRows.push({
+          id: `live:${key}:${shiftDate}`,
+          staff_id: person.profile_id,
+          staff_member_id: person.staff_member_id,
+          shift_date: shiftDate,
+          planned_start: null,
+          planned_end: null,
+          actual_start: liveStart,
+          actual_end: null,
+          status: "active",
+          rate_multiplier: null,
+          notes: null,
+          shift_type: "cleaning",
+          order_id: null,
+        });
+      }
+      setShifts(scheduleRows);
       const shiftIds = shiftRows.map((s) => s.id);
       if (shiftIds.length > 0) {
         const taskMap = await listTasksForShifts(supabase as any, shiftIds);
@@ -254,6 +419,8 @@ function CleaningScheduleGrid() {
       .channel(`admin-cleaning-schedule-${companyId}-${channelSuffix}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_shifts", filter: `company_id=eq.${companyId}` }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `company_id=eq.${companyId}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_members", filter: `company_id=eq.${companyId}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_shifts", filter: `company_id=eq.${companyId}` }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "staff_shift_tasks", filter: `company_id=eq.${companyId}` }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, refresh)
       .subscribe();
@@ -267,7 +434,7 @@ function CleaningScheduleGrid() {
   const shiftIndex = useMemo(() => {
     const map: Record<string, ShiftRow[]> = {};
     for (const s of shifts) {
-      const key = `${s.staff_id}|${s.shift_date}`;
+      const key = `${staffRosterKey(s.staff_id, s.staff_member_id)}|${s.shift_date}`;
       if (!map[key]) map[key] = [];
       map[key].push(s);
     }
@@ -446,7 +613,7 @@ function CleaningScheduleGrid() {
                   {staff.length} cleaning team member{staff.length === 1 ? "" : "s"}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Cells show planned hours. Once the cleaner clocks in via the team portal, the cell flips to actual hours.
+                  Cells show planned hours. A clock-in from the team portal or staff tablet updates actual hours here.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -503,7 +670,7 @@ function CleaningScheduleGrid() {
                               </td>
                               {weekDays.map((day, i) => {
                                 const iso = toLocalISO(day);
-                                const cellShifts = shiftIndex[`${p.id}|${iso}`] || [];
+                                const cellShifts = shiftIndex[`${staffRosterKey(p.profile_id, p.staff_member_id)}|${iso}`] || [];
                                 const totalPlanned = cellShifts.reduce((acc, s) => acc + plannedHours(s.planned_start, s.planned_end), 0);
                                 staffTotal += totalPlanned;
                                 const hasShift = cellShifts.length > 0;
@@ -570,7 +737,7 @@ function CleaningScheduleGrid() {
                                     ) : (
                                       <button
                                         type="button"
-                                        onClick={() => setLogTarget({ staffId: p.id, staffName: p.full_name || p.email, date: iso })}
+                                        onClick={() => setLogTarget({ staffId: p.profile_id, staffMemberId: p.staff_member_id, staffName: p.full_name || p.email, date: iso })}
                                         className="w-full text-slate-300 hover:text-brand-primary hover:bg-brand-primary/10 rounded-md py-2 transition-colors"
                                         title="Roster a cleaning shift on this day"
                                       >
@@ -617,6 +784,7 @@ function CleaningScheduleGrid() {
           onOpenChange={(o) => !o && setLogTarget(null)}
           companyId={companyId}
           staffId={logTarget.staffId}
+          staffMemberId={logTarget.staffMemberId}
           staffName={logTarget.staffName}
           defaultDate={logTarget.date}
           shiftType="cleaning"

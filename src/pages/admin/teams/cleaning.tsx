@@ -62,6 +62,7 @@ import { PageWorkbench, PortalHeader, PortalShell, StatTile } from "@/components
 import { TeamManagerWorkspace } from "@/components/admin/TeamManagerWorkspace";
 import { damageReporterName, type DamageReporterProfile } from "@/lib/damageReporter";
 import { teamBucketsForUser } from "@/lib/teamRoleBuckets";
+import { mergeTeamDirectoryMemberships } from "@/lib/teamDirectoryMemberships";
 
 function startOfWeek(): Date {
   const d = new Date();
@@ -164,6 +165,8 @@ function CleaningTeamPage() {
       .channel(`teams-cleaning:${companyId}:${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_members", filter: `company_id=eq.${companyId}` }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_shifts", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "cleaning_event_handovers", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "cleaning_jobs", filter: `company_id=eq.${companyId}` }, bump)
@@ -201,11 +204,44 @@ function CleaningTeamPage() {
         // active_role, and user_departments aliases so managers and staff
         // remain distinct users while both count toward cleaning capacity.
         let staffQ = supabase.from("profiles")
-          .select("id, full_name, role, active_role, is_active")
+          .select("id, email, full_name, role, active_role, is_active")
           .eq("company_id", companyId);
         if (regionFilterId) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           staffQ = (staffQ as any).eq("region_id", regionFilterId);
+        }
+
+        // The tablet directory also assigns kitchen and cleaning teams.
+        // Resolve its members here so the headcount and live duty totals
+        // cover staff without portal profiles.
+        let cleaningDirectoryQ = (supabase as any).from("kitchen_staff_members")
+          .select("id, linked_profile_id, email, full_name, departments, region_id")
+          .eq("company_id", companyId)
+          .eq("is_active", true)
+          .contains("departments", ["cleaning"])
+          .is("deleted_at", null);
+        if (regionFilterId) cleaningDirectoryQ = cleaningDirectoryQ.eq("region_id", regionFilterId);
+
+        const tabletShiftSelect = regionFilterId
+          ? "staff_member_id, shift_start, shift_end, total_break_min, standard_min, overtime_min, sunday_holiday_min, kitchen_staff_members!inner(region_id)"
+          : "staff_member_id, shift_start, shift_end, total_break_min, standard_min, overtime_min, sunday_holiday_min";
+        let cleaningTabletWeekQ = (supabase as any).from("kitchen_staff_shifts")
+          .select(tabletShiftSelect)
+          .eq("company_id", companyId)
+          .eq("department", "cleaning")
+          .is("deleted_at", null)
+          .gte("shift_start", weekStartISO);
+        let cleaningTabletOpenQ = (supabase as any).from("kitchen_staff_shifts")
+          .select("staff_member_id, shift_start")
+          .eq("company_id", companyId)
+          .eq("department", "cleaning")
+          .is("shift_end", null)
+          .is("deleted_at", null);
+        if (regionFilterId) {
+          cleaningTabletWeekQ = cleaningTabletWeekQ.eq("kitchen_staff_members.region_id", regionFilterId);
+          cleaningTabletOpenQ = cleaningTabletOpenQ
+            .select("staff_member_id, shift_start, kitchen_staff_members!inner(region_id)")
+            .eq("kitchen_staff_members.region_id", regionFilterId);
         }
 
         // Cleaning duty logs for the week. Canonical hours source for
@@ -301,11 +337,13 @@ function CleaningTeamPage() {
           handoversTodayRes, handoversTomorrowRes,
           jobsTodayRes, ordersTodayRes, ordersTomorrowRes,
           damagesRes, suppliesRes, machinesRes,
+          cleaningDirectoryRes, cleaningTabletWeekRes, cleaningTabletOpenRes,
         ] = await Promise.all([
           staffQ, dutyWeekQ, clockedNowQ,
           handoversTodayQ, handoversTomorrowQ,
           jobsTodayQ, ordersTodayQ, ordersTomorrowQ,
           damagesQ, suppliesQ, machinesQ,
+          cleaningDirectoryQ, cleaningTabletWeekQ, cleaningTabletOpenQ,
         ]);
         // Command-centre audit (2026-07-02): surface partial Promise.all
         // failures. A single failed query used to read as empty data.
@@ -314,12 +352,14 @@ function CleaningTeamPage() {
           handoversTodayRes, handoversTomorrowRes,
           jobsTodayRes, ordersTodayRes, ordersTomorrowRes,
           damagesRes, suppliesRes, machinesRes,
+          cleaningDirectoryRes, cleaningTabletWeekRes, cleaningTabletOpenRes,
         ]) {
           if (res.error) throw new Error(res.error.message || "Query failed");
         }
 
         const staffProfileRows = ((staffRes.data || []) as Array<{
           id: string;
+          email: string | null;
           full_name: string | null;
           role: string | null;
           active_role: string | null;
@@ -334,9 +374,21 @@ function CleaningTeamPage() {
           : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }>, error: null };
         if (departmentsRes.error) throw new Error(departmentsRes.error.message || "Query failed");
         const staffDepartmentRows = departmentsRes.data;
-        const activeCleaningTeam = staffProfileRows.filter((p) =>
-          teamBucketsForUser(p, staffDepartmentRows || []).has("cleaning"),
+        const cleaningDirectoryRows = (cleaningDirectoryRes.data || []) as Array<{
+          id: string; linked_profile_id: string | null; email: string | null;
+          full_name: string | null; departments: string[] | null;
+        }>;
+        const cleaningTeam = mergeTeamDirectoryMemberships(
+          staffProfileRows,
+          staffDepartmentRows || [],
+          cleaningDirectoryRows,
         );
+        const activeCleaningTeam = staffProfileRows.filter((p) =>
+          teamBucketsForUser(p, cleaningTeam.departmentRows).has("cleaning"),
+        );
+        const activeCleaningCount = cleaningTeam.profiles.filter((p) =>
+          teamBucketsForUser(p, cleaningTeam.departmentRows).has("cleaning"),
+        ).length;
 
         // Build name lookup off the resolved cleaning roster (also used
         // as the allow-list for hours + clocked-now strips).
@@ -345,6 +397,13 @@ function CleaningTeamPage() {
         for (const p of activeCleaningTeam) {
           nameById.set(p.id, p.full_name || "Cleaner");
           staffIdSet.add(p.id);
+        }
+        const staffMemberToTeamId = new Map<string, string>();
+        for (const member of cleaningDirectoryRows) {
+          const identity = cleaningTeam.directoryIdentity.get(member.id);
+          if (!identity) continue;
+          staffMemberToTeamId.set(member.id, identity.teamMemberId);
+          if (!nameById.has(identity.teamMemberId)) nameById.set(identity.teamMemberId, member.full_name || "Cleaner");
         }
 
         // Walk duty logs for hours-this-week + per-cleaner rollup.
@@ -366,6 +425,27 @@ function CleaningTeamPage() {
           if (mins <= 0) continue;
           totalMins += mins;
           minsByMember.set(r.user_id, (minsByMember.get(r.user_id) || 0) + mins);
+        }
+        for (const r of (cleaningTabletWeekRes.data || []) as Array<{
+          staff_member_id: string | null;
+          shift_start: string | null;
+          shift_end: string | null;
+          total_break_min?: number | null;
+          standard_min?: number | null;
+          overtime_min?: number | null;
+          sunday_holiday_min?: number | null;
+        }>) {
+          if (!r.staff_member_id || !r.shift_start) continue;
+          const teamMemberId = staffMemberToTeamId.get(r.staff_member_id);
+          if (!teamMemberId) continue;
+          const reportedMinutes = Number(r.standard_min || 0) + Number(r.overtime_min || 0) + Number(r.sunday_holiday_min || 0);
+          const start = new Date(r.shift_start).getTime();
+          const end = r.shift_end ? new Date(r.shift_end).getTime() : Date.now();
+          const elapsedMinutes = Math.max(0, Math.round((end - start) / 60_000) - Number(r.total_break_min || 0));
+          const mins = reportedMinutes > 0 ? reportedMinutes : elapsedMinutes;
+          if (mins <= 0) continue;
+          totalMins += mins;
+          minsByMember.set(teamMemberId, (minsByMember.get(teamMemberId) || 0) + mins);
         }
         const topStaffHours = Array.from(minsByMember.entries())
           .map(([id, mins]) => ({ id, name: nameById.get(id) || "Cleaner", mins }))
@@ -463,12 +543,18 @@ function CleaningTeamPage() {
         const machineRows = (machinesRes.data || []) as Array<{ active: boolean | null }>;
         const machinesActive = machineRows.filter((m) => m.active).length;
         const machinesTotal = machineRows.length;
-        const clockedNow = ((clockedNowRes.data || []) as Array<{ user_id: string | null }>)
-          .filter((row) => row.user_id && staffIdSet.has(row.user_id)).length;
+        const onDutyIds = new Set(((clockedNowRes.data || []) as Array<{ user_id: string | null }>)
+          .map((row) => row.user_id)
+          .filter((userId): userId is string => !!userId && staffIdSet.has(userId)));
+        for (const row of (cleaningTabletOpenRes.data || []) as Array<{ staff_member_id: string | null }>) {
+          const teamMemberId = row.staff_member_id ? staffMemberToTeamId.get(row.staff_member_id) : null;
+          if (teamMemberId) onDutyIds.add(teamMemberId);
+        }
+        const clockedNow = onDutyIds.size;
 
         if (!cancelled) {
           setStats({
-            active: activeCleaningTeam.length,
+            active: activeCleaningCount,
             hoursWeek: Math.round(totalMins / 60),
             jobsToday: ordersTodayRes.count ?? 0,
             clockedNow,
@@ -555,14 +641,38 @@ function CleaningTeamPage() {
               ) : undefined
             }
             actions={
-              <Link href={withSlug(userRole === UserRole.CLEANING_MANAGER ? "/team-portal/cleaning/dashboard" : "/admin/teams")}>
-                <Button variant="outline" size="sm">
+              <Button asChild variant="outline" size="sm">
+                <Link href={withSlug(userRole === UserRole.CLEANING_MANAGER ? "/team-portal/cleaning/dashboard" : "/admin/teams")}>
                   <ArrowLeft className="w-4 h-4 mr-1.5" />
                   {userRole === UserRole.CLEANING_MANAGER ? "Cleaning desk" : "All teams"}
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             }
           />
+          <section
+            aria-labelledby="cleaning-roster-action-title"
+            className="mb-4 flex flex-col gap-3 rounded-xl border border-brand-primary/20 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
+                <ClipboardList className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <h2 id="cleaning-roster-action-title" className="font-semibold text-slate-900">
+                  Cleaning shift roster
+                </h2>
+                <p className="text-sm text-slate-600">
+                  Assign cleaning staff, plan shifts and manage handovers.
+                </p>
+              </div>
+            </div>
+            <Button asChild size="default" className="w-full shrink-0 sm:w-auto">
+              <Link href={withSlug("/admin/cleaning-schedule")}>
+                Open cleaning roster
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </Button>
+          </section>
           <PageWorkbench />
 
           <TeamManagerWorkspace department="cleaning" />

@@ -66,6 +66,7 @@ import { TeamManagerWorkspace } from "@/components/admin/TeamManagerWorkspace";
 import { PageWorkbench, PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
 import { damageReporterName, type DamageReporterProfile } from "@/lib/damageReporter";
 import { teamBucketsForUser } from "@/lib/teamRoleBuckets";
+import { mergeTeamDirectoryMemberships } from "@/lib/teamDirectoryMemberships";
 
 function startOfWeek(): Date {
   const d = new Date();
@@ -213,7 +214,7 @@ function KitchenTeamPage() {
         // active_role, and user_departments aliases so staff and manager
         // accounts stay distinct but both count toward kitchen capacity.
         let staffQ = supabase.from("profiles")
-          .select("id, role, active_role, is_active")
+          .select("id, email, role, active_role, is_active")
           .eq("company_id", companyId);
         if (regionFilterId) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -231,6 +232,7 @@ function KitchenTeamPage() {
         let shiftsWeekQ = supabase.from("kitchen_staff_shifts")
           .select(staffShiftsSelect)
           .eq("company_id", companyId)
+          .eq("department", "kitchen")
           .is("deleted_at", null)
           .gte("shift_start", weekStartISO);
         if (regionFilterId) {
@@ -280,12 +282,25 @@ function KitchenTeamPage() {
         // sessions (missing clock-out > 16h is filtered out on the
         // hub; here we just count any is_active).
         let activeDutyQ = supabase.from("kitchen_duty_shifts")
-          .select("id", { count: "exact", head: true })
+          .select("id, staff_id, shift_start")
           .eq("company_id", companyId)
           .eq("is_active", true);
         if (regionFilterId) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           activeDutyQ = (activeDutyQ as any).eq("region_id", regionFilterId);
+        }
+
+        const activeTabletSelect = regionFilterId
+          ? "staff_member_id, kitchen_staff_members!inner(region_id)"
+          : "staff_member_id";
+        let activeTabletQ = (supabase as any).from("kitchen_staff_shifts")
+          .select(activeTabletSelect)
+          .eq("company_id", companyId)
+          .eq("department", "kitchen")
+          .is("shift_end", null)
+          .is("deleted_at", null);
+        if (regionFilterId) {
+          activeTabletQ = (activeTabletQ as any).eq("kitchen_staff_members.region_id", regionFilterId);
         }
 
         // Issues this week - equipment_damages logged in the last 7d.
@@ -332,8 +347,9 @@ function KitchenTeamPage() {
         // map id -> name; we then walk the shiftsWeekRes payload
         // client-side (already pulled, no extra round trip).
         let kitchenMembersQ = supabase.from("kitchen_staff_members")
-          .select("id, full_name")
+          .select("id, full_name, linked_profile_id, email, departments")
           .eq("company_id", companyId)
+          .eq("is_active", true)
           .is("deleted_at", null);
         if (regionFilterId) kitchenMembersQ = kitchenMembersQ.eq("region_id", regionFilterId);
 
@@ -341,25 +357,25 @@ function KitchenTeamPage() {
           staffRes, shiftsWeekRes, jobsTodayRes, tomorrowJobsRes,
           prepTodayRes, prepTomorrowRes, activeDutyRes, damagesRes,
           lowStockRes, expiringBatchesRes,
-          handoverWaitingRes, membersRes,
+          handoverWaitingRes, membersRes, activeTabletRes,
         ] = await Promise.all([
           staffQ, shiftsWeekQ, jobsTodayQ, tomorrowJobsQ,
           prepTodayQ, prepTomorrowQ, activeDutyQ, damagesQ,
           lowStockQ, expiringBatchesQ,
-          handoverWaitingQ, kitchenMembersQ,
+          handoverWaitingQ, kitchenMembersQ, activeTabletQ,
         ]);
         // Command-centre audit (2026-07-02): surface partial Promise.all
         // failures. A single failed query used to read as empty data.
         for (const res of [
           staffRes, shiftsWeekRes, jobsTodayRes, tomorrowJobsRes,
           prepTodayRes, prepTomorrowRes, activeDutyRes, damagesRes,
-          lowStockRes, expiringBatchesRes, handoverWaitingRes, membersRes,
+          lowStockRes, expiringBatchesRes, handoverWaitingRes, membersRes, activeTabletRes,
         ]) {
           if (res.error) throw new Error(res.error.message || "Query failed");
         }
 
         const staffProfileRows = ((staffRes.data || []) as Array<{
-          id: string; role: string | null; active_role: string | null; is_active?: boolean | null;
+          id: string; email: string | null; role: string | null; active_role: string | null; is_active?: boolean | null;
         }>).filter((p) => p.is_active !== false);
         const staffProfileIds = staffProfileRows.map((p) => p.id).filter(Boolean);
         const departmentsRes = staffProfileIds.length > 0
@@ -370,9 +386,30 @@ function KitchenTeamPage() {
           : { data: [] as Array<{ user_id: string | null; department: string | null; is_primary: boolean | null }>, error: null };
         if (departmentsRes.error) throw new Error(departmentsRes.error.message || "Query failed");
         const staffDepartmentRows = departmentsRes.data;
-        const activeKitchenTeamCount = staffProfileRows.filter((p) =>
-          teamBucketsForUser(p, staffDepartmentRows || []).has("kitchen"),
+        const kitchenDirectoryRows = (membersRes.data || []) as Array<{
+          id: string; full_name: string | null; linked_profile_id: string | null;
+          email: string | null; departments: string[] | null;
+        }>;
+        const kitchenTeam = mergeTeamDirectoryMemberships(
+          staffProfileRows,
+          staffDepartmentRows || [],
+          kitchenDirectoryRows,
+        );
+        const activeKitchenTeamCount = kitchenTeam.profiles.filter((p) =>
+          teamBucketsForUser(p, kitchenTeam.departmentRows).has("kitchen"),
         ).length;
+        const kitchenRosterIds = new Set(kitchenTeam.profiles
+          .filter((p) => teamBucketsForUser(p, kitchenTeam.departmentRows).has("kitchen"))
+          .map((p) => p.id));
+        const kitchenDutyIds = new Set<string>();
+        for (const row of (activeDutyRes.data || []) as Array<{ staff_id: string | null }>) {
+          if (row.staff_id && kitchenRosterIds.has(row.staff_id)) kitchenDutyIds.add(row.staff_id);
+        }
+        for (const row of (activeTabletRes.data || []) as Array<{ staff_member_id: string | null }>) {
+          const identity = row.staff_member_id ? kitchenTeam.directoryIdentity.get(row.staff_member_id) : null;
+          if (identity && kitchenRosterIds.has(identity.teamMemberId)) kitchenDutyIds.add(identity.teamMemberId);
+        }
+        const activeKitchenDutyCount = kitchenDutyIds.size;
 
         // Hours-this-week + wage burn today, walking the same rows.
         // KIT-B (task #211, 2026-05-25): also bucket mins per member
@@ -501,7 +538,7 @@ function KitchenTeamPage() {
             active: activeKitchenTeamCount,
             hoursWeek: Math.round(hours),
             jobsToday: jobsTodayRes.count ?? 0,
-            clockedNow: activeDutyRes.count ?? 0,
+            clockedNow: activeKitchenDutyCount,
             prepPending,
             prepInProgress,
             prepDone,
