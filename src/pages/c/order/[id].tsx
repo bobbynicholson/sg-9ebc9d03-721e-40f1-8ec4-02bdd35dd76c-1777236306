@@ -44,6 +44,7 @@ import { OrderEditDialog } from "@/components/order/OrderEditDialog";
 import { orderDisplayName } from "@/lib/orderDisplayName";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 import { visibleDocumentNote } from "@/lib/visibleDocumentNote";
+import { BankTransferDetailsCard } from "@/components/documents/BankTransferDetailsCard";
 
 import { formatClockBoth } from "@/lib/portalTime";
 import {
@@ -58,6 +59,15 @@ type OrderView = {
   order: any;
   items: any[];
   company: any;
+  bankTransferDetails?: {
+    available: boolean;
+    name: string;
+    holder: string;
+    account: string;
+    branch: string;
+    type: string;
+    instructions: string;
+  } | null;
   // Wave 19: live unpaid invoice (if any) so the magic-link page
   // can render Pay buttons. Null when the order has no outstanding
   // invoice.
@@ -861,6 +871,15 @@ export default function ClientOrderPage() {
                   </CardContent>
                 </Card>
               )}
+
+              <BankTransferDetailsCard
+                details={view.bankTransferDetails}
+                companyName={company.company_name || "the catering team"}
+                companyEmail={company.email}
+                title="Pay by bank transfer (EFT)"
+                referenceHint={`Use ${invoice?.invoice_number ? `invoice ${invoice.invoice_number}` : `booking ${order.order_number || order.id}`} as the transfer reference.`}
+                paidInFull={paymentSummary.state === "paid"}
+              />
 
               {/* Wave 20 audit: Need to change something? card. Lightweight
                   token-bearer Cancel + Amend so the magic-link client can

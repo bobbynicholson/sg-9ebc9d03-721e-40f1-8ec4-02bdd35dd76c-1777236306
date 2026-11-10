@@ -35,7 +35,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Sparkles, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle, Users, CalendarClock, Clock } from "lucide-react";
+import { Sparkles, CalendarPlus, ChevronLeft, ChevronRight, Loader2, Download, RefreshCw, AlertTriangle, Users, CalendarClock, Clock } from "lucide-react";
 import { DEFAULT_TENANT_TIMEZONE, tenantToday, toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { LogKitchenShiftModal } from "@/components/admin/LogKitchenShiftModal";
@@ -49,6 +49,7 @@ import {
   displayRosterRole,
   filterRosterStaff,
   rosterDepartmentAliases,
+  resolveRosterProfileId,
   type RosterDepartmentRow,
 } from "@/lib/rosterStaff";
 
@@ -275,22 +276,18 @@ function CleaningScheduleGrid() {
         if (departmentRes.error) throw departmentRes.error;
         departmentRows = (departmentRes.data || []) as RosterDepartmentRow[];
       }
-      const profileByEmail = new Map(
-        staffRows
-          .filter((row) => !!row.email)
-          .map((row) => [row.email.trim().toLowerCase(), row.id]),
-      );
       const cleaningProfileIds = new Set(
         filterRosterStaff(staffRows, departmentRows, "cleaning").map((row) => row.id),
       );
+      const cleaningProfileForMember = (member: StaffMemberLinkRow) =>
+        resolveRosterProfileId(member, staffRows, cleaningProfileIds);
       const rosterStaff = new Map<string, Staffer>();
       for (const profile of staffRows) {
         if (cleaningProfileIds.has(profile.id)) rosterStaff.set(profile.id, profile);
       }
       const staffMemberLinks = (cleaningMembersRes.data || []) as StaffMemberLinkRow[];
       for (const member of staffMemberLinks) {
-        const profileId = member.linked_profile_id ||
-          (member.email ? profileByEmail.get(member.email.trim().toLowerCase()) : null);
+        const profileId = cleaningProfileForMember(member);
         if (profileId) {
           const profile = staffRows.find((row) => row.id === profileId);
           if (profile) rosterStaff.set(profile.id, { ...profile, phone: profile.phone || member.phone });
@@ -311,14 +308,19 @@ function CleaningScheduleGrid() {
       setStaff(rosterRows);
       const profileIdByStaffMember = new Map<string, string>();
       for (const member of staffMemberLinks) {
-        const profileId = member.linked_profile_id ||
-          (member.email ? profileByEmail.get(member.email.trim().toLowerCase()) : null);
+        const profileId = cleaningProfileForMember(member);
         if (profileId) profileIdByStaffMember.set(member.id, profileId);
       }
+      const cleaningMemberIds = new Set(staffMemberLinks.map((member) => member.id));
       const shiftRows = ((shiftsRes.data || []) as ShiftRow[]).map((shift) => {
-        if (shift.staff_id || !shift.staff_member_id) return shift;
-        const linkedProfileId = profileIdByStaffMember.get(shift.staff_member_id);
-        return linkedProfileId ? { ...shift, staff_id: linkedProfileId } : shift;
+        if (!shift.staff_member_id || !cleaningMemberIds.has(shift.staff_member_id)) return shift;
+        // Keep a cleaning directory worker's own identity unless their linked
+        // profile is also assigned to cleaning. A shared email alone must
+        // never turn a driver or kitchen-only user into the cleaner on shift.
+        return {
+          ...shift,
+          staff_id: profileIdByStaffMember.get(shift.staff_member_id) || null,
+        };
       });
 
       const activeStartByStaff = new Map<string, string>();
@@ -332,9 +334,7 @@ function CleaningScheduleGrid() {
       const memberById = new Map(staffMemberLinks.map((member) => [member.id, member]));
       for (const row of (tileAttendanceRes.data || []) as TileAttendanceRow[]) {
         const member = memberById.get(row.staff_member_id || "");
-        const profileId = member?.linked_profile_id ||
-          (member?.email ? profileByEmail.get(member.email.trim().toLowerCase()) : null) ||
-          null;
+        const profileId = member ? cleaningProfileForMember(member) : null;
         recordActiveStart(staffRosterKey(profileId, null), row.shift_start);
         recordActiveStart(staffRosterKey(null, row.staff_member_id), row.shift_start);
       }
@@ -738,10 +738,11 @@ function CleaningScheduleGrid() {
                                       <button
                                         type="button"
                                         onClick={() => setLogTarget({ staffId: p.profile_id, staffMemberId: p.staff_member_id, staffName: p.full_name || p.email, date: iso })}
-                                        className="w-full text-slate-300 hover:text-brand-primary hover:bg-brand-primary/10 rounded-md py-2 transition-colors"
-                                        title="Roster a cleaning shift on this day"
+                                        className="w-full text-slate-400 hover:text-brand-primary hover:bg-brand-primary/10 rounded-md py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
+                                        title={`Add cleaning shift for ${p.full_name || p.email} on ${iso}`}
+                                        aria-label={`Add cleaning shift for ${p.full_name || p.email} on ${iso}`}
                                       >
-                                        <Plus className="w-4 h-4 mx-auto" />
+                                        <CalendarPlus className="w-4 h-4 mx-auto" />
                                       </button>
                                     )}
                                   </td>

@@ -35,7 +35,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { supabase } from "@/integrations/supabase/client";
-import { CalendarClock, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle, Users, ExternalLink, LayoutGrid, Calendar as CalendarIcon, Clock } from "lucide-react";
+import { CalendarClock, CalendarPlus, ChevronLeft, ChevronRight, Loader2, Download, RefreshCw, AlertTriangle, Users, ExternalLink, LayoutGrid, Calendar as CalendarIcon, Clock, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
@@ -46,6 +46,7 @@ import { WhatsAppTemplateSend } from "@/components/messaging/WhatsAppTemplateSen
 import { WhatsAppManualStaffSend } from "@/components/messaging/WhatsAppManualStaffSend";
 import { formatDate } from "@/lib/formatters";
 import { AddShiftTaskModal } from "@/components/admin/AddShiftTaskModal";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   listTasksForShifts,
   type ShiftTaskRow,
@@ -54,6 +55,7 @@ import {
   displayRosterRole,
   filterRosterStaff,
   rosterDepartmentAliases,
+  resolveRosterProfileId,
   type RosterDepartmentRow,
 } from "@/lib/rosterStaff";
 
@@ -307,7 +309,7 @@ function KitchenScheduleGrid() {
       const [staffRes, shiftsRes, ordersRes, dutyAttendanceRes, tileAttendanceRes, kitchenMembersRes] = await Promise.all([
         // Kitchen roster eligibility is department-specific. Admins
         // can manage the page, but they should not appear as chefs
-        // unless their profile/active role or department says kitchen.
+        // unless their assigned role or department includes kitchen.
         (supabase as any)
           .from("profiles")
           .select("id, full_name, email, role, active_role, is_active, phone_number, mobile_number")
@@ -394,21 +396,17 @@ function KitchenScheduleGrid() {
         }
       }
       const staffMemberLinks = (kitchenMembersRes.data || []) as StaffMemberLinkRow[];
-      const profileByEmail = new Map(
-        staffRows
-          .filter((row) => !!row.email)
-          .map((row) => [row.email.trim().toLowerCase(), row.id]),
-      );
       const kitchenProfileIds = new Set(
         filterRosterStaff(staffRows, departmentRows, "kitchen").map((row) => row.id),
       );
+      const kitchenProfileForMember = (member: StaffMemberLinkRow) =>
+        resolveRosterProfileId(member, staffRows, kitchenProfileIds);
       const rosterStaff = new Map<string, Staffer>();
       for (const profile of staffRows) {
         if (kitchenProfileIds.has(profile.id)) rosterStaff.set(profile.id, profile);
       }
       for (const member of staffMemberLinks) {
-        const profileId = member.linked_profile_id ||
-          (member.email ? profileByEmail.get(member.email.trim().toLowerCase()) : null);
+        const profileId = kitchenProfileForMember(member);
         if (profileId) {
           const profile = staffRows.find((row) => row.id === profileId);
           if (profile) rosterStaff.set(profile.id, { ...profile, phone: profile.phone || member.phone });
@@ -433,14 +431,21 @@ function KitchenScheduleGrid() {
       setStaff(Array.from(rosterStaff.values()).sort((a, b) => a.full_name.localeCompare(b.full_name)));
       const profileIdByStaffMember = new Map<string, string>();
       for (const member of staffMemberLinks) {
-        const profileId = member.linked_profile_id ||
-          (member.email ? profileByEmail.get(member.email.trim().toLowerCase()) : null);
+        const profileId = kitchenProfileForMember(member);
         if (profileId) profileIdByStaffMember.set(member.id, profileId);
       }
-      const shiftRows = ((shiftsRes.data || []) as ShiftRow[]).map((shift) => {
-        if (shift.staff_id || !shift.staff_member_id) return shift;
-        const linkedProfileId = profileIdByStaffMember.get(shift.staff_member_id);
-        return linkedProfileId ? { ...shift, staff_id: linkedProfileId } : shift;
+      const kitchenMemberIds = new Set(staffMemberLinks.map((member) => member.id));
+      const shiftRows = ((shiftsRes.data || []) as ShiftRow[]).flatMap((shift) => {
+        if (shift.staff_member_id && kitchenMemberIds.has(shift.staff_member_id)) {
+          // Keep the directory identity when its profile is not a kitchen
+          // role; a stale email/profile link must never relabel the shift.
+          return [{
+            ...shift,
+            staff_id: profileIdByStaffMember.get(shift.staff_member_id) || null,
+          }];
+        }
+        if (shift.staff_id && !kitchenProfileIds.has(shift.staff_id)) return [];
+        return [shift];
       });
       const tileAttendance = (tileAttendanceRes.data || []) as TileAttendanceRow[];
 
@@ -463,11 +468,9 @@ function KitchenScheduleGrid() {
       );
       for (const row of tileAttendance) {
         const staffMember = profileByStaffMember.get(row.staff_member_id || "");
-        // Older staff tiles may predate linked_profile_id. An exact email
-        // match is a safe backwards-compatible bridge to the roster profile.
-        const profileId = staffMember?.linked_profile_id ||
-          (staffMember?.email ? profileByEmail.get(staffMember.email.trim().toLowerCase()) : null) ||
-          null;
+        // Older staff tiles may predate linked_profile_id. Resolve those
+        // email-only links against kitchen-eligible profiles only.
+        const profileId = staffMember ? kitchenProfileForMember(staffMember) : null;
         // Keep both identities when they exist. Older shifts may be keyed
         // to the profile while new tablet-only roster rows are keyed to the
         // staff-directory member id.
@@ -1019,8 +1022,8 @@ function KitchenScheduleGrid() {
                                       entityId={c.shifts[0].id}
                                       companyId={companyId}
                                       recipientName={c.p.full_name || c.p.email}
-                                      buttonLabel="Send shift message"
-                                      iconOnly
+                                      buttonLabel="Send shift details"
+                                      className="h-8 shrink-0 gap-1.5 px-2 text-xs"
                                     />}
                                   </li>
                                 ))}
@@ -1200,35 +1203,57 @@ function KitchenScheduleGrid() {
                                                     onAddClick={() => setAddTaskTarget({ shiftId: s.id, assignedUserId: s.staff_id })}
                                                     onChanged={refreshTasks}
                                                   />
-                                                  {p.profile_id && <WhatsAppTemplateSend
-                                                    entityType="kitchen_shift"
-                                                    entityId={s.id}
-                                                    companyId={companyId}
-                                                    recipientName={p.full_name || p.email}
-                                                    buttonLabel="Send shift message"
-                                                    iconOnly
-                                                  />}
-                                                  {p.phone && !p.profile_id && <WhatsAppManualStaffSend
-                                                    messageKey="whatsapp_staff_shift_confirm"
-                                                    recipientName={p.full_name || p.email}
-                                                    recipientPhone={p.phone}
-                                                    variables={{
-                                                      shift_date: formatDate(s.shift_date, { year: true }),
-                                                      shift_time: s.planned_start
-                                                        ? `${fmtTime(s.planned_start)}${s.planned_end ? ` - ${fmtTime(s.planned_end)}` : ""}`
-                                                        : "the scheduled time",
-                                                    }}
-                                                    buttonLabel="New shift"
-                                                    iconOnly
-                                                  />}
-                                                  {p.phone && <WhatsAppManualStaffSend
-                                                    messageKey="whatsapp_staff_schedule_change"
-                                                    recipientName={p.full_name || p.email}
-                                                    recipientPhone={p.phone}
-                                                    variables={{ shift_date: formatDate(s.shift_date, { year: true }) }}
-                                                    buttonLabel="Shift changed"
-                                                    iconOnly
-                                                  />}
+                                                  {(p.profile_id || p.phone) && (
+                                                    <Popover>
+                                                      <PopoverTrigger asChild>
+                                                        <Button
+                                                          type="button"
+                                                          size="sm"
+                                                          variant="outline"
+                                                          className="mt-1 h-7 gap-1 px-2 text-xs"
+                                                        >
+                                                          <MessageSquare className="h-3.5 w-3.5" />
+                                                          Messages
+                                                        </Button>
+                                                      </PopoverTrigger>
+                                                      <PopoverContent align="start" className="w-56 p-2">
+                                                        <p className="mb-2 px-1 text-xs font-semibold text-slate-700">
+                                                          Messages for {p.full_name || p.email}
+                                                        </p>
+                                                        <div className="space-y-1.5">
+                                                          {p.profile_id && <WhatsAppTemplateSend
+                                                            entityType="kitchen_shift"
+                                                            entityId={s.id}
+                                                            companyId={companyId}
+                                                            recipientName={p.full_name || p.email}
+                                                            buttonLabel="Send shift details"
+                                                            className="h-8 w-full justify-start gap-1.5 px-2 text-xs"
+                                                          />}
+                                                          {p.phone && !p.profile_id && <WhatsAppManualStaffSend
+                                                            messageKey="whatsapp_staff_shift_confirm"
+                                                            recipientName={p.full_name || p.email}
+                                                            recipientPhone={p.phone}
+                                                            variables={{
+                                                              shift_date: formatDate(s.shift_date, { year: true }),
+                                                              shift_time: s.planned_start
+                                                                ? `${fmtTime(s.planned_start)}${s.planned_end ? ` - ${fmtTime(s.planned_end)}` : ""}`
+                                                                : "the scheduled time",
+                                                            }}
+                                                            buttonLabel="Confirm shift"
+                                                            className="h-8 w-full justify-start gap-1.5 px-2 text-xs"
+                                                          />}
+                                                          {p.phone && <WhatsAppManualStaffSend
+                                                            messageKey="whatsapp_staff_schedule_change"
+                                                            recipientName={p.full_name || p.email}
+                                                            recipientPhone={p.phone}
+                                                            variables={{ shift_date: formatDate(s.shift_date, { year: true }) }}
+                                                            buttonLabel="Notify of shift change"
+                                                            className="h-8 w-full justify-start gap-1.5 px-2 text-xs"
+                                                          />}
+                                                        </div>
+                                                      </PopoverContent>
+                                                    </Popover>
+                                                  )}
                                                 </>
                                               )}
                                             </div>
@@ -1239,10 +1264,11 @@ function KitchenScheduleGrid() {
                                       <button
                                         type="button"
                                         onClick={() => setLogTarget({ staffId: p.profile_id, staffMemberId: p.staff_member_id, staffName: p.full_name || p.email, date: iso })}
-                                        className="w-full text-slate-300 hover:text-brand-primary hover:bg-brand-primary/10 rounded-md py-2 transition-colors"
-                                        title="Roster a shift on this day"
+                                        className="w-full text-slate-400 hover:text-brand-primary hover:bg-brand-primary/10 rounded-md py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
+                                        title={`Add kitchen shift for ${p.full_name || p.email} on ${iso}`}
+                                        aria-label={`Add kitchen shift for ${p.full_name || p.email} on ${iso}`}
                                       >
-                                        <Plus className="w-4 h-4 mx-auto" />
+                                        <CalendarPlus className="w-4 h-4 mx-auto" />
                                       </button>
                                     )}
                                   </td>

@@ -7,6 +7,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { attachClientOrderBankDetails } from "@/lib/clientOrderBankDetails";
 
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -68,7 +69,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     ]);
     return res.status(401).json({ error: result?.code || "invalid" });
   }
-  return res.status(200).json(result);
+  const resultWithBankDetails = await attachClientOrderBankDetails(result);
+  return res.status(200).json(resultWithBankDetails);
 }
 
 export default withApiLogging(handler);

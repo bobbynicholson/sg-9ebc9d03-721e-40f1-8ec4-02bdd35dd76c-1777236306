@@ -40,6 +40,7 @@ import { DriverStatusDialog } from "@/components/driver/DriverStatusDialog";
 import { DriverShiftHistory } from "@/components/driver/DriverShiftHistory";
 import { DriverLeaderboardStrip } from "@/components/driver/DriverLeaderboardStrip";
 import { DriverDetailsDisclosure } from "@/components/driver/DriverDetailsDisclosure";
+import { DriverOneOffTasks } from "@/components/driver/DriverOneOffTasks";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
@@ -928,6 +929,8 @@ function DriverDashboardInner() {
                 </Button>
               </div>
             )}
+
+            <DriverOneOffTasks />
 
             {/* ODOC H.9: top-of-page operational block. Bobby's brief:
                 the driver should land on earnings + jobs + their list,

@@ -18,6 +18,7 @@ import { CleaningEventBoard } from "@/components/cleaning/CleaningEventBoard";
 import { PreEventCleanlinessPanel } from "@/components/cleaning/PreEventCleanlinessPanel";
 import { EquipmentVerificationPanel } from "@/components/cleaning/EquipmentVerificationPanel";
 import { DamageFlagForm } from "@/components/cleaning/DamageFlagForm";
+import { DailyOperationsTasks } from "@/components/operations/DailyOperationsTasks";
 import { RecentDamagesStrip } from "@/components/cleaning/RecentDamagesStrip";
 import { unitsInActiveCleaning } from "@/services/cleaningJobsService";
 import { useAuth } from "@/contexts/AuthContext";
@@ -410,6 +411,8 @@ function CleaningDashboardInner() {
             </div>
           )}
 
+          <DailyOperationsTasks audience="cleaning" />
+
           {/* Work-first order: today's counts, the live washing queue,
               items to inspect, returns by event, then tomorrow's checklist. */}
           {/* Tile row hides on a failed first load - all-zero tiles
@@ -778,7 +781,7 @@ function CleaningDashboardInner() {
               <label className="cursor-pointer flex-1">
                 <input type="file" accept="image/*" capture="environment" className="hidden" />
                 <span className="text-slate-700">Take a photo (optional)</span>
-                <p className="text-[10px] text-slate-500 mt-0.5">Photo upload to storage coming in a follow-up.</p>
+                <p className="text-xs text-slate-500 mt-0.5">Photo upload to storage coming in a follow-up.</p>
               </label>
             </div>
           </div>

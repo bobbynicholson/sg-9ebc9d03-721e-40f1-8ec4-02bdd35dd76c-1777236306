@@ -319,7 +319,7 @@ async function handler(
                     forwardedProtocol: req.headers["x-forwarded-proto"] as string | undefined,
                   })}/q/${(q as any).public_token}`
                 : null,
-              referenceHint: "Use the invoice number issued after acceptance as the EFT reference.",
+              referenceHint: `Use quote ${(q as any).quote_number} as the transfer reference, even before accepting. Include it when you confirm payment.`,
             });
             const { renderQuotePdf, sanitiseFilename } = await import("@/services/pdf");
             const { buildQuotePdfDataFromRow } = await import("@/services/pdf/quotePdfData");
@@ -396,7 +396,7 @@ async function handler(
                     forwardedProtocol: req.headers["x-forwarded-proto"] as string | undefined,
                   })}/q/${(q2 as any).public_token}`
                 : null,
-              referenceHint: "Use the invoice number issued after acceptance as the EFT reference.",
+              referenceHint: `Use quote ${(q2 as any).quote_number} as the transfer reference, even before accepting. Include it when you confirm payment.`,
             });
             const { renderQuotePdf, sanitiseFilename } = await import("@/services/pdf");
             const { buildQuotePdfDataFromRow } = await import("@/services/pdf/quotePdfData");

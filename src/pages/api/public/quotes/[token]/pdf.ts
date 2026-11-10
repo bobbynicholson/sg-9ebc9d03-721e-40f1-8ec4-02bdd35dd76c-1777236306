@@ -129,7 +129,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         requestHost: req.headers.host,
         forwardedProtocol: req.headers["x-forwarded-proto"] as string | undefined,
       })}/q/${token}`,
-      referenceHint: "Use the invoice number issued after acceptance as the EFT reference.",
+      referenceHint: `Use quote ${quote.quote_number} as the transfer reference, even before accepting. Include it when you confirm payment.`,
     });
 
     const { renderQuotePdf, sanitiseFilename } = await import("@/services/pdf");

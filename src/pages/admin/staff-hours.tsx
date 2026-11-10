@@ -942,6 +942,15 @@ function StaffHoursPage() {
                                 Manual
                               </Badge>
                             )}
+                            {session.entry_reason?.startsWith("daily_operations_task:") && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] border-sky-300 text-sky-800 bg-sky-50"
+                                title="Payable time recorded for a one-off kitchen, cleaning or driver task"
+                              >
+                                Daily task
+                              </Badge>
+                            )}
                             <Badge variant={session.payment_status === "paid" ? "default" : "secondary"}>
                               {session.payment_status}
                             </Badge>

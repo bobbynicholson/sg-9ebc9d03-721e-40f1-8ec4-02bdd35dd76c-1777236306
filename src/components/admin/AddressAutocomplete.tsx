@@ -62,6 +62,7 @@ export function AddressAutocomplete({
   const [keyAvailable, setKeyAvailable] = useState<boolean | null>(null);
   const debounceRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const latestQueryRef = useRef("");
   // Parent forms often derive `value` from several address fields. While the
   // user is typing, that derived value can briefly differ from the raw input
   // (for example, it may append the country), which used to overwrite the
@@ -100,19 +101,24 @@ export function AddressAutocomplete({
     setLoading(true);
     try {
       const results = await googleMapsService.searchAddresses(q);
-      setPredictions(results);
+      if (latestQueryRef.current === q) setPredictions(results);
     } catch (e) {
       console.warn("address search failed", e);
-      setPredictions([]);
+      if (latestQueryRef.current === q) setPredictions([]);
     } finally {
-      setLoading(false);
+      if (latestQueryRef.current === q) setLoading(false);
     }
   };
 
   const onType = (q: string) => {
     editingRef.current = true;
+    latestQueryRef.current = q;
     setInput(q);
     setOpen(true);
+    if (q.trim().length < 3) {
+      setPredictions([]);
+      setLoading(false);
+    }
     // A typed value is no longer the previously selected Place. Clear the
     // parent's coordinates immediately so distance cannot use the old venue.
     onChange({ address: q, lat: null, lng: null, placeId: null, components: {} });
@@ -121,6 +127,8 @@ export function AddressAutocomplete({
   };
 
   const pickPrediction = async (p: any) => {
+    latestQueryRef.current = "";
+    setLoading(false);
     setSelecting(true);
     setInput(p.description);
     setOpen(false);
@@ -200,8 +208,8 @@ export function AddressAutocomplete({
           <span>Manual entry only, ask the platform owner to enable Google Maps for autocomplete + lat/lng.</span>
         </div>
       )}
-      {hint && !keyAvailable && false && (
-        <p className="text-[11px] text-slate-500 mt-1">{hint}</p>
+      {keyAvailable && (
+        <p className="mt-1 text-[11px] leading-4 text-slate-500 dark:text-slate-400">{hint || "Type at least 3 characters to see Google Places address suggestions."}</p>
       )}
     </div>
   );

@@ -31,6 +31,8 @@ const QUIET_HOUR_EXEMPT = new Set<WhatsAppAutomationKey>([
   "whatsapp_event_arrived",
   "whatsapp_order_delivered",
   "whatsapp_staff_pickup_ready",
+  // The administrator chose an exact reminder lead time for this task.
+  "whatsapp_staff_task_assigned",
 ]);
 
 /** Follow-ups stop once the person has replied. */

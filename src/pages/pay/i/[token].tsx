@@ -851,7 +851,10 @@ export default function InvoicePaymentPage() {
         : `Online payment could not be started. Use EFT below or contact ${companyName} for help.`;
   const snapshotBank = invoice.invoice_data?.bankDetails || {};
   const bankDetails = resolveCompanyEftDetails(company, snapshotBank);
-  const hasBankDetails = isManualEftAvailable(
+  // Bank instructions are useful even when an online provider is active.
+  // Keep that display decision separate from the manual EFT proof workflow.
+  const hasBankDetails = bankDetails.available;
+  const canSubmitEftProof = isManualEftAvailable(
     invoice.payment_options?.online_available === true,
     invoice.payment_options?.eft_available === true && bankDetails.available,
   );
@@ -882,6 +885,49 @@ export default function InvoicePaymentPage() {
       ? Math.min(99, Math.max(1, rawRemainingPct))
       : rawRemainingPct;
   const amountPaidToDate = paymentSummary.amountPaid;
+  const bankDetailsCard = (
+    <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
+      <CardContent className="py-4 px-5">
+        <h2 className="text-base font-semibold text-stone-900">Bank transfer details (EFT)</h2>
+        {hasBankDetails ? (
+          <>
+            <div className="mt-3 grid grid-cols-[120px_1fr] gap-y-1 text-sm">
+              <span className="text-stone-500">Bank</span><span className="font-medium">{bankDetails.name}</span>
+              {bankDetails.holder && <><span className="text-stone-500">Account name</span><span className="font-medium">{bankDetails.holder}</span></>}
+              <span className="text-stone-500">Account number</span><span className="font-mono font-medium">{bankDetails.account}</span>
+              {bankDetails.branch && <><span className="text-stone-500">Branch code</span><span className="font-mono font-medium">{bankDetails.branch}</span></>}
+              {bankDetails.type && <><span className="text-stone-500">Account type</span><span className="font-medium capitalize">{bankDetails.type}</span></>}
+            </div>
+            {isPaid ? (
+              <p className="mt-3 rounded-md bg-stone-50 px-3 py-2 text-xs text-stone-700">This invoice is paid in full. These bank details are shown for your records; no further payment is due.</p>
+            ) : (
+              <p className="mt-3 rounded-md bg-stone-50 px-3 py-2 text-xs text-stone-700">Use <strong>{invoice.invoice_number}</strong> as your payment reference.</p>
+            )}
+            {bankDetails.instructions && <p className="mt-2 text-xs text-stone-600">{bankDetails.instructions}</p>}
+            {!canSubmitEftProof && !isPaid && (
+              <p className="mt-3 text-xs text-stone-600">After making an EFT transfer, contact {companyName} so the payment can be matched to this invoice.</p>
+            )}
+            {!canSubmitEftProof && !isPaid && company.email && (
+              <a className="mt-2 inline-flex text-sm font-semibold text-brand-primary underline" href={`mailto:${company.email}?subject=${encodeURIComponent(`EFT payment confirmation - ${invoice.invoice_number}`)}`}>
+                Email {companyName} about an EFT payment
+              </a>
+            )}
+          </>
+        ) : (
+          <p className="mt-2 text-sm text-stone-600">
+            {isPaid
+              ? "This invoice is paid in full. No further payment is due."
+              : `Bank transfer details have not been added to this invoice. Contact ${companyName} for the correct account details.`}
+          </p>
+        )}
+        {!hasBankDetails && !isPaid && company.email && (
+          <a className="mt-2 inline-flex text-sm font-semibold text-brand-primary underline" href={`mailto:${company.email}?subject=${encodeURIComponent(`Bank transfer details - ${invoice.invoice_number}`)}`}>
+            Email {companyName} for bank details
+          </a>
+        )}
+      </CardContent>
+    </Card>
+  );
   const paidAboveInvoiceTotal = Math.max(0, Number(invoice.amount_paid || 0) - Number(invoice.total_amount || 0));
   const vatRegistered = !!company.vat_registered;
   const docTitle = vatRegistered ? "Tax Invoice" : "Invoice";
@@ -1288,6 +1334,7 @@ export default function InvoicePaymentPage() {
               </CardContent>
             </Card>
           )}
+          {bankDetailsCard}
           <div className="no-print">
             {isPaid ? (
               <Alert className="border-brand-primary/20 bg-brand-primary/10">
@@ -1349,24 +1396,8 @@ export default function InvoicePaymentPage() {
                           </p>
                         </div>
                       </div>
-                      {hasBankDetails && eftCreditBox}
-                      {hasBankDetails ? (
-                        <div className="mt-4 rounded-lg border border-amber-200 bg-white p-4 text-sm">
-                          <p className="mb-2 font-semibold text-stone-900">EFT payment details</p>
-                          <div className="grid grid-cols-[120px_1fr] gap-y-1">
-                            <span className="text-stone-500">Bank</span><span className="font-medium">{bankDetails.name}</span>
-                            {bankDetails.holder && <><span className="text-stone-500">Account name</span><span className="font-medium">{bankDetails.holder}</span></>}
-                            <span className="text-stone-500">Account number</span><span className="font-mono font-medium">{bankDetails.account}</span>
-                            {bankDetails.branch && <><span className="text-stone-500">Branch code</span><span className="font-mono font-medium">{bankDetails.branch}</span></>}
-                            {bankDetails.type && <><span className="text-stone-500">Account type</span><span className="font-medium capitalize">{bankDetails.type}</span></>}
-                          </div>
-                          <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">Use <strong>{invoice.invoice_number}</strong> as your payment reference.</p>
-                          {bankDetails.instructions && <p className="mt-2 text-xs text-stone-600">{bankDetails.instructions}</p>}
-                        </div>
-                      ) : (
-                        <p className="mt-4 rounded-lg bg-white p-3 text-sm text-stone-700">Please contact {companyName} for their EFT or bank details.</p>
-                      )}
-                      {hasBankDetails && (
+                      {canSubmitEftProof && eftCreditBox}
+                      {canSubmitEftProof && (
                         <div className="mt-4 rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3">
                           <p className="text-sm text-stone-700">After making the transfer, confirm it here so the team can match it to this invoice.</p>
                           <label className="mt-3 block text-xs font-medium text-stone-600">
@@ -1408,10 +1439,14 @@ export default function InvoicePaymentPage() {
                     <p className="text-sm font-semibold text-stone-900">Pay this invoice</p>
                     <p className="text-xs text-stone-600 mt-0.5">
                       {invoice.payment_options?.online_available && !paymentNotConfigured
-                        ? `Pay online with ${onlineProviderName || "the company's provider"}.`
-                        : hasBankDetails
+                        ? hasBankDetails
+                          ? `Pay online with ${onlineProviderName || "the company's provider"}, or use the bank transfer details below.`
+                          : `Pay online with ${onlineProviderName || "the company's provider"}. Bank transfer availability is shown below.`
+                        : canSubmitEftProof
                           ? "Online checkout is unavailable. Pay by EFT above and upload your transfer confirmation for review."
-                          : "Online checkout and EFT are unavailable for this invoice. Contact the company for payment instructions."}
+                          : hasBankDetails
+                            ? "Online checkout is unavailable. Use the EFT details above and contact the company after you transfer."
+                            : "Online checkout and EFT are unavailable for this invoice. Contact the company for payment instructions."}
                     </p>
                   </div>
 

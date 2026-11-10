@@ -894,7 +894,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
         </View>
 
         {/* Share the same compact, flowing payment layout as the invoice. */}
-        {paymentProvider || eftDetails ? (
+        {paymentInstructions ? (
           <PaymentSection
             instructions={paymentInstructions}
             primary={primary}

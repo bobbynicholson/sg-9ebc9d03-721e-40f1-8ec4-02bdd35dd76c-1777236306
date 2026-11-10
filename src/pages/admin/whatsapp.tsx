@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { Bot, CheckCircle2, ChevronDown, Copy, ExternalLink, Eye, EyeOff, Hand, Lock, MessageCircle, RefreshCw, RotateCw, Send, ShieldCheck } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -164,6 +165,7 @@ function ModeBadge({ mode }: { mode: "automatic" | "manual" | "locked" }) {
 }
 
 function WhatsAppPage() {
+  const router = useRouter();
   const { toast } = useToast();
   const { user, company } = useAuth();
   const { withSlug } = useTenantHref();
@@ -321,6 +323,21 @@ function WhatsAppPage() {
       window.requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
     }
   };
+
+  useEffect(() => {
+    if (!router.isReady || typeof router.query.message !== "string") return;
+    const requestedAutomation = WHATSAPP_AUTOMATIONS.find((item) => item.key === router.query.message);
+    if (!requestedAutomation) return;
+
+    setTestError(null);
+    setSelected(requestedAutomation.key);
+    setOpenGroups((current) => current.includes(requestedAutomation.group)
+      ? current
+      : [...current, requestedAutomation.group]);
+    if (window.innerWidth < 1024) {
+      window.requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    }
+  }, [router.isReady, router.query.message]);
 
   const copyWording = async (wording: string) => {
     try {
@@ -723,6 +740,7 @@ function WhatsAppPage() {
                         ...WHATSAPP_AUTOMATIONS.filter((item) => item.group === group).map((item) => ({
                           key: item.key as string,
                           label: item.label,
+                          purpose: item.purpose,
                           when: item.when,
                           recommended: item.recommended,
                           mode: (draft[item.key].enabled ? "automatic" : "manual") as "automatic" | "manual" | "locked",
@@ -731,6 +749,7 @@ function WhatsAppPage() {
                         ...WHATSAPP_MANUAL_ONLY.filter((item) => item.group === group).map((item) => ({
                           key: item.key,
                           label: item.label,
+                          purpose: item.purpose,
                           when: item.when,
                           recommended: false,
                           mode: "locked" as const,
@@ -785,6 +804,7 @@ function WhatsAppPage() {
                                         <span className="truncate">{row.when}</span>
                                         {row.metaStatus && <span className={`shrink-0 font-medium ${row.metaStatus.className}`}>{row.metaStatus.label}</span>}
                                       </span>
+                                      <span className="mt-1 block text-xs leading-4 text-slate-500 dark:text-slate-400">What it is for: {row.purpose}</span>
                                 </span>
                                 <ModeBadge mode={row.mode} />
                               </button>
@@ -823,9 +843,13 @@ function WhatsAppPage() {
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <p className="text-base font-semibold text-slate-900 dark:text-white">{manualOnly.label}</p>
-                              <p className="text-xs text-slate-500">{manualOnly.when}</p>
+                              <p className="text-xs text-slate-500">Used: {manualOnly.when}</p>
                             </div>
                             <ModeBadge mode="locked" />
+                          </div>
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
+                            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">What this message is for</p>
+                            <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">{manualOnly.purpose}</p>
                           </div>
                           <div>
                             <p className="pb-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">Preview with sample details</p>
@@ -843,7 +867,11 @@ function WhatsAppPage() {
                         <>
                           <div>
                             <p className="text-base font-semibold text-slate-900 dark:text-white">{automation.label}</p>
-                            <p className="text-xs text-slate-500">{automation.when}</p>
+                          </div>
+                          <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 px-3 py-2 dark:bg-brand-primary/10">
+                            <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">What this template is for</p>
+                            <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">{automation.purpose}</p>
+                            <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400"><span className="font-medium">Used:</span> {automation.when}</p>
                           </div>
 
                           <div>

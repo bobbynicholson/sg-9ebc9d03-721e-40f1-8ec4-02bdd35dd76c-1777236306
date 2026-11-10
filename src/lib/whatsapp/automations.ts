@@ -25,13 +25,23 @@ export const WHATSAPP_AUTOMATION_KEYS = [
   "whatsapp_order_delivered",
   "whatsapp_staff_welcome_login",
   "whatsapp_staff_shift_confirm",
+  "whatsapp_staff_task_assigned",
   "whatsapp_staff_job_assigned",
   "whatsapp_staff_pickup_ready",
   "embed_lead_admin_whatsapp",
 ] as const;
 
 export type WhatsAppAutomationKey = (typeof WHATSAPP_AUTOMATION_KEYS)[number];
-export type WhatsAppSlot = "first_name" | "event_name" | "company_name" | "quote_url" | "lead_url";
+export type WhatsAppSlot =
+  | "first_name"
+  | "event_name"
+  | "company_name"
+  | "quote_url"
+  | "lead_url"
+  | "task_title"
+  | "task_date"
+  | "task_time"
+  | "task_dashboard_url";
 
 export const WHATSAPP_GROUPS = ["Enquiries", "Quotes", "Booked events", "Staff"] as const;
 export type WhatsAppGroup = (typeof WHATSAPP_GROUPS)[number];
@@ -39,6 +49,8 @@ export type WhatsAppGroup = (typeof WHATSAPP_GROUPS)[number];
 export interface WhatsAppAutomation {
   key: WhatsAppAutomationKey;
   label: string;
+  /** Plain-language reason to use this message. */
+  purpose: string;
   when: string;
   group: WhatsAppGroup;
   /** The basic set: quote sent, one follow-up and the event day. */
@@ -51,6 +63,7 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
   {
     key: "whatsapp_lead_followup",
     label: "New enquiry reply",
+    purpose: "Acknowledge a new customer enquiry so they know it reached your team.",
     when: "When a new enquiry comes in",
     group: "Enquiries",
     recommended: false,
@@ -60,6 +73,7 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
   {
     key: "whatsapp_lead_details",
     label: "Ask for event details",
+    purpose: "Collect the event date and guest count when those details are missing, so you can prepare a useful quote.",
     when: "When a new enquiry has no event date or guest count",
     group: "Enquiries",
     recommended: false,
@@ -69,6 +83,7 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
   {
     key: "whatsapp_lead_chase",
     label: "Enquiry follow-up",
+    purpose: "Give a customer with an unanswered enquiry a friendly chance to continue the conversation.",
     when: "3 days after an enquiry that is still open",
     group: "Enquiries",
     recommended: false,
@@ -78,6 +93,7 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
   {
     key: "whatsapp_touch_base",
     label: "New contact",
+    purpose: "Introduce your business to a newly added contact and make it easy for them to message this number later.",
     when: "When a new client contact is added",
     group: "Enquiries",
     recommended: false,
@@ -87,6 +103,7 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
   {
     key: "whatsapp_quote_sent",
     label: "Quote sent",
+    purpose: "Tell the customer their quote is ready and give them a direct link to review it.",
     when: "After a quote is sent to the client",
     group: "Quotes",
     recommended: true,
@@ -96,6 +113,7 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
   {
     key: "whatsapp_quote_chase",
     label: "Quote follow-up",
+    purpose: "Prompt a customer to review an unanswered quote and invite questions or changes.",
     when: "When the first quote follow-up email goes out",
     group: "Quotes",
     recommended: true,
@@ -105,6 +123,7 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
   {
     key: "whatsapp_quote_accepted",
     label: "Quote accepted",
+    purpose: "Thank the customer for accepting and let them know your team will share the next steps.",
     when: "After the client accepts a quote",
     group: "Quotes",
     recommended: false,
@@ -114,6 +133,7 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
   {
     key: "whatsapp_order_update",
     label: "Booking confirmed",
+    purpose: "Confirm that the customer's booking is in place.",
     when: "When an order is confirmed",
     group: "Booked events",
     recommended: false,
@@ -123,6 +143,7 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
   {
     key: "whatsapp_event_week",
     label: "One week before the event",
+    purpose: "Remind the customer their event is approaching and give them time to report changes.",
     when: "7 days before a booked event",
     group: "Booked events",
     recommended: false,
@@ -132,6 +153,7 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
   {
     key: "whatsapp_event_day_morning",
     label: "On the day: all on track",
+    purpose: "Reassure the customer on event day that your team is preparing for their booking.",
     when: "From 8:00 on the morning of a booked event",
     group: "Booked events",
     recommended: true,
@@ -141,6 +163,7 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
   {
     key: "whatsapp_order_on_the_way",
     label: "Order on the way",
+    purpose: "Let the customer know the driver has left with their order.",
     when: "When the driver leaves with the order",
     group: "Booked events",
     recommended: false,
@@ -150,6 +173,7 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
   {
     key: "whatsapp_event_arrived",
     label: "Arrived at the venue",
+    purpose: "Tell the customer the team has reached the venue and is starting setup.",
     when: "When the driver arrives at the venue",
     group: "Booked events",
     recommended: false,
@@ -159,6 +183,7 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
   {
     key: "whatsapp_order_delivered",
     label: "Order delivered",
+    purpose: "Confirm that the order has been handed over at its destination.",
     when: "When the order is marked delivered",
     group: "Booked events",
     recommended: false,
@@ -168,6 +193,7 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
   {
     key: "whatsapp_staff_welcome_login",
     label: "New staff welcome",
+    purpose: "Welcome a new team member and point them to the email with their staff app sign-in details.",
     when: "When a new staff member is added",
     group: "Staff",
     recommended: false,
@@ -177,6 +203,7 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
   {
     key: "whatsapp_staff_shift_confirm",
     label: "New shift",
+    purpose: "Tell a team member that a shift was added and direct them to check the staff app for details.",
     when: "When a driver or kitchen shift is added",
     group: "Staff",
     recommended: false,
@@ -184,8 +211,19 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
     slots: ["first_name", "event_name", "company_name"],
   },
   {
+    key: "whatsapp_staff_task_assigned",
+    label: "One-off task reminder",
+    purpose: "Remind the task's eligible team about a one-off kitchen, cleaning, shared, or driver task and link to the correct dashboard. It uses the task's reminder lead time, staff/admin notification switches, and skips opted-out recipients or people without a mobile number.",
+    when: "At the reminder time set on a new kitchen, cleaning, shared, or driver task",
+    group: "Staff",
+    recommended: false,
+    wording: "Hi {{1}}, reminder: {{2}} is scheduled for {{3}} at {{4}}. Open your team dashboard for instructions and route stops: {{5}}",
+    slots: ["first_name", "task_title", "task_date", "task_time", "task_dashboard_url"],
+  },
+  {
     key: "whatsapp_staff_job_assigned",
     label: "Job assigned to driver",
+    purpose: "Tell the assigned driver that a customer order needs their attention.",
     when: "When a driver is assigned to an order",
     group: "Staff",
     recommended: false,
@@ -195,6 +233,7 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
   {
     key: "whatsapp_staff_pickup_ready",
     label: "Order ready for driver",
+    purpose: "Let the driver know the kitchen has finished the order and it can be collected.",
     when: "When the kitchen marks an order ready",
     group: "Staff",
     recommended: false,
@@ -204,6 +243,7 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
   {
     key: "embed_lead_admin_whatsapp",
     label: "New website enquiry alert",
+    purpose: "Alert company admins to a new website enquiry so they can open it and respond.",
     when: "When a website form enquiry comes in (sent to company admins)",
     group: "Staff",
     recommended: false,
@@ -213,11 +253,12 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomation[] = [
 ];
 
 /** Templates with nothing in the app to trigger them, so they stay manual. */
-export const WHATSAPP_MANUAL_ONLY: Array<{ key: string; label: string; group: WhatsAppGroup; when: string; reason: string }> = [
+export const WHATSAPP_MANUAL_ONLY: Array<{ key: string; label: string; group: WhatsAppGroup; purpose: string; when: string; reason: string }> = [
   {
     key: "whatsapp_delay_alert",
     label: "Delivery delay",
     group: "Booked events",
+    purpose: "Tell a customer about a late delivery and provide a personal update when you know the details.",
     when: "Sent by you when a delivery is running late",
     reason: "The app doesn't record delays. Use Running late WhatsApp in Tracking.",
   },
@@ -225,6 +266,7 @@ export const WHATSAPP_MANUAL_ONLY: Array<{ key: string; label: string; group: Wh
     key: "whatsapp_staff_schedule_change",
     label: "Shift changed",
     group: "Staff",
+    purpose: "Tell a team member about a roster change that needs their attention.",
     when: "Sent by you when a shift changes",
     reason: "Shifts also update at clock-in, so a real change can't be told apart.",
   },
@@ -232,6 +274,7 @@ export const WHATSAPP_MANUAL_ONLY: Array<{ key: string; label: string; group: Wh
     key: "whatsapp_staff_check_in",
     label: "Staff check-in",
     group: "Staff",
+    purpose: "Send a personal check-in to a team member when you want to speak with them directly.",
     when: "Sent by you to check in on a staff member",
     reason: "This is a personal message with no event behind it.",
   },
@@ -239,6 +282,7 @@ export const WHATSAPP_MANUAL_ONLY: Array<{ key: string; label: string; group: Wh
     key: "whatsapp_staff_welcome_no_login",
     label: "Shared-device staff welcome",
     group: "Staff",
+    purpose: "Welcome a staff member who uses a shared device and send them any instructions they need.",
     when: "Sent by you to staff who use a shared tablet",
     reason: "These staff have no portal account, so nothing marks them as new.",
   },
@@ -270,6 +314,7 @@ export const WHATSAPP_SEND_FROM: Record<string, {
     label: "Driver schedule", href: "/admin/driver-schedule",
     also: [{ label: "Kitchen schedule", href: "/admin/kitchen-schedule" }],
   },
+  whatsapp_staff_task_assigned: { label: "Open daily operations", href: "/admin/daily-operations" },
   whatsapp_staff_job_assigned: { label: "Open Orders", href: "/admin/orders" },
   whatsapp_staff_pickup_ready: { label: "Open Orders", href: "/admin/orders" },
   whatsapp_staff_schedule_change: {
@@ -286,6 +331,10 @@ const SAMPLE_VALUES: Record<WhatsAppSlot, string> = {
   company_name: "Your company",
   quote_url: "https://cateringms.com/q/sample",
   lead_url: "https://cateringms.com/admin/leads?leadId=sample",
+  task_title: "Wash the uniforms",
+  task_date: "12 December",
+  task_time: "9:00 AM",
+  task_dashboard_url: "https://cateringms.com/team-portal/cleaning/tasks",
 };
 
 const SLOT_LABELS: Record<WhatsAppSlot, string> = {
@@ -294,6 +343,10 @@ const SLOT_LABELS: Record<WhatsAppSlot, string> = {
   company_name: "Your company name",
   quote_url: "Link to the quote",
   lead_url: "Link to the enquiry in Leads",
+  task_title: "Task name",
+  task_date: "Task date",
+  task_time: "Task time",
+  task_dashboard_url: "Link to the relevant task dashboard",
 };
 
 function sampleValues(automation: WhatsAppAutomation, companyName?: string | null): Record<WhatsAppSlot, string> {

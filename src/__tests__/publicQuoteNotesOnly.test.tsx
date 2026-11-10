@@ -26,12 +26,13 @@ test("acceptance confirms the displayed staff plan without editable timing contr
   fireEvent.click(screen.getByRole('button',{name:'Accept quote'}));
   await waitFor(()=>expect(recordAccept).toHaveBeenCalledWith({token:'test-token',acceptedByName:'Test Client'}));
 });
-test("active online checkout hides company bank details",async()=>{
+test("active online checkout still shows bank details before quote acceptance",async()=>{
   (fetchByToken as jest.Mock).mockResolvedValue({...quote,payment_options:{provider:'payfast',online_available:true,eft_available:true},company:{...quote.company,bank_name:'Fixture Bank',bank_account_number:'123456789'}});
   render(<PublicQuotePage/>);
-  expect(await screen.findByText(/pay online with PayFast/)).toBeTruthy();
-  expect(screen.queryByText('Fixture Bank')).toBeNull();
-  expect(screen.queryByText('123456789')).toBeNull();
+  expect(await screen.findByText(/Bank transfer is welcome/)).toBeTruthy();
+  expect(screen.getByText('Fixture Bank')).toBeTruthy();
+  expect(screen.getByText('123456789')).toBeTruthy();
+  expect(screen.getByText(/Use quote TEST-100 as the transfer reference, even before accepting/)).toBeTruthy();
 });
 test("EFT fallback shows company bank details when online checkout is unavailable",async()=>{
   (fetchByToken as jest.Mock).mockResolvedValue({...quote,payment_options:{provider:null,online_available:false,eft_available:true},company:{...quote.company,bank_name:'Fixture Bank',bank_account_number:'123456789'}});
@@ -40,10 +41,10 @@ test("EFT fallback shows company bank details when online checkout is unavailabl
   expect(screen.getByText('123456789')).toBeTruthy();
   expect(screen.getByText('Pay by EFT')).toBeTruthy();
 });
-test("explicitly unavailable EFT never exposes bank instructions",async()=>{
+test("configured bank details remain visible when manual EFT checkout is unavailable",async()=>{
   (fetchByToken as jest.Mock).mockResolvedValue({...quote,payment_options:{provider:null,online_available:false,eft_available:false},company:{...quote.company,bank_name:'Fixture Bank',bank_account_number:'123456789'}});
   render(<PublicQuotePage/>);
   await screen.findByRole('button',{name:'Accept this quote'});
-  expect(screen.queryByText('Fixture Bank')).toBeNull();
-  expect(screen.queryByText('123456789')).toBeNull();
+  expect(screen.getByText('Fixture Bank')).toBeTruthy();
+  expect(screen.getByText('123456789')).toBeTruthy();
 });

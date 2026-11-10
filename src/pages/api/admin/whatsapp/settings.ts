@@ -249,6 +249,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (!approved) return res.status(400).json({ error: `Meta has not approved "${automation.label}" yet.` });
     const sample: Record<string, string> = {
       first_name: "Sam", event_name: "Sample event", company_name: "Your company", quote_url: "https://cateringms.com", lead_url: "https://cateringms.com/admin/leads?leadId=sample",
+      task_title: "Wash the uniforms", task_date: "12 December", task_time: "9:00 AM",
+      task_dashboard_url: "https://cateringms.com/team-portal/cleaning/tasks",
     };
     const templateParams = buildTemplateComponents(automation.slots.map((slot) => sample[slot]));
     const result = await postWhatsAppMessage(credentials, {

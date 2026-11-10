@@ -25,6 +25,7 @@ import { DocumentPartiesAndEvent } from "@/components/documents/DocumentPartiesA
 import { formatClock } from "@/lib/portalTime";
 import { visibleDocumentNote } from "@/lib/visibleDocumentNote";
 import { sortByCourse } from "@/lib/menuCourses";
+import { BankTransferDetailsCard, type BankTransferDisplayDetails } from "@/components/documents/BankTransferDetailsCard";
 
 interface InvoicePreviewProps {
   invoiceNumber: string;
@@ -63,12 +64,7 @@ interface InvoicePreviewProps {
   depositPaid: number;
   balanceDue: number;
   paymentTerms: string;
-  bankDetails?: {
-    bankName: string;
-    accountName: string;
-    accountNumber: string;
-    branchCode: string;
-  };
+  bankDetails?: BankTransferDisplayDetails | null;
   notes?: string;
   /** TIGHTEN I.82: tenant currency code from companies.currency.
    *  Defaults to ZAR for backward compat with any caller that hasn't
@@ -295,39 +291,14 @@ export function InvoicePreview(props: InvoicePreviewProps) {
         </CardContent>
       </Card>
 
-      {/* PAYMENT DETAILS */}
-      {props.bankDetails && (
-        <Card className="mb-4 border border-stone-200 shadow-sm">
-          <CardContent className="px-3 py-4 sm:px-5 sm:py-5">
-            <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-3">
-              Payment details
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-xs text-stone-500">Bank</p>
-                <p className="font-semibold text-stone-900">{props.bankDetails.bankName}</p>
-              </div>
-              <div>
-                <p className="text-xs text-stone-500">Account name</p>
-                <p className="font-semibold text-stone-900">{props.bankDetails.accountName}</p>
-              </div>
-              <div>
-                <p className="text-xs text-stone-500">Account number</p>
-                <p className="font-semibold text-stone-900 tabular-nums">{props.bankDetails.accountNumber}</p>
-              </div>
-              <div>
-                <p className="text-xs text-stone-500">Branch code</p>
-                <p className="font-semibold text-stone-900 tabular-nums">{props.bankDetails.branchCode}</p>
-              </div>
-            </div>
-            <p className="text-xs text-stone-500 mt-3">
-              Use invoice number{" "}
-              <strong className="text-stone-700">{props.invoiceNumber}</strong>{" "}
-              as reference.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      <BankTransferDetailsCard
+        details={props.bankDetails}
+        companyName={props.companyName}
+        companyEmail={props.companyEmail}
+        title="Payment details · bank transfer (EFT)"
+        referenceHint={`Use invoice number ${props.invoiceNumber} as the transfer reference.`}
+        paidInFull={isPaid}
+      />
 
       {/* Terms need their own high-contrast card rather than being a small
           line under bank details, so they remain readable in a preview and

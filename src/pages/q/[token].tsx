@@ -55,6 +55,7 @@ import { QuoteProgress } from "@/components/quotes/QuoteProgress";
 import { EQUIPMENT_RETURN_OPTIONS, resolveEquipmentReturn } from "@/lib/equipmentReturn";
 import { customerBillingIdentity } from "@/lib/customerIdentity";
 import { DocumentPartiesAndEvent } from "@/components/documents/DocumentPartiesAndEvent";
+import { BankTransferDetailsCard } from "@/components/documents/BankTransferDetailsCard";
 import { formatClockBoth } from "@/lib/portalTime";
 import { groupByCourse } from "@/lib/menuCourses";
 import { visibleDocumentNote } from "@/lib/visibleDocumentNote";
@@ -526,9 +527,16 @@ export default function PublicQuotePage() {
     type: company?.bank_account_type || "",
     instructions: company?.eft_instructions || "",
   };
-  const quoteHasEftDetails = !quotePaymentOptions?.online_available
-    && quotePaymentOptions?.eft_available !== false
-    && Boolean(quoteEftDetails.bank && quoteEftDetails.account);
+  const quoteHasEftDetails = Boolean(quoteEftDetails.bank && quoteEftDetails.account);
+  const quoteBankDetails = quoteHasEftDetails ? {
+    available: true,
+    name: quoteEftDetails.bank,
+    holder: quoteEftDetails.holder,
+    account: quoteEftDetails.account,
+    branch: quoteEftDetails.branch,
+    type: quoteEftDetails.type,
+    instructions: quoteEftDetails.instructions,
+  } : null;
   const quoteOnlineUnavailableMessage = quotePaymentOptions?.unavailable_reason === "currency_not_supported"
     ? `${quotePaymentProviderName || "The online provider"} cannot collect ${quoteCurrency} for this quote. ${quoteHasEftDetails ? "Use EFT below, or" : "Please"} contact ${companyName} to discuss another payment route.`
     : quotePaymentOptions?.unavailable_reason === "configuration_incomplete"
@@ -1119,34 +1127,25 @@ export default function PublicQuotePage() {
             </Card>
           )}
 
-          <Card className="mb-4 border border-stone-200 shadow-sm print:hidden">
-            <CardContent className="py-4 px-5 space-y-3">
+          <div className="mb-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold">Payment options</p>
                 {quotePaymentOptions?.online_available ? (
                   <p className="mt-1 text-sm text-stone-700">
-                    After you accept, {companyName} will send an invoice with a payment link. You can pay online with {quotePaymentProviderName}.
+                    Bank transfer is welcome using the details below. After you accept, {companyName} will also send an invoice with a {quotePaymentProviderName} payment link.
                   </p>
                 ) : (
                   <p className="mt-1 text-sm text-stone-700">{quoteOnlineUnavailableMessage}</p>
                 )}
               </div>
-              {quoteHasEftDetails && (
-                <div className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm">
-                  <p className="font-semibold text-stone-900">Pay by EFT</p>
-                  <p className="mt-1 text-xs text-stone-600">Use the invoice number as the reference after the invoice arrives.</p>
-                  <div className="mt-2 grid grid-cols-[120px_1fr] gap-y-1">
-                    <span className="text-stone-500">Bank</span><span className="font-medium text-stone-900">{quoteEftDetails.bank}</span>
-                    {quoteEftDetails.holder && <><span className="text-stone-500">Account name</span><span className="font-medium text-stone-900">{quoteEftDetails.holder}</span></>}
-                    <span className="text-stone-500">Account number</span><span className="font-mono font-medium text-stone-900">{quoteEftDetails.account}</span>
-                    {quoteEftDetails.branch && <><span className="text-stone-500">Branch code</span><span className="font-mono font-medium text-stone-900">{quoteEftDetails.branch}</span></>}
-                    {quoteEftDetails.type && <><span className="text-stone-500">Account type</span><span className="font-medium capitalize text-stone-900">{quoteEftDetails.type}</span></>}
-                  </div>
-                  {quoteEftDetails.instructions && <p className="mt-2 text-xs text-stone-600">{quoteEftDetails.instructions}</p>}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              <BankTransferDetailsCard
+                details={quoteBankDetails}
+                companyName={companyName}
+                companyEmail={company?.email}
+                title="Pay by EFT"
+                referenceHint={`Use quote ${quote.quote_number} as the transfer reference, even before accepting. Include it when you confirm payment.`}
+              />
+          </div>
 
           {/* TERMS + valid-until - kept above the accept block so the
               client reads the legal context before signing. The free-form

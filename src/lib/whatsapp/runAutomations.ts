@@ -14,6 +14,7 @@
  *   - Follow-ups stop once the person has replied.
  */
 import { buildAdminLeadUrlServer, buildPublicQuoteUrlServer } from "@/lib/customerLinksServer";
+import { customerLinkOrigin } from "@/lib/publicAppOrigin";
 import { normaliseToE164 } from "@/lib/whatsapp";
 import {
   CLIENT_KEYS,
@@ -57,6 +58,10 @@ interface Candidate {
   eventName: string | null;
   publicToken?: string | null;
   pausedUntil?: string | null;
+  taskTitle?: string | null;
+  taskDate?: string | null;
+  taskTime?: string | null;
+  taskDashboardPath?: string | null;
 }
 
 export interface WhatsAppAutomationResult {
@@ -78,6 +83,50 @@ function addDays(date: string, days: number): string {
   const value = new Date(`${date}T00:00:00.000Z`);
   value.setUTCDate(value.getUTCDate() + days);
   return value.toISOString().slice(0, 10);
+}
+
+function zonedTaskInstant(taskDate: string, taskTime: string, timeZone: string): Date {
+  const [year, month, day] = taskDate.split("-").map(Number);
+  const [hour, minute] = taskTime.slice(0, 5).split(":").map(Number);
+  if (![year, month, day, hour, minute].every(Number.isFinite)) return new Date(Number.NaN);
+  const desiredUtc = Date.UTC(year, month - 1, day, hour, minute);
+  let guess = desiredUtc;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone,
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).formatToParts(new Date(guess));
+    const get = (type: string) => Number(parts.find((part) => part.type === type)?.value || 0);
+    const representedUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"));
+    guess += desiredUtc - representedUtc;
+  }
+  return new Date(guess);
+}
+
+function taskDateLabel(value: string): string {
+  return new Intl.DateTimeFormat("en-ZA", { day: "numeric", month: "long", timeZone: "UTC" })
+    .format(new Date(`${value.slice(0, 10)}T00:00:00.000Z`));
+}
+
+function taskTimeLabel(value: string): string {
+  const [hour, minute] = value.slice(0, 5).split(":").map(Number);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return value;
+  return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour >= 12 ? "PM" : "AM"}`;
+}
+
+function expandStaffRole(value: string): string[] {
+  if (value === "kitchen") return ["kitchen", "kitchen_staff", "kitchen_manager"];
+  if (value === "cleaning") return ["cleaning", "cleaning_staff", "cleaning_manager"];
+  if (value === "driver_staff") return ["driver", "driver_staff"];
+  return value ? [value] : [];
+}
+
+function taskDashboardPath(taskKind: string, role: string, isAdmin: boolean): string {
+  if (isAdmin) return "/admin/daily-operations";
+  if (taskKind === "custom_driver" || role === "driver" || role === "driver_staff") return "/team-portal/driver/dashboard";
+  if (taskKind === "custom_cleaning" || role === "cleaning" || role.startsWith("cleaning_")) return "/team-portal/cleaning/tasks";
+  return "/team-portal/kitchen/today";
 }
 
 function quoteCandidate(quote: any): Candidate {
@@ -149,6 +198,7 @@ async function loadCandidates(
   companyId: string,
   since: string,
   today: { date: string; hour: number },
+  timeZone: string,
   now: Date,
   enabledAt: string,
   rules: WhatsAppRules,
@@ -257,6 +307,114 @@ async function loadCandidates(
       return rows.filter((row: any) => people.has(row.assigned_driver_id))
         .map((row: any) => staffCandidate(people.get(row.assigned_driver_id), "order", row.id, row.event_name || row.order_number));
     }
+    case "whatsapp_staff_task_assigned": {
+      const { rows: tasks, error: taskError } = await allRows(() => sb.from("daily_operations_tasks")
+        .select("id, task_kind, task_date, scheduled_time, title, target_roles, assigned_to, notify_before_hours, notify_staff, notify_admins, status, created_at")
+        .eq("company_id", companyId)
+        .in("task_kind", ["custom_kitchen", "custom_cleaning", "custom_both", "custom_driver"])
+        .in("status", ["scheduled", "in_progress"])
+        .gte("created_at", enabledAt)
+        .gte("task_date", addDays(today.date, -1))
+        .lte("task_date", addDays(today.date, 4)));
+      if (taskError) throw taskError;
+      const nowMs = now.getTime();
+      const dueTasks = tasks.filter((task: any) => {
+        if (task.notify_staff === false && task.notify_admins === false) return false;
+        if (!task.task_date || !task.scheduled_time) return false;
+        const taskAt = zonedTaskInstant(String(task.task_date), String(task.scheduled_time), timeZone).getTime();
+        if (!Number.isFinite(taskAt)) return false;
+        const leadHours = Math.max(0, Math.min(72, Number(task.notify_before_hours || 0)));
+        const reminderAt = taskAt - leadHours * 60 * 60 * 1000;
+        if (nowMs < reminderAt) return false;
+        if (nowMs < taskAt) return true;
+        // A zero-hour reminder may arrive a few minutes after the selected
+        // time because the WhatsApp queue runs on a cron. If an admin adds a
+        // task for a time that has just passed, send it once while it is new;
+        // never send an old, overdue reminder after a delayed cron run.
+        const createdAt = Date.parse(String(task.created_at || ""));
+        const withinCronWindow = nowMs - taskAt <= 15 * 60 * 1000;
+        const createdAfterTaskTime = createdAt >= taskAt && nowMs - createdAt <= 15 * 60 * 1000;
+        return withinCronWindow && (leadHours === 0 || createdAfterTaskTime);
+      });
+      if (dueTasks.length === 0) return [];
+
+      const { rows: profiles, error: profileError } = await allRows(() => sb.from("profiles")
+        .select("id, full_name, role, active_role, phone_number, mobile_number, whatsapp_opt_in, is_active, deleted_at")
+        .eq("company_id", companyId).eq("is_active", true).is("deleted_at", null));
+      if (profileError) throw profileError;
+      const profileIds = profiles.map((profile: any) => profile.id).filter(Boolean);
+      let departmentRows: any[] = [];
+      if (profileIds.length) {
+        const { rows, error } = await allRows(() => sb.from("user_departments")
+          .select("user_id, department").in("user_id", profileIds));
+        if (error) throw error;
+        departmentRows = rows;
+      }
+      const departmentsByUser = new Map<string, string[]>();
+      for (const row of departmentRows) {
+        if (!row.user_id || !row.department) continue;
+        departmentsByUser.set(row.user_id, [...(departmentsByUser.get(row.user_id) || []), String(row.department)]);
+      }
+      const membershipsByUser = new Map<string, Set<string>>();
+      for (const profile of profiles) {
+        const values = [String(profile.role || ""), String(profile.active_role || ""), ...(departmentsByUser.get(profile.id) || [])];
+        membershipsByUser.set(profile.id, new Set(values.flatMap(expandStaffRole)));
+      }
+
+      const candidates: Candidate[] = [];
+      for (const task of dueTasks) {
+        const targetRoles = (task.target_roles || []) as string[];
+        const taskRecipients = new Map<string, { profile: any; path: string }>();
+        if (task.notify_staff !== false) {
+          for (const profile of profiles) {
+            const isAssigned = !task.assigned_to || profile.id === task.assigned_to;
+            const memberships = membershipsByUser.get(profile.id) || new Set<string>();
+            const matchesTeam = targetRoles.some((role) => memberships.has(role));
+            if (!isAssigned || (!task.assigned_to && !matchesTeam)) continue;
+            const role = String(profile.active_role || "");
+            const matchingRole = memberships.has(role) && targetRoles.includes(role)
+              ? role
+              : targetRoles.find((value) => memberships.has(value)) || "";
+            taskRecipients.set(profile.id, {
+              profile,
+              path: taskDashboardPath(String(task.task_kind), matchingRole, false),
+            });
+          }
+        }
+        if (task.notify_admins !== false) {
+          for (const profile of profiles) {
+            const memberships = membershipsByUser.get(profile.id) || new Set<string>();
+            if (!Array.from(memberships).some((role) => ADMIN_ROLES.includes(role))) continue;
+            if (!taskRecipients.has(profile.id)) taskRecipients.set(profile.id, {
+              profile,
+              path: taskDashboardPath(String(task.task_kind), "", true),
+            });
+          }
+        }
+
+        const seenPhones = new Set<string>();
+        for (const [profileId, recipient] of taskRecipients) {
+          const profile = recipient.profile;
+          if (profile.whatsapp_opt_in === false) continue;
+          const phone = normaliseToE164(profile.mobile_number || profile.phone_number);
+          if (!phone || seenPhones.has(phone)) continue;
+          seenPhones.add(phone);
+          candidates.push({
+            entityType: "daily_operations_task",
+            entityId: task.id,
+            dedupId: `${task.id}:${profileId}`,
+            phone,
+            clientName: profile.full_name,
+            eventName: null,
+            taskTitle: String(task.title || "Scheduled task"),
+            taskDate: taskDateLabel(String(task.task_date)),
+            taskTime: taskTimeLabel(String(task.scheduled_time)),
+            taskDashboardPath: recipient.path,
+          });
+        }
+      }
+      return candidates;
+    }
     case "embed_lead_admin_whatsapp": {
       const leads = (await newLeads()).filter((lead: any) => lead.source === "embed");
       if (leads.length === 0) return [];
@@ -298,6 +456,14 @@ function slotValue(slot: WhatsAppSlot, candidate: Candidate, company: { company_
     case "company_name": return company.company_name;
     case "quote_url": return buildPublicQuoteUrlServer(candidate.publicToken || "", company.slug) || "";
     case "lead_url": return candidate.entityType === "lead" ? buildAdminLeadUrlServer(candidate.entityId, company.slug) || "" : "";
+    case "task_title": return String(candidate.taskTitle || "Scheduled task");
+    case "task_date": return String(candidate.taskDate || "");
+    case "task_time": return String(candidate.taskTime || "");
+    case "task_dashboard_url": {
+      const slug = String(company.slug || "").trim().replace(/^\/+|\/+$/g, "");
+      const path = candidate.taskDashboardPath || "/team-portal/kitchen/today";
+      return `${customerLinkOrigin(process.env.NEXT_PUBLIC_APP_URL, process.env.NEXT_PUBLIC_SITE_URL)}${slug ? `/${slug}` : ""}${path}`;
+    }
   }
 }
 
@@ -364,7 +530,7 @@ async function queueCompany(
     const automation = WHATSAPP_AUTOMATIONS.find((item) => item.key === key)!;
     const lookback = new Date(now.getTime() - LOOKBACK_MS).toISOString();
     const since = String(setting.enabledAt) > lookback ? String(setting.enabledAt) : lookback;
-    const candidates = await loadCandidates(sb, key, company.id, since, today, now, String(setting.enabledAt), rules);
+    const candidates = await loadCandidates(sb, key, company.id, since, today, company.timezone || DEFAULT_TIMEZONE, now, String(setting.enabledAt), rules);
 
     for (const candidate of candidates) {
       const phone = normaliseToE164(candidate.phone);

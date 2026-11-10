@@ -12,7 +12,7 @@ type TimeClockEntry = Database["public"]["Tables"]["time_clock_entries"]["Row"];
 type StaffWorkSession = Database["public"]["Tables"]["staff_work_sessions"]["Row"];
 
 export const timeClockService = {
-  async clockIn(staffId: string, notes?: string, location?: { lat: number; lng: number }) {
+  async clockIn(staffId: string, notes?: string, location?: { lat: number; lng: number }, entryReason?: string) {
     // Look up the staff's company so the work session is properly tenant-scoped.
     const { data: staffProfile, error: staffProfileErr } = await supabase
       .from("profiles")
@@ -70,6 +70,7 @@ export const timeClockService = {
         clock_in: now.toISOString(),
         session_date: now.toISOString().slice(0, 10),
         payment_status: "unpaid",
+        entry_reason: entryReason || null,
       })
       .select()
       .single();
@@ -79,7 +80,7 @@ export const timeClockService = {
     return { entry, session };
   },
 
-  async clockOut(staffId: string, notes?: string, location?: { lat: number; lng: number }) {
+  async clockOut(staffId: string, notes?: string, location?: { lat: number; lng: number }, expectedSessionId?: string) {
     // Resolve the staff's company up front so we can scope every read
     // and write. Audit (May 2026) found that clockOut was matching the
     // first open session by staff_id alone - if a staff record existed
@@ -119,6 +120,7 @@ export const timeClockService = {
       .eq("staff_id", staffId)
       .eq("company_id", companyId)
       .is("clock_out", null)
+      .match(expectedSessionId ? { id: expectedSessionId } : {})
       .order("clock_in", { ascending: false })
       .limit(1)
       .maybeSingle();

@@ -174,7 +174,7 @@ const BASE_LIVE_TOOL_DEFINITIONS = [
   { id: "work_clock_status", label: "Work clock status", description: "The signed-in user's single active role timer, recent role switches, and end notes", category: "operations", roles: WORKER_ROLES, keywords: ["clock", "clocked in", "clocked out", "timer", "timers", "active timer", "active clock", "on duty", "off duty", "role switch", "work session"] },
   { id: "work_hours", label: "Work hours", description: "The signed-in user's recorded work sessions and hours, or company staff hours for authorized administrators", category: "finance", roles: WORK_HOURS_ROLES, keywords: ["work hours", "hours worked", "worked hours", "timesheet", "timesheets", "shift hours", "my shifts", "my hours", "staff hours", "clock hours", "hours today", "hours this week", "hours this month"] },
   { id: "order_work_hours", label: "Order-specific work hours", description: "Order-linked role sessions, duration, role, and handoff notes", category: "operations", roles: [...WORKER_ROLES, ...ADMIN, "region_admin"], keywords: ["order hours", "order-specific hours", "order specific hours", "hours for this order", "worked on this order", "who worked", "work on order", "time on order", "role hours", "hours by order"] },
-  { id: "daily_operations_tasks", label: "Cleaning tasks", description: "Kitchen and equipment cleaning tasks, schedule, team assignment, status, and notifications", category: "operations", roles: [...WORKER_ROLES, ...ADMIN, "region_admin"], keywords: ["cleaning schedule", "kitchen cleaning", "equipment cleaning", "clean equipment", "clean kitchen", "hygiene task", "cleaning reminder", "cleaning configuration", "daily operations"] },
+  { id: "daily_operations_tasks", label: "Team tasks and driver routes", description: "One-off and recurring kitchen, cleaning, and driver tasks with route stops, progress, assignment, work time, reminders, and schedule", category: "operations", roles: [...WORKER_ROLES, ...ADMIN, "region_admin"], keywords: ["one-off task", "one off task", "task board", "driver task", "driver route", "supplier collection", "supplier pickup", "collection stop", "delivery stop", "route stop", "on the way", "return to kitchen", "kitchen task", "cleaning task", "cleaning schedule", "kitchen cleaning", "equipment cleaning", "clean equipment", "clean kitchen", "hygiene task", "cleaning reminder", "daily operations"] },
   { id: "staff_shift_schedule", label: "Staff shift schedule", description: "Planned and actual staff shifts and shift tasks for the signed-in role", category: "operations", roles: [...WORKER_ROLES, ...ADMIN, "region_admin"], keywords: ["schedule", "scheduled shift", "shift", "shifts", "roster", "rota", "work schedule", "my schedule", "planned work", "planned shift"] },
   { id: "waiter_service_assignments", label: "Service assignments", description: "Waiter event attendance, service phases, timings, and service notes", category: "operations", roles: ["waiter", ...ADMIN, "region_admin"], keywords: ["waiter", "waitering", "service assignment", "service assignments", "event attendance", "event service", "service timing", "guests arrived", "service started"] },
   { id: "cleaning_work_tasks", label: "Cleaning work tasks", description: "Cleaning jobs for equipment availability, planned windows, actual work, and status", category: "operations", roles: ["cleaning_manager", "cleaning_staff", "kitchen_manager", "kitchen_staff", ...ADMIN, "region_admin"], keywords: ["cleaning job", "cleaning jobs", "cleaning task", "cleaning tasks", "equipment cleaning task", "cleaning status", "planned cleaning", "cleaning window"] },
@@ -242,7 +242,7 @@ const LIVE_TOOL_DATA_SCOPES: Record<LiveToolId, string> = {
   work_clock_status: "The signed-in user's shared one-active-role clock, recent role sessions, and handoff notes",
   work_hours: "The signed-in user's recorded staff work sessions; authorized administrators may see company staff hours",
   order_work_hours: "Order-linked role sessions and durations, restricted to the signed-in worker or authorized company administrators",
-  daily_operations_tasks: "Company-configured kitchen and equipment cleaning tasks, filtered to the signed-in worker's target roles or company administration",
+  daily_operations_tasks: "Company task schedules for authorized administrators; workers see tasks visible on their dashboard, can claim only work for their eligible team, and drivers see ordered stops only for routes they can claim or have claimed",
   staff_shift_schedule: "Planned and actual staff shifts and shift tasks for the signed-in worker or authorized company administration",
   waiter_service_assignments: "Waiter event attendance and service phases for the signed-in waiter or authorized company administration",
   cleaning_work_tasks: "Company cleaning jobs and planned equipment-availability windows, filtered to cleaning and kitchen operations",
@@ -1914,12 +1914,21 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
     }
     case "daily_operations_tasks": {
       const settings = (await rows(db, "company_daily_operations_settings", (q) => q.select("kitchen_cleaning_enabled, kitchen_cleaning_time, kitchen_cleaning_title, kitchen_cleaning_description, kitchen_cleaning_lead_hours, kitchen_cleaning_target, equipment_cleaning_enabled, equipment_cleaning_time, equipment_cleaning_title, equipment_cleaning_description, equipment_cleaning_lead_hours, equipment_cleaning_target, admin_notifications_enabled").eq("company_id", companyId).maybeSingle()))[0] || null;
-      const allTasks = await rows(db, "daily_operations_tasks", (q) => applyDateRange(q.select("id, task_kind, task_date, scheduled_time, scheduled_at, title, description, target_roles, status, assigned_to, started_at, completed_at, completed_by, notes, staff_notified_at, admin_notified_at").eq("company_id", companyId), "task_date", message, resolvedIntent).order("task_date", { ascending: true }).order("scheduled_time", { ascending: true }).limit(100));
+      const allTasks = await rows(db, "daily_operations_tasks", (q) => applyDateRange(q.select("id, task_kind, task_date, scheduled_time, scheduled_at, title, description, target_roles, visible_roles, status, assigned_to, started_at, completed_at, completed_by, notes, staff_notified_at, admin_notified_at, route_stage, route_current_stop_number").eq("company_id", companyId), "task_date", message, resolvedIntent).order("task_date", { ascending: true }).order("scheduled_time", { ascending: true }).limit(100));
       const workerRole = databaseWorkRole(identity.role) || identity.role;
       const tasks = hasCompanyStaffScope(identity.role)
         ? allTasks
-        : allTasks.filter((task: any) => task.assigned_to === identity.userId || (Array.isArray(task.target_roles) && task.target_roles.some((target: string) => [workerRole, identity.role, "both", "all"].includes(String(target).toLowerCase()))));
-      return { settings, tasks, as_of: new Date().toISOString() };
+        : allTasks.filter((task: any) => {
+          const roleCandidates = [workerRole, identity.role].map((role) => String(role).toLowerCase());
+          const visibleRoles = Array.isArray(task.visible_roles) && task.visible_roles.length ? task.visible_roles : task.target_roles;
+          const visibleToRole = Array.isArray(visibleRoles) && visibleRoles.some((target: string) => roleCandidates.includes(String(target).toLowerCase()) || ["both", "all"].includes(String(target).toLowerCase()));
+          return task.assigned_to === identity.userId || (visibleToRole && (!task.assigned_to || task.assigned_to === identity.userId));
+        });
+      const routeIds = tasks.filter((task: any) => task.task_kind === "custom_driver").map((task: any) => task.id);
+      const stops = routeIds.length ? await rows(db, "daily_operation_driver_task_stops", (q) => q.select("id, task_id, stop_number, stop_type, stop_name, address, instructions, status, on_way_at, arrived_at, completed_at").eq("company_id", companyId).in("task_id", routeIds).order("stop_number", { ascending: true })) : [];
+      const stopsByTask = new Map<string, any[]>();
+      for (const stop of stops) stopsByTask.set(String(stop.task_id), [...(stopsByTask.get(String(stop.task_id)) || []), stop]);
+      return { settings, tasks: tasks.map((task: any) => ({ ...task, stops: stopsByTask.get(String(task.id)) || [] })), as_of: new Date().toISOString() };
     }
     case "staff_shift_schedule": {
       const workerRole = databaseWorkRole(identity.role);

@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cleanDailyOperationsTaskTitle } from "@/lib/dailyOperationsCopy";
 
 export type DailyOperationsTarget = "kitchen" | "cleaning" | "both";
-export type DailyOperationsTaskKind = "kitchen_cleaning" | "equipment_cleaning";
+export type DailyOperationsTaskKind = "kitchen_cleaning" | "equipment_cleaning" | "custom_kitchen" | "custom_cleaning" | "custom_both" | "custom_driver";
 export type DailyOperationsScheduleMode = "every_day" | "selected_weekdays" | "staff_scheduled";
 
 export interface DailyOperationsSettings {
@@ -15,6 +15,7 @@ export interface DailyOperationsSettings {
   kitchen_cleaning_description: string;
   kitchen_cleaning_lead_hours: number;
   kitchen_cleaning_target: DailyOperationsTarget;
+  kitchen_cleaning_assigned_to: string | null;
   kitchen_cleaning_schedule_mode: DailyOperationsScheduleMode;
   kitchen_cleaning_weekdays: number[];
   equipment_cleaning_enabled: boolean;
@@ -23,6 +24,7 @@ export interface DailyOperationsSettings {
   equipment_cleaning_description: string;
   equipment_cleaning_lead_hours: number;
   equipment_cleaning_target: DailyOperationsTarget;
+  equipment_cleaning_assigned_to: string | null;
   equipment_cleaning_schedule_mode: DailyOperationsScheduleMode;
   equipment_cleaning_weekdays: number[];
   admin_notifications_enabled: boolean;
@@ -38,12 +40,37 @@ export interface DailyOperationsTask {
   title: string;
   description: string | null;
   target_roles: string[];
+  visible_roles?: string[];
   status: "scheduled" | "in_progress" | "completed" | "skipped";
   assigned_to: string | null;
   started_at: string | null;
   completed_at: string | null;
   completed_by: string | null;
   notes: string | null;
+  recurrence_key?: string | null;
+  notify_before_hours?: number;
+  notify_staff?: boolean;
+  notify_admins?: boolean;
+  notifications_processed_at?: string | null;
+  route_stage?: "not_started" | "en_route" | "at_stop" | "returning" | "back_at_kitchen" | null;
+  route_current_stop_number?: number | null;
+  payroll_session_id?: string | null;
+  driver_stops?: DailyOperationsDriverTaskStop[];
+}
+
+export interface DailyOperationsDriverTaskStop {
+  id: string;
+  company_id: string;
+  task_id: string;
+  stop_number: number;
+  stop_type: "collection" | "delivery" | "other";
+  stop_name: string;
+  address: string;
+  instructions: string | null;
+  status: "pending" | "en_route" | "arrived" | "completed";
+  on_way_at: string | null;
+  arrived_at: string | null;
+  completed_at: string | null;
 }
 
 export const DAILY_OPERATIONS_DEFAULTS: DailyOperationsSettings = {
@@ -53,6 +80,7 @@ export const DAILY_OPERATIONS_DEFAULTS: DailyOperationsSettings = {
   kitchen_cleaning_description: "Clean and reset the kitchen work area for service.",
   kitchen_cleaning_lead_hours: 2,
   kitchen_cleaning_target: "kitchen",
+  kitchen_cleaning_assigned_to: null,
   kitchen_cleaning_schedule_mode: "staff_scheduled",
   kitchen_cleaning_weekdays: [1, 2, 3, 4, 5, 6, 0],
   equipment_cleaning_enabled: false,
@@ -61,6 +89,7 @@ export const DAILY_OPERATIONS_DEFAULTS: DailyOperationsSettings = {
   equipment_cleaning_description: "Clean and sanitise equipment used to prepare food.",
   equipment_cleaning_lead_hours: 2,
   equipment_cleaning_target: "cleaning",
+  equipment_cleaning_assigned_to: null,
   equipment_cleaning_schedule_mode: "staff_scheduled",
   equipment_cleaning_weekdays: [1, 2, 3, 4, 5, 6, 0],
   admin_notifications_enabled: true,

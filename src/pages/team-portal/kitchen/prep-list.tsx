@@ -10,10 +10,11 @@ import { Button } from "@/components/ui/button";
 import {
   ClipboardList, ChefHat, Calendar, Users, MapPin, Clock,
   AlertTriangle, CheckCircle2, ShoppingCart, Layers, Package, Info, ExternalLink,
-  RotateCcw, RefreshCw,
+  RotateCcw, RefreshCw, Image as ImageIcon,
 } from "lucide-react";
 import { PortalCard, PortalCardHeader, PortalOverview } from "@/components/portal/ui";
 import { KitchenPageShell, KITCHEN_HERO_CHIP } from "@/components/kitchen/KitchenPageShell";
+import { KitchenMenuItemPreviewDialog, type KitchenMenuItemPreviewData } from "@/components/kitchen/KitchenMenuItemPreviewDialog";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
@@ -63,6 +64,53 @@ interface OrderRow {
   region_id?: string | null;
 }
 
+interface PrepOrderMenuItem {
+  id: string;
+  order_id: string;
+  menu_item_id: string | null;
+  item_name: string | null;
+  quantity: number | null;
+  description: string | null;
+  special_instructions: string | null;
+  menu_item?: {
+    category: string | null;
+    dietary_tags: string[] | null;
+    allergen_codes: string[] | null;
+    image_url: string | null;
+    prep_time_minutes: number | null;
+    cook_time_minutes: number | null;
+    is_buy_and_sell: boolean | null;
+    fulfilment_type: string | null;
+  } | null;
+}
+
+function PrepMenuItemThumbnail({ imageUrl, itemName }: { imageUrl: string | null | undefined; itemName: string }) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [imageUrl]);
+
+  if (!imageUrl || failed) {
+    return (
+      <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 text-slate-400 dark:border-slate-700 dark:bg-slate-800">
+        <ImageIcon className="h-4 w-4" />
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt={itemName}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+      className="h-12 w-12 shrink-0 rounded-md border border-slate-200 object-cover dark:border-slate-700"
+    />
+  );
+}
+
 const dayBucket = (d: string, today: Date) => {
   // parseLocalDay pins the event date to LOCAL midnight so the bucket
   // math matches the wall-clock day everywhere (a bare new Date("YYYY-MM-DD")
@@ -94,6 +142,8 @@ function KitchenPrepListPageInner() {
   const { toast } = useToast();
   const [rows, setRows] = useState<DemandRow[]>([]);
   const [orderMeta, setOrderMeta] = useState<Record<string, OrderRow>>({});
+  const [orderMenuItems, setOrderMenuItems] = useState<PrepOrderMenuItem[]>([]);
+  const [photoPreview, setPhotoPreview] = useState<KitchenMenuItemPreviewData | null>(null);
   const [loading, setLoading] = useState(true);
   // Command-centre restructure (2026-07-02): load failures used to be
   // console.error-ed and the page rendered the "Nothing booked yet"
@@ -170,12 +220,20 @@ function KitchenPrepListPageInner() {
         // kitchen knows what to pack for each order, not just what to
         // cook. The quote builder writes equipment_items as a JSONB
         // array of { equipment_id, name, category, quantity, ... }.
-        const { data: orders, error: metaError } = await supabase
-          .from("orders")
-          // equipment_items lives on the linked quote, not orders.
-          .select("id, venue_address, event_time, client_name, region_id, dietary_requirements, kitchen_instructions, special_instructions, quote:quotes!orders_quote_id_fkey(equipment_items)")
-          .in("id", orderIds);
+        const [ordersRes, menuItemsRes] = await Promise.all([
+          supabase
+            .from("orders")
+            // equipment_items lives on the linked quote, not orders.
+            .select("id, venue_address, event_time, client_name, region_id, dietary_requirements, kitchen_instructions, special_instructions, quote:quotes!orders_quote_id_fkey(equipment_items)")
+            .in("id", orderIds),
+          (supabase as any)
+            .from("order_items")
+            .select("id, order_id, menu_item_id, item_name, quantity, description, special_instructions, menu_item:menu_item_id(category, dietary_tags, allergen_codes, image_url, prep_time_minutes, cook_time_minutes, is_buy_and_sell, fulfilment_type)")
+            .in("order_id", orderIds)
+            .order("item_name", { ascending: true }),
+        ]);
         if (stale()) return;
+        const { data: orders, error: metaError } = ordersRes;
         // The meta carries the allergen / dietary notes - a chef card
         // without them is unsafe, so a failed meta read fails the load
         // instead of silently rendering note-free cards.
@@ -194,9 +252,21 @@ function KitchenPrepListPageInner() {
           });
         }
         setOrderMeta(map);
+        if (menuItemsRes.error) {
+          captureException(menuItemsRes.error, {
+            tags: { route: "/team-portal/kitchen/prep-list", step: "load-order-menu-photos", companyId },
+          });
+          setOrderMenuItems([]);
+        } else {
+          const visibleOrderIds = new Set(demandRows.map((d) => d.order_id));
+          const rowsWithPhotos = ((menuItemsRes.data || []) as PrepOrderMenuItem[])
+            .filter((item) => visibleOrderIds.has(item.order_id));
+          setOrderMenuItems(rowsWithPhotos);
+        }
       } else {
         // Window shrank to zero orders - drop the previous window's meta.
         setOrderMeta({});
+        setOrderMenuItems([]);
       }
       setRows(demandRows);
 
@@ -376,6 +446,14 @@ function KitchenPrepListPageInner() {
     });
     return Array.from(map.values()).sort((a, b) => a.event_date.localeCompare(b.event_date));
   }, [rows]);
+
+  const menuItemsByOrder = useMemo(() => {
+    const grouped: Record<string, PrepOrderMenuItem[]> = {};
+    for (const item of orderMenuItems) {
+      (grouped[item.order_id] ||= []).push(item);
+    }
+    return grouped;
+  }, [orderMenuItems]);
 
   // Phase 2 #3: compute prep urgency per order. The chef cards now
   // surface a tier (critical / high / watch / ok) and the in-bucket
@@ -1015,7 +1093,8 @@ function KitchenPrepListPageInner() {
                   <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {g.items.map((o) => {
                       const meta = orderMeta[o.order_id];
-                      const menuItems = Array.from(o.menu.values());
+                      const orderMenuLines = menuItemsByOrder[o.order_id] || [];
+                      const menuItems = orderMenuLines.length ? orderMenuLines : Array.from(o.menu.values());
                       const ingMap = new Map<string, { ingredient_name: string; unit: string | null; quantity: number; inventory_item_id: string | null }>();
                       o.ingredients.forEach((ing) => {
                         const key = ing.ingredient_name;
@@ -1246,8 +1325,41 @@ function KitchenPrepListPageInner() {
                               <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">
                                 Menu ({menuItems.length})
                               </p>
-                              <div className="flex flex-wrap gap-1">
-                                {menuItems.map((m) => (
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                {orderMenuLines.length > 0 ? orderMenuLines.map((line) => {
+                                  const itemName = line.item_name || "Menu item";
+                                  return (
+                                    <button
+                                      key={line.id}
+                                      type="button"
+                                      onClick={() => setPhotoPreview({
+                                        url: line.menu_item?.image_url || null,
+                                        itemName,
+                                        quantity: line.quantity,
+                                        description: line.description || null,
+                                        category: line.menu_item?.category || null,
+                                        dietaryTags: line.menu_item?.dietary_tags || [],
+                                        allergens: line.menu_item?.allergen_codes || [],
+                                        specialInstructions: line.special_instructions,
+                                        prepMinutes: line.menu_item?.prep_time_minutes ?? null,
+                                        cookMinutes: line.menu_item?.cook_time_minutes ?? null,
+                                        isBuyAndSell: !!line.menu_item?.is_buy_and_sell,
+                                        isOutsourced: line.menu_item?.fulfilment_type === "outsourced",
+                                      })}
+                                      aria-label={`Open photo and kitchen details for ${itemName}`}
+                                      title="Open photo and kitchen details"
+                                      className="flex min-w-0 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white p-2 text-left transition-colors hover:border-brand-primary/40 hover:bg-brand-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+                                    >
+                                      <PrepMenuItemThumbnail imageUrl={line.menu_item?.image_url} itemName={itemName} />
+                                      <span className="min-w-0 flex-1">
+                                        <span className="block truncate text-sm font-medium text-slate-900 dark:text-white">{itemName}</span>
+                                        {line.quantity != null && (
+                                          <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">Quantity {line.quantity}</span>
+                                        )}
+                                      </span>
+                                    </button>
+                                  );
+                                }) : menuItems.map((m) => (
                                   <Badge key={m.menu_item_name} variant="secondary" className="text-xs">
                                     {m.menu_item_name}
                                   </Badge>
@@ -1359,6 +1471,10 @@ function KitchenPrepListPageInner() {
           )}
         </>
       )}
+      <KitchenMenuItemPreviewDialog
+        item={photoPreview}
+        onOpenChange={(open) => { if (!open) setPhotoPreview(null); }}
+      />
     </KitchenPageShell>
   );
 }

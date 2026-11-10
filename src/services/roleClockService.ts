@@ -293,7 +293,7 @@ async function closeLegacyOtherRoleClocks(
   if (nextRole !== "kitchen") {
     const { data } = await (client as any).from("kitchen_duty_shifts")
       .select("id, order_id, shift_start")
-      .eq("company_id", companyId).eq("staff_id", userId).eq("is_active", true);
+      .eq("company_id", companyId).or(`staff_id.eq.${userId},user_id.eq.${userId}`).eq("is_active", true);
     for (const row of data || []) {
       const { error } = await (client as any).from("kitchen_duty_shifts")
         .update({ is_active: false, shift_end: at, end_reason: "role_switch", end_note: note })
@@ -349,6 +349,7 @@ export async function beginRoleClock(args: {
   userId: string;
   role: WorkRole;
   orderId?: string | null;
+  dailyOperationTaskId?: string | null;
   startedAt?: string;
   client?: Client;
 }): Promise<{ sessionId: string | null; closed: ClosedRoleClock[] }> {
@@ -392,8 +393,16 @@ export async function beginRoleClock(args: {
 
   if (current && current.role === args.role && !orderContextChanged) return { sessionId: current.id, closed };
 
+  const insertPayload: Record<string, unknown> = {
+    company_id: args.companyId,
+    user_id: args.userId,
+    role: args.role,
+    order_id: requestedOrderId,
+    started_at: at,
+  };
+  if (args.dailyOperationTaskId) insertPayload.daily_operation_task_id = args.dailyOperationTaskId;
   const { data: created, error } = await (client as any).from("role_work_sessions")
-    .insert({ company_id: args.companyId, user_id: args.userId, role: args.role, order_id: requestedOrderId, started_at: at })
+    .insert(insertPayload)
     .select("id")
     .maybeSingle();
   if (!error && created?.id) return { sessionId: created.id, closed };

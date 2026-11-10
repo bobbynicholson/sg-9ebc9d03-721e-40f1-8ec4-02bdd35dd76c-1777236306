@@ -34,7 +34,9 @@ export class AppErrorBoundary extends React.Component<Props, State> {
     console.error("[AppErrorBoundary] render crash:", error);
   }
 
-  private reset = () => this.setState({ hasError: false, message: "" });
+  private recover = () => {
+    if (typeof window !== "undefined") window.location.reload();
+  };
 
   render() {
     if (!this.state.hasError) return this.props.children;
@@ -59,7 +61,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
           </p>
           <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
             <button
-              onClick={this.reset}
+              onClick={this.recover}
               style={{
                 padding: "9px 16px",
                 borderRadius: "8px",
@@ -69,7 +71,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
                 cursor: "pointer",
               }}
             >
-              Try again
+              Reload page
             </button>
             <button
               onClick={() => {

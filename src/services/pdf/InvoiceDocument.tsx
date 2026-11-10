@@ -851,7 +851,7 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
         ) : null}
 
         {/* Payment instructions precede potentially lengthy contractual text. */}
-        {paymentProvider || eftDetails ? (
+        {paymentInstructions ? (
           <PaymentSection
             instructions={paymentInstructions}
             primary={primary}

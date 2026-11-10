@@ -885,7 +885,23 @@ export async function fetchPayFastHistoryPage(
     signature: generatePayFastApiSignature({ ...headersToSign, ...query }, credentials.passphrase) },
     signal: AbortSignal.timeout(15000) });
   if (!response.ok) throw new Error(`PayFast history HTTP ${response.status}`);
-  const body = await response.json();
+  // PayFast's history endpoint can return a JSON envelope or raw CSV. Read
+  // the body once and accept both formats; calling response.json() directly
+  // made the recovery worker fail on valid CSV responses and left successful
+  // checkouts pending after a missed webhook.
+  let body: any;
+  if (typeof response.text === "function") {
+    const responseText = await response.text();
+    try {
+      body = JSON.parse(responseText);
+    } catch {
+      body = responseText;
+    }
+  } else {
+    // Keep narrow unit/integration response doubles compatible; native Fetch
+    // responses always use the text branch above.
+    body = await response.json();
+  }
   if (body?.status === "failed" || Number(body?.code || 200) >= 400) throw new Error("PayFast history rejected request");
   const payload = body?.data?.response ?? body?.response ?? body?.data ?? body;
   if (!Array.isArray(payload) && typeof payload !== "string") throw new Error("Unexpected PayFast history response");
@@ -901,7 +917,8 @@ export async function fetchPayFastHistoryPage(
     return { pf_payment_id: String(row.pf_payment_id || row.id || ""),
       m_payment_id: String(row.m_payment_id || row.merchant_reference || ""),
       amount_gross: amount, currency: String(row.currency || "ZAR").toUpperCase(),
-      payment_status: complete ? "COMPLETE" : status || type,
+      payment_status: complete ? "COMPLETE" :
+        (status && !["COMPLETE", "SUCCESSFUL"].includes(status) ? status : type),
       custom_str1: row.custom_str1, custom_str2: row.custom_str2, custom_str3: row.custom_str3,
       custom_str4: row.custom_str4, custom_str5: row.custom_str5 };
   }).filter((row) => row.pf_payment_id && row.payment_status === "COMPLETE");

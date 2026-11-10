@@ -31,21 +31,9 @@ export async function buildPdfPaymentInstructions(input: {
     referenceHint: input.referenceHint,
   });
 
-  if (availability.online_available && availability.provider) {
-    return {
-      online_provider: availability.provider,
-      payment_url: input.paymentUrl || null,
-      reference: input.reference || null,
-      reference_hint: input.referenceHint || null,
-      eft,
-    };
-  }
-
-  if (!eft) return null;
-
   return {
-    online_provider: null,
-    payment_url: null,
+    online_provider: availability.online_available ? availability.provider : null,
+    payment_url: availability.online_available ? input.paymentUrl || null : null,
     eft,
     reference: input.reference || null,
     reference_hint: input.referenceHint || null,

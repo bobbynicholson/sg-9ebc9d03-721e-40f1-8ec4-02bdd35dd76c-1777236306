@@ -69,6 +69,7 @@ import { isAutomatedTestInvoice } from "@/lib/testDataDetection";
 import { invoicePaymentTerms } from "@/lib/invoicePaymentTerms";
 import { configuredPaymentTerms } from "@/lib/paymentTerms";
 import { formatClock } from "@/lib/portalTime";
+import { resolveCompanyEftDetails } from "@/lib/companyEftDetails";
 
 function formatInvoiceRowMoney(amount: number, currencyCode: string | null | undefined): string {
   const code = currencyCode && Object.prototype.hasOwnProperty.call(CURRENCY_CONFIG, currencyCode.toUpperCase())
@@ -698,6 +699,7 @@ function InvoicesPageInner() {
         linkedClient.payment_terms,
         invoice.companyPaymentTerms || configuredPaymentTerms(null),
       ),
+      bankDetails: resolveCompanyEftDetails(invoice.companyBankSettings || {}, data.bankDetails || current?.bankDetails || {}),
       items: Array.isArray(data.items) && data.items.length > 0
         ? data.items
         : current?.items || [],
@@ -879,7 +881,7 @@ function InvoicesPageInner() {
         try {
           const { data, error } = await (supabase as any)
             .from("companies")
-            .select("dispatch_settings")
+            .select("dispatch_settings, company_name, email, bank_name, bank_account_holder, bank_account_number, bank_branch_code, bank_account_type, eft_instructions")
             .eq("id", user.company_id)
             .maybeSingle();
           if (error) throw error;
@@ -932,7 +934,10 @@ function InvoicesPageInner() {
       // company default is always available locally; the lookup below can
       // replace it with the tenant's saved custom wording.
       const fallbackTerms = configuredPaymentTerms(companySettings?.dispatch_settings);
-      for (const invoice of rows) invoice.companyPaymentTerms = fallbackTerms;
+      for (const invoice of rows) {
+        invoice.companyPaymentTerms = fallbackTerms;
+        invoice.companyBankSettings = companySettings || {};
+      }
       setAllInvoices(rows);
       setLoadError(null);
       // Payment-term history is secondary to the invoice list. Keep the
@@ -1142,6 +1147,7 @@ function InvoicesPageInner() {
         invoice.companyPaymentTerms || configuredPaymentTerms(null),
       ),
       eventTime: invoiceData.eventTime || invoiceData.event_time || invoice.orders?.event_time || "",
+      bankDetails: resolveCompanyEftDetails(invoice.companyBankSettings || {}, invoiceData.bankDetails || {}),
     };
     // Paid / balance come from the live invoice row, not the snapshot:
     // an invoice can take any number of payments and the snapshot keeps

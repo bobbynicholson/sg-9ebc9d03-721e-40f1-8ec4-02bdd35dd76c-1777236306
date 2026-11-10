@@ -63,6 +63,8 @@ import { HistorySection } from "./sections/HistorySection";
 import { OrderClientChatPanel } from "@/components/chat/OrderClientChatPanel";
 import type { OrderChatRole } from "@/services/orderChatService";
 import { EquipmentReturnCard } from "@/components/order/EquipmentReturnCard";
+import { BankTransferDetailsCard } from "@/components/documents/BankTransferDetailsCard";
+import { resolveCompanyEftDetails } from "@/lib/companyEftDetails";
 
 const ROUTE_TAG = "/order/[id]";
 
@@ -95,6 +97,9 @@ interface OrderHead {
   id: string;
   company_id: string;
   payment_terms_text: string;
+  company_name?: string | null;
+  company_email?: string | null;
+  bank_transfer_details?: ReturnType<typeof resolveCompanyEftDetails> | null;
   order_number: string | null;
   event_name: string | null;
   event_date: string;
@@ -614,18 +619,24 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
       if (!data) { orderShownRef.current = false; setNotFound(true); setOrder(null); }
       else {
         let paymentTermsText = configuredPaymentTerms(null);
+        let companySettings: any = null;
         try {
-          const { data: companySettings } = await (supabase as any).from("companies")
-            .select("dispatch_settings")
+          const { data: settings, error: settingsError } = await (supabase as any).from("companies")
+            .select("company_name, email, dispatch_settings, bank_name, bank_account_holder, bank_account_number, bank_branch_code, bank_account_type, eft_instructions")
             .eq("id", (data as any).company_id)
             .maybeSingle();
+          if (settingsError) throw settingsError;
+          companySettings = settings;
           paymentTermsText = configuredPaymentTerms(companySettings?.dispatch_settings);
         } catch (settingsError) {
-          console.warn("[order-document] company payment terms could not be loaded:", settingsError);
+          console.warn("[order-document] company payment details could not be loaded:", settingsError);
         }
         setOrder({
           ...(data as any),
           payment_terms_text: paymentTermsText,
+          company_name: companySettings?.company_name || null,
+          company_email: companySettings?.email || null,
+          bank_transfer_details: companySettings ? resolveCompanyEftDetails(companySettings) : null,
         } as unknown as OrderHead);
         orderShownRef.current = true;
       }
@@ -1153,6 +1164,16 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
               inSidePanel={mode !== "print"}
             />
           </div>
+          {(isClient || mode === "print") && (
+            <BankTransferDetailsCard
+              details={order.bank_transfer_details}
+              companyName={order.company_name || "the catering team"}
+              companyEmail={order.company_email}
+              title="Pay by bank transfer (EFT)"
+              referenceHint={`Use booking ${order.order_number || order.id} as the transfer reference.`}
+              paidInFull={Boolean(order.balance_paid) || String(order.payment_status || "").toLowerCase() === "paid"}
+            />
+          )}
           <div className="order-3 space-y-3 sm:space-y-4 lg:order-none">
             {/* ODOC: Finance section is permission-gated at render time.
                 Staff roles + magic-link client mode never see it - data

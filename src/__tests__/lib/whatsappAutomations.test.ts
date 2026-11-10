@@ -403,9 +403,9 @@ describe("message previews", () => {
     for (const automation of WHATSAPP_AUTOMATIONS) expect(wordingProblem(automation, automation.wording)).toBeNull();
   });
 
-  it("lists all 22 messages, each once", () => {
+  it("lists all 23 messages, each once", () => {
     const keys = [...WHATSAPP_AUTOMATIONS, ...WHATSAPP_MANUAL_ONLY].map((item) => item.key);
-    expect(new Set(keys).size).toBe(22);
+    expect(new Set(keys).size).toBe(23);
   });
 });
 

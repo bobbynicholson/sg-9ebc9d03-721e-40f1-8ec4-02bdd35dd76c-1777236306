@@ -16,6 +16,7 @@ import crypto from "node:crypto";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { consumeApiKeyRateLimitDb } from "@/lib/apiKeyRateLimit";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { attachClientOrderBankDetails } from "@/lib/clientOrderBankDetails";
 
 
 const sha256Hex = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
@@ -98,6 +99,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!result?.ok) {
     return res.status(401).json({ error: result?.code || "invalid" });
   }
+  const resultWithBankDetails = await attachClientOrderBankDetails(result);
 
   // Set a cookie so the page doesn't have to keep the token in the URL.
   // Path=/c narrows the cookie to the tokenised client surfaces only
@@ -139,7 +141,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   );
   res.setHeader("Set-Cookie", cookieHeaders);
 
-  return res.status(200).json(result);
+  return res.status(200).json(resultWithBankDetails);
 }
 
 export default withApiLogging(handler);

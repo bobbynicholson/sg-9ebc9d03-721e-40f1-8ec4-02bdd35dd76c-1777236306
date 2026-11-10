@@ -136,6 +136,10 @@ export const googleMapsService = {
   },
 
   async searchAddresses(input: string): Promise<AddressAutocompleteResult[]> {
+    return this.searchPlaces(input, "za");
+  },
+
+  async searchPlaces(input: string, countryCode = "za"): Promise<AddressAutocompleteResult[]> {
     try {
       await this.initializeGoogleMaps();
 
@@ -149,7 +153,7 @@ export const googleMapsService = {
         autocompleteService.getPlacePredictions(
           {
             input,
-            componentRestrictions: { country: "za" }
+            componentRestrictions: { country: countryCode }
           },
           (predictions: any, status: any) => {
             if (status === "OK" && predictions) {
@@ -176,6 +180,7 @@ export const googleMapsService = {
   },
 
   async getPlaceDetails(placeId: string): Promise<{
+    name: string;
     address: string;
     coordinates: { lat: number; lng: number };
     addressComponents: any[];
@@ -205,6 +210,7 @@ export const googleMapsService = {
       });
 
       return {
+        name: result.name || "",
         address: result.formatted_address,
         coordinates: {
           lat: result.geometry.location.lat(),

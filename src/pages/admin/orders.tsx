@@ -162,6 +162,8 @@ import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
 import { loadLatestDocumentAmountChanges } from "@/services/documentAmountChanges";
 import { useServiceAreaEmailAvailability } from "@/hooks/useServiceAreaEmailAvailability";
 
+// Keep each orders query bounded; cursor pagination keeps older imported
+// orders reachable without loading the full history in one request.
 const ORDERS_PAGE_SIZE = 25;
 
 function getOrderEventDateBounds(
@@ -273,15 +275,21 @@ function OrderProcessDashboard() {
     Map<string, OrderReadiness>
   >(new Map());
   const [loading, setLoading] = useState(true);
-  const [loadingMoreOrders, setLoadingMoreOrders] = useState(false);
+  const [loadingOrderPage, setLoadingOrderPage] = useState(false);
   const [hasMoreOrders, setHasMoreOrders] = useState(false);
   const [orderHistoryStatus, setOrderHistoryStatus] = useState<
     "loading" | "complete" | "more" | "single-local-order"
   >("loading");
-  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  const [paginationError, setPaginationError] = useState<string | null>(null);
   const [nextOrderCursor, setNextOrderCursor] =
     useState<OrderPageCursor | null>(null);
-  const loadMoreInFlightRef = useRef(false);
+  const [pageCursorHistory, setPageCursorHistory] = useState<
+    Array<OrderPageCursor | null>
+  >([null]);
+  const [loadingPageDirection, setLoadingPageDirection] = useState<
+    "previous" | "next" | null
+  >(null);
+  const pageNavigationInFlightRef = useRef(false);
   const orderLoadGenerationRef = useRef(0);
   // Rows already on screen stay there while a refresh runs in the background.
   const ordersOnScreenRef = useRef(0);
@@ -1072,32 +1080,43 @@ function OrderProcessDashboard() {
     tenantTimezone,
   ]);
 
-  const loadOrders = async (options: { append?: boolean } = {}) => {
-    const append = options.append === true;
+  const loadOrders = async (options: {
+    cursor?: OrderPageCursor | null;
+    pageNavigation?: boolean;
+    pageDirection?: "previous" | "next";
+    pageCursorHistory?: Array<OrderPageCursor | null>;
+  } = {}) => {
+    const pageNavigation = options.pageNavigation === true;
+    const hasExplicitCursor = Object.prototype.hasOwnProperty.call(options, "cursor");
+    const requestedCursor = hasExplicitCursor
+      ? options.cursor ?? null
+      : pageCursorHistory[pageCursorHistory.length - 1] ?? null;
     // Swapping visible rows for the spinner on every refresh made the whole
     // list flicker. Only an empty list shows the loading state.
-    const quietRefresh = !append && ordersOnScreenRef.current > 0;
-    if (append) {
-      if (!nextOrderCursor || loadMoreInFlightRef.current) return;
-      loadMoreInFlightRef.current = true;
-      setLoadingMoreOrders(true);
-      setLoadMoreError(null);
+    const quietRefresh = !pageNavigation && ordersOnScreenRef.current > 0;
+    if (pageNavigation) {
+      if (pageNavigationInFlightRef.current) return;
+      pageNavigationInFlightRef.current = true;
+      setLoadingOrderPage(true);
+      setLoadingPageDirection(options.pageDirection ?? null);
+      setPaginationError(null);
     } else if (quietRefresh) {
-      loadMoreInFlightRef.current = false;
-      setLoadingMoreOrders(false);
+      pageNavigationInFlightRef.current = false;
+      setLoadingOrderPage(false);
+      setLoadingPageDirection(null);
+      setPaginationError(null);
     } else {
-      loadMoreInFlightRef.current = false;
-      setLoadingMoreOrders(false);
+      pageNavigationInFlightRef.current = false;
+      setLoadingOrderPage(false);
+      setLoadingPageDirection(null);
       setLoading(true);
       setLoadError(null);
-      setLoadMoreError(null);
+      setPaginationError(null);
       setHasMoreOrders(false);
       setOrderHistoryStatus("loading");
       setNextOrderCursor(null);
     }
-    const requestGeneration = append
-      ? orderLoadGenerationRef.current
-      : ++orderLoadGenerationRef.current;
+    const requestGeneration = ++orderLoadGenerationRef.current;
 
     try {
       const localDev =
@@ -1158,11 +1177,11 @@ function OrderProcessDashboard() {
           if (pageFilters.clientId) params.set("client_id", pageFilters.clientId);
           if (pageFilters.regionId) params.set("region_id", pageFilters.regionId);
           if (pageFilters.assignedUserId) params.set("assigned_user_id", pageFilters.assignedUserId);
-          if (append && nextOrderCursor) {
-            if (nextOrderCursor.createdAt) {
-              params.set("cursor_created_at", nextOrderCursor.createdAt);
+          if (requestedCursor) {
+            if (requestedCursor.createdAt) {
+              params.set("cursor_created_at", requestedCursor.createdAt);
             }
-            params.set("cursor_id", nextOrderCursor.id);
+            params.set("cursor_id", requestedCursor.id);
           }
         }
         const response = await fetch(`/api/admin/orders?${params.toString()}`);
@@ -1182,7 +1201,7 @@ function OrderProcessDashboard() {
       } else {
         const page = await orderService.getOrdersPage(companyId, {
           limit: ORDERS_PAGE_SIZE,
-          cursor: append ? nextOrderCursor : null,
+          cursor: requestedCursor,
           ...pageFilters,
         });
         allOrders = page.orders;
@@ -1199,23 +1218,15 @@ function OrderProcessDashboard() {
             : "complete",
       );
       setNextOrderCursor(pageCursor);
-      setOrders((current) => {
-        if (!append) return allOrders as unknown as AppOrder[];
-        const knownIds = new Set(current.map((order) => order.id));
-        return [
-          ...current,
-          ...(allOrders as unknown as AppOrder[]).filter((order) => !knownIds.has(order.id)),
-        ];
-      });
+      if (pageNavigation && options.pageCursorHistory) {
+        setPageCursorHistory(options.pageCursorHistory);
+      }
+      setOrders(allOrders as unknown as AppOrder[]);
       // The order rows are the primary content. Reveal them now while the
       // amount history and timeline enrichment continue in the background.
-      if (!append) setLoading(false);
+      if (!pageNavigation) setLoading(false);
       if (localAmountChanges) {
-        setAmountChangesByOrder((current) =>
-          append
-            ? new Map([...current, ...localAmountChanges!])
-            : localAmountChanges!,
-        );
+        setAmountChangesByOrder(localAmountChanges);
       } else {
         try {
           const changes = await loadLatestDocumentAmountChanges(
@@ -1223,12 +1234,10 @@ function OrderProcessDashboard() {
             companyId,
             allOrders.map((order: any) => order.id),
           );
-          setAmountChangesByOrder((current) =>
-            append ? new Map([...current, ...changes]) : changes,
-          );
+          setAmountChangesByOrder(changes);
         } catch (changeError) {
           console.warn("[orders] amount change history could not be loaded:", changeError);
-          if (!append) setAmountChangesByOrder(new Map());
+          setAmountChangesByOrder(new Map());
         }
       }
 
@@ -1579,12 +1588,8 @@ function OrderProcessDashboard() {
           for (const p of (profileRows || []) as any[]) {
             staffProfilesById.set(p.id, p);
           }
-          setAllShiftsByOrder((current) =>
-            append ? new Map([...current, ...allShiftsByOrder]) : allShiftsByOrder,
-          );
-          setStaffProfilesById((current) =>
-            append ? new Map([...current, ...staffProfilesById]) : staffProfilesById,
-          );
+          setAllShiftsByOrder(allShiftsByOrder);
+          setStaffProfilesById(staffProfilesById);
 
           // Cross-system blocker T2: active cleaning jobs are keyed by
           // equipment, so the returned rows are scoped per order below.
@@ -1600,11 +1605,7 @@ function OrderProcessDashboard() {
           const pageAutoEmailMap = summariseAutoEmailsByOrder(
             (emailLogRes.data as any[] | null) || [],
           );
-          setAutoEmailMap((current) =>
-            append
-              ? new Map([...current, ...pageAutoEmailMap])
-              : pageAutoEmailMap,
-          );
+          setAutoEmailMap(pageAutoEmailMap);
           const deliveryShiftsByOrder = bucket(
             deliveryShiftsRes.data as any[] | null,
           );
@@ -1701,13 +1702,9 @@ function OrderProcessDashboard() {
             );
             readinesses.set(o.id, readiness);
           }
-          setTimelinesById((current) =>
-            append ? new Map([...current, ...timelines]) : timelines,
-          );
-          setReadinessById((current) =>
-            append ? new Map([...current, ...readinesses]) : readinesses,
-          );
-        } else if (!append) {
+          setTimelinesById(timelines);
+          setReadinessById(readinesses);
+        } else {
           setTimelinesById(new Map());
           setReadinessById(new Map());
           setAllShiftsByOrder(new Map());
@@ -1721,14 +1718,15 @@ function OrderProcessDashboard() {
     } catch (error: any) {
       console.error("Error loading orders:", error);
       if (requestGeneration === orderLoadGenerationRef.current) {
-        if (append) setLoadMoreError(error?.message || "Could not load older orders.");
+        if (pageNavigation) setPaginationError(error?.message || "Could not load this orders page.");
         else if (!quietRefresh) setLoadError(error?.message || "Failed to load orders.");
       }
     } finally {
       if (requestGeneration === orderLoadGenerationRef.current) {
-        if (append) {
-          loadMoreInFlightRef.current = false;
-          setLoadingMoreOrders(false);
+        if (pageNavigation) {
+          pageNavigationInFlightRef.current = false;
+          setLoadingOrderPage(false);
+          setLoadingPageDirection(null);
         } else {
           setLoading(false);
         }
@@ -1744,19 +1742,21 @@ function OrderProcessDashboard() {
     if (!user || !orderFiltersHydrated) return;
 
     orderLoadGenerationRef.current += 1;
-    loadMoreInFlightRef.current = false;
+    pageNavigationInFlightRef.current = false;
     ordersOnScreenRef.current = 0;
     setLoading(true);
-    setLoadingMoreOrders(false);
+    setLoadingOrderPage(false);
+    setLoadingPageDirection(null);
     setHasMoreOrders(false);
     setNextOrderCursor(null);
+    setPageCursorHistory([null]);
     setLoadError(null);
-    setLoadMoreError(null);
+    setPaginationError(null);
     setOrders([]);
     setSelectedIds(new Set());
 
     const timer = window.setTimeout(
-      () => void loadOrders(),
+      () => void loadOrders({ cursor: null }),
       searchTerm.trim() ? 300 : 0,
     );
     return () => window.clearTimeout(timer);
@@ -1777,8 +1777,26 @@ function OrderProcessDashboard() {
     tenantTimezone,
   ]);
 
-  const loadOlderOrders = () => {
-    if (hasMoreOrders && !loadingMoreOrders) void loadOrders({ append: true });
+  const loadNextOrdersPage = () => {
+    if (!hasMoreOrders || !nextOrderCursor || loadingOrderPage) return;
+    const nextHistory = [...pageCursorHistory, nextOrderCursor];
+    void loadOrders({
+      cursor: nextOrderCursor,
+      pageNavigation: true,
+      pageDirection: "next",
+      pageCursorHistory: nextHistory,
+    });
+  };
+
+  const loadPreviousOrdersPage = () => {
+    if (pageCursorHistory.length <= 1 || loadingOrderPage) return;
+    const previousHistory = pageCursorHistory.slice(0, -1);
+    void loadOrders({
+      cursor: previousHistory[previousHistory.length - 1] ?? null,
+      pageNavigation: true,
+      pageDirection: "previous",
+      pageCursorHistory: previousHistory,
+    });
   };
 
   const onTimelineExpandChange = (orderId: string, expanded: boolean) => {
@@ -2506,40 +2524,54 @@ function OrderProcessDashboard() {
 
             <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs leading-5 text-slate-600" aria-live="polite">
-                {orderHistoryStatus === "more"
-                  ? `${orders.length} matching orders loaded. Search and filters apply across the full history; load older matching orders to continue.`
-                  : orderHistoryStatus === "complete"
-                    ? `All ${orders.length} matching orders are loaded from the full history.`
-                    : orderHistoryStatus === "single-local-order"
-                      ? "Showing the linked order in local development."
-                      : "Order history is loading or could not be confirmed as complete."}
+                {orderHistoryStatus === "more" || orderHistoryStatus === "complete" ? (
+                  <>
+                    Showing {orders.length} matching {orders.length === 1 ? "order" : "orders"}.{" "}
+                    {hasMoreOrders ? "More pages are available." : "This is the last page."}
+                  </>
+                ) : orderHistoryStatus === "single-local-order" ? (
+                  "Showing the linked order in local development."
+                ) : (
+                  "Order history is loading or could not be confirmed as complete."
+                )}
               </p>
-              {hasMoreOrders && (
+              <div className="flex shrink-0 items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={loadOlderOrders}
-                  disabled={loadingMoreOrders}
-                  className="shrink-0"
+                  onClick={loadPreviousOrdersPage}
+                  disabled={pageCursorHistory.length <= 1 || loadingOrderPage}
+                  aria-label="Show previous page of orders"
                 >
-                  {loadingMoreOrders && (
+                  {loadingPageDirection === "previous" && (
                     <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" />
                   )}
-                  {loadMoreError
-                    ? "Retry loading older orders"
-                    : loadingMoreOrders
-                      ? "Loading older orders…"
-                      : "Load older orders"}
+                  {loadingPageDirection === "previous" ? "Loading..." : "Previous page"}
                 </Button>
-              )}
-              {loadMoreError && (
+                <span className="min-w-16 text-center text-xs text-slate-600" aria-live="polite">
+                  Page {pageCursorHistory.length}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={loadNextOrdersPage}
+                  disabled={!hasMoreOrders || loadingOrderPage}
+                  aria-label="Show next page of orders"
+                >
+                  {loadingPageDirection === "next" && (
+                    <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" />
+                  )}
+                  {loadingPageDirection === "next" ? "Loading..." : "Next page"}
+                </Button>
+              </div>
+              {paginationError && (
                 <span role="status" className="text-xs text-rose-700 sm:max-w-xs">
-                  {loadMoreError}
+                  {paginationError} Select Previous page or Next page to retry.
                 </span>
               )}
             </div>
-
             {/* Kanban Board / Timeline View */}
             <span
               id="order-list"

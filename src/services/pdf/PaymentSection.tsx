@@ -63,6 +63,12 @@ export function PaymentSection({ instructions, primary, beneficiary, quote = fal
           {eft.instructions ? <Text style={styles.details}>{eft.instructions}</Text> : null}
         </View>
       ) : null}
+      {!eft ? (
+        <View style={hasBoth ? styles.column : {}}>
+          <Text style={styles.method} minPresenceAhead={24}>Bank transfer (EFT)</Text>
+          <Text style={styles.body}>Bank account details have not been added to this document. Contact {beneficiary} to request them.</Text>
+        </View>
+      ) : null}
       </View>
     </FlowingCard>
   );

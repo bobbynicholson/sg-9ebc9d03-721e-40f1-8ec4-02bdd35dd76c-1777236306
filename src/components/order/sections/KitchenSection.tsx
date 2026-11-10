@@ -35,9 +35,10 @@ import { dedupeKitchenPrepTasks, formatKitchenPrepTaskType } from "@/lib/kitchen
 import { RecipeDialog } from "./RecipeDialog";
 import { SectionSkeleton } from "./SectionSkeleton";
 import { HandoverToDriverPanel } from "@/components/kitchen/HandoverToDriverPanel";
+import { KitchenMenuItemPreviewDialog, type KitchenMenuItemPreviewData } from "@/components/kitchen/KitchenMenuItemPreviewDialog";
 import {
   ChefHat, Loader2, CheckCircle2, Clock, AlertTriangle, Play,
-  Utensils, BookOpen, Box, Sparkles, ExternalLink,
+  Utensils, BookOpen, Box, Sparkles, ExternalLink, Image as ImageIcon,
 } from "lucide-react";
 
 interface Props {
@@ -86,6 +87,7 @@ interface OrderItemRow {
     recipe_name: string | null;
     dietary_tags: string[] | null;
     allergen_codes: string[] | null;
+    image_url: string | null;
     is_buy_and_sell: boolean | null;
     fulfilment_type: string | null;
   } | null;
@@ -117,6 +119,41 @@ const TASK_STATUS_TONES: Record<string, string> = {
   skipped: "bg-slate-50 text-slate-500 border-slate-200",
 };
 
+function KitchenMenuPhoto({
+  imageUrl,
+  itemName,
+}: {
+  imageUrl: string | null | undefined;
+  itemName: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  if (!imageUrl || failed) {
+    return (
+      <div
+        aria-hidden="true"
+        title={`No photo available for ${itemName}`}
+        className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-slate-300 bg-slate-50 text-slate-400 sm:h-[76px] sm:w-[76px]"
+      >
+        <ImageIcon className="h-4 w-4" />
+      </div>
+    );
+  }
+
+  return (
+    <span className="group relative block h-14 w-14 shrink-0 cursor-zoom-in overflow-hidden rounded-md border border-slate-200 bg-slate-100 sm:h-[76px] sm:w-[76px]">
+      <img
+        src={imageUrl}
+        alt={itemName}
+        loading="lazy"
+        decoding="async"
+        onError={() => setFailed(true)}
+        className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+      />
+    </span>
+  );
+}
+
 export function KitchenSection({
   orderId, companyId, orderNumber, pickupTime, eventDate, eventTime,
   defaultOpen, forceOpen, highlight,
@@ -135,6 +172,7 @@ export function KitchenSection({
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
   const [generatingPlan, setGeneratingPlan] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<KitchenMenuItemPreviewData | null>(null);
   // ODOC: open inline recipe popover. Keeps the chef in the doc
   // rather than punting them to /admin/menu and losing context.
   const [recipeFor, setRecipeFor] = useState<{ menuItemId: string; itemName: string; quantity: number } | null>(null);
@@ -254,7 +292,7 @@ export function KitchenSection({
             .order("start_at", { ascending: true, nullsFirst: false }),
           (supabase as any)
             .from("order_items")
-            .select("id, item_name, description, quantity, special_instructions, menu_item_id, menu_item:menu_item_id(id, item_name, category, prep_time_minutes, cook_time_minutes, instructions, recipe_name, dietary_tags, allergen_codes, is_buy_and_sell, fulfilment_type)")
+            .select("id, item_name, description, quantity, special_instructions, menu_item_id, menu_item:menu_item_id(id, item_name, category, prep_time_minutes, cook_time_minutes, instructions, recipe_name, dietary_tags, allergen_codes, image_url, is_buy_and_sell, fulfilment_type)")
             .eq("order_id", orderId)
             .order("item_name", { ascending: true }),
           (supabase as any)
@@ -431,16 +469,40 @@ export function KitchenSection({
                   const tagBits: string[] = [];
                   if (mi?.category) tagBits.push(mi.category);
                   if (mi?.dietary_tags && mi.dietary_tags.length) tagBits.push(...mi.dietary_tags);
+                  const openItemPreview = () => {
+                    setPhotoPreview({
+                      url: mi?.image_url || null,
+                      itemName: it.item_name,
+                      quantity: it.quantity,
+                      description: it.description || null,
+                      category: mi?.category || null,
+                      dietaryTags: mi?.dietary_tags || [],
+                      allergens: mi?.allergen_codes || [],
+                      specialInstructions: it.special_instructions,
+                      prepMinutes: mi?.prep_time_minutes ?? null,
+                      cookMinutes: mi?.cook_time_minutes ?? null,
+                      isBuyAndSell,
+                      isOutsourced: mi?.fulfilment_type === "outsourced",
+                    });
+                  };
                   return (
                     <li
                       key={it.id}
-                      className={`flex items-start gap-2 p-2.5 rounded-md border ${isBuyAndSell ? "bg-slate-50 border-slate-200" : "bg-white border-orange-200"}`}
+                      className="flex items-start gap-2"
                     >
-                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orange-100 text-orange-800 text-xs font-bold tabular-nums flex-shrink-0">
-                        {it.quantity}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-slate-900">
+                      <button
+                        type="button"
+                        onClick={openItemPreview}
+                        aria-label={`Open photo and kitchen details for ${it.item_name}`}
+                        title="Open photo and kitchen details"
+                        className={`flex min-w-0 flex-1 cursor-pointer items-start gap-2.5 rounded-md border p-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 ${isBuyAndSell ? "border-slate-200 bg-slate-50 hover:bg-slate-100" : "border-orange-200 bg-white hover:bg-orange-50/70"}`}
+                      >
+                        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-100 text-xs font-bold tabular-nums text-orange-800">
+                          {it.quantity}
+                        </span>
+                        <KitchenMenuPhoto imageUrl={mi?.image_url} itemName={it.item_name} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-medium text-slate-900">
                           {it.item_name}
                           {isBuyAndSell && (
                             <span className="ml-2 text-[10px] uppercase tracking-wider text-slate-600 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">Buy-and-sell</span>
@@ -448,13 +510,13 @@ export function KitchenSection({
                           {mi?.fulfilment_type === "outsourced" && (
                             <span className="ml-2 text-[10px] uppercase tracking-wider text-slate-700 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5">Outsourced</span>
                           )}
-                        </p>
+                          </span>
                         {it.description && (
-                          <p className="text-xs text-slate-600 mt-0.5">{it.description}</p>
+                          <span className="mt-0.5 block text-xs text-slate-600">{it.description}</span>
                         )}
                         {/* Tag strip - category + dietary + allergens */}
                         {(tagBits.length > 0 || (mi?.allergen_codes && mi.allergen_codes.length > 0)) && (
-                          <div className="flex flex-wrap gap-1 mt-1">
+                          <span className="mt-1 flex flex-wrap gap-1">
                             {tagBits.map((t) => (
                               <span key={t} className="text-[10px] text-slate-600 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">
                                 {t}
@@ -465,21 +527,22 @@ export function KitchenSection({
                                 Allergen: {a}
                               </span>
                             ))}
-                          </div>
+                          </span>
                         )}
                         {it.special_instructions && (
-                          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-1.5 mt-1.5">
+                          <span className="mt-1.5 block rounded border border-amber-200 bg-amber-50 p-1.5 text-xs text-amber-800">
                             <span className="font-semibold">Special: </span>{it.special_instructions}
-                          </p>
+                          </span>
                         )}
                         {totalMinutes > 0 && !isBuyAndSell && (
-                          <p className="text-[11px] text-slate-500 mt-1 tabular-nums">
+                          <span className="mt-1 block text-[11px] tabular-nums text-slate-500">
                             {mi?.prep_time_minutes ? `Prep ${mi.prep_time_minutes}min` : ""}
                             {mi?.prep_time_minutes && mi?.cook_time_minutes ? " · " : ""}
                             {mi?.cook_time_minutes ? `Cook ${mi.cook_time_minutes}min` : ""}
-                          </p>
+                          </span>
                         )}
-                      </div>
+                        </span>
+                      </button>
                       {/* Recipe popover. Opens inline so the chef
                           doesn't lose the order doc - shows scaled
                           ingredient quantities and method without
@@ -702,6 +765,7 @@ export function KitchenSection({
         itemName={recipeFor?.itemName || ""}
         orderQuantity={recipeFor?.quantity || 1}
       />
+      <KitchenMenuItemPreviewDialog item={photoPreview} onOpenChange={(open) => { if (!open) setPhotoPreview(null); }} />
     </CollapsibleSection>
   );
 }

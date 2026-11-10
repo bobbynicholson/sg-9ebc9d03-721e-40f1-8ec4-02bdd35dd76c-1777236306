@@ -1,20 +1,18 @@
 /**
  * ShiftTasksChips - Wave 41 Phase 3.
  *
- * Renders compact task chips inline within a shift cell on the
- * schedule grids. Each chip shows the task type's short label
- * (K/C/D/S/W/Su/Br/A) with a coloured pill. Hover shows full label
- * + duration + billable status.
+ * Renders task chips inline within a shift cell on the schedule
+ * grids. Each chip shows the full task type so the labels are clear
+ * without relying on hover.
  *
  * Clicking the chip body toggles completion (mark done / reopen) -
  * completion = actual_end set, rendered with a check + strikethrough.
- * Completing a task pings the operator who added it. The small X
- * removes the task (with native confirm). A "+" affordance opens the
- * AddShiftTaskModal.
+ * Completing a task pings the operator who added it. The remove
+ * button removes the task (with native confirm). "Add task" opens
+ * the AddShiftTaskModal.
  *
- * Designed for grid density - chips are pill-shaped 18px high so
- * they slot neatly under the planned/actual time row in a kitchen
- * or cleaning schedule cell without blowing out the row height.
+ * Buttons stay compact but have a usable pointer target and visible
+ * labels in both kitchen and cleaning schedules.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Check, Plus, X } from "lucide-react";
@@ -70,7 +68,7 @@ export function ShiftTasksChips({ tasks, onAddClick, onChanged, actorUserId }: P
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-1 mt-1">
+    <div className="mt-1 flex flex-wrap items-center gap-1">
       {tasks.map((t) => {
         const meta = taskChipMeta(t.task_type);
         const done = !!t.actual_end;
@@ -88,28 +86,30 @@ export function ShiftTasksChips({ tasks, onAddClick, onChanged, actorUserId }: P
           <span
             key={t.id}
             title={tooltip}
-            className={`inline-flex items-center rounded-full border px-1.5 h-[18px] text-[10px] font-semibold ${meta.chip} ${
+            className={`inline-flex max-w-full items-center rounded-md border px-1.5 min-h-7 text-xs font-semibold ${meta.chip} ${
               isBusy ? "opacity-40" : ""
-            } ${done ? "opacity-60 line-through" : ""}`}
+            } ${done ? "opacity-60" : ""}`}
           >
             <button
               type="button"
               disabled={isBusy}
               onClick={() => onToggleComplete(t)}
-              className="inline-flex items-center gap-0.5 hover:opacity-80 disabled:cursor-wait"
+              aria-label={done ? `Reopen ${meta.label} task` : `Mark ${meta.label} task done`}
+              className={`inline-flex min-w-0 items-center gap-1 hover:opacity-80 disabled:cursor-wait ${done ? "line-through" : ""}`}
             >
-              {done ? <Check className="w-2.5 h-2.5 mr-0.5" /> : null}
-              {meta.shortLabel}
-              {!t.billable && <span className="ml-0.5 opacity-70">*</span>}
+              {done ? <Check className="h-3.5 w-3.5 shrink-0" /> : null}
+              <span className="truncate">{meta.label}</span>
+              {!t.billable && <span className="shrink-0 opacity-70">*</span>}
             </button>
             <button
               type="button"
               disabled={isBusy}
               onClick={() => onRemove(t.id)}
-              title="Remove task"
-              className="inline-flex items-center hover:opacity-80 disabled:cursor-wait"
+              aria-label={`Remove ${meta.label} task`}
+              title={`Remove ${meta.label} task`}
+              className="ml-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded hover:bg-rose-100 hover:text-rose-800 disabled:cursor-wait"
             >
-              <X className="w-2.5 h-2.5 ml-0.5 opacity-60" />
+              <X className="h-3.5 w-3.5" />
             </button>
           </span>
         );
@@ -117,10 +117,11 @@ export function ShiftTasksChips({ tasks, onAddClick, onChanged, actorUserId }: P
       <button
         type="button"
         onClick={onAddClick}
-        className="inline-flex items-center justify-center rounded-full border border-dashed border-slate-300 w-[18px] h-[18px] text-slate-400 hover:text-slate-700 hover:border-slate-500 transition-colors"
-        title="Add task to this shift"
+        className="inline-flex min-h-7 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-dashed border-slate-300 px-2 text-xs font-medium text-slate-600 transition-colors hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
+        aria-label="Add task to this shift"
       >
-        <Plus className="w-3 h-3" />
+        <Plus className="h-3.5 w-3.5" />
+        Add task
       </button>
     </div>
   );
