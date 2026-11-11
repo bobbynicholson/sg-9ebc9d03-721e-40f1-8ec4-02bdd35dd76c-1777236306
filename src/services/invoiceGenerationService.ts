@@ -1368,7 +1368,8 @@ async function renderInvoicePdfAttachment(
         billing_city, billing_postal_code, tax_number, payment_terms
       ),
       order:order_id (
-        id, order_number, client_name, client_company_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count, deposit_amount, deposit_percentage, currency, updated_at
+        id, order_number, client_name, client_company_name, client_email, client_phone, event_name, event_date, event_time, venue_name, venue_address, guest_count, deposit_amount, deposit_percentage, currency, updated_at,
+        service_sittings(sequence_number,guest_count,service_time,venue_name,venue_address)
       ),
       company:company_id (
         id, slug, company_name, legal_name, time_format, logo_url, email, phone,
@@ -1473,6 +1474,7 @@ async function renderInvoicePdfAttachment(
       event_time: order.event_time || fallbackData.eventTime || null,
       venue_address: order.venue_address || null,
       guest_count: order.guest_count ?? null,
+      service_sittings: order.service_sittings || [],
       line_items: lineItems,
       subtotal: invAny.subtotal ?? fallbackData.subtotal,
       tax_amount: invAny.tax_amount ?? fallbackData.taxAmount,

@@ -66,7 +66,7 @@ export interface ScaledRecipe {
   ingredients: ScaledIngredient[];
 }
 
-export type KitchenSittingPlan = { id: string; guestCount: number; serviceTime: string; kitchenReadyTime?: string; dispatchTime?: string };
+export type KitchenSittingPlan = { id: string; guestCount: number; serviceTime: string; kitchenReadyTime?: string; dispatchTime?: string; venueName?: string | null; venueAddress?: string | null };
 
 export interface PrepTask {
   service_sitting_id?: string | null;
@@ -373,7 +373,7 @@ export const kitchenPrepService = {
       // selecting it 400s the whole query. guest_count alone.
       // menu_items lives on the linked quote, not orders - embed it (the
       // planner falls back to order_items below when the snapshot is empty).
-      .select("id, company_id, region_id, guest_count, event_date, event_time, pickup_time, delivery_time, quote:quotes!orders_quote_id_fkey(menu_items), service_sittings(id,sequence_number,guest_count,service_time,kitchen_ready_time,dispatch_time), company:companies!orders_company_id_fkey(timezone)")
+      .select("id, company_id, region_id, guest_count, event_date, event_time, pickup_time, delivery_time, venue_name,venue_address,venue_lat,venue_lng, quote:quotes!orders_quote_id_fkey(menu_items), service_sittings(id,sequence_number,guest_count,service_time,kitchen_ready_time,dispatch_time,venue_name,venue_address,venue_lat,venue_lng), company:companies!orders_company_id_fkey(timezone)")
       .eq("id", orderId)
       .eq("company_id", companyId)
       .maybeSingle();
@@ -418,7 +418,12 @@ export const kitchenPrepService = {
     if (!pickupAt && !sittingPlan?.length && !order.service_sittings?.length) return [];
 
     const savedSittings = [...(order.service_sittings || [])].sort((a: any, b: any) => a.sequence_number - b.sequence_number);
-    const batches: KitchenSittingPlan[] = sittingPlan || (savedSittings.length > 1 ? savedSittings.map((row: any) => ({ id: row.id, guestCount: row.guest_count, serviceTime: row.service_time, kitchenReadyTime: row.kitchen_ready_time, dispatchTime: row.dispatch_time })) : []);
+    const rawBatches: KitchenSittingPlan[] = sittingPlan || (savedSittings.length > 1 ? savedSittings.map((row: any) => ({ id: row.id, guestCount: row.guest_count, serviceTime: row.service_time, kitchenReadyTime: row.kitchen_ready_time, dispatchTime: row.dispatch_time, venueName: row.venue_name, venueAddress: row.venue_address })) : []);
+    const batches: KitchenSittingPlan[] = rawBatches.map((row) => ({
+      ...row,
+      venueName: row.venueName || order.venue_name || null,
+      venueAddress: row.venueAddress || order.venue_address || null,
+    }));
     const split = batches.length > 0;
     const planningBatches: KitchenSittingPlan[] = split ? batches : [{ id: "", guestCount: Number(order.guest_count || 1), serviceTime: order.event_time }];
 
@@ -474,7 +479,8 @@ export const kitchenPrepService = {
         if (!name) continue;
         const portions = split ? allocateSittingQuantities(Number(item.quantity != null ? item.quantity : order.guest_count || 1), planningBatches.map((row) => row.guestCount))[batchIndex] : null;
         if (split && !portions) continue;
-        const batchFields = split ? { service_sitting_id: batch.id, planned_yield: portions, yield_unit: "portions", notes: `Sitting ${batchIndex + 1}: ${batch.guestCount} guests at ${String(batch.serviceTime).slice(0, 5)}. ${portions} portions of ${name}.` } : {};
+        const locationNote = batch.venueAddress ? ` Delivery to: ${batch.venueName ? `${batch.venueName} — ` : ""}${batch.venueAddress}.` : "";
+        const batchFields = split ? { service_sitting_id: batch.id, planned_yield: portions, yield_unit: "portions", notes: `Sitting ${batchIndex + 1}: ${batch.guestCount} guests at ${String(batch.serviceTime).slice(0, 5)}.${locationNote} ${portions} portions of ${name}.` } : {};
 
         const recipe = recipeByName.get(name) ?? null;
         const basePrepMin = recipe?.prep_time_min ?? settings.defaultPrepMinPerDish;

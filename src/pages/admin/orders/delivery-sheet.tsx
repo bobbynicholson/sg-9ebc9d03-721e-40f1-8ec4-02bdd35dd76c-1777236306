@@ -36,6 +36,7 @@ interface OrderRow {
   pickup_time: string | null;
   guest_count: number | null;
   venue_address: string | null;
+  service_sittings?: Array<{ sequence_number: number; guest_count: number; service_time: string; venue_name: string | null; venue_address: string | null }>;
   status: string | null;
   special_instructions: string | null;
   assigned_driver: { full_name: string | null } | null;
@@ -65,7 +66,8 @@ function DeliverySheet() {
           .select(`
             id, order_number, client_name, client_phone,
             event_date, event_time, setup_time, pickup_time,
-            guest_count, venue_address, status,
+            guest_count, venue_name, venue_address, status,
+            service_sittings(sequence_number,guest_count,service_time,venue_name,venue_address),
             special_instructions,
             assigned_driver:profiles!orders_assigned_driver_id_fkey ( full_name ),
             assigned_vehicle:vehicles!orders_assigned_vehicle_id_fkey ( plate, nickname )
@@ -189,7 +191,7 @@ function DeliverySheet() {
                               {o.order_number || ""}
                             </span>
                           </p>
-                          <p className="text-xs text-slate-600 mt-0.5">{o.venue_address || "-"}</p>
+                          {o.service_sittings && o.service_sittings.length > 1 ? <ul className="mt-1 space-y-0.5 text-xs text-slate-600">{[...o.service_sittings].sort((a,b) => a.sequence_number-b.sequence_number).map(s => <li key={s.sequence_number}>Sitting {s.sequence_number} · {s.guest_count} guests · {fmtTime(s.service_time)} · {s.venue_name ? `${s.venue_name} — ` : ""}{s.venue_address || o.venue_address || "Address not set"}</li>)}</ul> : <p className="text-xs text-slate-600 mt-0.5">{o.venue_address || "-"}</p>}
                           <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-1 flex-wrap">
                             <span className="tabular-nums">{o.guest_count ?? "-"} guests</span>
                             {o.setup_time && <span>setup {fmtTime(o.setup_time)}</span>}

@@ -33,8 +33,11 @@
 // controllerchange + re-checks for updates on tab focus and reloads
 // once, so future deploys actually land on installed PWAs.
 // v5: never retain authenticated HTML between accounts on a shared device.
-const CACHE_VERSION = "v5";
+// v6: clear old shell caches and do not cache localhost's stable Next dev
+// chunk URLs. Dev chunks can change in place, unlike production hashes.
+const CACHE_VERSION = "v6";
 const SHELL_CACHE = `cms-app-shell-${CACHE_VERSION}`;
+const IS_LOCAL_DEV = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(self.location.hostname);
 const SHELL_URLS = [
   "/auth/login",
   "/icons/cateringms-192.png",
@@ -104,6 +107,12 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api/")) return;
   if (url.pathname.startsWith("/_next/data/")) return;
+  if (IS_LOCAL_DEV && url.pathname.startsWith("/_next/static/")) {
+    // Force a network read and bypass both the browser HTTP cache and the
+    // service-worker cache while dev chunk filenames remain stable.
+    event.respondWith(fetch(req, { cache: "no-store" }));
+    return;
+  }
 
   // Network-first for everything else, fall back to shell cache.
   event.respondWith(

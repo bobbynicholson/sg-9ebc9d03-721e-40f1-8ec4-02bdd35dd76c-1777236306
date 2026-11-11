@@ -55,6 +55,7 @@ import {
 
 interface OrderRow {
   sittingCount: number;
+  sittingLocations: Array<{ sequence_number: number; guest_count: number; venue_name: string | null; venue_address: string | null }>;
   id: string;
   order_number: string | null;
   client_id: string | null;
@@ -265,7 +266,7 @@ function DispatchQueuePage() {
       const { data: rows, error, count } = await supabase
         .from("orders")
         .select(`
-          service_sittings(id), id, order_number, client_id, client_name, event_date, event_time, pickup_time, status, total_amount,
+          service_sittings(id,sequence_number,guest_count,venue_name,venue_address), id, order_number, client_id, client_name, event_date, event_time, pickup_time, status, total_amount,
           venue_lat, venue_lng, venue_name, venue_address,
           confirmed_at, assigned_driver_id, assigned_at, assignment_score, region_id,
           assigned_chef_id,
@@ -320,6 +321,7 @@ function DispatchQueuePage() {
       if (requestId !== loadRequestRef.current) return;
       const mapped: OrderRow[] = (rows || []).map((r: any) => ({
         sittingCount: r.service_sittings?.length || 0,
+        sittingLocations: (r.service_sittings || []).sort((a: any, b: any) => a.sequence_number - b.sequence_number).map((s: any) => ({ sequence_number: s.sequence_number, guest_count: s.guest_count, venue_name: s.venue_name ?? null, venue_address: s.venue_address ?? null })),
         id: r.id,
         order_number: r.order_number ?? null,
         client_id: r.client_id ?? null,
@@ -1399,14 +1401,15 @@ function DispatchQueuePage() {
                         </p>
                       </div>
                       <div className="min-w-0">
-                        {order.venue ? (
+                          {order.venue ? (
                           <span className="flex min-w-0 max-w-full items-center gap-1 text-xs text-slate-600" title={order.venue}>
                             <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
                             <span className="truncate">{order.venue.split(",")[0]}</span>
                           </span>
-                        ) : (
-                          <span className="text-xs text-slate-400">-</span>
-                        )}
+                          ) : (
+                            <span className="text-xs text-slate-400">-</span>
+                          )}
+                        {order.sittingCount > 1 && order.sittingLocations.some(s => s.venue_name || s.venue_address) && <ul className="mt-1 space-y-0.5 text-[11px] text-slate-600">{order.sittingLocations.map(s => <li key={s.sequence_number}>Sitting {s.sequence_number} ({s.guest_count}): {s.venue_name ? `${s.venue_name} · ` : ""}{s.venue_address || "Main booking address"}</li>)}</ul>}
                       </div>
                       <div className="min-w-0">
                         {order.sittingCount > 1 ? (

@@ -1,4 +1,5 @@
-import { buildDiaryEntries, toDateKey, type DiaryEntry, type DiaryOrderRow, type DiaryQuoteRow } from "@/lib/quoteDiarySignal";
+import { buildDiaryEntries, type DiaryEntry, type DiaryOrderRow, type DiaryQuoteRow } from "@/lib/quoteDiarySignal";
+import { toLocalDateKey } from "@/lib/localDate";
 
 const PAGE_SIZE = 500;
 
@@ -47,13 +48,13 @@ export async function loadQuoteDiary(
 /** Include all displayed quotes (also historical ones) and the nearby
  *  days used by the availability signal. */
 export function quoteDiaryRange(eventDates: (string | null | undefined)[], today = new Date()): { start: string; end: string } {
-  const keys = eventDates.map(toDateKey).filter((key): key is string => !!key);
-  keys.push(toDateKey(today)!);
+  const keys = eventDates.map(toLocalDateKey).filter((key): key is string => !!key);
+  keys.push(toLocalDateKey(today)!);
   keys.sort();
   const shift = (key: string, days: number) => {
     const date = new Date(`${key}T12:00:00`);
     date.setDate(date.getDate() + days);
-    return toDateKey(date)!;
+    return toLocalDateKey(date)!;
   };
   return { start: shift(keys[0], -2), end: shift(keys[keys.length - 1], 2) };
 }

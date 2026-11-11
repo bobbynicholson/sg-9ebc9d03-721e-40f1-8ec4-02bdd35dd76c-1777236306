@@ -39,7 +39,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const editsPlan = Array.isArray(operations) && operations.some((row: any) => row.guest_count !== undefined || row.service_time !== undefined);
   let tasks: unknown[] = [];
   if (editsPlan) {
-    const plan = normaliseServiceSittings(operations.map((row: any) => ({ guestCount: row.guest_count, serviceTime: String(row.service_time || "").slice(0, 5), kitchenReadyTime: row.kitchenReadyTime, dispatchTime: row.dispatchTime })), operations.reduce((sum: number, row: any) => sum + Number(row.guest_count || 0), 0));
+    const plan = normaliseServiceSittings(operations.map((row: any) => ({ guestCount: row.guest_count, serviceTime: String(row.service_time || "").slice(0, 5), venueName: row.venue_name ?? row.venueName, venueAddress: row.venue_address ?? row.venueAddress, venueLat: row.venue_lat ?? row.venueLat, venueLng: row.venue_lng ?? row.venueLng, kitchenReadyTime: row.kitchenReadyTime, dispatchTime: row.dispatchTime })), operations.reduce((sum: number, row: any) => sum + Number(row.guest_count || 0), 0));
     if (plan.error || operations.some((row: any) => !isUuid(row.id))) return res.status(400).json({ error: plan.error || "Reload the sitting plan before saving." });
     try {
       const { kitchenPrepService } = await import("@/services/kitchenPrepService");
@@ -48,7 +48,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(500).json({ error: error.message || "The kitchen plan could not be prepared. Your changes have not been saved." });
     }
   }
-  let { error } = await access.db.rpc(editsPlan ? "save_admin_order_service_plan" : "save_order_sitting_operations", {
+  let { error } = await access.db.rpc(editsPlan ? "save_admin_order_service_plan_with_venues" : "save_order_sitting_operations_with_venues", {
     p_order_id: id, p_company_id: access.companyId,
     p_operations: operations,
     p_return_plan: returnPlan,
@@ -57,11 +57,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // During deployment/schema-cache refresh, keep already saved trip plans
   // usable. A new guest/time split must wait for the atomic transaction.
   if (editsPlan && error?.code === "PGRST202") {
-    const saved = await access.db.from("service_sittings").select("id,guest_count,service_time")
+    const saved = await access.db.from("service_sittings").select("id,guest_count,service_time,venue_name,venue_address,venue_lat,venue_lng")
       .eq("order_id", id).eq("company_id", access.companyId);
     const unchanged = !saved.error && saved.data?.length === operations.length && operations.every((row: any) =>
       saved.data.some((existing: any) => existing.id === row.id && existing.guest_count === row.guest_count
-        && existing.service_time.slice(0, 5) === row.service_time.slice(0, 5)));
+        && existing.service_time.slice(0, 5) === row.service_time.slice(0, 5)
+        && (row.venue_address === undefined && row.venueAddress === undefined || (existing.venue_address || null) === (row.venue_address ?? row.venueAddress ?? null))
+        && (row.venue_name === undefined && row.venueName === undefined || (existing.venue_name || null) === (row.venue_name ?? row.venueName ?? null))
+        && (row.venue_lat === undefined && row.venueLat === undefined || (existing.venue_lat ?? null) === (row.venue_lat ?? row.venueLat ?? null))
+        && (row.venue_lng === undefined && row.venueLng === undefined || (existing.venue_lng ?? null) === (row.venue_lng ?? row.venueLng ?? null))));
     if (!unchanged) return res.status(503).json({ error: "The new sitting planner is awaiting its database update. Your booking has not changed. Please try again after the update is complete." });
     ({ error } = await access.db.rpc("save_order_sitting_operations", { p_order_id:id,p_company_id:access.companyId,p_operations:operations,p_return_plan:returnPlan }));
     if (!error) return res.status(200).json({ ok:true, notice:"Trip schedule saved. Kitchen batch updates will be available after the database update is complete." });

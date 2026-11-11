@@ -32,6 +32,18 @@ test("two timed kitchen batches have independent task IDs, allocated portions an
   expect(finish(tasks[3])).toBe("2099-11-06T14:30:00.000Z");
   expect(filters).toContainEqual(["orders","company_id","company"]);
 });
+test("prep tasks carry the delivery destination for each sitting", async () => {
+  const { db } = database({ venue_address: "Parent venue" });
+  const locationPlan = [
+    { ...plan[0], venueName: "Office A", venueAddress: "10 Main Road" },
+    { ...plan[1], venueName: "Office B", venueAddress: "20 Loop Street" },
+  ];
+  const tasks = await kitchenPrepService.planTasksForOrder("company", "booking", db, locationPlan);
+  expect(tasks.find(task => task.service_sitting_id === "s1")?.notes).toContain("Delivery to: Office A — 10 Main Road");
+  expect(tasks.find(task => task.service_sitting_id === "s2")?.notes).toContain("Delivery to: Office B — 20 Loop Street");
+  const inherited = await kitchenPrepService.planTasksForOrder("company", "booking", db, plan);
+  expect(inherited.find(task => task.service_sitting_id === "s1")?.notes).toContain("Delivery to: Parent venue");
+});
 test("automatic prep generation reads the staff-approved sittings on the order", async () => {
   const { db } = database({ service_sittings: plan.map((row,i)=>({ id:row.id,sequence_number:i+1,guest_count:row.guestCount,service_time:row.serviceTime,kitchen_ready_time:row.kitchenReadyTime,dispatch_time:row.dispatchTime })) });
   expect((await kitchenPrepService.planTasksForOrder("company","booking",db)).map(task=>task.service_sitting_id)).toEqual(["s1","s1","s2","s2"]);

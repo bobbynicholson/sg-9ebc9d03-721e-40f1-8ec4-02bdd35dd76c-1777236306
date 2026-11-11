@@ -26,12 +26,12 @@ for (const handler of [quoteHandler, orderHandler]) {
 test("quote writes use the verified tenant, preserve both times, and include the reviewed request", async () => {
   const plan = [{ guestCount: 50, serviceTime: "12:00" }, { guestCount: 50, serviceTime: "18:00" }];
   const s = setup(quoteHandler, { plan, patch: { guest_count: 100 }, requestId: id, companyId: "forged-company" }); await s.run();
-  expect(rpc).toHaveBeenCalledWith("save_admin_quote_service_plan", { p_quote_id: id, p_company_id: "verified-company", p_plan: plan, p_patch: { guest_count: 100 }, p_request_id: id }); expect(s.res.code).toBe(200);
+  expect(rpc).toHaveBeenCalledWith("save_admin_quote_service_plan_with_venues", { p_quote_id: id, p_company_id: "verified-company", p_plan: plan, p_patch: { guest_count: 100 }, p_request_id: id }); expect(s.res.code).toBe(200);
 });
 test("operations writes retain separate driver selections and return plan", async () => {
   const sittings = [{ id, deliveryDriverIds: ["d1", "d2"], collectionDriverIds: ["d3"] }];
   const s = setup(orderHandler, { sittings, returnPlan: "per_sitting_collection", companyId: "forged-company" }); await s.run();
-  expect(rpc).toHaveBeenCalledWith("save_order_sitting_operations", { p_order_id: id, p_company_id: "verified-company", p_operations: sittings, p_return_plan: "per_sitting_collection" });
+  expect(rpc).toHaveBeenCalledWith("save_order_sitting_operations_with_venues", { p_order_id: id, p_company_id: "verified-company", p_operations: sittings, p_return_plan: "per_sitting_collection" });
 });
 test("driver progress uses the session driver, never a submitted identity", async () => {
   const s = setup(tripHandler, { assignmentId: id, status: "accepted", driverId: "another-driver" }); await s.run();
@@ -44,7 +44,7 @@ test("admin splits and kitchen batches enter the same tenant-scoped transaction"
   const tasks = [{ service_sitting_id:id,menu_item_name:"Brownie" }];
   (kitchenPrepService.planTasksForOrder as jest.Mock).mockResolvedValueOnce(tasks);
   const s=setup(orderHandler,{sittings,returnPlan:"per_sitting_collection"});await s.run();
-  expect(rpc).toHaveBeenCalledWith("save_admin_order_service_plan",{p_order_id:id,p_company_id:"verified-company",p_operations:sittings.map(row=>({...row,collectionDriverIds:row.deliveryDriverIds})),p_return_plan:"per_sitting_collection",p_kitchen_tasks:tasks});
+  expect(rpc).toHaveBeenCalledWith("save_admin_order_service_plan_with_venues",{p_order_id:id,p_company_id:"verified-company",p_operations:sittings.map(row=>({...row,collectionDriverIds:row.deliveryDriverIds})),p_return_plan:"per_sitting_collection",p_kitchen_tasks:tasks});
 });
 test("a kitchen planning error leaves the saved order untouched", async()=>{
   (kitchenPrepService.planTasksForOrder as jest.Mock).mockRejectedValueOnce(new Error("Kitchen unavailable"));

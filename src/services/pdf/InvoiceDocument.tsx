@@ -74,6 +74,7 @@ export interface InvoicePdfData {
   event_time?: string | null;
   venue_address?: string | null;
   guest_count?: number | string | null;
+  service_sittings?: Array<{ sequence_number: number; guest_count: number; service_time?: string | null; venue_name?: string | null; venue_address?: string | null }>;
 
   line_items: InvoicePdfLineItem[];
 
@@ -728,6 +729,17 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
                 </View>
               ) : null}
             </View>
+          </View>
+        ) : null}
+
+        {(data.service_sittings?.length || 0) > 1 ? (
+          <View style={[styles.card, { marginTop: 8 }]}>
+            <Text style={styles.sectionLabel} minPresenceAhead={28}>Delivery locations</Text>
+            {[...data.service_sittings!].sort((a, b) => a.sequence_number - b.sequence_number).map(sitting => (
+              <Text key={sitting.sequence_number} style={styles.cellValue}>
+                Sitting {sitting.sequence_number}: {sitting.guest_count} guests{sitting.service_time ? ` · ${formatClockBoth(sitting.service_time)}` : ""}{sitting.venue_name || sitting.venue_address ? ` · ${[sitting.venue_name, sitting.venue_address || data.venue_address].filter(Boolean).join(" — ")}` : data.venue_address ? ` · ${data.venue_address}` : ""}
+              </Text>
+            ))}
           </View>
         ) : null}
 

@@ -10,7 +10,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!access.isAdmin) return res.status(403).json({ error: "Only an administrator can review serving times." });
   const id = String(req.query.id || "");
   if (!isUuid(id)) return res.status(400).json({ error: "Invalid quote." });
-  const { error } = await access.db.rpc("save_admin_quote_service_plan", {
+  const { error } = await access.db.rpc("save_admin_quote_service_plan_with_venues", {
     p_quote_id: id, p_company_id: access.companyId,
     p_plan: req.body?.plan, p_patch: req.body?.patch || {},
     p_request_id: req.body?.requestId || null,

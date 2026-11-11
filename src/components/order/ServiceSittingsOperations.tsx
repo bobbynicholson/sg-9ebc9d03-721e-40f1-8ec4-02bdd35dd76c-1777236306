@@ -7,9 +7,12 @@ import { formatClock } from "@/lib/portalTime";
 import { emitOrderUpdated } from "@/lib/events/orderEvents";
 import { useToast } from "@/hooks/use-toast";
 import { Check, ChevronDown, Search } from "lucide-react";
+import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
+import { filterRosterStaff, rosterDepartmentAliases, type RosterDepartmentRow, type RosterStaffProfile } from "@/lib/rosterStaff";
 
 export type SittingOperations = {
   id: string; sequence_number: number; guest_count: number; service_time: string;
+  venue_name?: string | null; venue_address?: string | null; venue_lat?: number | null; venue_lng?: number | null;
   updated_at?: string; persisted?: boolean;
   kitchenReadyTime: string; dispatchTime: string; returnDate: string; returnTime: string;
   packingNotes: string; cleaningResetRequired: boolean; deliveryDriverIds: string[]; collectionDriverIds: string[];
@@ -136,6 +139,7 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
   const [saveNotice, setSaveNotice] = useState("");
   const [totalGuests, setTotalGuests] = useState(0);
   const [eventDate, setEventDate] = useState("");
+  const [parentVenue, setParentVenue] = useState({ name: "", address: "", lat: null as number | null, lng: null as number | null });
   const [editableBooking, setEditableBooking] = useState(true);
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -144,17 +148,25 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
       const results = await Promise.all([
         db.from("service_sittings").select("*").eq("order_id", orderId).eq("company_id", companyId).order("sequence_number"),
         db.from("driver_assignments").select("id,service_sitting_id,driver_id,assignment_type,status").eq("order_id", orderId).eq("company_id", companyId),
-        db.from("orders").select("event_date,event_time,guest_count,status,equipment_return_plan,assigned_driver_id,secondary_driver_id,driver_id").eq("id", orderId).eq("company_id", companyId).single(),
-        db.from("profiles").select("id,full_name").eq("company_id", companyId).eq("role", "driver").or("is_active.is.null,is_active.eq.true").order("full_name"),
+        db.from("orders").select("event_date,event_time,guest_count,status,equipment_return_plan,assigned_driver_id,secondary_driver_id,driver_id,venue_name,venue_address,venue_lat,venue_lng").eq("id", orderId).eq("company_id", companyId).single(),
+        db.from("profiles").select("id,full_name,email,role,active_role").eq("company_id", companyId).or("is_active.is.null,is_active.eq.true").is("deleted_at", null).order("full_name"),
       ]);
       for (const result of results) if (result.error) throw result.error;
       const [sittings, assignments, order, pool] = results;
+      const profileRows = (pool.data || []) as RosterStaffProfile[];
+      let driverDepartments: RosterDepartmentRow[] = [];
+      if (profileRows.length) {
+        const departmentResult = await db.from("user_departments").select("user_id,department").in("user_id", profileRows.map(profile => profile.id)).in("department", rosterDepartmentAliases("driver"));
+        if (departmentResult.error) console.warn("Could not load driver department assignments:", departmentResult.error);
+        else driverDepartments = departmentResult.data || [];
+      }
       setReturnPlan(order.data.equipment_return_plan || "final_collection");
       setTotalGuests(Number(order.data.guest_count || 0));
       setEventDate(order.data.event_date);
+      setParentVenue({ name: order.data.venue_name || "", address: order.data.venue_address || "", lat: order.data.venue_lat ?? null, lng: order.data.venue_lng ?? null });
       setEditableBooking(!["draft", "cancelled", "completed", "postponed"].includes(order.data.status));
-      setDrivers(pool.data || []);
-      const source = sittings.data?.length ? sittings.data : [{ id: crypto.randomUUID(), sequence_number: 1, guest_count: order.data.guest_count, service_time: order.data.event_time || "" }];
+      setDrivers(filterRosterStaff(profileRows, driverDepartments, "driver").map(profile => ({ id: profile.id, full_name: profile.full_name || "Driver" })));
+      const source = sittings.data?.length ? sittings.data : [{ id: crypto.randomUUID(), sequence_number: 1, guest_count: order.data.guest_count, service_time: order.data.event_time || "", venue_name: null, venue_address: null, venue_lat: null, venue_lng: null }];
       const assignmentRows = (assignments.data || []) as any[];
       const orderDeliveries = assignmentRows.filter((a: any) =>
         a.service_sitting_id === null && a.assignment_type === "delivery" && openTrip(a) && a.driver_id,
@@ -200,7 +212,7 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
   const addSitting = () => {
     setRows(previous => {
       const existing = previous.length === 1 ? [{ ...previous[0], guest_count: Math.ceil(totalGuests / 2) }] : previous;
-      return [...existing, { id: crypto.randomUUID(), sequence_number: existing.length + 1, guest_count: Math.max(1, totalGuests - existing.reduce((sum, sitting) => sum + sitting.guest_count, 0)), service_time: "", kitchenReadyTime: "", dispatchTime: "", returnDate: eventDate, returnTime: "", packingNotes: "", cleaningResetRequired: false, deliveryDriverIds: [], collectionDriverIds: [], persisted: false }];
+      return [...existing, { id: crypto.randomUUID(), sequence_number: existing.length + 1, guest_count: Math.max(1, totalGuests - existing.reduce((sum, sitting) => sum + sitting.guest_count, 0)), service_time: "", venue_name: null, venue_address: null, venue_lat: null, venue_lng: null, kitchenReadyTime: "", dispatchTime: "", returnDate: eventDate, returnTime: "", packingNotes: "", cleaningResetRequired: false, deliveryDriverIds: [], collectionDriverIds: [], persisted: false }];
     });
     setSaved(false);
   };
@@ -209,6 +221,7 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
     // Name the exact missing field here; the database would otherwise refuse
     // the whole save with a general message and nobody gets assigned.
     for (const [index, row] of rows.entries()) {
+      if (row.deliveryDriverIds.length && !(row.venue_address?.trim() || parentVenue.address.trim())) { saveFailed(`Sitting ${row.sequence_number}: enter a delivery address before assigning a driver.`); return; }
       const collection = returnPlan === "per_sitting_collection" || (returnPlan === "final_collection" && index === rows.length - 1);
       if (row.deliveryDriverIds.length && !row.dispatchTime) { saveFailed(`Sitting ${row.sequence_number}: set "Depart kitchen at" so the delivery driver has a trip time.`); return; }
       if (collection && (!row.returnDate || !row.returnTime)) { saveFailed(`Sitting ${row.sequence_number}: set the equipment collection date and time, or change "Equipment returns".`); return; }
@@ -271,6 +284,11 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
         };
         return <article key={s.id} className="min-w-0 py-5 first:pt-0">
           <h3 className="text-base font-semibold text-slate-950">Sitting {s.sequence_number} · {s.guest_count} guests{s.service_time ? ` · ${formatClock(s.service_time.slice(0, 5))}` : " · Set service time"}</h3>
+          <fieldset disabled={!mayEdit || saving} className="mt-3 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="min-w-0 text-sm text-slate-700">Office / venue name<Input maxLength={200} value={s.venue_name || ""} placeholder={parentVenue.name || "e.g. Cape Town office"} onChange={e => edit(s.id, { venue_name: e.target.value || null })} className="mt-1 text-base" /></label>
+            <div className="min-w-0 text-sm text-slate-700"><label htmlFor={`${uid}-venue-${s.id}`} className="mb-1 block">Sitting {s.sequence_number} delivery address</label><AddressAutocomplete id={`${uid}-venue-${s.id}`} value={s.venue_address ?? parentVenue.address} placeholder="Search this office address..." countryCode="za" disabled={!mayEdit || saving} onChange={pick => edit(s.id, { venue_address: pick.address || null, venue_lat: pick.lat, venue_lng: pick.lng })} hint="Leave the shared address unchanged to use the booking address." /></div>
+            <p className="text-xs text-slate-500 sm:col-span-2">Effective delivery address: {s.venue_address || parentVenue.address || "Not set"}</p>
+          </fieldset>
           <fieldset disabled={!mayEdit || saving} className="mt-3 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="min-w-0 text-sm text-slate-700">Sitting {s.sequence_number} guests<Input type="number" min={1} max={totalGuests} step={1} value={s.guest_count || ""} onChange={e => edit(s.id, { guest_count: Number(e.target.value) })} className="mt-1 text-base" /></label>
             <label className="min-w-0 text-sm text-slate-700">Sitting {s.sequence_number} service time<Input type="time" value={s.service_time} onChange={e => edit(s.id, { service_time: e.target.value })} className="mt-1 min-w-0 text-base" /></label>

@@ -8,6 +8,7 @@ const company=id(1), tenant=id(2), quote=id(3), order=id(4), request=id(5), d1=i
 const plan=[{guestCount:50,serviceTime:'12:00'},{guestCount:50,serviceTime:'18:00'}];
 const saveQuote=(p=plan,patch={},requestId=null,c=company)=>db.query('SELECT save_admin_quote_service_plan($1,$2,$3,$4,$5)',[quote,c,JSON.stringify(p),JSON.stringify(patch),requestId]);
 const saveOps=(ops,returns='per_sitting_collection')=>db.query('SELECT save_order_sitting_operations($1,$2,$3,$4)',[order,company,JSON.stringify(ops),returns]);
+const saveOpsWithVenues=(ops,returns='per_sitting_collection')=>db.query('SELECT save_order_sitting_operations_with_venues($1,$2,$3,$4)',[order,company,JSON.stringify(ops),returns]);
 const rows=async()=> (await db.query('SELECT * FROM service_sittings WHERE quote_id=$1 ORDER BY sequence_number',[quote])).rows;
 const trips=async()=> (await db.query("SELECT * FROM driver_assignments WHERE status NOT IN ('cancelled','rejected') ORDER BY scheduled_for,driver_id")).rows;
 before(async()=>{
@@ -18,7 +19,7 @@ before(async()=>{
     CREATE TYPE assignment_status AS ENUM('assigned','accepted','en_route','picked_up','at_venue','delivered','completed','cancelled','rejected');
     CREATE TABLE companies(id uuid PRIMARY KEY,timezone text DEFAULT 'Africa/Johannesburg');
     CREATE TABLE profiles(id uuid PRIMARY KEY,company_id uuid,role text DEFAULT 'driver',is_active boolean DEFAULT true);
-    CREATE TABLE orders(id uuid PRIMARY KEY,company_id uuid,quote_id uuid,guest_count integer DEFAULT 100,region_id uuid,total_amount numeric DEFAULT 10000,amount_paid numeric DEFAULT 5000,deposit_paid boolean DEFAULT true,status text DEFAULT 'confirmed',event_date date DEFAULT '2099-11-06',event_time time DEFAULT '12:00',deleted_at timestamptz,
+    CREATE TABLE orders(id uuid PRIMARY KEY,company_id uuid,quote_id uuid,guest_count integer DEFAULT 100,region_id uuid,total_amount numeric DEFAULT 10000,amount_paid numeric DEFAULT 5000,deposit_paid boolean DEFAULT true,status text DEFAULT 'confirmed',event_date date DEFAULT '2099-11-06',event_time time DEFAULT '12:00',deleted_at timestamptz,venue_name text,venue_address text,venue_lat double precision,venue_lng double precision,
       assigned_driver_id uuid,driver_id uuid,secondary_driver_id uuid,equipment_return_method text,collection_next_day boolean,updated_at timestamptz,delivered_at timestamptz,service_ended_at timestamptz,event_complete_at timestamptz);
     CREATE TABLE quotes(id uuid PRIMARY KEY,company_id uuid,status text DEFAULT 'draft',guest_count integer DEFAULT 100,event_date date DEFAULT '2099-11-06',event_time time,
       valid_until timestamptz DEFAULT '2099-11-30',accepted_at timestamptz,converted_to_order_id uuid,deleted_at timestamptz,lost_reason text,rejected_at timestamptz,updated_at timestamptz,notes text);
@@ -29,7 +30,7 @@ before(async()=>{
     CREATE TABLE invoices(id uuid PRIMARY KEY,order_id uuid,total_amount numeric,amount_paid numeric);
     CREATE TABLE payments(id uuid PRIMARY KEY,order_id uuid,amount numeric);
   `);
-  for(const name of ['20261020130000_service_sittings.sql','20261021190000_atomic_quote_service_plan_acceptance.sql','20261022030000_sitting_operations.sql','20261022150000_admin_managed_order_sittings.sql']) await db.exec(await readFile('supabase/migrations/'+name,'utf8'));
+  for(const name of ['20261020130000_service_sittings.sql','20261021190000_atomic_quote_service_plan_acceptance.sql','20261022030000_sitting_operations.sql','20261022150000_admin_managed_order_sittings.sql','20261110110000_service_sitting_venues.sql']) await db.exec(await readFile('supabase/migrations/'+name,'utf8'));
   await db.exec(`CREATE TRIGGER stamp_event_end AFTER UPDATE OF status ON driver_assignments FOR EACH ROW EXECUTE FUNCTION stamp_order_event_end_from_collection();`);
 });
 after(()=>db.close());
@@ -67,6 +68,15 @@ test('two deliveries and two collections keep independent drivers, times and IDs
   assert.deepEqual(before.map(t=>t.driver_id),[d1,d1,d2,d2]);assert.equal(new Date(before[0].scheduled_for).getUTCHours(),9);
   await saveOps(ops);assert.deepEqual((await trips()).map(t=>t.id),before.map(t=>t.id));
 });
+test('the transactional schedule save persists a distinct venue on each sitting',async()=>{
+  const ops=await operations();
+  ops[0].venue_name='Office A';ops[0].venue_address='10 Main Road';ops[0].venue_lat=-33.92;ops[0].venue_lng=18.42;
+  ops[1].venue_name='Office B';ops[1].venue_address='20 Loop Street';ops[1].venue_lat=-33.91;ops[1].venue_lng=18.43;
+  await saveOpsWithVenues(ops);
+  assert.deepEqual((await rows()).map(s=>[s.venue_name,s.venue_address,s.venue_lat,s.venue_lng]),[
+    ['Office A','10 Main Road',-33.92,18.42],['Office B','20 Loop Street',-33.91,18.43],
+  ]);
+});
 test('multiple drivers can share a sitting delivery without replacing its collection',async()=>{const ops=await operations();ops[0].deliveryDriverIds.push(d3);await saveOps(ops);assert.equal((await trips()).length,5);});
 test('final collection creates only the final sitting return',async()=>{const ops=await operations();await saveOps(ops,'final_collection');const t=await trips();assert.equal(t.length,3);assert.equal(t.filter(t=>t.assignment_type==='collection')[0].service_sitting_id,ops[1].id);});
 test('client return creates no collection driver trips',async()=>{const ops=await operations();await saveOps(ops,'client_return');assert.ok((await trips()).every(t=>t.assignment_type==='delivery'));});
@@ -86,6 +96,13 @@ test('driver can only progress their own trip, cannot skip steps, and retries ar
   await saveOps(await operations());const t=(await trips())[0];await assert.rejects(advance(t,'accepted',d2));await assert.rejects(advance(t,'delivered'));await advance(t,'accepted');await advance(t,'accepted');assert.equal((await trips())[0].status,'accepted');
 });
 test('a started trip cannot be removed or rescheduled',async()=>{const ops=await operations();await saveOps(ops);const t=(await trips())[0];await advance(t,'accepted');await advance(t,'en_route');ops[0].deliveryDriverIds=[d3];await assert.rejects(saveOps(ops));ops[0].deliveryDriverIds=[d1];ops[0].dispatchTime='11:30';await assert.rejects(saveOps(ops));});
+test('a started sitting delivery cannot have its destination changed',async()=>{
+  const ops=await operations();ops[0].venue_address='10 Main Road';await saveOpsWithVenues(ops);
+  const trip=(await trips())[0];await advance(trip,'accepted');await advance(trip,'en_route');
+  ops[0].venue_address='11 Main Road';
+  await assert.rejects(saveOpsWithVenues(ops),/has started/);
+  assert.equal((await rows())[0].venue_address,'10 Main Road');
+});
 test('first delivery and collection leave the second sitting and event open',async()=>{
   await saveOps(await operations());const all=await trips();const first=all[0];
   for(const status of ['accepted','en_route','at_venue','delivered','completed']) await advance(first,status);

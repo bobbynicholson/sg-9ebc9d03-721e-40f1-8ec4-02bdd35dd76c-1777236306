@@ -1142,6 +1142,10 @@ export default function InvoicePaymentPage() {
                       guests: idata.guestCount ?? idata.guest_count ?? null,
                     }}
                   />
+                  {Array.isArray(idata.serviceSittings) && idata.serviceSittings.length > 1 && <div className="mt-3 border-t border-stone-100 pt-3" aria-label="Delivery locations">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-brand-primary">Delivery locations</p>
+                    <ul className="mt-1 space-y-1 text-xs text-stone-700">{idata.serviceSittings.map((s: any) => <li key={s.sequenceNumber}>Sitting {s.sequenceNumber} · {s.guestCount} guests{s.serviceTime ? ` · ${formatClockBoth(s.serviceTime, co?.time_format)}` : ""}{(s.venueName || s.venueAddress) ? ` · ${[s.venueName, s.venueAddress].filter(Boolean).join(" — ")}` : ""}</li>)}</ul>
+                  </div>}
                   {(idata.eventName || idata.event_name) && (
                     <p className="mt-2.5 border-t border-stone-100 pt-2.5 text-xs text-stone-600">
                       Event: <span className="font-semibold text-stone-900">{idata.eventName || idata.event_name}</span>

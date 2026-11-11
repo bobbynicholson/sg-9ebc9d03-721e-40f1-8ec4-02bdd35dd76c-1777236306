@@ -885,9 +885,9 @@ export default function PublicQuotePage() {
                 }}
               />
               {(quote.service_sittings?.length || 0) > 1 && <div className="mt-3 border-t border-stone-100 pt-3 text-sm text-stone-700">
-                <p className="font-semibold text-stone-900">Serving times</p>
+                <p className="font-semibold text-stone-900">Service times &amp; delivery locations</p>
                 <ul className="mt-1 space-y-1">{[...quote.service_sittings!].sort((a, b) => a.sequence_number - b.sequence_number).map(sitting =>
-                  <li key={sitting.sequence_number}>Sitting {sitting.sequence_number}: <strong>{sitting.guest_count} guests</strong> at <strong>{formatClockBoth(sitting.service_time, quoteTimeFormat)}</strong></li>,
+                  <li key={sitting.sequence_number}>Sitting {sitting.sequence_number}: <strong>{sitting.guest_count} guests</strong> at <strong>{formatClockBoth(sitting.service_time, quoteTimeFormat)}</strong>{sitting.venue_name || sitting.venue_address ? <span className="block pl-2">{sitting.venue_name && <strong>{sitting.venue_name}: </strong>}{sitting.venue_address || quote.venue_address}</span> : quote.venue_address && <span className="block pl-2">{quote.venue_address}</span>}</li>,
                 )}</ul>
               </div>}
               {setupTime && setupTime !== eventTime && (

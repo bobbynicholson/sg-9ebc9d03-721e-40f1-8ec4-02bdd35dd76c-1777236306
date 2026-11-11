@@ -21,14 +21,14 @@ before(async () => {
     CREATE FUNCTION public.get_user_company_id(uuid) RETURNS uuid LANGUAGE sql AS $$ SELECT NULL::uuid $$;
     CREATE FUNCTION public.update_updated_at_column() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=now(); RETURN NEW; END $$;
     CREATE TABLE companies(id uuid PRIMARY KEY);
-    CREATE TABLE orders(id uuid PRIMARY KEY);
+    CREATE TABLE orders(id uuid PRIMARY KEY,company_id uuid,deleted_at timestamptz,venue_name text,venue_address text,venue_lat double precision,venue_lng double precision);
     CREATE TABLE quotes(id uuid PRIMARY KEY,company_id uuid REFERENCES companies,status text DEFAULT 'sent',guest_count integer DEFAULT 100,
       event_date date DEFAULT CURRENT_DATE+10,valid_until timestamptz DEFAULT now()+interval '2 days',accepted_at timestamptz,
       converted_to_order_id uuid REFERENCES orders,deleted_at timestamptz,lost_reason text,rejected_at timestamptz,event_time time,updated_at timestamptz);
     CREATE TABLE quote_change_requests(id uuid PRIMARY KEY,company_id uuid REFERENCES companies,quote_id uuid REFERENCES quotes,
       status text DEFAULT 'pending',requested_changes jsonb,created_at timestamptz DEFAULT now());
-    CREATE TABLE driver_assignments(order_id uuid REFERENCES orders,driver_id uuid,assignment_type text);
-    CREATE TABLE kitchen_prep_tasks(id uuid PRIMARY KEY);
+    CREATE TABLE driver_assignments(order_id uuid REFERENCES orders,company_id uuid,service_sitting_id uuid,driver_id uuid,assignment_type text,status text DEFAULT 'assigned');
+    CREATE TABLE kitchen_prep_tasks(id uuid PRIMARY KEY,company_id uuid,service_sitting_id uuid,deleted_at timestamptz,status text DEFAULT 'pending',started_at timestamptz);
   `);
   await db.exec(await readFile('supabase/migrations/20261020130000_service_sittings.sql', 'utf8'));
   await db.query('INSERT INTO companies VALUES($1),($2)', [company, otherCompany]);
@@ -39,6 +39,7 @@ before(async () => {
   } catch (error) { reproducedOldCollision = error.code === '23505' && error.constraint === 'service_sittings_order_sequence_unique'; }
   await db.exec(await readFile('supabase/migrations/20261021190000_atomic_quote_service_plan_acceptance.sql', 'utf8'));
   await db.exec(await readFile('supabase/migrations/20261022020000_quote_change_request_service_plan.sql', 'utf8'));
+  await db.exec(await readFile('supabase/migrations/20261110110000_service_sitting_venues.sql', 'utf8'));
   await db.exec(`CREATE TABLE fault_injection(plan_write boolean DEFAULT false,quote_write boolean DEFAULT false);
     INSERT INTO fault_injection DEFAULT VALUES;
     CREATE FUNCTION fail_sitting_write() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
@@ -138,7 +139,7 @@ const requestPlan = async (sittings = plan, tenant = company) => db.query(
   'INSERT INTO quote_change_requests(id,company_id,quote_id,requested_changes) VALUES($1,$2,$3,$4::jsonb)',
   [id(11), tenant, quote, JSON.stringify({ service_sittings: sittings })],
 );
-const address = () => db.query("UPDATE quote_change_requests SET status='addressed' WHERE id=$1", [id(11)]);
+const address = () => db.query("UPDATE quote_change_requests SET reviewed_service_sittings=requested_changes->'service_sittings',status='addressed' WHERE id=$1", [id(11)]);
 const requestStatus = async () => (await db.query('SELECT status FROM quote_change_requests WHERE id=$1', [id(11)])).rows[0].status;
 
 test('requesting two sittings leaves the agreed quote untouched until addressed', async () => {
@@ -147,6 +148,48 @@ test('requesting two sittings leaves the agreed quote untouched until addressed'
   assert.deepEqual((await rows()).map(s => [s.guest_count, s.service_time]), [[60, '12:00:00'], [40, '18:00:00']]);
   assert.equal((await db.query('SELECT event_time FROM quotes WHERE id=$1', [quote])).rows[0].event_time, '12:00:00');
   assert.deepEqual(await saved(), { status: 'sent', accepted_at: null });
+});
+
+test('sittings keep independent office addresses and map coordinates after review', async () => {
+  const multiOffice = [
+    { guestCount: 60, serviceTime: '12:00', venueName: 'Office A', venueAddress: '10 Main Road, Cape Town', venueLat: -33.92, venueLng: 18.42 },
+    { guestCount: 40, serviceTime: '18:00', venueName: 'Office B', venueAddress: '20 Loop Street, Cape Town', venueLat: -33.91, venueLng: 18.43 },
+  ];
+  await requestPlan(multiOffice); await address();
+  assert.deepEqual((await rows()).map(s => [s.guest_count, s.venue_name, s.venue_address, s.venue_lat, s.venue_lng]), [
+    [60, 'Office A', '10 Main Road, Cape Town', -33.92, 18.42],
+    [40, 'Office B', '20 Loop Street, Cape Town', -33.91, 18.43],
+  ]);
+});
+
+test('a time-only change request preserves saved sitting-specific addresses', async () => {
+  await db.query("INSERT INTO service_sittings(company_id,quote_id,sequence_number,guest_count,service_time,venue_name,venue_address,venue_lat,venue_lng) VALUES($1,$2,1,60,'12:00','Office A','10 Main Road',-33.92,18.42),($1,$2,2,40,'18:00','Office B','20 Loop Street',-33.91,18.43)", [company, quote]);
+  await requestPlan(); await address();
+  assert.deepEqual((await rows()).map(s => [s.venue_name, s.venue_address, s.venue_lat, s.venue_lng]), [
+    ['Office A', '10 Main Road', -33.92, 18.42], ['Office B', '20 Loop Street', -33.91, 18.43],
+  ]);
+});
+
+test('order sitting venue writes persist independently and inherit the parent when cleared', async () => {
+  const orderId = id(20), sittingId = id(21);
+  await db.query("INSERT INTO orders(id,company_id,venue_name,venue_address,venue_lat,venue_lng) VALUES($1,$2,'HQ','1 Main Road',-33.92,18.42)", [orderId, company]);
+  await db.query("INSERT INTO service_sittings(id,company_id,order_id,sequence_number,guest_count,service_time) VALUES($1,$2,$3,1,20,'12:00')", [sittingId, company, orderId]);
+  const changed = await db.query("SELECT public.apply_order_sitting_venues($1,$2,$3::jsonb) AS changed", [orderId, company, JSON.stringify([{ id: sittingId, venue_name: 'Office A', venue_address: '10 Main Road', venue_lat: -33.91, venue_lng: 18.43 }])]);
+  assert.equal(changed.rows[0].changed, true);
+  assert.deepEqual((await db.query('SELECT venue_name,venue_address,venue_lat,venue_lng FROM service_sittings WHERE id=$1', [sittingId])).rows[0], {
+    venue_name: 'Office A', venue_address: '10 Main Road', venue_lat: -33.91, venue_lng: 18.43,
+  });
+  await db.query("SELECT public.apply_order_sitting_venues($1,$2,$3::jsonb)", [orderId, company, JSON.stringify([{ id: sittingId, venue_name: null, venue_address: null, venue_lat: null, venue_lng: null }])]);
+  assert.deepEqual((await db.query('SELECT venue_name,venue_address,venue_lat,venue_lng FROM service_sittings WHERE id=$1', [sittingId])).rows[0], {
+    venue_name: null, venue_address: null, venue_lat: null, venue_lng: null,
+  });
+});
+
+test('a sitting location cannot change after its delivery has started', async () => {
+  const orderId = id(22), sittingId = id(23);
+  await db.query("INSERT INTO orders(id,company_id,venue_address) VALUES($1,$2,'1 Main Road')", [orderId, company]);
+  await db.query("INSERT INTO service_sittings(id,company_id,order_id,sequence_number,guest_count,service_time,status) VALUES($1,$2,$3,1,20,'12:00','ready')", [sittingId, company, orderId]);
+  await assert.rejects(db.query("SELECT public.apply_order_sitting_venues($1,$2,$3::jsonb)", [orderId, company, JSON.stringify([{ id: sittingId, venue_address: '2 Loop Street' }])]), /has started/);
 });
 
 test('the addressed plan remains available to legacy acceptance', async () => {
@@ -164,7 +207,7 @@ test('addressing several requests saves only the newest serving proposal', async
   await db.query("UPDATE quote_change_requests SET created_at='2026-10-20' WHERE id=$1", [id(11)]);
   await db.query("INSERT INTO quote_change_requests(id,company_id,quote_id,requested_changes,created_at) VALUES($1,$2,$3,$4,'2026-10-21')",
     [id(12), company, quote, JSON.stringify({ service_sittings: [{ guestCount: 30, serviceTime: '13:00' }, { guestCount: 70, serviceTime: '19:00' }] })]);
-  await db.exec("UPDATE quote_change_requests SET status='addressed'");
+  await db.exec("UPDATE quote_change_requests SET reviewed_service_sittings=requested_changes->'service_sittings',status='addressed'");
   assert.deepEqual((await rows()).map(s => [s.guest_count, s.service_time]), [[30, '13:00:00'], [70, '19:00:00']]);
 });
 

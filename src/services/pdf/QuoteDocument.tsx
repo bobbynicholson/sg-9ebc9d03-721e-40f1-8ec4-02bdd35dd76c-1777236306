@@ -71,7 +71,7 @@ export interface QuotePdfData {
   client_tax_number?: string | null;
   event_date?: string | null;
   event_time?: string | null;
-  service_sittings?: Array<{ sequence_number: number; guest_count: number; service_time: string }>;
+  service_sittings?: Array<{ sequence_number: number; guest_count: number; service_time: string; venue_name?: string | null; venue_address?: string | null }>;
   setup_time?: string | null;
   guest_count?: number | null;
   venue_address?: string | null;
@@ -710,7 +710,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
             </View>
             {(data.service_sittings?.length || 0) > 1 && <View style={{marginTop:8}}>
               <Text style={styles.cellLabel}>Serving times</Text>
-              {[...data.service_sittings!].sort((a,b)=>a.sequence_number-b.sequence_number).map(s=><Text key={s.sequence_number} style={styles.cellValue}>Sitting {s.sequence_number}: {s.guest_count} guests at {friendlyTime(s.service_time)}</Text>)}
+              {[...data.service_sittings!].sort((a,b)=>a.sequence_number-b.sequence_number).map(s=><Text key={s.sequence_number} style={styles.cellValue}>Sitting {s.sequence_number}: {s.guest_count} guests at {friendlyTime(s.service_time)}{s.venue_name || s.venue_address ? ` · ${[s.venue_name, s.venue_address || data.venue_address].filter(Boolean).join(" — ")}` : data.venue_address ? ` · ${data.venue_address}` : ""}</Text>)}
             </View>}
           </View>
         )}

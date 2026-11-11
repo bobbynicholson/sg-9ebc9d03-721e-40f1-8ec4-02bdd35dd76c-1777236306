@@ -1,6 +1,10 @@
 export type ServiceSittingInput = {
   guestCount: number;
   serviceTime: string;
+  venueName?: string | null;
+  venueAddress?: string | null;
+  venueLat?: number | null;
+  venueLng?: number | null;
   kitchenReadyTime?: string | null;
   dispatchTime?: string | null;
   cleaningResetRequired?: boolean;
@@ -9,6 +13,18 @@ export type ServiceSittingInput = {
 };
 
 const validTime = (value: unknown) => typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+
+export function effectiveSittingVenue<T extends { venue_name?: string | null; venue_address?: string | null; venue_lat?: number | null; venue_lng?: number | null }>(
+  sitting: T,
+  parent: { venue_name?: string | null; venue_address?: string | null; venue_lat?: number | null; venue_lng?: number | null } | null | undefined,
+) {
+  return {
+    venueName: sitting.venue_name || parent?.venue_name || null,
+    venueAddress: sitting.venue_address || parent?.venue_address || null,
+    venueLat: sitting.venue_lat ?? parent?.venue_lat ?? null,
+    venueLng: sitting.venue_lng ?? parent?.venue_lng ?? null,
+  };
+}
 
 export function normaliseServiceSittings(raw: unknown, totalGuests: number): { value?: ServiceSittingInput[]; error?: string } {
   if (raw == null) return {};
@@ -19,10 +35,19 @@ export function normaliseServiceSittings(raw: unknown, totalGuests: number): { v
     const guestCount = Number(item?.guestCount);
     if (!Number.isSafeInteger(guestCount) || guestCount < 1) return { error: "Every sitting needs a valid guest count." };
     if (!validTime(item?.serviceTime)) return { error: "Every sitting needs a valid service time." };
+    const venueLat = item?.venueLat == null || item.venueLat === "" ? null : Number(item.venueLat);
+    const venueLng = item?.venueLng == null || item.venueLng === "" ? null : Number(item.venueLng);
+    if ((venueLat == null) !== (venueLng == null)
+      || (venueLat != null && (!Number.isFinite(venueLat) || venueLat < -90 || venueLat > 90))
+      || (venueLng != null && (!Number.isFinite(venueLng) || venueLng < -180 || venueLng > 180))) {
+      return { error: "Choose a valid map location for each sitting, or enter its address manually." };
+    }
+    if (typeof item?.venueAddress === "string" && item.venueAddress.length > 500) return { error: "A sitting address must be 500 characters or fewer." };
+    if (typeof item?.venueName === "string" && item.venueName.length > 200) return { error: "A sitting venue name must be 200 characters or fewer." };
     for (const key of ["kitchenReadyTime", "dispatchTime", "returnTime"] as const) {
       if (item?.[key] != null && item[key] !== "" && !validTime(item[key])) return { error: "Use a valid time for each operational deadline." };
     }
-    value.push({ guestCount, serviceTime: item.serviceTime, kitchenReadyTime: item.kitchenReadyTime || null, dispatchTime: item.dispatchTime || null, cleaningResetRequired: !!item.cleaningResetRequired, returnRequired: !!item.returnRequired, returnTime: item.returnTime || null });
+    value.push({ guestCount, serviceTime: item.serviceTime, venueName: item.venueName?.trim() || null, venueAddress: item.venueAddress?.trim() || null, venueLat, venueLng, kitchenReadyTime: item.kitchenReadyTime || null, dispatchTime: item.dispatchTime || null, cleaningResetRequired: !!item.cleaningResetRequired, returnRequired: !!item.returnRequired, returnTime: item.returnTime || null });
   }
   if (value.reduce((sum, s) => sum + s.guestCount, 0) !== Math.round(Number(totalGuests))) return { error: `Sitting guest counts must total ${totalGuests}.` };
   return { value };

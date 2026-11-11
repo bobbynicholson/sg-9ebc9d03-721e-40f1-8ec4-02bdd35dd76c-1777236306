@@ -50,6 +50,7 @@ interface InvoicePreviewProps {
   eventTime: string;
   venue: string;
   guestCount: number;
+  serviceSittings?: Array<{ sequenceNumber: number; guestCount: number; serviceTime?: string | null; venueName?: string | null; venueAddress?: string | null }>;
   items: Array<{
     description: string;
     category?: string | null;
@@ -189,6 +190,11 @@ export function InvoicePreview(props: InvoicePreviewProps) {
           />
         </CardContent>
       </Card>
+
+      {props.serviceSittings?.length > 1 && <Card className="mb-4 border border-stone-200 shadow-sm"><CardContent className="px-3 py-4 sm:px-5 sm:py-5">
+        <p className="mb-2 text-xs font-bold uppercase tracking-[0.15em] text-brand-primary">Delivery locations</p>
+        <ul className="space-y-1 text-sm text-stone-700">{props.serviceSittings.map(s => <li key={s.sequenceNumber}>Sitting {s.sequenceNumber} · {s.guestCount} guests{s.serviceTime ? ` · ${formatClock(s.serviceTime)}` : ""}{(s.venueName || s.venueAddress) ? ` · ${[s.venueName, s.venueAddress].filter(Boolean).join(" — ")}` : ""}</li>)}</ul>
+      </CardContent></Card>}
 
       {/* ITEMS */}
       {Array.isArray(props.items) && props.items.length > 0 && (

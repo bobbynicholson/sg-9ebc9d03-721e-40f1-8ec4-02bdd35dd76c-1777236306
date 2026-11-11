@@ -295,7 +295,14 @@ function quoteContentSignatureFromPayload(payload: any): string {
   const money = (v: any) => Math.round(safeNum(v) * 100) / 100;
   const text = (v: any) => String(v ?? "").trim();
   return JSON.stringify({
-    service_sittings: asArray(payload.service_sittings).map((s: any) => ({guestCount:Number(s.guest_count ?? s.guestCount),serviceTime:String(s.service_time ?? s.serviceTime).slice(0,5)})),
+    service_sittings: asArray(payload.service_sittings).map((s: any) => ({
+      guestCount:Number(s.guest_count ?? s.guestCount),
+      serviceTime:String(s.service_time ?? s.serviceTime).slice(0,5),
+      venueName:s.venue_name ?? s.venueName ?? null,
+      venueAddress:s.venue_address ?? s.venueAddress ?? null,
+      venueLat:s.venue_lat ?? s.venueLat ?? null,
+      venueLng:s.venue_lng ?? s.venueLng ?? null,
+    })),
     currency: text(payload.currency).toUpperCase(),
     client_company_name: text(payload.client_company_name),
     quote_name: text(payload.quote_name),
@@ -903,7 +910,7 @@ function NewQuotePage() {
       setHydrateError(null);
       const { data, error } = await supabase
         .from("quotes")
-        .select("*,service_sittings(sequence_number,guest_count,service_time)")
+        .select("*,service_sittings(sequence_number,guest_count,service_time,venue_name,venue_address,venue_lat,venue_lng)")
         .eq("id", fromQuoteId)
         .maybeSingle();
       if (cancelled) return;
@@ -1050,7 +1057,7 @@ function NewQuotePage() {
   }, [fromQuoteId, changeRequestId, hydrateRetryTick]);
 
   function hydrateFromQuote(q: any) {
-    setServicePlan(q.service_sittings?.length ? [...q.service_sittings].sort((a: any,b: any) => a.sequence_number-b.sequence_number).map((s: any) => ({guestCount:s.guest_count,serviceTime:s.service_time.slice(0,5)})) : null);
+    setServicePlan(q.service_sittings?.length ? [...q.service_sittings].sort((a: any,b: any) => a.sequence_number-b.sequence_number).map((s: any) => ({guestCount:s.guest_count,serviceTime:s.service_time.slice(0,5),venueName:s.venue_name,venueAddress:s.venue_address,venueLat:s.venue_lat,venueLng:s.venue_lng})) : null);
     setClientId(q.client_id || null);
     // Saved quote currency is part of the agreed price. Legacy quotes
     // without it continue to inherit the company default.
@@ -2380,7 +2387,7 @@ function NewQuotePage() {
       clearTimeout(handle);
       if (autoSaveTimerRef.current === handle) autoSaveTimerRef.current = null;
     };
-  }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, equipmentReturn, waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, validUntil, eventName, eventDate, venueAddress, clientCompanyName, email, internalNotes, persistQuote, setupTimeError, cancelPendingAutoSave, fromQuoteId, distanceStatus]);
+  }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, equipmentReturn, waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, validUntil, eventName, eventDate, venueAddress, clientCompanyName, email, internalNotes, servicePlan, persistQuote, setupTimeError, cancelPendingAutoSave, fromQuoteId, distanceStatus]);
 
   const handleSaveDraft = async () => {
     // No deal without email - the follow-up engine, invoice flow,
@@ -3172,7 +3179,7 @@ function NewQuotePage() {
                       )}
                     </div>
                   </div>
-                  <AdminServicePlanEditor value={servicePlan || [{guestCount,serviceTime:eventTime}]} totalGuests={guestCount} disabled={!!linkedOrderId || saving} onChange={plan => {setServicePlan(plan);setEventTime(plan[0]?.serviceTime || "");setSetupTime("");}} />
+                  <AdminServicePlanEditor value={servicePlan || [{guestCount,serviceTime:eventTime}]} totalGuests={guestCount} defaultVenueAddress={venueAddress} defaultVenueLat={venueLat} defaultVenueLng={venueLng} disabled={!!linkedOrderId || saving} onChange={plan => {setServicePlan(plan);setEventTime(plan[0]?.serviceTime || "");setSetupTime("");}} />
                   <div>
                     <Label className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" /> Venue address</Label>
                     <AddressAutocomplete

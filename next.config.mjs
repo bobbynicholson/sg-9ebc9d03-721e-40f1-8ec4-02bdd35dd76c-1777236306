@@ -194,10 +194,18 @@ const nextConfig = {
         ],
       },
       {
-        // Hashed Next bundles -- safe to cache forever.
+        // Production bundles are content-hashed and safe to cache forever.
+        // Dev chunk paths are stable while their contents change; caching
+        // them as immutable can keep an obsolete React bundle running.
         source: "/_next/static/:path*",
         headers: [
-          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+          {
+            key: "Cache-Control",
+            value: process.env.NODE_ENV === "production"
+              ? "public, max-age=31536000, immutable"
+              : "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+          ...(process.env.NODE_ENV === "production" ? [] : [{ key: "Pragma", value: "no-cache" }]),
         ],
       },
     ];

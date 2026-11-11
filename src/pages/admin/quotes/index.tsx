@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -118,6 +119,9 @@ import { loadLatestDocumentAmountChanges } from "@/services/documentAmountChange
 import { useServiceAreaEmailAvailability } from "@/hooks/useServiceAreaEmailAvailability";
 import { recordDocumentAmountChange } from "@/services/documentAmountChanges";
 import { quoteValueTotal } from "@/lib/quotes/quoteValueTotal";
+import QuoteAcceptanceContext from "@/components/quotes/QuoteAcceptanceContext";
+
+const QuoteOptimizationWorkbench = dynamic(() => import("@/components/quotes/QuoteOptimizationWorkbench"), { ssr: false });
 
 // TIGHTEN I.84: module-scope ZAR formatter kept as a fallback for any
 // sibling helpers / dialogs that reference it from outside the main
@@ -494,6 +498,7 @@ function AdminQuotesInner() {
   // won / lost / expired) so the sales lead can see where every
   // open quote sits in the pipeline at a glance.
   const [viewMode, setViewMode] = useState<"list" | "pipeline">("list");
+  const [showQuoteManagement, setShowQuoteManagement] = useState(false);
   // Phase 9 #3: persist filter state (search + bucket + viewMode)
   // across reloads. Mirrors what /admin/orders does. Sales leads
   // usually camp on a working filter (e.g. action_needed + list)
@@ -1600,6 +1605,7 @@ function AdminQuotesInner() {
       return;
     }
     let cancelled = false;
+    setAcceptCapacity(null);
     setAcceptCapacityChecking(true);
     (async () => {
       try {
@@ -1747,11 +1753,13 @@ function AdminQuotesInner() {
               from the same regionFilteredRows the list renders. */}
           <PortalHeader
             variant="hero"
-            title="Quotes"
-            icon={Banknote}
-            subtitle="Create and send quotes, track client replies and follow up on pending decisions."
+            title={showQuoteManagement ? "Quotes" : "Opportunity Lab"}
+            icon={showQuoteManagement ? Banknote : CalendarDays}
+            subtitle={showQuoteManagement
+              ? "Create and send quotes, track client replies and follow up on pending decisions."
+              : "Bookings and quote opportunities by event date."}
             meta={
-              !loading && !loadError ? (
+              showQuoteManagement && !loading && !loadError ? (
                 <>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
@@ -1771,8 +1779,11 @@ function AdminQuotesInner() {
                 </>
               ) : undefined
             }
-            actions={
+            actions={showQuoteManagement ? (
               <>
+                <Button variant="outline" onClick={() => setShowQuoteManagement(false)}>
+                  <CalendarDays className="mr-2 h-4 w-4" />Opportunity calendar
+                </Button>
                 {/* Phase 11 #2: CSV export of the currently filtered
                     quote set. Respects bucket + search so the file
                     matches what the operator sees on screen. */}
@@ -1844,9 +1855,18 @@ function AdminQuotesInner() {
                   </Button>
                 </Link>
               </>
-            }
+            ) : (
+              <Button variant="outline" onClick={() => setShowQuoteManagement(true)}>
+                <List className="mr-2 h-4 w-4" />Manage quotes
+              </Button>
+            )}
           />
 
+          {!showQuoteManagement && user?.company_id && (
+            <QuoteOptimizationWorkbench companyId={user.company_id} currency={tenantCurrency} regionId={null} quotes={quotes} />
+          )}
+
+          {showQuoteManagement && <>
           {/* Bulk quote import from a CSV / Excel file. Same
               /api/imports/* engine as Contacts; reloads the list once
               the import commits. */}
@@ -3039,6 +3059,7 @@ function AdminQuotesInner() {
               })
             )}
           </div>
+          </>}
         </PortalShell>
 
         <Footer />
@@ -3296,7 +3317,7 @@ function AdminQuotesInner() {
         open={!!acceptPreflight}
         onOpenChange={(o) => { if (!o) setAcceptPreflight(null); }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <CheckCircle className="w-5 h-5 text-brand-primary" />
@@ -3311,6 +3332,8 @@ function AdminQuotesInner() {
                     ? "The client already accepted - this creates the live order and fires the standard handoff. The quote stays in the system as audit history."
                     : "This converts the quote into a confirmed order and fires the standard accept handoff. The quote stays in the system as audit history."}
                 </p>
+                {acceptPreflight && user?.company_id && <QuoteAcceptanceContext key={acceptPreflight.id}
+                  companyId={user.company_id} currency={tenantCurrency} quote={acceptPreflight} capacity={acceptCapacity} checking={acceptCapacityChecking} />}
                 {(acceptCapacityChecking || (!!acceptCapacity && acceptCapacity.status !== "available")) && (
                   <div
                     className={`rounded-md border px-3 py-2.5 text-xs ${

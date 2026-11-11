@@ -20,7 +20,7 @@ for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test(`qu
   const pending=page.waitForRequest(r=>r.url().includes('/api/orders/')&&r.method()==='POST');
   await page.getByRole('button',{name:'Save sitting schedule',exact:true}).click();
   const request=await pending;const payload=request.postDataJSON();
-  expect(payload.returnPlan).toBe('per_sitting_collection');expect(payload.sittings[0].deliveryDriverIds).toEqual(['d1']);expect(payload.sittings[0].collectionDriverIds).toEqual(['d3']);expect(payload.sittings[1].deliveryDriverIds).toEqual(['d2']);expect(payload.sittings[1].collectionDriverIds).toEqual(['d2']);
+  expect(payload.returnPlan).toBe('per_sitting_collection');expect(payload.sittings[0].deliveryDriverIds).toEqual(['d1']);expect(payload.sittings[0].collectionDriverIds).toEqual(['d1','d3']);expect(payload.sittings[1].deliveryDriverIds).toEqual(['d2']);expect(payload.sittings[1].collectionDriverIds).toEqual(['d2']);
   await expect(page.getByRole('alert')).toContainText('another trip within 45 minutes');
   await articles.nth(1).getByRole('group',{name:'Delivery drivers',exact:true}).getByRole('button').click();
   await expect(page.getByRole('listbox').getByLabel('Zanele',{exact:true})).toBeChecked();
