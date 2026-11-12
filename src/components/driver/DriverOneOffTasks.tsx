@@ -71,7 +71,7 @@ export function DriverOneOffTasks() {
       if (error) throw error;
       const rows = (data || []) as DailyOperationsTask[];
       const ids = rows.map((task) => task.id);
-      let stopsByTask = new Map<string, DailyOperationsDriverTaskStop[]>();
+      const stopsByTask = new Map<string, DailyOperationsDriverTaskStop[]>();
       if (ids.length) {
         const { data: stops, error: stopsError } = await (supabase as any).from("daily_operation_driver_task_stops")
           .select("id, company_id, task_id, stop_number, stop_type, stop_name, address, instructions, status, on_way_at, arrived_at, completed_at")

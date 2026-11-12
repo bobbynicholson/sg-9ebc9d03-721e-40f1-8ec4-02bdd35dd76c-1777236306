@@ -440,7 +440,7 @@ function DailyOperationsPageInner() {
       setCleaningIds(new Set(filterRosterStaff(staffRows, departmentRows, "cleaning").map((profile) => profile.id)));
       if (!companyResult.error && companyResult.data?.timezone) setCompanyTimezone(companyResult.data.timezone);
       const routeTaskIds = ((taskResult.data || []) as DailyOperationsTask[]).filter((task) => task.task_kind === "custom_driver").map((task) => task.id);
-      let stopsByTask = new Map<string, any[]>();
+      const stopsByTask = new Map<string, any[]>();
       if (routeTaskIds.length) {
         const { data: stops, error: stopError } = await (supabase as any).from("daily_operation_driver_task_stops").select("*").eq("company_id", user.company_id).in("task_id", routeTaskIds).order("stop_number", { ascending: true });
         if (!stopError) {
