@@ -145,6 +145,8 @@ interface LineItem {
   menu_item_id: string | null;
   name: string;
   description?: string;
+  /** Catalogue photo carried into quotes and client-facing menu views. */
+  image_url?: string | null;
   category: string | null;
   dietary_tags: string[] | null;
   pricingMode: PricingMode;
@@ -318,6 +320,7 @@ function quoteContentSignatureFromPayload(payload: any): string {
         name: text(m.item_name ?? m.name),
         description: text(m.description),
         category: m.category ?? null,
+        image_url: m.image_url ?? null,
         pricing_mode: m.pricing_mode ?? m.pricingMode ?? null,
         quantity: safeNum(m.quantity),
         unit_price: money(m.unit_price ?? m.unitPrice ?? m.pricePerPerson),
@@ -446,6 +449,7 @@ function NewQuotePage() {
       id: "L1",
       menu_item_id: null,
       name: "",
+      image_url: null,
       category: "main",
       dietary_tags: null,
       pricingMode: "per_person",
@@ -454,6 +458,38 @@ function NewQuotePage() {
       discountPct: 0,
     },
   ]);
+  const menuPhotoLookupKey = menuItems.map((item) => `${item.menu_item_id || ""}:${item.image_url || ""}`).join("|");
+  useEffect(() => {
+    const ids = [...new Set(menuItems
+      .filter((item) => item.menu_item_id && !item.image_url)
+      .map((item) => item.menu_item_id as string))];
+    if (!companyId || !ids.length) return;
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await (supabase as any)
+        .from("menu_items")
+        .select("id,image_url")
+        .eq("company_id", companyId)
+        .in("id", ids);
+      if (error) {
+        console.warn("[quotes/new] menu photos could not be loaded:", error);
+        return;
+      }
+      if (cancelled) return;
+      const photos = new Map<string, string | null>(
+        (data || []).map((row: any): [string, string | null] => [
+          String(row.id),
+          typeof row.image_url === "string" ? row.image_url : null,
+        ]),
+      );
+      setMenuItems((current) => current.map((item) => (
+        item.image_url || !item.menu_item_id || !photos.has(item.menu_item_id)
+          ? item
+          : { ...item, image_url: photos.get(item.menu_item_id) || null }
+      )));
+    })();
+    return () => { cancelled = true; };
+  }, [companyId, menuPhotoLookupKey]);
   const [equipment, setEquipment] = useState<EquipmentLineItem[]>([]);
   // Live availability per equipment line. Refetches when the event
   // date or the picked equipment_id changes. Used to compute the
@@ -1000,6 +1036,7 @@ function NewQuotePage() {
               menu_item_id: m.menu_item_id ?? null,
               name: m.item_name ?? m.name ?? "",
               description: undefined,
+              image_url: m.image_url ?? null,
               category: m.category || "main",
               dietary_tags: null,
               pricingMode: "per_portion" as PricingMode,
@@ -1165,6 +1202,7 @@ function NewQuotePage() {
             menu_item_id: m.menu_item_id ?? null,
             name: m.item_name ?? m.name ?? "",
             description: m.description ?? undefined,
+            image_url: m.image_url ?? null,
             category: m.category ?? "main",
             dietary_tags: Array.isArray(m.dietary_tags) ? m.dietary_tags : null,
             pricingMode,
@@ -1495,6 +1533,7 @@ function NewQuotePage() {
         id: `L_tpl_${Date.now()}_${i}`,
         menu_item_id: m.menu_item_id ?? null,
         name: m.item_name ?? m.name ?? "",
+        image_url: m.image_url ?? null,
         category: m.category ?? "main",
         dietary_tags: Array.isArray(m.dietary_tags) ? m.dietary_tags : null,
         pricingMode: (m.pricing_mode || m.pricingMode || "per_person") as PricingMode,
@@ -1539,6 +1578,7 @@ function NewQuotePage() {
       menu_item_id: pick.id,
       name: pick.name,
       description: pick.description ?? undefined,
+      image_url: pick.imageUrl,
       // pick.category is already the lowercase form-enum value.
       // Our form's LINE_CATEGORIES include extra options (starter,
       // salad, other) that the typeahead doesn't emit, but every
@@ -1709,6 +1749,7 @@ function NewQuotePage() {
           item_name: l.name,
           name: l.name,
           description: l.description ?? null,
+          image_url: l.image_url ?? null,
           category: l.category,
           dietary_tags: l.dietary_tags,
           pricing_mode: l.pricingMode,
@@ -3593,6 +3634,13 @@ function NewQuotePage() {
                               placeholder="Search the menu..."
                             />
                           </div>
+                          {line.image_url && (
+                            <div className="flex items-center gap-2 text-xs text-slate-500">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={line.image_url} alt={line.name ? `${line.name} photo` : "Menu item photo"} className="h-12 w-12 rounded-md border border-slate-200 object-cover" />
+                              Catalogue photo
+                            </div>
+                          )}
                           <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
                             <div className="sm:col-span-3">
                               <Label className="text-xs">Category</Label>

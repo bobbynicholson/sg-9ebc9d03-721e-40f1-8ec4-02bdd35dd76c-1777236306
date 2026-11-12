@@ -560,6 +560,10 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
   // sections already hide their action buttons for non-matching roles,
   // but a client shouldn't see the sections at all.
   const isClient = mode === "client" || role === UserRole.CLIENT;
+  // A user's primary section is a presentation choice (for example, a
+  // multi-role admin may land on the driver or kitchen section). It must
+  // not remove admin permissions from order management controls.
+  const canManageServicePlan = canSeeFinance && !isClient && primary !== "client";
   const chatSenderRole: OrderChatRole = isClient
     ? "client"
     : role === UserRole.DRIVER
@@ -986,7 +990,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
           {/* Who brings the equipment back (quote "Equipment return"
               choice). Everyone sees it; admins can change it. */}
           {(order.service_sittings?.length || 0) < 2 && <EquipmentReturnCard order={order} canEdit={canSeeFinance} onChanged={load} />}
-          {!isClient && (primary === "admin" || (order.service_sittings?.length || 0) > 1) && <ServiceSittingsOperations orderId={order.id} companyId={order.company_id} canEdit={primary === "admin"} onSaved={load} />}
+          {!isClient && (canManageServicePlan || (order.service_sittings?.length || 0) > 1) && <ServiceSittingsOperations orderId={order.id} companyId={order.company_id} canEdit={canManageServicePlan} onSaved={load} />}
 
             <OrderTimelineSection
               order={order}

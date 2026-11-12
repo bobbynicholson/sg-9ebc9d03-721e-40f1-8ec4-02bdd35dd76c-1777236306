@@ -108,6 +108,31 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!data) {
     return res.status(404).json({ ok: false, error: "Not found" });
   }
+
+  // Older quote rows predate image_url being copied into menu_items JSON.
+  // Resolve photos from this tenant's catalogue so existing quotes continue
+  // to show their food images without changing the saved quote contents.
+  const menuLines = Array.isArray((data as any).menu_items) ? (data as any).menu_items : [];
+  const missingPhotoIds = [...new Set(menuLines
+    .filter((line: any) => !line?.image_url && line?.menu_item_id)
+    .map((line: any) => String(line.menu_item_id)))] as string[];
+  if (missingPhotoIds.length && (data as any).company?.id) {
+    try {
+      const { data: photos, error: photoError } = await supabase
+        .from("menu_items")
+        .select("id,image_url")
+        .eq("company_id", (data as any).company.id)
+        .in("id", missingPhotoIds);
+      if (photoError) throw photoError;
+      const photoById = new Map((photos || []).map((row: any) => [String(row.id), row.image_url]));
+      (data as any).menu_items = menuLines.map((line: any) => ({
+        ...line,
+        image_url: line?.image_url || photoById.get(String(line?.menu_item_id)) || null,
+      }));
+    } catch (photoError) {
+      console.warn("[public/quotes/get] menu photos could not be resolved:", photoError);
+    }
+  }
   (data as any).payment_terms = invoicePaymentTerms(
     null,
     (data as any).client?.payment_terms,

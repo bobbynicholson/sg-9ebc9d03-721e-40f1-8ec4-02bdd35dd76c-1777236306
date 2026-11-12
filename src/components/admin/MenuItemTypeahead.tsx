@@ -298,6 +298,14 @@ export function MenuItemTypeahead({
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
+                    {r.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={r.image_url} alt="" loading="lazy" className="h-12 w-12 shrink-0 rounded-md border border-slate-200 object-cover" />
+                    ) : (
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50 text-slate-400" aria-hidden="true">
+                        <UtensilsCrossed className="h-4 w-4" />
+                      </span>
+                    )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <UtensilsCrossed className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />

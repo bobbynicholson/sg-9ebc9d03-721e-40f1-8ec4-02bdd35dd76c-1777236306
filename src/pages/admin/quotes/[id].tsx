@@ -268,6 +268,23 @@ function AdminQuoteDetailInner() {
       // Seed the pricing editor from the stored menu_items jsonb.
       const raw = (data as any)?.menu_items;
       const arr = Array.isArray(raw) ? raw : [];
+      const missingPhotoIds = [...new Set(arr
+        .filter((m: any) => !m?.image_url && m?.menu_item_id)
+        .map((m: any) => String(m.menu_item_id)))] as string[];
+      let photoById = new Map<string, string | null>();
+      if (missingPhotoIds.length && (data as any)?.company_id) {
+        try {
+          const { data: photos, error: photoError } = await (supabase as any)
+            .from("menu_items")
+            .select("id,image_url")
+            .eq("company_id", (data as any).company_id)
+            .in("id", missingPhotoIds);
+          if (photoError) throw photoError;
+          photoById = new Map((photos || []).map((row: any) => [String(row.id), row.image_url]));
+        } catch (photoError) {
+          console.warn("[quotes/[id]] menu photos could not be loaded:", photoError);
+        }
+      }
       setItems(
         arr.map((m: any, i: number) => ({
           key: m.menu_item_id || `m_${i}`,
@@ -278,7 +295,7 @@ function AdminQuoteDetailInner() {
           quantity: safeNum(m.quantity),
           unit_price: safeNum(m.unit_price),
           discount_pct: safeNum(m.discount_pct ?? m.discountPct),
-          raw: m,
+          raw: { ...m, image_url: m.image_url || photoById.get(String(m.menu_item_id)) || null },
         })),
       );
       setDeliveryFee(safeNum((data as any)?.delivery_fee));
@@ -1049,7 +1066,13 @@ function AdminQuoteDetailInner() {
                           {items.map((it) => (
                             <tr key={it.key} className="border-t border-slate-100 align-top">
                               <td className="py-3 pr-3">
-                                <div className="font-medium text-slate-900">{it.item_name}</div>
+                                <div className="flex items-center gap-2">
+                                  {it.raw?.image_url && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={it.raw.image_url} alt={it.item_name} loading="lazy" className="h-12 w-12 shrink-0 rounded-md border border-slate-200 object-cover" />
+                                  )}
+                                  <div className="font-medium text-slate-900">{it.item_name}</div>
+                                </div>
                                 {/* What the line actually includes, e.g. "Cutlery &
                                     Crockery" -> "Plate, knife & fork." */}
                                 {it.raw?.description && (

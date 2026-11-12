@@ -924,7 +924,11 @@ export default function PublicQuotePage() {
                           const qty = Number(item?.quantity ?? item?.qty ?? 1);
                           const lineTotal = Number(item?.total ?? item?.line_total ?? unitPrice * qty);
                           return (
-                            <div key={`${group.course}-${i}`} className="print-row flex justify-between gap-3 text-sm py-2 border-b border-stone-100 last:border-b-0">
+                            <div key={`${group.course}-${i}`} className="print-row flex items-center justify-between gap-3 text-sm py-2 border-b border-stone-100 last:border-b-0">
+                              {item?.image_url && (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={item.image_url} alt={name} loading="lazy" className="h-14 w-14 shrink-0 rounded-md border border-stone-200 object-cover" />
+                              )}
                               <div className="flex-1 min-w-0">
                                 <p className="font-semibold text-stone-900">{name}</p>
                                 {description && <p className="text-xs text-stone-500 mt-0.5">{description}</p>}

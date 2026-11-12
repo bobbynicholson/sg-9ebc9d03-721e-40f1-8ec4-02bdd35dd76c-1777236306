@@ -244,6 +244,11 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
       {rows.length < 12 && totalGuests > 1 && <Button type="button" variant="outline" disabled={saving || loading} onClick={addSitting}>{rows.length === 1 ? "Split into two sittings" : "Add sitting"}</Button>}
       <p role="status" className={`text-sm ${allocated === totalGuests ? "text-slate-600" : "font-medium text-red-800"}`}>{allocated} of {totalGuests} guests allocated</p>
     </div>}
+    {!mayEdit && rows.length > 0 && <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
+      {!canEdit
+        ? "This schedule is read-only. Switch to an administrator role to change sittings or addresses."
+        : "This booking is closed or not active, so its sitting schedule is read-only."}
+    </p>}
     {error && <div role="alert" className="mt-3 text-sm text-red-800">{error} <button type="button" className="underline underline-offset-4" onClick={() => void load()}>Reload saved schedule</button></div>}
     {!!rows.length && <>
       <label className="mt-4 block text-sm font-medium text-slate-900">Equipment returns

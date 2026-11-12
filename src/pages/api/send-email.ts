@@ -323,14 +323,16 @@ async function handler(
             });
             const { renderQuotePdf, sanitiseFilename } = await import("@/services/pdf");
             const { buildQuotePdfDataFromRow } = await import("@/services/pdf/quotePdfData");
+            const { prepareQuoteMenuPhotoData } = await import("@/services/pdf/quoteMenuPhotoData");
+            const quotePhotos = await prepareQuoteMenuPhotoData(ssr, q);
             const pdfBuffer = await renderQuotePdf(
-              buildQuotePdfDataFromRow({ ...(q as any), payment_instructions: quotePaymentInstructions }),
+              buildQuotePdfDataFromRow({ ...quotePhotos.row, payment_instructions: quotePaymentInstructions }),
               {
                 cacheKey: {
                   quoteId,
                   quoteUpdatedAt: (q as any).updated_at ?? null,
                   companyUpdatedAt: (q as any).company?.updated_at ?? null,
-                  paymentInstructionsFingerprint: JSON.stringify(quotePaymentInstructions || null),
+                  paymentInstructionsFingerprint: JSON.stringify([quotePaymentInstructions || null, quotePhotos.fingerprint]),
                 },
               },
             );
@@ -400,14 +402,16 @@ async function handler(
             });
             const { renderQuotePdf, sanitiseFilename } = await import("@/services/pdf");
             const { buildQuotePdfDataFromRow } = await import("@/services/pdf/quotePdfData");
+            const { prepareQuoteMenuPhotoData } = await import("@/services/pdf/quoteMenuPhotoData");
+            const quotePhotos2 = await prepareQuoteMenuPhotoData(ssr, q2);
             const pdfBuffer2 = await renderQuotePdf(
-              buildQuotePdfDataFromRow({ ...(q2 as any), payment_instructions: quotePaymentInstructions }),
+              buildQuotePdfDataFromRow({ ...quotePhotos2.row, payment_instructions: quotePaymentInstructions }),
               {
                 cacheKey: {
                   quoteId: quoteId2,
                   quoteUpdatedAt: (q2 as any).updated_at ?? null,
                   companyUpdatedAt: (q2 as any).company?.updated_at ?? null,
-                  paymentInstructionsFingerprint: JSON.stringify(quotePaymentInstructions || null),
+                  paymentInstructionsFingerprint: JSON.stringify([quotePaymentInstructions || null, quotePhotos2.fingerprint]),
                 },
               },
             );

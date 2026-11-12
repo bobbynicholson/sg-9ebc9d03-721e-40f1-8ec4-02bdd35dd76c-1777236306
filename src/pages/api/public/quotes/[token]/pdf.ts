@@ -134,18 +134,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const { renderQuotePdf, sanitiseFilename } = await import("@/services/pdf");
     const { buildQuotePdfDataFromRow } = await import("@/services/pdf/quotePdfData");
+    const { prepareQuoteMenuPhotoData } = await import("@/services/pdf/quoteMenuPhotoData");
+    const quotePhotos = await prepareQuoteMenuPhotoData(supabase, q);
     const pdfBuffer = await renderQuotePdf(
       buildQuotePdfDataFromRow({
-        ...q,
+        ...quotePhotos.row,
         payment_instructions: paymentInstructions,
-        company: { ...(q.company || {}), logo_url: logoUrl },
+        company: { ...(quotePhotos.row.company || {}), logo_url: logoUrl },
       }),
       {
         cacheKey: {
           quoteId: q.id,
           quoteUpdatedAt: q.updated_at ?? null,
           companyUpdatedAt: q.company?.updated_at ?? null,
-          paymentInstructionsFingerprint: JSON.stringify(paymentInstructions || null),
+          paymentInstructionsFingerprint: JSON.stringify([paymentInstructions || null, quotePhotos.fingerprint]),
         },
       },
     );

@@ -47,6 +47,7 @@ export interface QuotePdfMenuItem {
   name: string;
   description?: string | null;
   category?: string | null;
+  image_url?: string | null;
   unit_price?: number | null;
   quantity?: number | null;
   total?: number | null;
@@ -419,6 +420,13 @@ const buildStyles = (primary: string) =>
       flex: 1,
       paddingRight: 8,
     },
+    menuPhoto: {
+      width: 42,
+      height: 42,
+      objectFit: "cover",
+      borderRadius: 4,
+      marginRight: 8,
+    },
     lineName: {
       fontSize: 11,
       fontFamily: "Helvetica-Bold",
@@ -731,6 +739,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                   const isLast = i === group.items.length - 1;
                   return (
                     <View key={`menu-${group.course}-${i}`} style={[styles.lineRow, isLast ? styles.lineRowLast : {}]} wrap={!canKeepPdfTextTogether(`${name}\n${item?.description || ""}`, 28)}>
+                      {item?.image_url ? <Image src={item.image_url} style={styles.menuPhoto} /> : null}
                       <View style={styles.lineLeft}>
                         <Text style={styles.lineName}>{name}</Text>
                         {item?.description ? <Text style={styles.lineDescription}>{item.description}</Text> : null}

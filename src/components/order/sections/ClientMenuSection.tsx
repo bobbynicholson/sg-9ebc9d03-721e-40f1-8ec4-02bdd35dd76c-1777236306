@@ -44,6 +44,7 @@ interface MenuItemRow {
   menu_item?: {
     category: string | null;
     dietary_tags: string[] | null;
+    image_url: string | null;
   } | null;
 }
 
@@ -54,7 +55,7 @@ interface EquipmentRow {
 }
 
 const ITEMS_SELECT =
-  "id, item_name, description, quantity, special_instructions, menu_item:menu_item_id(category, dietary_tags)";
+  "id, item_name, description, quantity, special_instructions, menu_item:menu_item_id(category, dietary_tags, image_url)";
 const EQUIP_SELECT = "id, quantity, equipment:equipment_id(name, category)";
 
 export function ClientMenuSection({
@@ -187,6 +188,10 @@ export function ClientMenuSection({
                           <span className="flex-shrink-0 inline-flex items-center justify-center min-w-[2rem] h-7 px-2 rounded-md bg-slate-100 text-slate-800 text-sm font-semibold tabular-nums">
                             {it.quantity}
                           </span>
+                        )}
+                        {it.menu_item?.image_url && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={it.menu_item.image_url} alt={it.item_name} loading="lazy" className="h-14 w-14 shrink-0 rounded-md border border-slate-200 object-cover" />
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-slate-900">{it.item_name}</p>

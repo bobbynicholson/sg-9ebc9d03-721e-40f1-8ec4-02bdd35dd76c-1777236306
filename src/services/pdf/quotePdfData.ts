@@ -82,6 +82,7 @@ export function normaliseQuoteMenuItems(
         name,
         description: firstString(item?.description, item?.category),
         category: firstString(item?.category),
+        image_url: firstString(item?.image_url),
         unit_price: unitPrice,
         quantity,
         total: explicitTotal ?? computedTotal,
