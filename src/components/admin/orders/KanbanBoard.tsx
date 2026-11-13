@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -81,7 +82,15 @@ function OrderCard({ order, autoEmailMap, currencySymbol, setSelectedOrder, setI
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1 min-w-0">
-                <h4 className="font-semibold text-slate-900 truncate">{order.client_name}</h4>
+                <h4 className="min-w-0 truncate font-semibold text-slate-900">
+                  <Link
+                    href={withSlug(`/order/${(order as any).id}?role=admin`)}
+                    aria-label={`Open order ${(order as any).order_number || ""} for ${order.client_name || "this client"}`}
+                    className="rounded-sm underline decoration-transparent underline-offset-4 transition hover:text-brand-primary hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
+                  >
+                    {order.client_name || "Unknown client"}
+                  </Link>
+                </h4>
                 <RegionBadge regionId={(order as any).region_id} />
               </div>
               <p className="text-sm text-slate-600 truncate" title={order.venue_address}>

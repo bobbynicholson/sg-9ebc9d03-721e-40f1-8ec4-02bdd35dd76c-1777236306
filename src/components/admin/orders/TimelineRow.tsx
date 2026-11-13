@@ -134,7 +134,15 @@ export function TimelineRow({
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-3 mb-2 flex-wrap">
-                <h4 className="font-semibold text-slate-900 text-lg">{order.client_name}</h4>
+                <h4 className="font-semibold text-slate-900 text-lg">
+                  <Link
+                    href={withSlug(`/order/${(order as any).id}?role=admin`)}
+                    aria-label={`Open order ${(order as any).order_number || ""} for ${order.client_name || "this client"}`}
+                    className="rounded-sm underline decoration-transparent underline-offset-4 transition hover:text-brand-primary hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
+                  >
+                    {order.client_name || "Unknown client"}
+                  </Link>
+                </h4>
                 {(order as any).order_number && (
                   <button
                     type="button"
