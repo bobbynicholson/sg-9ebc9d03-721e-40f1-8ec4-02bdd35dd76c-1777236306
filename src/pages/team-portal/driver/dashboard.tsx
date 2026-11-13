@@ -1015,7 +1015,11 @@ function DriverDashboardInner() {
 
             {/* Driver leaderboard - shows this month's top drivers.
                 Only renders when there are 2+ drivers to compare. */}
-            <DriverDetailsDisclosure label="September leaderboard" count="Open leaderboard" className="mb-4 sm:mb-6">
+            <DriverDetailsDisclosure
+              label={`${new Date().toLocaleDateString("en-ZA", { month: "long" })} leaderboard`}
+              count="Open leaderboard"
+              className="mb-4 sm:mb-6"
+            >
               <DriverLeaderboardStrip
                 companyId={user?.company_id}
                 currentUserId={user?.id}
