@@ -421,6 +421,21 @@ function ClientsCRM() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Contact | null>(null);
+  const openContactDetails = (contact: Contact) => {
+    setEditing(contact);
+    setFormOpen(true);
+  };
+  useEffect(() => {
+    if (!formOpen || !editing?.key) return;
+    trackRecentlyViewed({
+      id: editing.clientId || editing.key,
+      type: "contact",
+      label: editing.name || editing.email || "Unknown contact",
+      href: editing.clientId
+        ? `/admin/contacts?clientId=${encodeURIComponent(editing.clientId)}`
+        : "/admin/contacts",
+    });
+  }, [formOpen, editing?.key, editing?.clientId, editing?.name, editing?.email]);
   // Bulk-import modal - "Import clients" button feeds the same engine
   // the onboarding wizard uses. After commit we reload the contact list.
   const [importOpen, setImportOpen] = useState(false);
@@ -1049,10 +1064,9 @@ function ClientsCRM() {
     setFilter("all");
     setSearch("");
     setFocusedContactKey(match.key);
-    // Auto-open the compose drawer so operators get the same "see
-    // everything about this contact" landing they expect from a
-    // profile-view button.
-    setActive(match);
+    // Open the contact details directly. The composer remains available
+    // through the explicit Quick mail action on the row.
+    openContactDetails(match);
 
     const t = setTimeout(() => {
       const el = typeof document !== "undefined"
@@ -1634,8 +1648,9 @@ function ClientsCRM() {
                           key={`m-${c.key}`}
                           type="button"
                           id={`contact-row-mobile-${c.key}`}
+                          aria-label={`Open contact details for ${c.name}`}
                           className={`w-full text-left p-3 hover:bg-slate-50 transition-colors ${focusedContactKey === c.key ? "bg-amber-50/40 ring-2 ring-amber-300" : ""}`}
-                          onClick={() => { setEditing(c); setFormOpen(true); }}
+                          onClick={() => openContactDetails(c)}
                         >
                           <div className="flex items-start justify-between gap-2 mb-1.5">
                             <div className="min-w-0 flex-1">
@@ -1760,18 +1775,23 @@ function ClientsCRM() {
                             }`}
                           >
                             <td className="py-3 pl-4 pr-2">
-                              <button
-                                onClick={() => setActive(c)}
-                                className="text-left"
-                              >
-                                <div className="font-semibold text-slate-900 flex items-center gap-2">
-                                  {c.name}
+                              <div className="min-w-0">
+                                <div className="mb-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => openContactDetails(c)}
+                                    aria-label={`Open contact details for ${c.name}`}
+                                    title="Open contact details"
+                                    className="rounded-sm text-left font-semibold text-slate-900 underline decoration-transparent underline-offset-4 transition-colors hover:text-brand-primary hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
+                                  >
+                                    {c.name}
+                                  </button>
                                   {c.clientId && clientCredits[c.clientId] > 0 && (
                                     <Badge className="border-0 bg-brand-primary/10 text-[10px] font-semibold text-brand-primary" title="Store credit this client can use on their next payment">
                                       Credit {fmtMoney.format(clientCredits[c.clientId])}
                                     </Badge>
                                   )}
-                                  {c.companyName && <span className="block break-words text-xs font-normal text-slate-600">{c.companyName}</span>}
+                                  {c.companyName && <span className="break-words text-xs font-normal text-slate-600">{c.companyName}</span>}
                                   {/* Phase 16 #4: client_type badge.
                                       Only renders for actual clients
                                       (source='client') so a lead /
@@ -1792,22 +1812,22 @@ function ClientsCRM() {
                                     a tablet shouldn't have to copy-paste. */}
                                 <div className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
                                   {c.email && (
-                                    <a href={`mailto:${c.email}`} className="flex items-center gap-1 hover:text-slate-900 hover:underline" onClick={(e) => e.stopPropagation()}>
+                                    <a href={`mailto:${c.email}`} className="flex items-center gap-1 hover:text-slate-900 hover:underline">
                                       <Mail className="w-3 h-3" />{c.email}
                                     </a>
                                   )}
                                   {c.mobile_number ? (
-                                    <a href={`tel:${c.mobile_number}`} className="flex items-center gap-1 hover:text-slate-900 hover:underline" title="Mobile" onClick={(e) => e.stopPropagation()}>
+                                    <a href={`tel:${c.mobile_number}`} className="flex items-center gap-1 hover:text-slate-900 hover:underline" title="Mobile">
                                       <Phone className="w-3 h-3 text-brand-primary" />{c.mobile_number}
                                     </a>
                                   ) : null}
                                   {c.landline_number ? (
-                                    <a href={`tel:${c.landline_number}`} className="flex items-center gap-1 hover:text-slate-900 hover:underline" title="Landline" onClick={(e) => e.stopPropagation()}>
+                                    <a href={`tel:${c.landline_number}`} className="flex items-center gap-1 hover:text-slate-900 hover:underline" title="Landline">
                                       <Phone className="w-3 h-3" />{c.landline_number}
                                     </a>
                                   ) : null}
                                   {!c.mobile_number && !c.landline_number && c.phone ? (
-                                    <a href={`tel:${c.phone}`} className="flex items-center gap-1 hover:text-slate-900 hover:underline" onClick={(e) => e.stopPropagation()}>
+                                    <a href={`tel:${c.phone}`} className="flex items-center gap-1 hover:text-slate-900 hover:underline">
                                       <Phone className="w-3 h-3" />{c.phone}
                                     </a>
                                   ) : null}
@@ -1843,7 +1863,7 @@ function ClientsCRM() {
                                     ))}
                                   </div>
                                 )}
-                              </button>
+                              </div>
                             </td>
                             <td className="py-3 px-2">
                               <Badge variant="outline" className={`${meta.tone} border gap-1 whitespace-nowrap`}>
