@@ -772,7 +772,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                   wrap={!canKeepPdfTextTogether(name, 28)}
                 >
                   <View style={styles.lineLeft}>
-                    <Text style={styles.lineName}>{item?.service_sitting_sequence ? `Sitting ${item.service_sitting_sequence} · ${name}` : `Primary venue · ${name}`}</Text>
+                    <Text style={styles.lineName}>{item?.service_sitting_sequence ? `Sitting ${item.service_sitting_sequence} · ${name}` : name}</Text>
                     <Text style={styles.lineSub}>
                       {qty} x {fmtZAR(unitPrice)}
                     </Text>

@@ -335,6 +335,54 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* Keep sidebar scrolling visible while matching the rail instead of the
+     browser's bright white default track. The thumb remains easy to grab. */
+  .portal-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(100 116 139 / 0.62) rgb(148 163 184 / 0.14);
+  }
+
+  .portal-scrollbar::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+
+  .portal-scrollbar::-webkit-scrollbar-track {
+    margin-block: 4px;
+    border-radius: 9999px;
+    background: rgb(148 163 184 / 0.12);
+  }
+
+  .portal-scrollbar::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background: rgb(100 116 139 / 0.62);
+    background-clip: padding-box;
+  }
+
+  .portal-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgb(71 85 105 / 0.78);
+    background-clip: padding-box;
+  }
+
+  .portal-scrollbar-brand {
+    scrollbar-color: rgb(255 255 255 / 0.62) rgb(255 255 255 / 0.12);
+  }
+
+  .portal-scrollbar-brand::-webkit-scrollbar-track {
+    background: rgb(255 255 255 / 0.12);
+  }
+
+  .portal-scrollbar-brand::-webkit-scrollbar-thumb {
+    background: rgb(255 255 255 / 0.5);
+    background-clip: padding-box;
+  }
+
+  .portal-scrollbar-brand::-webkit-scrollbar-thumb:hover {
+    background: rgb(255 255 255 / 0.78);
+    background-clip: padding-box;
+  }
   
   /* Mobile-friendly image aspect ratios */
   .mobile-aspect-video {

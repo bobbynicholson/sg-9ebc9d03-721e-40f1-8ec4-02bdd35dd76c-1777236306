@@ -470,12 +470,14 @@ function RepliesPage() {
                 className={cn(
                   "min-w-0",
                   !selected && "hidden md:block",
+                  selected && "md:flex md:h-[calc(100dvh-27rem)] md:min-h-[34rem] md:max-h-[56rem] md:flex-col md:overflow-hidden",
                   mobileThreadView && "flex min-h-0 flex-col overflow-hidden",
                 )}
                 style={mobileThreadView && mobileThreadHeight ? { height: mobileThreadHeight } : undefined}
               >
                 <CardContent className={cn(
                   "space-y-3 py-4",
+                  selected && "md:flex md:min-h-0 md:flex-1 md:flex-col md:gap-3 md:space-y-0",
                   mobileThreadView && "flex min-h-0 flex-1 flex-col gap-3 space-y-0 p-3",
                 )}>
                   {!selected ? (
@@ -518,6 +520,7 @@ function RepliesPage() {
                         }}
                         className={cn(
                           "min-h-32 max-h-[min(28rem,60dvh)] space-y-2 overflow-y-auto overscroll-contain rounded-lg bg-slate-100 p-3 dark:bg-slate-800",
+                          selected && "md:min-h-0 md:max-h-none md:flex-1 md:space-y-3 md:p-4",
                           mobileThreadView && "min-h-0 max-h-none flex-1",
                         )}
                       >
@@ -539,13 +542,15 @@ function RepliesPage() {
                         {thread?.messages.length === 0 && <p className="py-8 text-center text-sm text-slate-500">No WhatsApp messages with this number yet.</p>}
                         {thread?.messages.filter((message) => !reactionGroups.attachedIds.has(message.id)).map((message) => (
                           <div key={message.id} className="space-y-1.5">
-                            <div className={cn("flex", message.direction === "out" && "justify-end")}>
+                            <div className={cn("flex w-full", message.direction === "out" ? "justify-end" : "justify-start")}>
                               <div className={cn(
-                                "min-w-0 max-w-[85%] rounded-lg px-3 py-2 text-sm shadow-sm",
-                                message.direction === "out" ? "bg-brand-primary text-white" : "bg-white text-slate-800 dark:bg-slate-900 dark:text-slate-100",
+                                "w-fit min-w-0 max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm md:max-w-[78%]",
+                                message.direction === "out"
+                                  ? "rounded-tr-md bg-brand-primary text-white"
+                                  : "rounded-tl-md border border-slate-200 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
                               )}>
                                 <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide">
-                                  <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">{message.direction === "out" ? "You sent" : "Client sent"}</span>
+                                  <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">{message.direction === "out" ? "You" : "Client"}</span>
                                   {message.source === "whatsapp_business_app" && <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">WhatsApp app</span>}
                                   {message.source === "synced_history" && <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">Synced history</span>}
                                   {message.kind !== "text" && <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">{message.kind === "template" ? "Template" : messageKindLabel(message.kind)}</span>}

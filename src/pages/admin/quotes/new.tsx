@@ -4315,7 +4315,7 @@ function NewQuotePage() {
                           <ul className="space-y-1">
                             {equipment.filter((e) => e.name).map((e, i) => (
                               <li key={`e${i}`} className="flex justify-between text-xs gap-2">
-                                <span className="text-slate-700">{e.service_sitting_sequence ? `Sitting ${e.service_sitting_sequence} · ` : "Primary venue · "}{e.name} × {e.quantity}</span>
+                                <span className="text-slate-700">{e.service_sitting_sequence ? `Sitting ${e.service_sitting_sequence} · ` : ""}{e.name} × {e.quantity}</span>
                                 <span className="text-slate-900 font-medium flex-shrink-0">{fmtR(e.unitPrice * e.quantity)}</span>
                               </li>
                             ))}

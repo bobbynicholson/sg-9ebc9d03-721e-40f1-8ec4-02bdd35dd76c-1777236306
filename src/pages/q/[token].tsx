@@ -962,7 +962,7 @@ export default function PublicQuotePage() {
                     return (
                       <div key={i} className="print-row flex justify-between gap-3 text-sm py-2 border-b border-stone-100 last:border-b-0">
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-stone-900">{item?.service_sitting_sequence ? `Sitting ${item.service_sitting_sequence} · ` : "Primary venue · "}{name}</p>
+                          <p className="font-semibold text-stone-900">{item?.service_sitting_sequence ? `Sitting ${item.service_sitting_sequence} · ` : ""}{name}</p>
                           <p className="text-xs text-stone-500 mt-0.5">
                             {/* Items bundled into a priced line (e.g. the plates,
                                 knives and forks of "Cutlery & Crockery") show

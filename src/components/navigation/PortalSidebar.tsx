@@ -494,7 +494,10 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     // Radix ScrollArea. Its viewport reserves scrollbar space but its
     // generated content wrapper stayed at the pre-scrollbar width, clipping
     // roughly 25px of the admin drawer at tablet / split-screen widths.
-    <div className="no-scrollbar h-full min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-4">
+    <div className={cn(
+      "portal-scrollbar h-full min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-4",
+      forceBrand && "portal-scrollbar-brand",
+    )}>
       <div className="space-y-4">
         {mobile && (
           <div className="space-y-3">
@@ -789,7 +792,13 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               ref always resolved to undefined and useNavScrollRestore
               attached to nothing - the desktop menu reset to the top on
               every navigation. */}
-          <div ref={desktopScrollRef} className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-4">
+          <div
+            ref={desktopScrollRef}
+            className={cn(
+              "portal-scrollbar flex-1 min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-4",
+              forceBrand && "portal-scrollbar-brand",
+            )}
+          >
             <div className="space-y-4">
               {/* Wave 70.7 - desktop top slot (service mode + live state) */}
               {config.renderTopSlot && !isCollapsed && (
