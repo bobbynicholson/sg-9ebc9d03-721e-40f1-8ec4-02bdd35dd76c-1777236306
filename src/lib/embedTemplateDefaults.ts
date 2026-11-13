@@ -67,6 +67,16 @@ const GUEST_COUNT_FIELD: EmbedField = {
   validation: { min: 1, max: 5000 },
 };
 
+const MAIN_SERVICE_TIME_FIELD: EmbedField = {
+  id: 'event_time',
+  type: 'time',
+  label: 'Main service time',
+  required: false,
+  visible: true,
+  order: 55,
+  mapsTo: 'event_time',
+};
+
 const VENUE_FIELD: EmbedField = {
   id: 'venue',
   type: 'text',
@@ -76,6 +86,16 @@ const VENUE_FIELD: EmbedField = {
   visible: true,
   order: 60,
   mapsTo: 'venue',
+};
+
+const ADDITIONAL_LOCATIONS_FIELD: EmbedField = {
+  id: 'delivery_locations',
+  type: 'locations',
+  label: 'Additional sitting locations',
+  helpText: 'For each additional office or venue, enter its address and guest count. Add a different service time if needed.',
+  required: false,
+  visible: true,
+  order: 65,
 };
 
 const NOTES_FIELD: EmbedField = {
@@ -102,6 +122,9 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
     clone(PHONE_FIELD),
     clone(EVENT_DATE_FIELD),
     clone(GUEST_COUNT_FIELD),
+    clone(MAIN_SERVICE_TIME_FIELD),
+    clone(VENUE_FIELD, { order: 60, label: 'Main venue or delivery address' }),
+    clone(ADDITIONAL_LOCATIONS_FIELD),
   ],
 
   // 2. Modern inline - single-row layout, slightly richer.
@@ -131,7 +154,9 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
     clone(PHONE_FIELD),
     clone(EVENT_DATE_FIELD),
     clone(GUEST_COUNT_FIELD, { label: 'Expected guest count' }),
+    clone(MAIN_SERVICE_TIME_FIELD),
     clone(VENUE_FIELD, { label: 'Venue' }),
+    clone(ADDITIONAL_LOCATIONS_FIELD),
     {
       id: 'cuisine_type',
       type: 'select',
@@ -193,13 +218,15 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
     {
       id: 'event_time',
       type: 'time',
-      label: 'Start time',
+      label: 'Main service time',
       required: false,
       visible: true,
       order: 45,
+      mapsTo: 'event_time',
     },
     clone(GUEST_COUNT_FIELD),
     clone(VENUE_FIELD),
+    clone(ADDITIONAL_LOCATIONS_FIELD),
     {
       id: 'cuisine_type',
       type: 'select',
@@ -323,6 +350,7 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
     },
     clone(GUEST_COUNT_FIELD, { label: 'Guest count', order: 70 }),
     clone(VENUE_FIELD, { label: 'Wedding venue', order: 80 }),
+    clone(ADDITIONAL_LOCATIONS_FIELD, { order: 85 }),
     {
       id: 'service_style',
       type: 'select',
@@ -400,6 +428,7 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
     },
     clone(GUEST_COUNT_FIELD, { label: 'Number of attendees', order: 50 }),
     clone(VENUE_FIELD, { label: 'Delivery address', order: 60 }),
+    clone(ADDITIONAL_LOCATIONS_FIELD, { order: 65 }),
     {
       id: 'recurring',
       type: 'select',
@@ -483,6 +512,7 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
   'spit-braai-quick': [
     clone(EVENT_DATE_FIELD, { label: 'Braai date', order: 10 }),
     clone(GUEST_COUNT_FIELD, { label: 'Number of people', order: 20 }),
+    clone(MAIN_SERVICE_TIME_FIELD, { order: 25 }),
     {
       id: 'postcode',
       type: 'text',
@@ -494,6 +524,7 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
       mapsTo: 'venue',
       validation: { minLength: 2, maxLength: 60 },
     },
+    clone(ADDITIONAL_LOCATIONS_FIELD, { order: 35 }),
     clone(NAME_FIELD, { order: 40 }),
     clone(PHONE_FIELD, { order: 50 }),
     clone(EMAIL_FIELD, { order: 60, required: false }),

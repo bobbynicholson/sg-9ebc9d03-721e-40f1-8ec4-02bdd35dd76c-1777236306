@@ -777,11 +777,16 @@ export const dispatchService = {
     // Fetch existing assignment to capture from_driver_id
       const { data: existing } = await supabase
         .from("orders")
-        .select("service_sittings(id), assigned_driver_id, client_id, event_date, event_time, venue_lat, venue_lng, requires_refrigeration, guest_count, requires_waiter, region_id, order_number")
+        .select("service_sittings(id,venue_address), assigned_driver_id, client_id, event_date, event_time, venue_name, venue_address, venue_lat, venue_lng, requires_refrigeration, guest_count, requires_waiter, region_id, order_number")
       .eq("id", payload.orderId)
       .maybeSingle();
 
-    if ((existing?.service_sittings?.length || 0) > 1) return {ok:false,reason:"This booking has multiple sittings. Assign drivers to each sitting delivery and collection in the booking schedule."};
+    const hasSittingSpecificDeliveries = (existing?.service_sittings?.length || 0) > 1
+      || (existing?.service_sittings || []).some((sitting: any) => {
+        const address = String(sitting.venue_address || "").trim();
+        return !!address && address.toLocaleLowerCase() !== String(existing?.venue_address || "").trim().toLocaleLowerCase();
+      });
+    if (hasSittingSpecificDeliveries) return {ok:false,reason:"This booking has sitting-specific deliveries. Assign drivers to each sitting delivery and collection in the booking schedule."};
     const fromDriverId = existing?.assigned_driver_id ?? null;
 
     // Phase 2 #4: ALWAYS run the double-booking check, independent of

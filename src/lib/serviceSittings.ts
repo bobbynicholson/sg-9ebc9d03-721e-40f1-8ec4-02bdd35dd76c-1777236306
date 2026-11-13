@@ -10,7 +10,29 @@ export type ServiceSittingInput = {
   cleaningResetRequired?: boolean;
   returnRequired?: boolean;
   returnTime?: string | null;
+  deliveryFee?: number;
+  collectionFee?: number;
+  deliveryFeeManual?: boolean;
+  collectionFeeManual?: boolean;
 };
+
+/** A menu line can be served at every sitting or reserved for one sitting. */
+export function menuLineSittingSequence(item: any): number | null {
+  const descriptionMatch = typeof item?.description === "string"
+    ? /^\s*Sitting\s+(\d+)(?:\s|·|:|$)/i.exec(item.description)
+    : null;
+  const raw = item?.service_sitting_sequence ?? item?.serviceSittingSequence ?? item?.sitting_sequence ?? descriptionMatch?.[1];
+  const sequence = Number(raw);
+  return Number.isSafeInteger(sequence) && sequence > 0 ? sequence : null;
+}
+
+/** Keep the sitting visible on the single combined invoice line. */
+export function menuLineOrderDescription(item: any): string | null {
+  const category = String(item?.category || item?.dietary_tags?.join?.(", ") || "").trim();
+  const sequence = menuLineSittingSequence(item);
+  if (!sequence) return category || null;
+  return category ? `Sitting ${sequence} · ${category}` : `Sitting ${sequence}`;
+}
 
 const validTime = (value: unknown) => typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 
@@ -47,7 +69,12 @@ export function normaliseServiceSittings(raw: unknown, totalGuests: number): { v
     for (const key of ["kitchenReadyTime", "dispatchTime", "returnTime"] as const) {
       if (item?.[key] != null && item[key] !== "" && !validTime(item[key])) return { error: "Use a valid time for each operational deadline." };
     }
-    value.push({ guestCount, serviceTime: item.serviceTime, venueName: item.venueName?.trim() || null, venueAddress: item.venueAddress?.trim() || null, venueLat, venueLng, kitchenReadyTime: item.kitchenReadyTime || null, dispatchTime: item.dispatchTime || null, cleaningResetRequired: !!item.cleaningResetRequired, returnRequired: !!item.returnRequired, returnTime: item.returnTime || null });
+    const deliveryFee = item?.deliveryFee == null || item.deliveryFee === "" ? 0 : Number(item.deliveryFee);
+    const collectionFee = item?.collectionFee == null || item.collectionFee === "" ? 0 : Number(item.collectionFee);
+    if (!Number.isFinite(deliveryFee) || deliveryFee < 0 || !Number.isFinite(collectionFee) || collectionFee < 0) {
+      return { error: "Sitting delivery and collection fees must be zero or more." };
+    }
+    value.push({ guestCount, serviceTime: item.serviceTime, venueName: item.venueName?.trim() || null, venueAddress: item.venueAddress?.trim() || null, venueLat, venueLng, kitchenReadyTime: item.kitchenReadyTime || null, dispatchTime: item.dispatchTime || null, cleaningResetRequired: !!item.cleaningResetRequired, returnRequired: !!item.returnRequired, returnTime: item.returnTime || null, deliveryFee, collectionFee, deliveryFeeManual: !!item.deliveryFeeManual, collectionFeeManual: !!item.collectionFeeManual });
   }
   if (value.reduce((sum, s) => sum + s.guestCount, 0) !== Math.round(Number(totalGuests))) return { error: `Sitting guest counts must total ${totalGuests}.` };
   return { value };
@@ -95,4 +122,23 @@ export function allocateSittingQuantities(quantity: number, guests: number[]): n
     allocated[share.index] += 1;
   }
   return allocated.map((count) => count / scale);
+}
+
+/** Split a shared route fee into cent-accurate per-sitting amounts. */
+export function allocateSittingMoney(amount: number, weights: number[]): number[] {
+  const totalCents = Math.max(0, Math.round(Number(amount || 0) * 100));
+  const totalWeight = weights.reduce((sum, weight) => sum + Math.max(0, Number(weight) || 0), 0);
+  if (weights.length === 0) return [];
+  if (totalCents === 0 || totalWeight === 0) return weights.map(() => 0);
+  const shares = weights.map((weight, index) => ({
+    index,
+    exact: totalCents * Math.max(0, Number(weight) || 0) / totalWeight,
+  }));
+  const allocated = shares.map(({ exact }) => Math.floor(exact));
+  let remainder = totalCents - allocated.reduce((sum, cents) => sum + cents, 0);
+  for (const share of [...shares].sort((a, b) => (b.exact % 1) - (a.exact % 1) || a.index - b.index)) {
+    if (remainder-- <= 0) break;
+    allocated[share.index] += 1;
+  }
+  return allocated.map((cents) => cents / 100);
 }

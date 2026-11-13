@@ -33,6 +33,28 @@ test("operations writes retain separate driver selections and return plan", asyn
   const s = setup(orderHandler, { sittings, returnPlan: "per_sitting_collection", companyId: "forged-company" }); await s.run();
   expect(rpc).toHaveBeenCalledWith("save_order_sitting_operations_with_venues", { p_order_id: id, p_company_id: "verified-company", p_operations: sittings, p_return_plan: "per_sitting_collection" });
 });
+test("driver overlap returns a confirmation question without treating it as a failed save", async () => {
+  rpc.mockResolvedValueOnce({ error: { code: "22023", message: "DISPATCH_OVERLAP_CONFIRMATION_REQUIRED: Simon already has another trip within 45 minutes." } });
+  const s = setup(orderHandler, { sittings: [{ id, deliveryDriverIds: ["d1"], allowDriverOverlap: true }], returnPlan: "client_return" });
+  await s.run();
+  expect(rpc).toHaveBeenCalledWith("save_order_sitting_operations_with_venues", {
+    p_order_id: id, p_company_id: "verified-company",
+    p_operations: [{ id, deliveryDriverIds: ["d1"], collectionDriverIds: [] }],
+    p_return_plan: "client_return",
+  });
+  expect(s.res.code).toBe(409);
+  expect(s.res.body).toEqual({ confirmationRequired: true, message: "Simon already has another trip within 45 minutes." });
+});
+test("an explicit admin confirmation retries with a trusted shared-run override", async () => {
+  const s = setup(orderHandler, { sittings: [{ id, deliveryDriverIds: ["d1"], allowDriverOverlap: false }], returnPlan: "client_return", confirmDriverOverlap: true });
+  await s.run();
+  expect(rpc).toHaveBeenCalledWith("save_order_sitting_operations_with_venues", {
+    p_order_id: id, p_company_id: "verified-company",
+    p_operations: [{ id, allowDriverOverlap: true, deliveryDriverIds: ["d1"], collectionDriverIds: [] }],
+    p_return_plan: "client_return",
+  });
+  expect(s.res.code).toBe(200);
+});
 test("driver progress uses the session driver, never a submitted identity", async () => {
   const s = setup(tripHandler, { assignmentId: id, status: "accepted", driverId: "another-driver" }); await s.run();
   expect(rpc).toHaveBeenCalledWith("advance_sitting_driver_trip", { p_assignment_id: id, p_driver_id: "current-driver", p_company_id: "verified-company", p_status: "accepted" });

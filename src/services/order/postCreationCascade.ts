@@ -32,6 +32,7 @@
  */
 import { tenantDateTime } from "@/lib/portalTime";
 import { sortByCourse } from "@/lib/menuCourses";
+import { menuLineOrderDescription } from "@/lib/serviceSittings";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { randomBytes } from "crypto";
 import { ensureInvoiceForOrder } from "@/services/invoiceGenerationService";
@@ -216,7 +217,7 @@ export async function postOrderCreationCascade(
               order_id: orderId,
               menu_item_id: menuItemId,
               item_name: name,
-              description: it.category || it.dietary_tags?.join?.(", ") || null,
+              description: menuLineOrderDescription(it),
               quantity: qty,
               unit_price: unit,
               unit_cost: unitCost,
@@ -542,23 +543,28 @@ export async function postOrderCreationCascade(
           // so we don't re-insert on retry.
           const { data: existing, error: existingErr } = await (client as any)
             .from("equipment_bookings")
-            .select("equipment_id")
+            .select("equipment_id,service_sitting_sequence")
             .eq("order_id", orderId);
           if (existingErr) {
             console.error("[order/postCreationCascade] equipment_bookings fetch failed:", existingErr);
           }
-          const taken = new Set((existing || []).map((b: any) => b.equipment_id));
+          const keyFor = (equipmentId: string, sequence: number | null) => `${equipmentId}::${sequence ?? "shared"}`;
+          const taken = new Set((existing || []).map((b: any) => keyFor(b.equipment_id, b.service_sitting_sequence == null ? null : Number(b.service_sitting_sequence))));
 
           const rows = items
             .map((it: any) => {
               const equipmentId = it.id || it.equipment_id || null;
               const quantity = Number(it.quantity || 0);
-              if (!equipmentId || quantity <= 0 || taken.has(equipmentId)) return null;
+              const rawSequence = it.service_sitting_sequence ?? it.serviceSittingSequence ?? null;
+              const serviceSittingSequence = rawSequence == null || rawSequence === "" ? null : Number(rawSequence);
+              if (!equipmentId || quantity <= 0 || taken.has(keyFor(equipmentId, serviceSittingSequence))) return null;
               return {
                 company_id: (order as any).company_id || companyId,
                 order_id: orderId,
                 equipment_id: equipmentId,
                 quantity,
+                unit_price: Number(it.unit_price ?? it.unitPrice ?? it.price ?? 0),
+                service_sitting_sequence: serviceSittingSequence,
                 status: "booked",
                 booked_from: it.booked_from || bookedFrom,
                 booked_until: it.booked_until || bookedUntil,

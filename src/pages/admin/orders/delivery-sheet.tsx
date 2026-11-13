@@ -36,7 +36,8 @@ interface OrderRow {
   pickup_time: string | null;
   guest_count: number | null;
   venue_address: string | null;
-  service_sittings?: Array<{ sequence_number: number; guest_count: number; service_time: string; venue_name: string | null; venue_address: string | null }>;
+  service_sittings?: Array<{ id: string; sequence_number: number; guest_count: number; service_time: string; venue_name: string | null; venue_address: string | null; delivery_fee?: number | null; collection_fee?: number | null; drivers?: string[]; equipment?: Array<{ id: string; name: string; quantity: number }> }>;
+  shared_equipment?: Array<{ id: string; name: string; quantity: number }>;
   status: string | null;
   special_instructions: string | null;
   assigned_driver: { full_name: string | null } | null;
@@ -61,13 +62,13 @@ function DeliverySheet() {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await (supabase as any)
+        const { data, error: ordersError } = await (supabase as any)
           .from("orders")
           .select(`
             id, order_number, client_name, client_phone,
             event_date, event_time, setup_time, pickup_time,
             guest_count, venue_name, venue_address, status,
-            service_sittings(sequence_number,guest_count,service_time,venue_name,venue_address),
+            service_sittings(id,sequence_number,guest_count,service_time,venue_name,venue_address,delivery_fee,collection_fee),
             special_instructions,
             assigned_driver:profiles!orders_assigned_driver_id_fkey ( full_name ),
             assigned_vehicle:vehicles!orders_assigned_vehicle_id_fkey ( plate, nickname )
@@ -77,13 +78,18 @@ function DeliverySheet() {
           .eq("event_date", targetDate)
           .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered"])
           .order("event_time", { ascending: true });
+        if (ordersError) throw ordersError;
         const rows = (data || []) as OrderRow[];
         // Waiters ride with the driver, so the sheet names them too.
         if (rows.length) {
-          const { data: attendance, error: attendanceErr } = await (supabase as any)
-            .from("event_attendance")
-            .select("order_id, waiter:waiter_id ( full_name )")
-            .in("order_id", rows.map((r) => r.id));
+          const orderIds = rows.map((r) => r.id);
+          const [attendanceResult, equipmentResult, driversResult] = await Promise.all([
+            (supabase as any).from("event_attendance").select("order_id, waiter:waiter_id ( full_name )").in("order_id", orderIds),
+            (supabase as any).from("equipment_bookings").select("id,order_id,quantity,service_sitting_sequence,status,equipment:equipment_id(name)").in("order_id", orderIds).neq("status", "cancelled"),
+            (supabase as any).from("driver_assignments").select("order_id,assignment_type,status,driver:profiles!driver_assignments_driver_id_fkey(full_name),sitting:service_sittings(sequence_number)").in("order_id", orderIds).not("service_sitting_id", "is", null).not("status", "in", "(cancelled,rejected)"),
+          ]);
+          const attendance = attendanceResult.data;
+          const attendanceErr = attendanceResult.error;
           if (attendanceErr) console.error("[delivery-sheet] event_attendance fetch failed:", attendanceErr);
           const byOrder = new Map<string, string[]>();
           for (const a of (attendance || []) as any[]) {
@@ -92,6 +98,21 @@ function DeliverySheet() {
             byOrder.set(a.order_id, list);
           }
           for (const r of rows) r.waiter_names = byOrder.get(r.id) || [];
+          if (equipmentResult.error) console.error("[delivery-sheet] equipment bookings fetch failed:", equipmentResult.error);
+          if (driversResult.error) console.error("[delivery-sheet] sitting drivers fetch failed:", driversResult.error);
+          const equipmentRows = (equipmentResult.data || []) as any[];
+          const driverRows = (driversResult.data || []) as any[];
+          for (const r of rows) {
+            r.shared_equipment = equipmentRows.filter((item: any) => item.order_id === r.id && item.service_sitting_sequence == null && item.equipment?.name)
+              .map((item: any) => ({ id: item.id, name: item.equipment.name, quantity: Number(item.quantity || 0) }));
+            r.service_sittings = (r.service_sittings || []).map(sitting => ({
+              ...sitting,
+              equipment: equipmentRows.filter((item: any) => item.order_id === r.id && Number(item.service_sitting_sequence) === Number(sitting.sequence_number) && item.equipment?.name)
+                .map((item: any) => ({ id: item.id, name: item.equipment.name, quantity: Number(item.quantity || 0) })),
+              drivers: driverRows.filter((assignment: any) => assignment.order_id === r.id && Number(assignment.sitting?.sequence_number) === Number(sitting.sequence_number) && assignment.assignment_type === "delivery" && assignment.driver?.full_name)
+                .map((assignment: any) => assignment.driver.full_name),
+            }));
+          }
         }
         if (!cancelled) setOrders(rows);
       } catch {
@@ -178,6 +199,10 @@ function DeliverySheet() {
                   const vehicle = o.assigned_vehicle
                     ? `${o.assigned_vehicle.nickname || o.assigned_vehicle.plate || "vehicle"}`
                     : null;
+                  const showSittingLocations = (o.service_sittings?.length || 0) > 1 || o.service_sittings?.some((s: any) =>
+                    !!s.venue_address?.trim()
+                    && s.venue_address.trim().toLocaleLowerCase() !== String(o.venue_address || "").trim().toLocaleLowerCase(),
+                  );
                   return (
                     <div key={o.id} className="py-3" style={{ pageBreakInside: "avoid" }}>
                       <div className="flex items-baseline gap-3 mb-1">
@@ -191,7 +216,8 @@ function DeliverySheet() {
                               {o.order_number || ""}
                             </span>
                           </p>
-                          {o.service_sittings && o.service_sittings.length > 1 ? <ul className="mt-1 space-y-0.5 text-xs text-slate-600">{[...o.service_sittings].sort((a,b) => a.sequence_number-b.sequence_number).map(s => <li key={s.sequence_number}>Sitting {s.sequence_number} · {s.guest_count} guests · {fmtTime(s.service_time)} · {s.venue_name ? `${s.venue_name} — ` : ""}{s.venue_address || o.venue_address || "Address not set"}</li>)}</ul> : <p className="text-xs text-slate-600 mt-0.5">{o.venue_address || "-"}</p>}
+                          {showSittingLocations ? <ul className="mt-1 space-y-1 text-xs text-slate-600">{[...(o.service_sittings || [])].sort((a,b) => a.sequence_number-b.sequence_number).map(s => <li key={s.sequence_number}><strong>Sitting {s.sequence_number}</strong> · {s.guest_count} guests · {fmtTime(s.service_time)} · {s.venue_name ? `${s.venue_name} — ` : ""}{s.venue_address || o.venue_address || "Address not set"}<span className="block">Route fees on the single invoice: delivery R {Number(s.delivery_fee || 0).toFixed(2)} · collection R {Number(s.collection_fee || 0).toFixed(2)}</span>{!!s.drivers?.length && <span className="block">Drivers: {s.drivers.join(", ")}</span>}{!!s.equipment?.length && <span className="block">Equipment: {s.equipment.map(item => `${item.quantity} × ${item.name}`).join(", ")}</span>}</li>)}</ul> : <p className="text-xs text-slate-600 mt-0.5">{o.venue_address || "-"}</p>}
+                          {!!o.shared_equipment?.length && <p className="mt-1 text-xs text-amber-800">Main venue equipment: {o.shared_equipment.map(item => `${item.quantity} × ${item.name}`).join(", ")}</p>}
                           <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-1 flex-wrap">
                             <span className="tabular-nums">{o.guest_count ?? "-"} guests</span>
                             {o.setup_time && <span>setup {fmtTime(o.setup_time)}</span>}

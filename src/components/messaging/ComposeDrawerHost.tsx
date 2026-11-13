@@ -84,7 +84,7 @@ export function ComposeDrawerHost({
           aria-orientation="vertical"
           aria-label="Resize compose drawer"
           onMouseDown={(e) => { e.preventDefault(); setDragging(true); }}
-          className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize group hover:bg-brand-primary/15"
+          className="group absolute bottom-0 left-0 top-0 hidden w-2 cursor-ew-resize hover:bg-brand-primary/15 lg:block"
           style={{ zIndex: 60 }}
         >
           <div
@@ -100,7 +100,7 @@ export function ComposeDrawerHost({
             )}
           />
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 pl-8 py-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:pl-8 lg:py-6">
           {children}
         </div>
       </SheetContent>

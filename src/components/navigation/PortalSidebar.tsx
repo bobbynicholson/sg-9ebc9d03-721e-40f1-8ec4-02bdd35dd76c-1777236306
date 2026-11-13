@@ -138,6 +138,49 @@ interface PortalSidebarProps {
   config: PortalSidebarConfig;
 }
 
+function PortalLogoTile({
+  config,
+  logoUrl,
+  size,
+}: {
+  config: PortalSidebarConfig;
+  logoUrl: string | null;
+  size: "sm" | "lg";
+}) {
+  const [loadedLogoUrl, setLoadedLogoUrl] = useState<string | null>(null);
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
+  const BrandIcon = config.brandIcon;
+  const box = size === "sm" ? "h-8 w-8 rounded-lg" : "h-9 w-9 rounded-lg shadow-sm";
+  const glyph = size === "sm" ? "h-4 w-4" : "h-5 w-5";
+
+  if (!logoUrl) {
+    return (
+      <div className={cn("flex shrink-0 items-center justify-center bg-gradient-to-br", box, config.accentGradientDark)}>
+        <BrandIcon className={cn(glyph, "text-white")} />
+      </div>
+    );
+  }
+
+  const showLogo = failedLogoUrl !== logoUrl;
+
+  return (
+    <div className={cn("relative flex shrink-0 items-center justify-center overflow-hidden border border-slate-200 bg-white dark:border-slate-700", box)}>
+      <BrandIcon className={cn(glyph, "text-brand-primary", showLogo && loadedLogoUrl === logoUrl && "opacity-0")} />
+      {showLogo && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={logoUrl}
+          alt=""
+          aria-hidden="true"
+          onLoad={() => setLoadedLogoUrl(logoUrl)}
+          onError={() => setFailedLogoUrl(logoUrl)}
+          className={cn("absolute inset-0 h-full w-full object-contain p-0.5", loadedLogoUrl === logoUrl ? "opacity-100" : "opacity-0")}
+        />
+      )}
+    </div>
+  );
+}
+
 export function PortalSidebar({ config }: PortalSidebarProps) {
   const router = useRouter();
   const { withSlug } = useTenantHref();
@@ -280,8 +323,6 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   };
 
   const desktopScrollRef = useNavScrollRestore<HTMLDivElement>(`${config.role}-nav`);
-  const BrandIcon = config.brandIcon;
-
   // Tenant logo. When the company has uploaded a white-label logo we
   // show it in the brand tile instead of the generic role glyph, so the
   // admin + team portals carry the tenant's identity (not just colour).
@@ -289,28 +330,6 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   const branding = useBrandingRow();
   const logoUrl = branding?.logoUrl || null;
   const companyName = branding?.companyName || config.mobileSubtitle || "Workspace";
-  const LogoTile = ({ size }: { size: "sm" | "lg" }) => {
-    const box = size === "sm" ? "w-8 h-8 rounded-lg" : "w-9 h-9 rounded-lg shadow-sm";
-    const glyph = size === "sm" ? "w-4 h-4" : "w-5 h-5";
-    if (logoUrl) {
-      return (
-        <div
-          className={cn(
-            "flex items-center justify-center overflow-hidden bg-white border border-slate-200 dark:border-slate-700",
-            box,
-          )}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={logoUrl} alt={config.title} className="w-full h-full object-contain p-0.5" />
-        </div>
-      );
-    }
-    return (
-      <div className={cn("bg-gradient-to-br flex items-center justify-center", box, config.accentGradientDark)}>
-        <BrandIcon className={cn(glyph, "text-white")} />
-      </div>
-    );
-  };
 
   // Wave 70.7 - shared row renderer so the same row treatment is
   // used in the mobile drawer + desktop expanded + desktop collapsed
@@ -475,7 +494,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     // Radix ScrollArea. Its viewport reserves scrollbar space but its
     // generated content wrapper stayed at the pre-scrollbar width, clipping
     // roughly 25px of the admin drawer at tablet / split-screen widths.
-    <div className="h-full min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-4">
+    <div className="no-scrollbar h-full min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-4">
       <div className="space-y-4">
         {mobile && (
           <div className="space-y-3">
@@ -573,8 +592,8 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
         )}
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
-        <div className="flex items-center justify-between gap-2 px-4 py-3">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-1.5 px-3 py-2.5 sm:gap-2 sm:px-4 sm:py-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
                 <Button
@@ -591,6 +610,14 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               </SheetTrigger>
               <SheetContent
                 side="left"
+                closeButtonClassName={cn(
+                  "right-[max(1rem,env(safe-area-inset-right,1rem))] top-[max(1rem,env(safe-area-inset-top,1rem))] border opacity-100",
+                  forceBrand
+                    ? "rounded-xl border-white/25 bg-white/10 text-white shadow-sm hover:bg-white/20 hover:text-white data-[state=open]:bg-white/20 focus:ring-white"
+                    : forceDark
+                      ? "border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white data-[state=open]:bg-slate-700 focus:ring-slate-300"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white",
+                )}
                 className={cn(
                   // A full admin rail needs enough room for the company
                   // controls, quick actions and long section names. Use a
@@ -613,12 +640,11 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                   <Link
                     href={withSlug(config.dashboardHref)}
                     onClick={() => setOpen(false)}
-                    className="flex min-w-0 items-center gap-3 pr-12"
+                    className="flex min-w-0 items-center gap-3 pr-16"
                   >
-                    <LogoTile size="lg" />
+                    <PortalLogoTile config={config} logoUrl={logoUrl} size="lg" />
                     <div className="min-w-0">
                       <h2 className={cn("truncate text-sm font-semibold", forceBrand ? "text-white" : "text-slate-950 dark:text-white")}>{config.title}</h2>
-                      <p className={cn("truncate text-xs", forceBrand ? "text-white/70" : "text-slate-600 dark:text-slate-400")}>{companyName}</p>
                     </div>
                   </Link>
                 </div>
@@ -655,13 +681,17 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                 </div>
               </SheetContent>
             </Sheet>
-            <Link href={withSlug(config.dashboardHref)} className="flex min-w-0 items-center gap-2" aria-label={`${config.title} home`}>
-              <LogoTile size="sm" />
-              <span className={cn("truncate font-bold", forceBrand ? "text-white" : "text-slate-900 dark:text-white")}>{companyName}</span>
+            <Link href={withSlug(config.dashboardHref)} className="flex min-w-0 shrink-0 items-center gap-2" aria-label={`${config.title} home`}>
+              <PortalLogoTile config={config} logoUrl={logoUrl} size="lg" />
+              <span className={cn("truncate text-sm font-bold", forceBrand ? "text-white" : "text-slate-900 dark:text-white")}>{config.title}</span>
             </Link>
           </div>
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <RoleSwitcher variant="compact" showLabel={false} />
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+            <RoleSwitcher
+              variant="compact"
+              showLabel={false}
+              className={forceBrand ? "rounded-lg border border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white focus-visible:ring-white" : undefined}
+            />
             <NotificationBell />
             <ThemeSwitch />
           </div>
@@ -705,7 +735,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               <>
                 <div className="flex items-center justify-between gap-2">
                   <Link href={withSlug(config.dashboardHref)} className="flex items-center gap-3 min-w-0 flex-1">
-                    <LogoTile size="lg" />
+                    <PortalLogoTile config={config} logoUrl={logoUrl} size="lg" />
                     <div className="min-w-0">
                       <h1 className={cn("font-bold truncate", forceBrand ? "text-white" : "text-slate-900 dark:text-white")}>{config.title}</h1>
                       <p className={cn("text-xs truncate", forceBrand ? "text-white/70" : "text-slate-600 dark:text-slate-400")}>{companyName}</p>
@@ -721,11 +751,15 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               </>
             ) : (
               <div className="flex flex-col items-center gap-3 w-full">
-                <LogoTile size="lg" />
+                <PortalLogoTile config={config} logoUrl={logoUrl} size="lg" />
                 {/* Keep role switching available even when the rail is
                     collapsed; cross-trained staff must be able to return
                     to their manager portal without signing in again. */}
-                <RoleSwitcher variant="compact" showLabel={false} />
+                <RoleSwitcher
+                  variant="compact"
+                  showLabel={false}
+                  className={forceBrand ? "rounded-lg border border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white focus-visible:ring-white" : undefined}
+                />
                 <NotificationBell />
                 <ThemeSwitch />
               </div>

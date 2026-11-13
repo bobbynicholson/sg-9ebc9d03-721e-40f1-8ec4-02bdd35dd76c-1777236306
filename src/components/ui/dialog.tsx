@@ -38,18 +38,18 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        // w-[calc(100%-2rem)] + max-h-[90vh] + overflow-y-auto are
+        // w-[calc(100%-2rem)] + dynamic max-height + overflow-y-auto are
         // global mobile guards: any dialog (even max-w-6xl ones) is
         // capped to the viewport minus a 1rem gutter each side and
         // scrolls internally instead of overflowing the screen. Custom
         // max-w-* classes passed in still cap the desktop width.
-        "fixed left-[50%] top-[50%] z-50 grid w-[calc(100%-2rem)] max-w-lg max-h-[90vh] overflow-y-auto translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border border-slate-300 bg-white p-5 shadow-[0_20px_60px_-28px_rgba(15,23,42,0.55)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] dark:border-slate-700 dark:bg-slate-900 sm:p-6",
+        "fixed left-[50%] top-[50%] z-50 grid w-[calc(100%-2rem)] max-w-lg max-h-[calc(100dvh-1.5rem)] overflow-y-auto translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border border-slate-300 bg-white p-5 shadow-[0_20px_60px_-28px_rgba(15,23,42,0.55)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] dark:border-slate-700 dark:bg-slate-900 sm:p-6",
         className
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md border border-transparent p-1 text-slate-500 transition-[color,background-color,border-color] hover:border-brand-primary/30 hover:bg-brand-primary/10 hover:text-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:ring-offset-2 disabled:pointer-events-none dark:text-slate-400 dark:hover:border-brand-primary/40 dark:hover:bg-brand-primary/10 dark:hover:text-brand-primary">
+      <DialogPrimitive.Close className="absolute right-3 top-3 inline-flex h-11 w-11 items-center justify-center rounded-full border border-transparent text-slate-500 transition-[color,background-color,border-color] hover:border-brand-primary/30 hover:bg-brand-primary/10 hover:text-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:ring-offset-2 disabled:pointer-events-none dark:text-slate-400 dark:hover:border-brand-primary/40 dark:hover:bg-brand-primary/10 dark:hover:text-brand-primary sm:right-4 sm:top-4">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>

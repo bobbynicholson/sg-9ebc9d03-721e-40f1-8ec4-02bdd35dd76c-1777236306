@@ -15,6 +15,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!isUuid(id)) return res.status(400).json({ error: "Invalid booking." });
   const sittings = req.body?.sittings;
   const returnPlan = req.body?.returnPlan;
+  const confirmDriverOverlap = req.body?.confirmDriverOverlap === true;
   const lastSequence = Array.isArray(sittings)
     ? Math.max(0, ...sittings.map((row: any) => Number(row.sequence_number) || 0))
     : 0;
@@ -24,12 +25,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // from an older client cannot silently save an unassigned collection.
   const operations = Array.isArray(sittings)
     ? sittings.map((row: any) => {
+        const safeRow = { ...row };
+        // Never trust an overlap override nested in submitted sitting data;
+        // only the explicit admin confirmation below may set it.
+        delete safeRow.allowDriverOverlap;
         const collectionRequired = returnPlan === "per_sitting_collection"
           || (returnPlan === "final_collection" && Number(row.sequence_number) === lastSequence);
         const deliveryDriverIds = Array.isArray(row.deliveryDriverIds) ? row.deliveryDriverIds : [];
         const collectionDriverIds = Array.isArray(row.collectionDriverIds) ? row.collectionDriverIds : [];
         return {
-          ...row,
+          ...safeRow,
+          ...(confirmDriverOverlap ? { allowDriverOverlap: true } : {}),
           collectionDriverIds: collectionRequired && collectionDriverIds.length === 0
             ? deliveryDriverIds
             : collectionDriverIds,
@@ -43,7 +49,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (plan.error || operations.some((row: any) => !isUuid(row.id))) return res.status(400).json({ error: plan.error || "Reload the sitting plan before saving." });
     try {
       const { kitchenPrepService } = await import("@/services/kitchenPrepService");
-      tasks = await kitchenPrepService.planTasksForOrder(access.companyId, id, access.db, plan.value!.map((row, index) => ({ ...row, id: operations[index].id, kitchenReadyTime: row.kitchenReadyTime || undefined, dispatchTime: row.dispatchTime || undefined })));
+      tasks = await kitchenPrepService.planTasksForOrder(access.companyId, id, access.db, plan.value!.map((row, index) => ({ ...row, id: operations[index].id, sequenceNumber: Number(operations[index].sequence_number) || index + 1, kitchenReadyTime: row.kitchenReadyTime || undefined, dispatchTime: row.dispatchTime || undefined })));
     } catch (error: any) {
       return res.status(500).json({ error: error.message || "The kitchen plan could not be prepared. Your changes have not been saved." });
     }
@@ -69,6 +75,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (!unchanged) return res.status(503).json({ error: "The new sitting planner is awaiting its database update. Your booking has not changed. Please try again after the update is complete." });
     ({ error } = await access.db.rpc("save_order_sitting_operations", { p_order_id:id,p_company_id:access.companyId,p_operations:operations,p_return_plan:returnPlan }));
     if (!error) return res.status(200).json({ ok:true, notice:"Trip schedule saved. Kitchen batch updates will be available after the database update is complete." });
+  }
+  if (error?.code === "22023" && String(error.message || "").startsWith("DISPATCH_OVERLAP_CONFIRMATION_REQUIRED:")) {
+    return res.status(409).json({
+      confirmationRequired: true,
+      message: String(error.message).slice("DISPATCH_OVERLAP_CONFIRMATION_REQUIRED:".length).trim(),
+    });
   }
   if (error) return res.status(error.code === "22023" ? 400 : 500).json({ error: error.message || "The sitting schedule could not be saved. Please retry." });
   return res.status(200).json({ ok: true });

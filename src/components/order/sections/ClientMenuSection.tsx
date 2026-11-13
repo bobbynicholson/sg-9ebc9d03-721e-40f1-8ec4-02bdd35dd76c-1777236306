@@ -51,12 +51,13 @@ interface MenuItemRow {
 interface EquipmentRow {
   id: string;
   quantity: number | null;
+  service_sitting_sequence?: number | null;
   equipment?: { name: string | null; category: string | null } | null;
 }
 
 const ITEMS_SELECT =
   "id, item_name, description, quantity, special_instructions, menu_item:menu_item_id(category, dietary_tags, image_url)";
-const EQUIP_SELECT = "id, quantity, equipment:equipment_id(name, category)";
+const EQUIP_SELECT = "id, quantity, service_sitting_sequence, equipment:equipment_id(name, category)";
 
 export function ClientMenuSection({
   orderId, companyId, collectionTime, eventDate, eventTime,
@@ -237,7 +238,7 @@ export function ClientMenuSection({
                           {eq.quantity}
                         </span>
                       )}
-                      <span className="text-sm text-slate-800">{eq.equipment?.name}</span>
+                      <span className="text-sm text-slate-800">{eq.service_sitting_sequence ? <><span className="font-medium">Sitting {eq.service_sitting_sequence} · </span>{eq.equipment?.name}</> : <>{eq.equipment?.name}<span className="ml-2 text-xs text-slate-500">Main venue / shared booking</span></>}</span>
                     </li>
                   ))}
                 </ul>

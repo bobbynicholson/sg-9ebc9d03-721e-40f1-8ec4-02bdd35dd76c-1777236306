@@ -348,14 +348,14 @@ export function WhatsAppButton(props: Props) {
             type="button"
             size={size}
             variant={variant}
-            className={`gap-1.5 opacity-50 cursor-not-allowed ${className ?? ""}`}
+            className={`h-auto min-h-11 max-w-full whitespace-normal gap-1.5 opacity-50 cursor-not-allowed lg:min-h-9 ${className ?? ""}`}
             title="Client has opted out of WhatsApp comms"
           >
             <MessageCircle className="w-3.5 h-3.5 text-slate-400" />
             {label || null}
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-[300px] p-3">
+        <PopoverContent align="end" collisionPadding={12} className="max-h-[min(80dvh,var(--radix-popper-available-height))] w-[min(calc(100vw-1.5rem),300px)] overflow-y-auto overscroll-contain p-3">
           <p className="text-sm font-semibold text-slate-900 mb-1">
             WhatsApp comms off
           </p>
@@ -380,7 +380,7 @@ export function WhatsAppButton(props: Props) {
           variant={variant}
           aria-label={label || "Open WhatsApp message composer"}
           aria-expanded={open}
-          className={`gap-1.5 ${className ?? ""}`}
+          className={`h-auto min-h-11 max-w-full whitespace-normal gap-1.5 lg:min-h-9 ${className ?? ""}`}
         >
           <MessageCircle className="w-3.5 h-3.5 text-brand-primary" />
           {label || null}
@@ -389,7 +389,7 @@ export function WhatsAppButton(props: Props) {
 
       <DialogContent
         aria-modal="true"
-        className="max-w-2xl"
+        className="max-h-[calc(100dvh-1.5rem)] max-w-2xl overflow-y-auto"
         onClick={(event) => event.stopPropagation()}
       >
         <DialogHeader className="pr-8 text-left">
@@ -417,7 +417,7 @@ export function WhatsAppButton(props: Props) {
                 // changed their mind about which message to send).
                 setEdited(false);
               }}
-              className={`min-h-11 max-w-full whitespace-normal rounded-md border px-3 py-2 text-left text-xs leading-snug transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary sm:min-h-8 ${
+              className={`min-h-11 max-w-full whitespace-normal rounded-md border px-3 py-2 text-left text-xs leading-snug transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary lg:min-h-8 ${
                 pickedKey === k
                   ? "bg-brand-primary text-white border-brand-primary/80"
                   : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
@@ -447,7 +447,7 @@ export function WhatsAppButton(props: Props) {
             setMessage(e.target.value);
           }}
           rows={8}
-          className="block w-full min-w-0 resize-y rounded-md border border-slate-300 bg-background px-3 py-2 text-sm leading-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+          className="block w-full min-w-0 resize-y rounded-md border border-slate-300 bg-background px-3 py-2 text-base leading-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary sm:text-sm"
         />
 
         <p className="text-xs text-slate-600 leading-relaxed">

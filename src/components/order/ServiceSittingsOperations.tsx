@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Check, ChevronDown, Search } from "lucide-react";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { filterRosterStaff, rosterDepartmentAliases, type RosterDepartmentRow, type RosterStaffProfile } from "@/lib/rosterStaff";
+import { allocateSittingQuantities, menuLineSittingSequence } from "@/lib/serviceSittings";
 
 export type SittingOperations = {
   id: string; sequence_number: number; guest_count: number; service_time: string;
@@ -17,6 +18,9 @@ export type SittingOperations = {
   kitchenReadyTime: string; dispatchTime: string; returnDate: string; returnTime: string;
   packingNotes: string; cleaningResetRequired: boolean; deliveryDriverIds: string[]; collectionDriverIds: string[];
   collectionDriverAutoDefault?: boolean;
+  delivery_fee?: number | null; collection_fee?: number | null;
+  equipmentItems?: Array<{ id: string; name: string; quantity: number; sequence: number | null }>;
+  menuItems?: Array<{ id: string; name: string; quantity: number }>;
 };
 type Driver = { id: string; full_name: string; is_active?: boolean | null };
 const openTrip = (a: any) => !["cancelled", "rejected"].includes(a.status);
@@ -148,11 +152,13 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
       const results = await Promise.all([
         db.from("service_sittings").select("*").eq("order_id", orderId).eq("company_id", companyId).order("sequence_number"),
         db.from("driver_assignments").select("id,service_sitting_id,driver_id,assignment_type,status").eq("order_id", orderId).eq("company_id", companyId),
-        db.from("orders").select("event_date,event_time,guest_count,status,equipment_return_plan,assigned_driver_id,secondary_driver_id,driver_id,venue_name,venue_address,venue_lat,venue_lng").eq("id", orderId).eq("company_id", companyId).single(),
+        db.from("orders").select("event_date,event_time,guest_count,status,equipment_return_plan,delivery_fee,collection_fee,assigned_driver_id,secondary_driver_id,driver_id,venue_name,venue_address,venue_lat,venue_lng").eq("id", orderId).eq("company_id", companyId).single(),
         db.from("profiles").select("id,full_name,email,role,active_role").eq("company_id", companyId).or("is_active.is.null,is_active.eq.true").is("deleted_at", null).order("full_name"),
+        db.from("equipment_bookings").select("id,quantity,service_sitting_sequence,status,equipment:equipment_id(name)").eq("order_id", orderId).neq("status", "cancelled"),
+        db.from("order_items").select("id,item_name,quantity,description").eq("order_id", orderId).order("item_name"),
       ]);
       for (const result of results) if (result.error) throw result.error;
-      const [sittings, assignments, order, pool] = results;
+      const [sittings, assignments, order, pool, equipmentBookings, orderItems] = results;
       const profileRows = (pool.data || []) as RosterStaffProfile[];
       let driverDepartments: RosterDepartmentRow[] = [];
       if (profileRows.length) {
@@ -166,8 +172,11 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
       setParentVenue({ name: order.data.venue_name || "", address: order.data.venue_address || "", lat: order.data.venue_lat ?? null, lng: order.data.venue_lng ?? null });
       setEditableBooking(!["draft", "cancelled", "completed", "postponed"].includes(order.data.status));
       setDrivers(filterRosterStaff(profileRows, driverDepartments, "driver").map(profile => ({ id: profile.id, full_name: profile.full_name || "Driver" })));
-      const source = sittings.data?.length ? sittings.data : [{ id: crypto.randomUUID(), sequence_number: 1, guest_count: order.data.guest_count, service_time: order.data.event_time || "", venue_name: null, venue_address: null, venue_lat: null, venue_lng: null }];
+      const source = sittings.data?.length ? sittings.data : [{ id: crypto.randomUUID(), sequence_number: 1, guest_count: order.data.guest_count, service_time: order.data.event_time || "", venue_name: null, venue_address: null, venue_lat: null, venue_lng: null, delivery_fee: order.data.delivery_fee, collection_fee: order.data.collection_fee }];
+      const sittingGuests = source.map((s: any) => Number(s.guest_count || 0));
       const assignmentRows = (assignments.data || []) as any[];
+      const equipmentRows = (equipmentBookings.data || []) as any[];
+      const menuRows = (orderItems.data || []) as any[];
       const orderDeliveries = assignmentRows.filter((a: any) =>
         a.service_sitting_id === null && a.assignment_type === "delivery" && openTrip(a) && a.driver_id,
       );
@@ -200,6 +209,16 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
           deliveryDriverIds,
           collectionDriverIds: collectionDriverAutoDefault ? deliveryDriverIds : sittingCollections,
           collectionDriverAutoDefault,
+          delivery_fee: s.delivery_fee ?? 0,
+          collection_fee: s.collection_fee ?? 0,
+          equipmentItems: equipmentRows.filter((item: any) => Number(item.service_sitting_sequence) === Number(s.sequence_number) && item.equipment?.name)
+            .map((item: any) => ({ id: item.id, name: item.equipment.name, quantity: Number(item.quantity || 0), sequence: Number(item.service_sitting_sequence) })),
+          menuItems: menuRows.flatMap((item: any) => {
+            const assignedSequence = menuLineSittingSequence(item);
+            if (assignedSequence && assignedSequence !== Number(s.sequence_number)) return [];
+            const quantity = assignedSequence ? Number(item.quantity || 0) : allocateSittingQuantities(Number(item.quantity || 0), sittingGuests)[index] || 0;
+            return quantity > 0 ? [{ id: item.id, name: item.item_name, quantity }] : [];
+          }),
         };
       }));
     } catch (e: any) { setError(e.message || "The sitting schedule could not be loaded. Please retry."); }
@@ -221,17 +240,34 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
     // Name the exact missing field here; the database would otherwise refuse
     // the whole save with a general message and nobody gets assigned.
     for (const [index, row] of rows.entries()) {
+      if (row.venue_address === "") { saveFailed(`Sitting ${row.sequence_number}: enter a separate address or choose the primary venue.`); return; }
       if (row.deliveryDriverIds.length && !(row.venue_address?.trim() || parentVenue.address.trim())) { saveFailed(`Sitting ${row.sequence_number}: enter a delivery address before assigning a driver.`); return; }
       const collection = returnPlan === "per_sitting_collection" || (returnPlan === "final_collection" && index === rows.length - 1);
       if (row.deliveryDriverIds.length && !row.dispatchTime) { saveFailed(`Sitting ${row.sequence_number}: set "Depart kitchen at" so the delivery driver has a trip time.`); return; }
       if (collection && (!row.returnDate || !row.returnTime)) { saveFailed(`Sitting ${row.sequence_number}: set the equipment collection date and time, or change "Equipment returns".`); return; }
     }
-    setSaving(true); setError(""); setSaved(false);
+    setSaving(true); setError(""); setSaved(false); setSaveNotice("");
     try {
-      const response = await fetch(`/api/orders/${orderId}/service-plan`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sittings: rows, returnPlan }) });
-      const result = await response.json();
-      if (!response.ok || !result.ok) throw new Error(result.error || "The sitting schedule could not be saved.");
-      await load(); setSaveNotice(result.notice || "Schedule saved. Kitchen batches and driver trips updated."); setSaved(true); toast({ title: "Schedule saved", description: result.notice || "Kitchen batches and driver trips updated." }); emitOrderUpdated(orderId, "sitting-schedule", ["prep", "driver"]); onSaved?.();
+      const submit = async (confirmDriverOverlap: boolean): Promise<boolean> => {
+        const response = await fetch(`/api/orders/${orderId}/service-plan`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sittings: rows, returnPlan, confirmDriverOverlap }) });
+        const result = await response.json();
+        if (response.status === 409 && result.confirmationRequired && !confirmDriverOverlap) {
+          const description = `${result.message || "A selected driver already has another trip within 45 minutes."}\n\nYou can assign a driver to several sitting stops as one shared run. Confirm that the driver has capacity and the route timing allows each stop. Assign this schedule anyway?`;
+          if (window.confirm(description)) return submit(true);
+          setSaveNotice("Schedule unchanged. Choose different drivers or times, or save again and confirm the shared run.");
+          toast({ title: "Schedule unchanged", description: "Choose different drivers or times, or confirm the shared run when you save again." });
+          return false;
+        }
+        if (!response.ok || !result.ok) throw new Error(result.error || result.message || "The sitting schedule could not be saved.");
+        await load();
+        setSaveNotice(result.notice || "Schedule saved. Kitchen batches and driver trips updated.");
+        setSaved(true);
+        toast({ title: "Schedule saved", description: result.notice || "Kitchen batches and driver trips updated." });
+        emitOrderUpdated(orderId, "sitting-schedule", ["prep", "driver"]);
+        onSaved?.();
+        return true;
+      };
+      await submit(false);
     } catch (e: any) { saveFailed(e.message || "Please retry saving the schedule."); }
     finally { setSaving(false); }
   }
@@ -251,6 +287,7 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
     </p>}
     {error && <div role="alert" className="mt-3 text-sm text-red-800">{error} <button type="button" className="underline underline-offset-4" onClick={() => void load()}>Reload saved schedule</button></div>}
     {!!rows.length && <>
+      {rows.some(row => row.equipmentItems?.length) && <p className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">Equipment listed on each sitting is the load for that stop. Shared equipment without a sitting assignment remains at the main venue; assign it to a sitting in the quote when it needs another address.</p>}
       <label className="mt-4 block text-sm font-medium text-slate-900">Equipment returns
         <select value={returnPlan} disabled={!mayEdit || saving} onChange={e => { setReturnPlan(e.target.value); setSaved(false); }} className="mt-1 block min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-base">
           <option value="final_collection">One collection after the final sitting</option>
@@ -259,6 +296,7 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
           <option value="client_return">Client returns equipment / nothing to collect</option>
         </select>
       </label>
+      <p className="mt-3 text-xs text-slate-600">If a driver is assigned to several stops at nearby times, saving will ask whether those stops are one planned shared route.</p>
       <div className="mt-5 divide-y divide-slate-200">{rows.map((s, index) => {
         const collection = returnPlan === "per_sitting_collection" || (returnPlan === "final_collection" && index === rows.length - 1);
         const driverPicker = (leg: "delivery" | "collection") => {
@@ -289,10 +327,18 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
         };
         return <article key={s.id} className="min-w-0 py-5 first:pt-0">
           <h3 className="text-base font-semibold text-slate-950">Sitting {s.sequence_number} · {s.guest_count} guests{s.service_time ? ` · ${formatClock(s.service_time.slice(0, 5))}` : " · Set service time"}</h3>
+          <p className="mt-1 text-xs text-slate-600">Delivery fee on one invoice: R {Number(s.delivery_fee || 0).toFixed(2)} · Collection fee: R {Number(s.collection_fee || 0).toFixed(2)}</p>
+          {!!s.equipmentItems?.length && <div className="mt-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"><p className="font-medium text-slate-800">Equipment for this stop</p><ul className="mt-1 space-y-0.5 text-slate-700">{s.equipmentItems.map(item => <li key={item.id}>{item.quantity} × {item.name}</li>)}</ul></div>}
+          {!!s.menuItems?.length && <div className="mb-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"><p className="font-medium text-slate-800">Food for this sitting</p><ul className="mt-1 space-y-0.5 text-slate-700">{s.menuItems.map(item => <li key={item.id}>{item.quantity} × {item.name}</li>)}</ul></div>}
           <fieldset disabled={!mayEdit || saving} className="mt-3 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="min-w-0 text-sm text-slate-700">Office / venue name<Input maxLength={200} value={s.venue_name || ""} placeholder={parentVenue.name || "e.g. Cape Town office"} onChange={e => edit(s.id, { venue_name: e.target.value || null })} className="mt-1 text-base" /></label>
-            <div className="min-w-0 text-sm text-slate-700"><label htmlFor={`${uid}-venue-${s.id}`} className="mb-1 block">Sitting {s.sequence_number} delivery address</label><AddressAutocomplete id={`${uid}-venue-${s.id}`} value={s.venue_address ?? parentVenue.address} placeholder="Search this office address..." countryCode="za" disabled={!mayEdit || saving} onChange={pick => edit(s.id, { venue_address: pick.address || null, venue_lat: pick.lat, venue_lng: pick.lng })} hint="Leave the shared address unchanged to use the booking address." /></div>
-            <p className="text-xs text-slate-500 sm:col-span-2">Effective delivery address: {s.venue_address || parentVenue.address || "Not set"}</p>
+            <div className="min-w-0 text-sm text-slate-700">
+              <label className="mb-1 flex min-h-8 items-center gap-2 font-medium"><input type="checkbox" checked={s.venue_address == null} onChange={e => edit(s.id, e.target.checked ? { venue_address: null, venue_lat: null, venue_lng: null } : { venue_address: "", venue_lat: null, venue_lng: null })} />Use primary venue address</label>
+              {s.venue_address == null
+                ? <p className="text-xs text-slate-600">{parentVenue.address || "Primary venue address not set"}</p>
+                : <><label htmlFor={`${uid}-venue-${s.id}`} className="mb-1 block">Sitting {s.sequence_number} delivery address</label><AddressAutocomplete id={`${uid}-venue-${s.id}`} value={s.venue_address} placeholder="Search this office address..." countryCode="za" disabled={!mayEdit || saving} onChange={pick => edit(s.id, { venue_address: pick.address || "", venue_lat: pick.lat, venue_lng: pick.lng })} hint="Choose a separate address for this sitting." /></>}
+            </div>
+            <p className="text-xs text-slate-500 sm:col-span-2">Effective delivery address: {s.venue_address === "" ? "Enter a separate address" : s.venue_address || parentVenue.address || "Not set"}</p>
           </fieldset>
           <fieldset disabled={!mayEdit || saving} className="mt-3 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="min-w-0 text-sm text-slate-700">Sitting {s.sequence_number} guests<Input type="number" min={1} max={totalGuests} step={1} value={s.guest_count || ""} onChange={e => edit(s.id, { guest_count: Number(e.target.value) })} className="mt-1 text-base" /></label>

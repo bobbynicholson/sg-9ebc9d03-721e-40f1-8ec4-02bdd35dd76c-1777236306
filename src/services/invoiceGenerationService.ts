@@ -220,11 +220,12 @@ function menuInvoiceLine(row: any): NonNullable<InvoiceData["menuItems"]>[number
 
 function equipmentInvoiceLine(row: any): NonNullable<InvoiceData["equipmentItems"]>[number] {
   const equipment = row?.equipment || {};
+  const sequence = Number(row?.service_sitting_sequence ?? row?.serviceSittingSequence ?? 0);
   const quantity = moneyNumber(row?.quantity, row?.qty, 1) || 1;
   const unitPrice = moneyNumber(row?.unitPrice, row?.unit_price, row?.rentalPrice, row?.rental_price, equipment?.rental_price);
   const total = moneyNumber(row?.total, row?.line_total, row?.lineTotal, quantity * unitPrice);
   return {
-    description: row?.description || row?.equipment_name || row?.name || equipment?.name || "Equipment",
+    description: [sequence > 0 ? `Sitting ${sequence}` : null, row?.description || row?.equipment_name || row?.name || equipment?.name || "Equipment"].filter(Boolean).join(" · "),
     quantity,
     unitPrice,
     total,
@@ -443,7 +444,7 @@ export async function generateInvoiceData(
     if (equipmentItems.length === 0) {
       const { data: equipmentRows, error: equipmentRowsError } = await (supabase as any)
         .from("equipment_bookings")
-        .select("id, quantity, unit_price, equipment:equipment_id(name, rental_price, is_hire_in)")
+        .select("id, quantity, unit_price, service_sitting_sequence, equipment:equipment_id(name, rental_price, is_hire_in)")
         .eq("order_id", orderId)
         // A cancelled booking (item swapped or removed) is not on the order.
         .neq("status", "cancelled")
@@ -1369,7 +1370,7 @@ async function renderInvoicePdfAttachment(
       ),
       order:order_id (
         id, order_number, client_name, client_company_name, client_email, client_phone, event_name, event_date, event_time, venue_name, venue_address, guest_count, deposit_amount, deposit_percentage, currency, updated_at,
-        service_sittings(sequence_number,guest_count,service_time,venue_name,venue_address)
+        service_sittings(sequence_number,guest_count,service_time,venue_name,venue_address,delivery_fee,collection_fee)
       ),
       company:company_id (
         id, slug, company_name, legal_name, time_format, logo_url, email, phone,

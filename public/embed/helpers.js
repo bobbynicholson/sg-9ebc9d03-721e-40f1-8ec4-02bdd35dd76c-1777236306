@@ -93,8 +93,25 @@
     if (field.type === 'number' || field.type === 'guests') {
       var n = Number(v);
       if (Number.isNaN(n)) return 'Must be a number';
+      if (field.mapsTo === 'guest_count' && !Number.isInteger(n)) return 'Enter a whole-number guest count';
       if (rules.min !== undefined && n < rules.min) return 'Must be at least ' + rules.min;
       if (rules.max !== undefined && n > rules.max) return 'Must be no more than ' + rules.max;
+    }
+    if (field.type === 'time' && !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(v))) return 'Choose a valid time';
+    if (field.type === 'locations') {
+      if (!Array.isArray(v)) return 'Check the delivery locations';
+      if (v.length > 12) return 'Add no more than 12 locations';
+      for (var i = 0; i < v.length; i++) {
+        var location = v[i] || {};
+        var name = typeof location.name === 'string' ? location.name.trim() : '';
+        var address = typeof location.address === 'string' ? location.address.trim() : '';
+        var guests = Number(location.guestCount);
+        var serviceTime = typeof location.serviceTime === 'string' ? location.serviceTime.trim() : '';
+        if (!address) return 'Enter an address for each location, or remove the empty row';
+        if (name.length > 120 || address.length > 300) return 'Keep names under 120 characters and addresses under 300 characters';
+        if (!Number.isInteger(guests) || guests < 1) return 'Enter a whole-number guest count for each location';
+        if (serviceTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(serviceTime)) return 'Choose a valid service time';
+      }
     }
     if (field.type === 'date') {
       var d = new Date(v);
@@ -333,6 +350,18 @@
     '.cms-input:focus,.cms-select:focus,.cms-textarea:focus{outline:none;background-color:#fff;border-color:var(--brand-primary,#0F172A);box-shadow:0 0 0 4px color-mix(in srgb,var(--brand-primary,#0F172A) 16%,transparent)}',
     '.cms-input[aria-invalid="true"],.cms-select[aria-invalid="true"],.cms-textarea[aria-invalid="true"]{border-color:#DC2626}',
     '.cms-time-wrap{display:flex;flex-wrap:wrap;gap:8px}',
+    '.cms-locations{display:flex;flex-direction:column;gap:10px}',
+    '.cms-location-list{display:flex;flex-direction:column;gap:10px}',
+    '.cms-location-row{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid #E2E8F0;border-radius:calc(var(--brand-radius,12px) - 2px);background:#fff}',
+    '.cms-location-index{font-size:12px;font-weight:700;color:#475569}',
+    '.cms-location-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) minmax(105px,.65fr) minmax(125px,.75fr);gap:8px}',
+    '.cms-location-part{display:flex;min-width:0;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:#475569}',
+    '.cms-location-remove,.cms-location-add{width:max-content;min-height:36px;padding:7px 10px;border:1px solid #CBD5E1;border-radius:calc(var(--brand-radius,12px) - 2px);background:#fff;color:var(--brand-primary,#0F172A);font:inherit;font-size:13px;font-weight:600;cursor:pointer}',
+    '.cms-location-remove:hover,.cms-location-add:hover{border-color:var(--brand-primary,#0F172A);background:color-mix(in srgb,var(--brand-primary,#0F172A) 5%,#fff)}',
+    '.cms-location-remove:focus-visible,.cms-location-add:focus-visible{outline:2px solid var(--brand-primary,#0F172A);outline-offset:2px}',
+    '.cms-locations[aria-invalid="true"] .cms-location-row{border-color:#DC2626}',
+    '@media(max-width:760px){.cms-location-fields{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}',
+    '@media(max-width:480px){.cms-location-fields{grid-template-columns:1fr}}',
     '.cms-time-wrap .cms-time-select{flex:1 1 160px;width:auto}',
     '.cms-time-wrap .cms-time-format{flex:0 1 180px;width:auto}',
     '.cms-time-wrap[aria-invalid="true"] .cms-time-select{border-color:#DC2626}',
@@ -657,6 +686,17 @@
       var timeSelect = inp.querySelector('select[name]');
       return timeSelect ? String(timeSelect.value || '').trim() : '';
     }
+    if (field.type === 'locations') {
+      var rows = inp.querySelectorAll ? inp.querySelectorAll('.cms-location-row') : [];
+      return Array.prototype.map.call(rows, function (row) {
+        return {
+          name: String((row.querySelector('.cms-location-name') || {}).value || '').trim(),
+          address: String((row.querySelector('.cms-location-address') || {}).value || '').trim(),
+          guestCount: String((row.querySelector('.cms-location-guests') || {}).value || '').trim(),
+          serviceTime: String((row.querySelector('.cms-location-time') || {}).value || '').trim()
+        };
+      }).filter(function (location) { return location.name || location.address || location.guestCount || location.serviceTime; });
+    }
     if (field.type === 'number' || field.type === 'guests') {
       var raw = String(inp.value || '').trim();
       return raw === '' ? '' : raw;
@@ -863,6 +903,57 @@
       sel.value = '';
       return sel;
     }
+    if (f.type === 'locations') {
+      var locationWrap = el('div', { class: 'cms-locations', id: id, role: 'group', 'aria-label': f.label || 'Delivery locations' });
+      var locationList = el('div', { class: 'cms-location-list' });
+      var addLocation;
+      var locationSequence = 0;
+      function refreshLocationRows() {
+        var currentRows = locationList.querySelectorAll('.cms-location-row');
+        Array.prototype.forEach.call(currentRows, function (row, index) {
+          var title = row.querySelector('.cms-location-index');
+          if (title) title.textContent = 'Location ' + (index + 1);
+          var remove = row.querySelector('.cms-location-remove');
+          if (remove) remove.setAttribute('aria-label', 'Remove location ' + (index + 1));
+          if (remove) remove.hidden = currentRows.length === 1;
+        });
+        if (addLocation) addLocation.disabled = currentRows.length >= 12;
+      }
+      function appendLocationRow() {
+        var row = el('div', { class: 'cms-location-row' });
+        row.appendChild(el('span', { class: 'cms-location-index', text: 'Location' }));
+        var nameInput = el('input', { class: 'cms-input cms-location-name', type: 'text', maxlength: '120', placeholder: 'e.g. Cape Town office', 'aria-label': 'Office or venue name (optional)' });
+        var addressInput = el('input', { class: 'cms-input cms-location-address', type: 'text', id: id + '-location-' + (++locationSequence), maxlength: '300', placeholder: 'Street, suburb, city', 'aria-label': 'Delivery address' });
+        var guestsInput = el('input', { class: 'cms-input cms-location-guests', type: 'number', min: '1', step: '1', inputmode: 'numeric', placeholder: 'e.g. 45', 'aria-label': 'Guests at this location' });
+        var timeInput = el('input', { class: 'cms-input cms-location-time', type: 'time', 'aria-label': 'Service time at this location (optional)' });
+        if (f.addressSuggestUrl) attachAddressSuggest(addressInput, f.addressSuggestUrl, f.addressGoogle || null);
+        row.appendChild(el('div', { class: 'cms-location-fields' }, [
+          el('label', { class: 'cms-location-part' }, [el('span', { text: 'Office or venue name (optional)' }), nameInput]),
+          el('label', { class: 'cms-location-part' }, [el('span', { text: 'Delivery address *' }), addressInput]),
+          el('label', { class: 'cms-location-part' }, [el('span', { text: 'Guests at this location *' }), guestsInput]),
+          el('label', { class: 'cms-location-part' }, [el('span', { text: 'Service time (optional)' }), timeInput])
+        ]));
+        var remove = el('button', { class: 'cms-location-remove', type: 'button', text: 'Remove', onclick: function () {
+          row.remove();
+          refreshLocationRows();
+          locationWrap.dispatchEvent(new Event('input', { bubbles: true }));
+        } });
+        row.appendChild(remove);
+        locationList.appendChild(row);
+        refreshLocationRows();
+        return nameInput;
+      }
+      addLocation = el('button', { class: 'cms-location-add', type: 'button', text: '+ Add another location', onclick: function () {
+        if (locationList.querySelectorAll('.cms-location-row').length >= 12) return;
+        var nextInput = appendLocationRow();
+        locationWrap.dispatchEvent(new Event('input', { bubbles: true }));
+        nextInput.focus();
+      } });
+      appendLocationRow();
+      locationWrap.appendChild(locationList);
+      locationWrap.appendChild(addLocation);
+      return locationWrap;
+    }
     if (f.type === 'textarea') {
       return el('textarea', { class: 'cms-textarea', id: id, name: f.id, placeholder: f.placeholder || '', rows: '4' });
     }
@@ -966,7 +1057,7 @@
     };
     if (htmlType === 'number') {
       attrs.inputmode = 'numeric';
-      attrs.step = rules.step !== undefined ? String(rules.step) : 'any';
+      attrs.step = rules.step !== undefined ? String(rules.step) : f.mapsTo === 'guest_count' ? '1' : 'any';
       if (rules.min !== undefined) attrs.min = String(rules.min);
       if (rules.max !== undefined) attrs.max = String(rules.max);
     }
@@ -1386,7 +1477,7 @@
   }
 
   // Long answers, choices, pickers and addresses take a full row.
-  var WIDE_TYPES = { textarea: 1, radio: 1, checkboxes: 1, checkbox: 1, multiselect: 1 };
+  var WIDE_TYPES = { textarea: 1, locations: 1, radio: 1, checkboxes: 1, checkbox: 1, multiselect: 1 };
   function isWideField(f) {
     // Service tick boxes sit side by side.
     if (f.id === 'waiter_service' || f.id === 'onsite_chef') return false;

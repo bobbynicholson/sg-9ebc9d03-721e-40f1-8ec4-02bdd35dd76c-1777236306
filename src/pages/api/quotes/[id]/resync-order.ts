@@ -40,6 +40,7 @@ import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { ensureVenueCoords } from "@/lib/geo/ensureVenueCoords";
 import { sortByCourse } from "@/lib/menuCourses";
+import { menuLineOrderDescription } from "@/lib/serviceSittings";
 
 
 const POST_DISPATCH_STATUSES = new Set([
@@ -274,7 +275,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             order_id: receipt.orderId,
             menu_item_id: it.menu_item_id || null,
             item_name: name,
-            description: it.category || it.dietary_tags?.join?.(", ") || null,
+            description: menuLineOrderDescription(it),
             quantity: qty,
             unit_price: unit,
             line_total: lineTotal,

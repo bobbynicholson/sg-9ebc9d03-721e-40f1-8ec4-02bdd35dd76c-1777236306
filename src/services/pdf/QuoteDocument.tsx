@@ -72,7 +72,7 @@ export interface QuotePdfData {
   client_tax_number?: string | null;
   event_date?: string | null;
   event_time?: string | null;
-  service_sittings?: Array<{ sequence_number: number; guest_count: number; service_time: string; venue_name?: string | null; venue_address?: string | null }>;
+  service_sittings?: Array<{ sequence_number: number; guest_count: number; service_time: string; venue_name?: string | null; venue_address?: string | null; delivery_fee?: number | null; collection_fee?: number | null }>;
   setup_time?: string | null;
   guest_count?: number | null;
   venue_address?: string | null;
@@ -716,9 +716,9 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                 </View>
               ) : null}
             </View>
-            {(data.service_sittings?.length || 0) > 1 && <View style={{marginTop:8}}>
+            {((data.service_sittings?.length || 0) > 1 || data.service_sittings?.some(s => s.venue_address && s.venue_address.trim() !== String(data.venue_address || "").trim())) && <View style={{marginTop:8}}>
               <Text style={styles.cellLabel}>Serving times</Text>
-              {[...data.service_sittings!].sort((a,b)=>a.sequence_number-b.sequence_number).map(s=><Text key={s.sequence_number} style={styles.cellValue}>Sitting {s.sequence_number}: {s.guest_count} guests at {friendlyTime(s.service_time)}{s.venue_name || s.venue_address ? ` · ${[s.venue_name, s.venue_address || data.venue_address].filter(Boolean).join(" — ")}` : data.venue_address ? ` · ${data.venue_address}` : ""}</Text>)}
+              {[...data.service_sittings!].sort((a,b)=>a.sequence_number-b.sequence_number).map(s=><Text key={s.sequence_number} style={styles.cellValue}>Sitting {s.sequence_number}: {s.guest_count} guests at {friendlyTime(s.service_time)}{s.venue_name || s.venue_address ? ` · ${[s.venue_name, s.venue_address || data.venue_address].filter(Boolean).join(" — ")}` : data.venue_address ? ` · ${data.venue_address}` : ""}{Number(s.delivery_fee || 0) > 0 ? ` · Delivery ${fmtZAR(Number(s.delivery_fee))}` : ""}{Number(s.collection_fee || 0) > 0 ? ` · Collection ${fmtZAR(Number(s.collection_fee))}` : ""}</Text>)}
             </View>}
           </View>
         )}
@@ -741,7 +741,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                     <View key={`menu-${group.course}-${i}`} style={[styles.lineRow, isLast ? styles.lineRowLast : {}]} wrap={!canKeepPdfTextTogether(`${name}\n${item?.description || ""}`, 28)}>
                       {item?.image_url ? <Image src={item.image_url} style={styles.menuPhoto} /> : null}
                       <View style={styles.lineLeft}>
-                        <Text style={styles.lineName}>{name}</Text>
+                        <Text style={styles.lineName}>{item?.service_sitting_sequence ? `Sitting ${item.service_sitting_sequence} · ${name}` : name}</Text>
                         {item?.description ? <Text style={styles.lineDescription}>{item.description}</Text> : null}
                         {qty > 1 ? <Text style={styles.lineSub}>{qty} x {fmtZAR(unitPrice)}</Text> : null}
                       </View>
@@ -772,7 +772,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                   wrap={!canKeepPdfTextTogether(name, 28)}
                 >
                   <View style={styles.lineLeft}>
-                    <Text style={styles.lineName}>{name}</Text>
+                    <Text style={styles.lineName}>{item?.service_sitting_sequence ? `Sitting ${item.service_sitting_sequence} · ${name}` : `Primary venue · ${name}`}</Text>
                     <Text style={styles.lineSub}>
                       {qty} x {fmtZAR(unitPrice)}
                     </Text>

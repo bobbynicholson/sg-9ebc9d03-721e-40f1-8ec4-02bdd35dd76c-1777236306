@@ -61,6 +61,14 @@ interface WhatsAppState {
   webhookVerifyToken: string | null;
   verifyTokenAvailable: boolean;
   webhookVerifiedAt: string | null;
+  businessAppHistorySync: {
+    status: string | null;
+    requestedAt: string | null;
+    requestId: string | null;
+    progress: number;
+    lastAttemptAt: string | null;
+    lastError: string | null;
+  } | null;
 }
 
 type Filter = "all" | "automatic" | "manual";
@@ -129,7 +137,7 @@ function DirectSend({ messageKey, text, sendFromHref }: { messageKey: string; te
         </div>
         <div className="mt-2 flex flex-wrap gap-1.5">
           {destinations.map((destination) => (
-            <Button key={destination.href} asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+            <Button key={destination.href} asChild variant="outline" size="sm" className="h-auto min-h-11 whitespace-normal gap-1.5 text-xs">
               <Link href={sendFromHref(destination.href)}>
                 <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                 {destinationActionLabel(destination.label)}
@@ -141,15 +149,15 @@ function DirectSend({ messageKey, text, sendFromHref }: { messageKey: string; te
       <div className="border-t border-slate-100 pt-2 dark:border-slate-800">
         <p className="mb-2 text-xs font-medium text-slate-600 dark:text-slate-300">Or prepare a message in your own WhatsApp</p>
       <Label htmlFor={`${fieldPrefix}-phone`} className="text-xs">Mobile number</Label>
-      <Input id={`${fieldPrefix}-phone`} type="tel" placeholder="082 000 0000" value={phone} onChange={(event) => setPhone(event.target.value)} />
+      <Input id={`${fieldPrefix}-phone`} type="tel" inputMode="tel" placeholder="082 000 0000" className="text-base sm:text-sm" value={phone} onChange={(event) => setPhone(event.target.value)} />
       <Label htmlFor={`${fieldPrefix}-text`} className="text-xs">Message (replace the sample details)</Label>
-      <Textarea id={`${fieldPrefix}-text`} rows={3} value={body} onChange={(event) => setBody(event.target.value)} />
+      <Textarea id={`${fieldPrefix}-text`} rows={3} className="text-base sm:text-sm" value={body} onChange={(event) => setBody(event.target.value)} />
       {phone.trim() && body.trim() ? (
-        <Button asChild size="sm" className="gap-1.5">
+        <Button asChild size="sm" className="min-h-11 gap-1.5">
           <a href={buildWhatsAppUrl(phone, body)} target="_blank" rel="noopener noreferrer"><MessageCircle className="h-3.5 w-3.5" /> Open in WhatsApp</a>
         </Button>
       ) : (
-        <Button type="button" size="sm" className="gap-1.5" disabled title="Enter a mobile number and message first">
+        <Button type="button" size="sm" className="min-h-11 gap-1.5" disabled title="Enter a mobile number and message first">
           <MessageCircle className="h-3.5 w-3.5" /> Open in WhatsApp
         </Button>
       )}
@@ -188,6 +196,10 @@ function WhatsAppPage() {
   const detailRef = useRef<HTMLDivElement>(null);
 
   const companyName = (company as { company_name?: string } | null)?.company_name || "Your company";
+  const historySync = state?.businessAppHistorySync;
+  const historySyncLocked = ["starting", "requested", "syncing", "complete", "declined", "unknown"].includes(historySync?.status || "")
+    || (historySync?.status === "failed" && !!historySync.requestedAt);
+  const localWhatsAppHost = /localhost|127\.0\.0\.1/i.test(state?.webhookUrl || "");
 
   const url = useMemo(() => {
     const companyId = user?.company_id;
@@ -273,6 +285,25 @@ function WhatsAppPage() {
 
   const save = async () => {
     if (await post("save", { action: "save", automations: draft, rules }, "WhatsApp settings saved")) await load();
+  };
+
+  const syncBusinessAppHistory = async () => {
+    setBusy("sync_history");
+    try {
+      const response = await fetch(`/api/admin/whatsapp/history-sync${url.includes("?") ? url.slice(url.indexOf("?")) : ""}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const json = await response.json().catch(() => ({}));
+      await load();
+      if (!response.ok) throw new Error(json?.error || "Meta could not start history sync.");
+      toast({ title: "History sync requested", description: json?.message || "Messages will appear as Meta sends them." });
+    } catch (error) {
+      toast({ title: "WhatsApp history sync", description: readableWhatsAppError(error, "Try again."), variant: "destructive" });
+    } finally {
+      setBusy(null);
+    }
   };
 
   const loadTemplates = useCallback(async (quiet = false) => {
@@ -448,9 +479,9 @@ function WhatsAppPage() {
 
           {loadError && (
             <Card className="mb-5 border-rose-200">
-              <CardContent className="flex items-center justify-between gap-3 py-4">
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
                 <p className="text-sm text-rose-700">{loadError}</p>
-                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => void load()}>
+                <Button type="button" variant="outline" size="sm" className="h-auto min-h-11 whitespace-normal gap-1.5" onClick={() => void load()}>
                   <RefreshCw className="h-3.5 w-3.5" /> Try loading again
                 </Button>
               </CardContent>
@@ -524,6 +555,50 @@ function WhatsAppPage() {
                 </CardContent>
               </Card>
 
+              <Card className="border-brand-primary/20 bg-brand-primary/[0.03]">
+                <CardContent className="space-y-2 py-4">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Also use WhatsApp Business on your phone?</p>
+                  <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                    To show messages sent from the WhatsApp Business app here, Meta must connect this number through Business app and Cloud API coexistence. Subscribe the Meta app to <code>smb_message_echoes</code> for new phone-app messages and <code>history</code> to import chats after the business approves sharing. This inbox now saves and displays those events when Meta sends them; a standard Cloud API connection does not import the phone app’s chats by itself.
+                  </p>
+                  {state.connected && (
+                    <div className="space-y-2 border-t border-slate-200 pt-3 dark:border-slate-700">
+                      <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                        Request the existing one-to-one chats from Meta. This uses Meta's one-time history sync (up to 180 days) and requires that this number is on Coexistence and history sharing was approved in the WhatsApp Business app.
+                      </p>
+                      {historySync?.status && (
+                        <div role="status" className={cn(
+                          "rounded-md px-3 py-2 text-xs",
+                          historySync.status === "failed" || historySync.status === "declined"
+                            ? "bg-rose-50 text-rose-800 dark:bg-rose-950/30 dark:text-rose-200"
+                            : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
+                        )}>
+                          <p className="font-medium">History sync: {historySync.status.replaceAll("_", " ")}{historySync.status === "syncing" ? ` (${historySync.progress}%)` : ""}</p>
+                          {historySync.lastError && <p className="mt-1 break-words">{historySync.lastError}</p>}
+                          {historySync.requestId && <p className="mt-1 break-all">Meta request ID: {historySync.requestId}</p>}
+                        </div>
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="min-h-11 h-auto whitespace-normal"
+                        disabled={!!busy || !state.canConnect || historySyncLocked || localWhatsAppHost}
+                        onClick={() => void syncBusinessAppHistory()}
+                      >
+                        <RotateCw className={cn("mr-2 h-4 w-4", busy === "sync_history" && "animate-spin")} aria-hidden="true" />
+                        {busy === "sync_history" ? "Checking and requesting..." : localWhatsAppHost ? "Use the live site to sync history" : historySyncLocked ? "History sync already requested" : "Check connection and sync old chats"}
+                      </Button>
+                      <p className="text-[11px] leading-relaxed text-slate-500">
+                        Meta accepts this request within 24 hours of Coexistence onboarding and sends messages back through the subscribed <code>history</code> webhook. {localWhatsAppHost ? "Use the live site so Meta delivers the history to the published webhook." : "If the number is not eligible, the button will explain what Meta reports."}
+                      </p>
+                    </div>
+                  )}
+                  <a href="https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/onboarding-business-app-users/" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1 text-xs font-medium text-brand-primary underline underline-offset-2">
+                    See Meta’s coexistence setup steps <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                  </a>
+                </CardContent>
+              </Card>
+
           {state.attention && (
             <Card className="border-rose-200">
               <CardContent className="py-4 text-sm text-rose-700">{state.attention}</CardContent>
@@ -581,9 +656,9 @@ function WhatsAppPage() {
                           </div>
                           <div className="divide-y divide-slate-200 rounded-xl border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
                             <div className="space-y-2 p-4">
-                              <div className="flex items-center justify-between gap-3">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
                                 <span className="text-sm font-medium text-slate-800 dark:text-slate-100">Callback URL</span>
-                                <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" disabled={/localhost|127\.0\.0\.1/i.test(state.webhookUrl)} onClick={() => void copySetupValue(state.webhookUrl, "Callback URL")}>
+                                <Button type="button" variant="outline" size="sm" className="h-auto min-h-11 gap-1.5" disabled={/localhost|127\.0\.0\.1/i.test(state.webhookUrl)} onClick={() => void copySetupValue(state.webhookUrl, "Callback URL")}>
                                   <Copy className="h-3.5 w-3.5" aria-hidden="true" /> Copy
                                 </Button>
                               </div>
@@ -593,11 +668,11 @@ function WhatsAppPage() {
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <span className="text-sm font-medium text-slate-800 dark:text-slate-100">Verify token</span>
                                 <div className="flex items-center gap-1">
-                                  <Button type="button" variant="ghost" size="sm" className="h-8 gap-1.5" disabled={!state.verifyTokenAvailable || busy === "show_verify_token"} onClick={() => void toggleVerifyToken()} aria-label={showVerifyToken ? "Hide verify token" : "Show verify token"}>
+                                  <Button type="button" variant="ghost" size="sm" className="h-auto min-h-11 gap-1.5" disabled={!state.verifyTokenAvailable || busy === "show_verify_token"} onClick={() => void toggleVerifyToken()} aria-label={showVerifyToken ? "Hide verify token" : "Show verify token"}>
                                     {showVerifyToken ? <EyeOff className="h-3.5 w-3.5" aria-hidden="true" /> : <Eye className="h-3.5 w-3.5" aria-hidden="true" />}
                                     {showVerifyToken ? "Hide" : "Show"}
                                   </Button>
-                                  <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" disabled={!state.verifyTokenAvailable || busy === "copy_verify_token"} onClick={() => void copyVerifyToken()}>
+                                  <Button type="button" variant="outline" size="sm" className="h-auto min-h-11 gap-1.5" disabled={!state.verifyTokenAvailable || busy === "copy_verify_token"} onClick={() => void copyVerifyToken()}>
                                     <Copy className="h-3.5 w-3.5" aria-hidden="true" /> Copy
                                   </Button>
                                 </div>
@@ -608,7 +683,7 @@ function WhatsAppPage() {
                               <p className="text-xs text-slate-600 dark:text-slate-300">Keep this token private. If it was shared, replace it before verifying in Meta.</p>
                             </div>
                           </div>
-                          <Button type="button" variant="ghost" size="sm" className="gap-1.5 px-0 text-slate-700 hover:bg-transparent dark:text-slate-300" disabled={busy === "rotate_verify_token"} onClick={() => void rotateVerifyToken()}>
+                          <Button type="button" variant="ghost" size="sm" className="h-auto min-h-11 whitespace-normal gap-1.5 px-0 text-left text-slate-700 hover:bg-transparent dark:text-slate-300" disabled={busy === "rotate_verify_token"} onClick={() => void rotateVerifyToken()}>
                             <RotateCw className="h-3.5 w-3.5" aria-hidden="true" /> {busy === "rotate_verify_token" ? "Replacing token..." : "Replace verify token"}
                           </Button>
                         </div>
@@ -658,28 +733,28 @@ function WhatsAppPage() {
 
                   {!state.connected && (
                     <>
-                      <div className="grid gap-3 md:grid-cols-2">
+                      <div className="grid min-w-0 gap-3 md:grid-cols-2">
                         <div>
                           <Label htmlFor="wa-phone-id" className="text-xs">Phone number ID</Label>
-                          <Input id="wa-phone-id" inputMode="numeric" aria-describedby="wa-phone-id-help" value={connection.phoneNumberId}
+                          <Input id="wa-phone-id" inputMode="numeric" className="text-base sm:text-sm" aria-describedby="wa-phone-id-help" value={connection.phoneNumberId}
                             onChange={(event) => setConnection({ ...connection, phoneNumberId: event.target.value })} />
                           <p id="wa-phone-id-help" className="mt-1 text-xs leading-relaxed text-slate-500">The ID for your WhatsApp number; it is different from the phone number customers call.</p>
                         </div>
                         <div>
                           <Label htmlFor="wa-business-id" className="text-xs">WhatsApp Business account ID</Label>
-                          <Input id="wa-business-id" inputMode="numeric" aria-describedby="wa-business-id-help" value={connection.businessAccountId}
+                          <Input id="wa-business-id" inputMode="numeric" className="text-base sm:text-sm" aria-describedby="wa-business-id-help" value={connection.businessAccountId}
                             onChange={(event) => setConnection({ ...connection, businessAccountId: event.target.value })} />
                           <p id="wa-business-id-help" className="mt-1 text-xs leading-relaxed text-slate-500">Meta may label this the WABA ID. Find it under your WhatsApp account in the app.</p>
                         </div>
                         <div>
                           <Label htmlFor="wa-token" className="text-xs">Access token</Label>
-                          <Input id="wa-token" type="password" autoComplete="off" aria-describedby="wa-token-help" value={connection.accessToken}
+                          <Input id="wa-token" type="password" autoComplete="off" className="text-base sm:text-sm" aria-describedby="wa-token-help" value={connection.accessToken}
                             onChange={(event) => setConnection({ ...connection, accessToken: event.target.value })} />
                           <p id="wa-token-help" className="mt-1 text-xs leading-relaxed text-slate-500">Use a permanent system-user token with WhatsApp access. It is stored encrypted and never shown again.</p>
                         </div>
                         <div>
                           <Label htmlFor="wa-secret" className="text-xs">App secret</Label>
-                          <Input id="wa-secret" type="password" autoComplete="off" aria-describedby="wa-secret-help" value={connection.appSecret}
+                          <Input id="wa-secret" type="password" autoComplete="off" className="text-base sm:text-sm" aria-describedby="wa-secret-help" value={connection.appSecret}
                             onChange={(event) => setConnection({ ...connection, appSecret: event.target.value })} />
                           <p id="wa-secret-help" className="mt-1 text-xs leading-relaxed text-slate-500">Meta app dashboard → App settings → Basic. Keep this private.</p>
                         </div>
@@ -689,6 +764,7 @@ function WhatsAppPage() {
                       )}
                       <Button
                         type="button"
+                        className="h-auto min-h-11 whitespace-normal"
                         disabled={busy === "connect" || !state.canConnect || !connection.phoneNumberId || !connection.businessAccountId || !connection.accessToken || !connection.appSecret}
                         title={!state.canConnect ? "Connect WhatsApp on the live site" : "Fill in all four details to connect"}
                         onClick={() => void connect()}
@@ -700,8 +776,8 @@ function WhatsAppPage() {
                 </CardContent>
               </Card>
 
-              <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-                <Card id="wa-message-library">
+              <div className="grid min-w-0 grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+                <Card id="wa-message-library" className="min-w-0">
                   <CardContent className="py-5">
                     <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                       <div>
@@ -723,7 +799,7 @@ function WhatsAppPage() {
                             aria-pressed={filter === item.value}
                             onClick={() => setFilter(item.value)}
                             className={cn(
-                              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                              "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition-colors",
                               filter === item.value
                                 ? "border-brand-primary bg-brand-primary text-white"
                                 : "border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800",
@@ -769,7 +845,7 @@ function WhatsAppPage() {
                             onClick={() => setOpenGroups((current) => (
                               current.includes(group) ? current.filter((item) => item !== group) : [...current, group]
                             ))}
-                            className="flex w-full items-center justify-between gap-3 py-3 text-left"
+                            className="flex min-h-11 w-full items-center justify-between gap-3 py-3 text-left"
                           >
                             <span className="text-sm font-semibold text-slate-900 dark:text-white">{group}</span>
                             <span className="flex items-center gap-2 text-xs text-slate-500">
@@ -790,7 +866,7 @@ function WhatsAppPage() {
                                 aria-current={selected === row.key}
                                 onClick={() => selectMessage(row.key)}
                                 className={cn(
-                                  "flex min-w-[12rem] flex-1 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-colors",
+                                  "flex min-h-11 min-w-0 flex-1 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-colors",
                                   selected === row.key
                                     ? "border-brand-primary bg-brand-primary/10"
                                     : "border-transparent hover:bg-slate-100 dark:hover:bg-slate-800",
@@ -813,7 +889,7 @@ function WhatsAppPage() {
                                   key={destination.href}
                                   href={withSlug(destination.href)}
                                   title={`${destinationActionLabel(destination.label)} to send ${row.label}`}
-                                  className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-[11px] font-medium text-slate-700 transition-colors hover:border-brand-primary/40 hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                                  className="inline-flex min-h-11 max-w-full min-w-0 shrink-0 items-center gap-1 whitespace-normal break-words rounded-md border border-slate-200 bg-white px-2 text-[11px] font-medium text-slate-700 transition-colors hover:border-brand-primary/40 hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 lg:min-h-8"
                                 >
                                   <ExternalLink className="h-3 w-3" aria-hidden="true" />
                                   {destinationActionLabel(destination.label)}
@@ -830,7 +906,7 @@ function WhatsAppPage() {
                   </CardContent>
                 </Card>
 
-                <div ref={detailRef} className="scroll-mt-4 lg:sticky lg:top-4">
+                <div ref={detailRef} className="min-w-0 scroll-mt-4 lg:sticky lg:top-4">
                   <Card>
                     <CardContent className="space-y-4 py-5">
                       {!selected && (
@@ -918,21 +994,21 @@ function WhatsAppPage() {
 
                           <div className="space-y-3 border-t border-slate-100 pt-4 dark:border-slate-800">
                             <div>
-                              <div className="flex items-center justify-between gap-2 pb-1.5">
+                              <div className="flex flex-wrap items-center justify-between gap-2 pb-1.5">
                                 <Label htmlFor="wa-wording" className="text-xs font-semibold text-slate-700 dark:text-slate-300">Edit the wording</Label>
                                 <div className="flex gap-1">
                                   <Button
                                     type="button"
                                     variant="ghost"
                                     size="sm"
-                                    className="h-7 text-xs"
+                                    className="h-auto min-h-11 whitespace-normal text-xs"
                                     disabled={!setting.wording}
                                     title={setting.wording ? undefined : "You're already using the suggested wording"}
                                     onClick={() => patchSelected({ wording: "" })}
                                   >
                                     Use suggested wording
                                   </Button>
-                                  <Button type="button" variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" onClick={() => void copyWording(setting.wording || automation.wording)}>
+                                  <Button type="button" variant="ghost" size="sm" className="h-auto min-h-11 whitespace-normal gap-1.5 text-xs" onClick={() => void copyWording(setting.wording || automation.wording)}>
                                     <Copy className="h-3.5 w-3.5" /> Copy wording
                                   </Button>
                                 </div>
@@ -940,7 +1016,7 @@ function WhatsAppPage() {
                               <Textarea
                                 id="wa-wording"
                                 rows={3}
-                                className="font-mono text-xs"
+                                className="font-mono text-base sm:text-sm"
                                 value={setting.wording || automation.wording}
                                 onChange={(event) => patchSelected({ wording: event.target.value === automation.wording ? "" : event.target.value })}
                               />

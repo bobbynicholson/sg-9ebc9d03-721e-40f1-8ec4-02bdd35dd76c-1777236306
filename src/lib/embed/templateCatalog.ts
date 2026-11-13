@@ -44,7 +44,9 @@ const baseContact: EmbedField[] = [
 const eventBasics: EmbedField[] = [
   { id: "event_date",  type: "date",   label: "Event date",       required: true,  visible: true, order: 5, mapsTo: "event_date" },
   { id: "guest_count", type: "number", label: "Number of guests", required: true,  visible: true, order: 6, mapsTo: "guest_count", validation: { min: 1, max: 10000 } },
+  { id: "event_time", type: "time", label: "Main service time", required: false, visible: true, order: 6.5, mapsTo: "event_time" },
   { id: "venue",       type: "text",   label: "Venue / area",     required: false, visible: true, order: 7, mapsTo: "venue" },
+  { id: "delivery_locations", type: "locations", label: "Additional sitting locations", required: false, visible: true, order: 8, helpText: "For each additional office or venue, enter its address and guest count. Add a different service time if needed." },
 ];
 
 const budget: EmbedField = {
@@ -160,7 +162,9 @@ export const EMBED_TEMPLATE_CATALOG: EmbedTemplateMeta[] = [
       ...baseContact,
       { id: "wedding_date", type: "date", label: "Wedding date", required: true, visible: true, order: 4, mapsTo: "event_date" },
       { id: "guest_count", type: "number", label: "Guest count", required: true, visible: true, order: 5, mapsTo: "guest_count" },
+      { id: "event_time", type: "time", label: "Main service time", required: false, visible: true, order: 5.5, mapsTo: "event_time" },
       { id: "venue", type: "text", label: "Venue", required: false, visible: true, order: 6, mapsTo: "venue" },
+      { id: "delivery_locations", type: "locations", label: "Additional sitting locations", required: false, visible: true, order: 6.5, helpText: "For each additional office or venue, enter its address and guest count. Add a different service time if needed." },
       { id: "style", type: "select", label: "Service style",  required: false, visible: true, order: 7,
         options: [
           { value: "plated",   label: "Plated"   },
@@ -186,7 +190,9 @@ export const EMBED_TEMPLATE_CATALOG: EmbedTemplateMeta[] = [
       { id: "company", type: "text", label: "Company", required: true, visible: true, order: 4 },
       { id: "event_date", type: "date", label: "Date needed", required: true, visible: true, order: 5, mapsTo: "event_date" },
       { id: "guest_count", type: "number", label: "Headcount", required: true, visible: true, order: 6, mapsTo: "guest_count", validation: { min: 1, max: 10000 } },
+      { id: "event_time", type: "time", label: "Main service time", required: false, visible: true, order: 6.5, mapsTo: "event_time" },
       { id: "venue", type: "text", label: "Venue / delivery address", required: false, visible: true, order: 7, mapsTo: "venue" },
+      { id: "delivery_locations", type: "locations", label: "Additional sitting locations", required: false, visible: true, order: 7.5, helpText: "For each additional office or venue, enter its address and guest count. Add a different service time if needed." },
       { id: "dietary", type: "textarea", label: "Dietary requirements / allergies", required: false, visible: true, order: 8, mapsTo: "dietary" },
       { id: "recurring", type: "checkbox", label: "This is a recurring booking", required: false, visible: true, order: 9 },
       notes,
@@ -225,7 +231,9 @@ export const EMBED_TEMPLATE_CATALOG: EmbedTemplateMeta[] = [
       { id: "phone", type: "phone",  label: "Phone / WhatsApp", required: true, visible: true, order: 3, mapsTo: "phone" },
       { id: "event_date", type: "date", label: "Date", required: true, visible: true, order: 4, mapsTo: "event_date" },
       { id: "guest_count", type: "number", label: "How many people?", required: true, visible: true, order: 5, mapsTo: "guest_count", validation: { min: 1, max: 10000 } },
+      { id: "event_time", type: "time", label: "Main service time", required: false, visible: true, order: 5.5, mapsTo: "event_time" },
       { id: "venue", type: "text", label: "Venue / area", required: false, visible: true, order: 6, mapsTo: "venue" },
+      { id: "delivery_locations", type: "locations", label: "Additional sitting locations", required: false, visible: true, order: 6.5, helpText: "For each additional office or venue, enter its address and guest count. Add a different service time if needed." },
       { id: "notes", type: "textarea", label: "Anything else we should know?", required: false, visible: true, order: 99, mapsTo: "notes" },
     ],
     defaultTheme: { primary_color: "#dc2626", layout: "single-column", button_radius: "medium" },

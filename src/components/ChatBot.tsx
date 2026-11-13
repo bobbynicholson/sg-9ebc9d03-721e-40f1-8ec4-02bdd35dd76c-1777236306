@@ -322,6 +322,7 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
   const [workingStep, setWorkingStep] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [launcherDock, setLauncherDock] = useState<LauncherDock | null>(null);
+  const [launcherSuppressed, setLauncherSuppressed] = useState(false);
   const [visibleViewport, setVisibleViewport] = useState<{ height: number; top: number } | null>(null);
   const launcherRef = useRef<HTMLDivElement>(null);
 
@@ -400,7 +401,7 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
   const { user } = useAuth();
   const { withSlug } = useTenantHref();
   const router = useRouter();
-  const compactLauncher = ["/team-portal/", "/admin/platform/", "/client-portal/", "/client/", "/account/"].some(
+  const compactLauncher = ["/team-portal/", "/admin/platform/", "/admin/whatsapp/", "/client-portal/", "/client/", "/account/"].some(
     (prefix) => router.pathname.startsWith(prefix),
   );
 
@@ -411,12 +412,20 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
   useEffect(() => {
     if (isOpen || !compactLauncher || typeof window === "undefined") {
       setLauncherDock(null);
+      setLauncherSuppressed(false);
       return;
     }
 
     let frame = 0;
     const delayedFrame = 0;
     const updateDock = () => {
+      if (document.querySelector('[data-chatbot-suppress="true"]')) {
+        window.cancelAnimationFrame(frame);
+        setLauncherDock(null);
+        setLauncherSuppressed(true);
+        return;
+      }
+      setLauncherSuppressed(false);
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
         if (window.innerWidth >= 640) {
@@ -482,6 +491,13 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
     const longDelay = window.setTimeout(updateDock, 1500);
     window.addEventListener("resize", updateDock);
     window.addEventListener("scroll", updateDock, true);
+    const observer = new MutationObserver(updateDock);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-chatbot-suppress"],
+    });
     return () => {
       window.cancelAnimationFrame(frame);
       window.cancelAnimationFrame(delayedFrame);
@@ -489,6 +505,7 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
       window.clearTimeout(longDelay);
       window.removeEventListener("resize", updateDock);
       window.removeEventListener("scroll", updateDock, true);
+      observer.disconnect();
     };
   }, [compactLauncher, isOpen, router.asPath]);
 
@@ -721,7 +738,8 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
         ref={launcherRef}
         data-chatbot-root
         data-chatbot-global={global ? "true" : undefined}
-        className="fixed bottom-4 right-4 z-50 block transition-[bottom,left,right] duration-200 motion-reduce:transition-none sm:bottom-5 sm:right-5"
+        aria-hidden={launcherSuppressed && !isOpen ? true : undefined}
+        className={cn("fixed bottom-4 right-4 z-50 block transition-[bottom,left,right] duration-200 motion-reduce:transition-none sm:bottom-5 sm:right-5", launcherSuppressed && !isOpen && "invisible pointer-events-none")}
         style={launcherDock ? {
           bottom: `${launcherDock.bottom}px`,
           left: launcherDock.side === "left" ? "16px" : "auto",

@@ -117,7 +117,7 @@ function AdminTopSlot({ companySlug }: { companySlug: string }) {
       {/* Company identity - white-glass card so it sits on the
           brand-painted rail instead of reading as a generic dark tile. */}
       <div className="flex min-w-0 max-w-full items-center gap-2.5 rounded-xl border border-white/15 bg-white/10 px-3 py-2.5">
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 border-white/30 bg-white/15">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-white/35 bg-white/15">
           <span className="text-[11px] font-bold text-white">{initials}</span>
         </div>
         <div className="min-w-0 flex-1 overflow-hidden">
@@ -126,7 +126,7 @@ function AdminTopSlot({ companySlug }: { companySlug: string }) {
               {companyName}
             </span>
           </div>
-          <div className="truncate text-[11px] leading-tight text-white/65">
+          <div className="truncate text-xs leading-tight text-white/80">
             {profile?.full_name || profile?.email || ""}
           </div>
         </div>

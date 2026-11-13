@@ -44,6 +44,22 @@ test("prep tasks carry the delivery destination for each sitting", async () => {
   const inherited = await kitchenPrepService.planTasksForOrder("company", "booking", db, plan);
   expect(inherited.find(task => task.service_sitting_id === "s1")?.notes).toContain("Delivery to: Parent venue");
 });
+test("sitting-specific menu lines stay at their location while shared lines split by guests", async () => {
+  const { db } = database({ quote: { menu_items: [
+    { name: "Shared salad", quantity: 100 },
+    { name: "Office A lamb", quantity: 40, service_sitting_sequence: 1 },
+    { name: "Office B chicken", quantity: 60, service_sitting_sequence: 2 },
+  ] } });
+  const tasks = await kitchenPrepService.planTasksForOrder("company", "booking", db, [
+    { ...plan[0], sequenceNumber: 1 },
+    { ...plan[1], sequenceNumber: 2 },
+  ]);
+  const prep = tasks.filter(task => task.task_type === "prep");
+  expect(prep.map(task => [task.service_sitting_id, task.menu_item_name, task.planned_yield])).toEqual([
+    ["s1", "Shared salad", 40], ["s1", "Office A lamb", 40],
+    ["s2", "Shared salad", 60], ["s2", "Office B chicken", 60],
+  ]);
+});
 test("automatic prep generation reads the staff-approved sittings on the order", async () => {
   const { db } = database({ service_sittings: plan.map((row,i)=>({ id:row.id,sequence_number:i+1,guest_count:row.guestCount,service_time:row.serviceTime,kitchen_ready_time:row.kitchenReadyTime,dispatch_time:row.dispatchTime })) });
   expect((await kitchenPrepService.planTasksForOrder("company","booking",db)).map(task=>task.service_sitting_id)).toEqual(["s1","s1","s2","s2"]);

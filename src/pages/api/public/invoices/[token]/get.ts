@@ -123,7 +123,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (invoiceForResponse.order_id) {
     const { data: orderMeta } = await supabase
       .from("orders")
-      .select("id, quote_id, package_id, event_date, event_time, event_name, venue_name, venue_address, venue_lat, venue_lng, guest_count, client_name, client_company_name, client_email, client_phone, subtotal, tax_amount, total_amount, deposit_amount, deposit_percentage, currency, service_sittings(sequence_number,guest_count,service_time,venue_name,venue_address)")
+      .select("id, quote_id, package_id, event_date, event_time, event_name, venue_name, venue_address, venue_lat, venue_lng, guest_count, client_name, client_company_name, client_email, client_phone, subtotal, tax_amount, total_amount, deposit_amount, deposit_percentage, currency, service_sittings(sequence_number,guest_count,service_time,venue_name,venue_address,delivery_fee,collection_fee)")
       .eq("id", invoiceForResponse.order_id)
       .maybeSingle();
 
@@ -148,6 +148,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           serviceTime: sitting.service_time,
           venueName: sitting.venue_name || (orderMeta as any).venue_name || null,
           venueAddress: sitting.venue_address || (orderMeta as any).venue_address || null,
+          deliveryFee: sitting.delivery_fee ?? 0,
+          collectionFee: sitting.collection_fee ?? 0,
         }));
       invoiceData.clientCompanyName = resolveInvoiceCompanyName({ order: orderMeta, invoiceData, client });
       invoiceData.clientName = (orderMeta as any).client_name ?? invoiceData.clientName ?? null;

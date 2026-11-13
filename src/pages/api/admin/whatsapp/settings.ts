@@ -82,6 +82,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       webhookVerifyToken: revealVerifyToken ? verifyToken : null,
       verifyTokenAvailable,
       webhookVerifiedAt: row?.is_active ? row?.settings?.webhookVerifiedAt || null : null,
+      businessAppHistorySync: row?.is_active ? {
+        status: row.settings?.whatsappBusinessAppHistoryStatus || null,
+        requestedAt: row.settings?.whatsappBusinessAppHistoryRequestedAt || null,
+        requestId: row.settings?.whatsappBusinessAppHistoryRequestId || null,
+        progress: Number(row.settings?.whatsappBusinessAppHistoryProgress) || 0,
+        lastAttemptAt: row.settings?.whatsappBusinessAppHistoryLastAttemptAt || null,
+        lastError: row.settings?.whatsappBusinessAppHistoryLastError || null,
+      } : null,
     });
   }
 

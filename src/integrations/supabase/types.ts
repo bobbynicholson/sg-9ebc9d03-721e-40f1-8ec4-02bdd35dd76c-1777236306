@@ -22,6 +22,7 @@ export type Database = {
           reason: string | null
           scheduled_deletion_date: string | null
           status: string | null
+          service_sitting_sequence: number | null
           user_id: string | null
         }
         Insert: {
@@ -31,6 +32,7 @@ export type Database = {
           reason?: string | null
           scheduled_deletion_date?: string | null
           status?: string | null
+          service_sitting_sequence?: number | null
           user_id?: string | null
         }
         Update: {
@@ -40,6 +42,7 @@ export type Database = {
           reason?: string | null
           scheduled_deletion_date?: string | null
           status?: string | null
+          service_sitting_sequence?: number | null
           user_id?: string | null
         }
         Relationships: []
@@ -3262,6 +3265,7 @@ export type Database = {
           quantity: number | null
           returned_quantity: number | null
           status: string | null
+          service_sitting_sequence: number | null
           user_id: string | null
         }
         Insert: {
@@ -3278,6 +3282,7 @@ export type Database = {
           quantity?: number | null
           returned_quantity?: number | null
           status?: string | null
+          service_sitting_sequence?: number | null
           user_id?: string | null
         }
         Update: {
@@ -3294,6 +3299,7 @@ export type Database = {
           quantity?: number | null
           returned_quantity?: number | null
           status?: string | null
+          service_sitting_sequence?: number | null
           user_id?: string | null
         }
         Relationships: [

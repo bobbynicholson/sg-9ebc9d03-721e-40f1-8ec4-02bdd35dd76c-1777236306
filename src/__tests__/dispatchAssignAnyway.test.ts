@@ -4,6 +4,7 @@
 // "Assign anyway". Without that answer the overlap is still refused, and a
 // schedule that could not be read is always refused.
 const updates: any[] = [];
+let orderFixture: any = { service_sittings: [], assigned_driver_id: null, event_date: "2026-10-30", event_time: "18:30:00" };
 
 function query(table: string) {
   const api: any = {
@@ -11,7 +12,7 @@ function query(table: string) {
     update: (values: any) => { updates.push({ table, values }); return api; },
     insert: async () => ({ error: null }),
     maybeSingle: async () => ({
-      data: table === "orders" ? { service_sittings: [], assigned_driver_id: null, event_date: "2026-10-30", event_time: "18:30:00" } : null,
+      data: table === "orders" ? orderFixture : null,
       error: null,
     }),
     // The order update matches no row: enough to prove the gate let it through.
@@ -30,7 +31,7 @@ import { dispatchService } from "@/services/dispatchService";
 const base = { companyId: "co-1", orderId: "order-2", driverId: "driver-1", performedBy: "u1" };
 const overlap = { ok: false, conflictOrderId: "order-1", conflictOrderNumber: "ORD-1", reason: "This driver is already assigned to order ORD-1 at 18:30." };
 
-beforeEach(() => { updates.length = 0; jest.restoreAllMocks(); });
+beforeEach(() => { updates.length = 0; orderFixture = { service_sittings: [], assigned_driver_id: null, event_date: "2026-10-30", event_time: "18:30:00" }; jest.restoreAllMocks(); });
 
 describe("assigning a driver who already has a nearby job", () => {
   it("is refused when the dispatcher has not confirmed it", async () => {
@@ -52,5 +53,25 @@ describe("assigning a driver who already has a nearby job", () => {
     const r = await dispatchService.assignDriverWithGate({ ...base, allowScheduleConflict: true });
     expect(r).toEqual({ ok: false, reason: unreadable.reason });
     expect(updates.filter((u) => u.table === "orders")).toHaveLength(0);
+  });
+});
+
+describe("sitting-specific delivery addresses", () => {
+  it("requires per-sitting assignment when a booking has multiple sittings", async () => {
+    orderFixture = { ...orderFixture, service_sittings: [{ id: "s1" }, { id: "s2" }] };
+    const result = await dispatchService.assignDriverWithGate(base);
+    expect(result).toEqual({ ok: false, reason: "This booking has sitting-specific deliveries. Assign drivers to each sitting delivery and collection in the booking schedule." });
+    expect(updates.filter((update) => update.table === "orders")).toHaveLength(0);
+  });
+
+  it("requires per-sitting assignment when one sitting uses a different address", async () => {
+    orderFixture = {
+      ...orderFixture,
+      venue_address: "39 Salt River Road",
+      service_sittings: [{ id: "s1", venue_address: "Cape of Good Hope" }],
+    };
+    const result = await dispatchService.assignDriverWithGate(base);
+    expect(result).toEqual({ ok: false, reason: "This booking has sitting-specific deliveries. Assign drivers to each sitting delivery and collection in the booking schedule." });
+    expect(updates.filter((update) => update.table === "orders")).toHaveLength(0);
   });
 });

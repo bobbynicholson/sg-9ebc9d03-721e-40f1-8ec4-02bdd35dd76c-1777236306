@@ -54,7 +54,7 @@
       if (help) wrap.appendChild(help);
       wrap.appendChild(err);
       // Span the textarea full-width for breathing room.
-      if (f.type === 'textarea') wrap.style.gridColumn = '1 / -1';
+      if (f.type === 'textarea' || f.type === 'locations') wrap.style.gridColumn = '1 / -1';
       grid.appendChild(wrap);
       entries.push({ field: f, input: input, errorEl: err, wrapper: wrap });
     });

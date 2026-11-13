@@ -884,10 +884,10 @@ export default function PublicQuotePage() {
                   guests: displayGuestCount,
                 }}
               />
-              {(quote.service_sittings?.length || 0) > 1 && <div className="mt-3 border-t border-stone-100 pt-3 text-sm text-stone-700">
+              {((quote.service_sittings?.length || 0) > 1 || quote.service_sittings?.some(sitting => sitting.venue_address && sitting.venue_address.trim() !== String(quote.venue_address || "").trim())) && <div className="mt-3 border-t border-stone-100 pt-3 text-sm text-stone-700">
                 <p className="font-semibold text-stone-900">Service times &amp; delivery locations</p>
                 <ul className="mt-1 space-y-1">{[...quote.service_sittings!].sort((a, b) => a.sequence_number - b.sequence_number).map(sitting =>
-                  <li key={sitting.sequence_number}>Sitting {sitting.sequence_number}: <strong>{sitting.guest_count} guests</strong> at <strong>{formatClockBoth(sitting.service_time, quoteTimeFormat)}</strong>{sitting.venue_name || sitting.venue_address ? <span className="block pl-2">{sitting.venue_name && <strong>{sitting.venue_name}: </strong>}{sitting.venue_address || quote.venue_address}</span> : quote.venue_address && <span className="block pl-2">{quote.venue_address}</span>}</li>,
+                  <li key={sitting.sequence_number}>Sitting {sitting.sequence_number}: <strong>{sitting.guest_count} guests</strong> at <strong>{formatClockBoth(sitting.service_time, quoteTimeFormat)}</strong>{sitting.venue_name || sitting.venue_address ? <span className="block pl-2">{sitting.venue_name && <strong>{sitting.venue_name}: </strong>}{sitting.venue_address || quote.venue_address}</span> : quote.venue_address && <span className="block pl-2">{quote.venue_address}</span>}{Number(sitting.delivery_fee || 0) > 0 && <span className="block pl-2">Delivery: {fmtMoney(Number(sitting.delivery_fee))}</span>}{Number(sitting.collection_fee || 0) > 0 && <span className="block pl-2">Collection: {fmtMoney(Number(sitting.collection_fee))}</span>}</li>,
                 )}</ul>
               </div>}
               {setupTime && setupTime !== eventTime && (
@@ -930,7 +930,7 @@ export default function PublicQuotePage() {
                                 <img src={item.image_url} alt={name} loading="lazy" className="h-14 w-14 shrink-0 rounded-md border border-stone-200 object-cover" />
                               )}
                               <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-stone-900">{name}</p>
+                                <p className="font-semibold text-stone-900">{item?.service_sitting_sequence ? <span className="mr-1 text-xs font-medium text-brand-primary">Sitting {item.service_sitting_sequence} ·</span> : null}{name}</p>
                                 {description && <p className="text-xs text-stone-500 mt-0.5">{description}</p>}
                                 {qty > 1 && <p className="text-xs text-stone-500 mt-0.5">{qty} x {fmtMoney(unitPrice)}</p>}
                               </div>
@@ -962,7 +962,7 @@ export default function PublicQuotePage() {
                     return (
                       <div key={i} className="print-row flex justify-between gap-3 text-sm py-2 border-b border-stone-100 last:border-b-0">
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-stone-900">{name}</p>
+                          <p className="font-semibold text-stone-900">{item?.service_sitting_sequence ? `Sitting ${item.service_sitting_sequence} · ` : "Primary venue · "}{name}</p>
                           <p className="text-xs text-stone-500 mt-0.5">
                             {/* Items bundled into a priced line (e.g. the plates,
                                 knives and forks of "Cutlery & Crockery") show

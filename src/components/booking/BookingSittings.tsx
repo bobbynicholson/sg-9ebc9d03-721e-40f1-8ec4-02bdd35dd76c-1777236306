@@ -28,9 +28,13 @@ export function BookingSittings({ bookingId, showOperations = false }: { booking
     return () => { cancelled = true; window.removeEventListener(ORDER_UPDATED_EVENT, load); window.removeEventListener("focus", load); };
   }, [bookingId, showOperations]);
   if (error) return <p role="alert" className="mt-3 text-sm">Serving times could not be loaded. Refresh to retry.</p>;
-  if (rows.length < 2) return null;
+  const hasAlternateLocation = rows.some(s =>
+    (s.venue_address || "").trim().toLocaleLowerCase() !== (parentVenue.venue_address || "").trim().toLocaleLowerCase()
+      && !!(s.venue_address || "").trim(),
+  );
+  if (rows.length < 2 && !hasAlternateLocation) return null;
   return <div className="mt-3 border-t border-current/20 pt-3 text-sm" aria-label="Serving times">
-    <p className="font-semibold">{rows.length} service sittings</p>
+    <p className="font-semibold">{rows.length} service {rows.length === 1 ? "sitting" : "sittings"}</p>
     <ul className="mt-1 flex flex-wrap gap-x-5 gap-y-3">{rows.map(s => <li key={s.id} className="min-w-0 break-words">Sitting {s.sequence_number}: <strong>{s.guest_count} guests</strong> at <strong>{formatClock(s.service_time.slice(0, 5))}</strong>
       {showOperations && s.kitchen_ready_time && <span className="block">Kitchen ready: {formatClock(s.kitchen_ready_time.slice(0,5))}</span>}
       {showOperations && s.dispatch_time && <span className="block">Depart kitchen: {formatClock(s.dispatch_time.slice(0,5))}</span>}

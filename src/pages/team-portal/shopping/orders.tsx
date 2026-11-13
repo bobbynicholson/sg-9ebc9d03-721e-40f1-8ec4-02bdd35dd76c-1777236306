@@ -29,6 +29,7 @@ import { getShoppingCostVariance, formatShoppingVariance, parseMoneyInput } from
 import { updateShoppingListWithReceiptStatus } from "@/lib/shopping/receiptStatus";
 import { recordShoppingCostVariance } from "@/services/shoppingCompletionService";
 import { getShoppingSettings, SHOPPING_SETTINGS_DEFAULTS, type ShoppingSettings } from "@/services/shopping/shoppingSettingsService";
+import { allocateSittingQuantities, menuLineSittingSequence } from "@/lib/serviceSittings";
 
 interface ShoppingList {
   id: string;
@@ -57,6 +58,9 @@ interface Order {
    *  between branches. Surfaced inline on each upcoming-event card. */
   venue_address?: string | null;
   client_name?: string | null;
+  order_items?: Array<{ item_name: string; quantity: number | null; description?: string | null }>;
+  service_sittings?: Array<{ sequence_number: number; guest_count: number; service_time: string; venue_name?: string | null; venue_address?: string | null; menuItems?: Array<{ name: string; quantity: number }>; equipmentItems?: Array<{ id: string; name: string; quantity: number }> }>;
+  shared_equipment?: Array<{ id: string; name: string; quantity: number }>;
 }
 
 // Semantic status tones. Keys stay load-bearing (don't drop a status),
@@ -187,7 +191,7 @@ function ShoppingOrdersPageInner() {
           .returns<ShoppingList[]>(),
         supabase
           .from("orders")
-          .select("id, order_number, event_name, event_date, event_time, guest_count, status, venue_address, client_name")
+          .select("id, order_number, event_name, event_date, event_time, guest_count, status, venue_address, client_name, service_sittings(sequence_number,guest_count,service_time,venue_name,venue_address), order_items(item_name,quantity,description)")
           .eq("company_id", user.company_id)
           .gte("event_date", toLocalISO(new Date()))
           .in("status", ["confirmed", "preparing", "ready"])
@@ -199,8 +203,34 @@ function ShoppingOrdersPageInner() {
       // primary reads explicitly so a failure never paints an empty state.
       if (listsRes.error) throw listsRes.error;
       if (ordersRes.error) throw ordersRes.error;
+      const loadedOrders = ordersRes.data || [];
+      const equipmentResult = loadedOrders.length
+        ? await (supabase as any).from("equipment_bookings").select("id,order_id,quantity,service_sitting_sequence,status,equipment:equipment_id(name)").in("order_id", loadedOrders.map(order => order.id)).neq("status", "cancelled")
+        : { data: [], error: null };
+      if (equipmentResult.error) throw equipmentResult.error;
+      const bookingEquipment = equipmentResult.data || [];
+      const detailedOrders = loadedOrders.map((order: any) => {
+        const sittings = [...(order.service_sittings || [])].sort((a: any, b: any) => a.sequence_number - b.sequence_number);
+        const guests = sittings.map((sitting: any) => Number(sitting.guest_count || 0));
+        return {
+          ...order,
+          shared_equipment: bookingEquipment.filter((item: any) => item.order_id === order.id && item.service_sitting_sequence == null && item.equipment?.name)
+            .map((item: any) => ({ id: item.id, name: item.equipment.name, quantity: Number(item.quantity || 0) })),
+          service_sittings: sittings.map((sitting: any, index: number) => ({
+            ...sitting,
+            menuItems: (order.order_items || []).flatMap((line: any) => {
+              const assigned = menuLineSittingSequence({ description: line.description });
+              if (assigned && assigned !== Number(sitting.sequence_number)) return [];
+              const portions = assigned ? Number(line.quantity || 0) : allocateSittingQuantities(Number(line.quantity || 0), guests)[index] || 0;
+              return portions > 0 ? [{ name: line.item_name, quantity: portions }] : [];
+            }),
+            equipmentItems: bookingEquipment.filter((item: any) => item.order_id === order.id && Number(item.service_sitting_sequence) === Number(sitting.sequence_number) && item.equipment?.name)
+              .map((item: any) => ({ id: item.id, name: item.equipment.name, quantity: Number(item.quantity || 0) })),
+          })),
+        };
+      });
       setLists(listsRes.data || []);
-      setUpcomingOrders(ordersRes.data || []);
+      setUpcomingOrders(detailedOrders as Order[]);
       setLoadError(null);
       setLoaded(true);
     } catch (e: any) {
@@ -666,6 +696,16 @@ function ShoppingOrdersPageInner() {
                             <span className="truncate">{o.venue_address}</span>
                           </p>
                         )}
+                        {!!o.service_sittings?.length && <div className="mt-3 space-y-2 border-t border-slate-200 pt-3 dark:border-slate-700">
+                          <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Prep and delivery by sitting</p>
+                          {o.service_sittings.map(sitting => <div key={sitting.sequence_number} className="rounded-md bg-slate-50 p-2.5 dark:bg-slate-800/70">
+                            <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">Sitting {sitting.sequence_number} · {sitting.guest_count} guests · {fmtTime(sitting.service_time)}</p>
+                            <p className="mt-0.5 truncate text-xs text-slate-600 dark:text-slate-300">{sitting.venue_name ? `${sitting.venue_name} · ` : ""}{sitting.venue_address || o.venue_address || "Main venue address not set"}</p>
+                            {!!sitting.menuItems?.length && <p className="mt-1 text-xs text-slate-700 dark:text-slate-200">Food: {sitting.menuItems.map(line => `${line.quantity} × ${line.name}`).join(", ")}</p>}
+                            {!!sitting.equipmentItems?.length && <p className="mt-1 text-xs text-slate-700 dark:text-slate-200">Equipment: {sitting.equipmentItems.map(line => `${line.quantity} × ${line.name}`).join(", ")}</p>}
+                          </div>)}
+                          {!!o.shared_equipment?.length && <p className="text-xs text-slate-600 dark:text-slate-300">Main venue equipment: {o.shared_equipment.map(line => `${line.quantity} × ${line.name}`).join(", ")}</p>}
+                        </div>}
                       </div>
                       {o.status && (
                         <Badge variant="outline" className={`${orderStatusTone[o.status] ?? NEUTRAL_TONE} text-xs capitalize flex-shrink-0`}>

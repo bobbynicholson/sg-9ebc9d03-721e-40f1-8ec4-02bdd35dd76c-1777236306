@@ -18,6 +18,7 @@ export type EmbedFieldType =
   | 'number'
   | 'select'
   | 'textarea'
+  | 'locations'
   | 'checkbox'
   | 'checkboxes'
   | 'radio'

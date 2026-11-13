@@ -57,7 +57,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         subtotal, tax_amount, total_amount, amount_paid, balance_due,
         notes, invoice_data, updated_at,
         client:client_id ( client_name, company_name, email, phone, billing_address_line1, billing_address_line2, billing_city, billing_postal_code, tax_number, payment_terms ),
-        order:order_id ( id, quote_id, order_number, client_name, client_company_name, client_email, client_phone, event_name, event_date, event_time, venue_name, venue_address, guest_count, deposit_amount, deposit_percentage, currency, updated_at, service_sittings(sequence_number,guest_count,service_time,venue_name,venue_address) ),
+        order:order_id ( id, quote_id, order_number, client_name, client_company_name, client_email, client_phone, event_name, event_date, event_time, venue_name, venue_address, guest_count, deposit_amount, deposit_percentage, currency, updated_at, service_sittings(sequence_number,guest_count,service_time,venue_name,venue_address,delivery_fee,collection_fee) ),
         company:company_id ( id, slug, company_name, legal_name, time_format, logo_url, email, phone, address_line1, address_line2, city, state_province, postal_code, country, primary_color, vat_registered, vat_number, vat_rate, deposit_percent, dispatch_settings, registration_number, tax_number, currency, bank_name, bank_account_holder, bank_account_number, bank_branch_code, bank_account_type, eft_instructions, updated_at )
       `)
       .eq("public_token", token)

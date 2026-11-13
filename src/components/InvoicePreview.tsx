@@ -50,7 +50,7 @@ interface InvoicePreviewProps {
   eventTime: string;
   venue: string;
   guestCount: number;
-  serviceSittings?: Array<{ sequenceNumber: number; guestCount: number; serviceTime?: string | null; venueName?: string | null; venueAddress?: string | null }>;
+  serviceSittings?: Array<{ sequenceNumber: number; guestCount: number; serviceTime?: string | null; venueName?: string | null; venueAddress?: string | null; deliveryFee?: number | null; collectionFee?: number | null }>;
   items: Array<{
     description: string;
     category?: string | null;
@@ -191,9 +191,9 @@ export function InvoicePreview(props: InvoicePreviewProps) {
         </CardContent>
       </Card>
 
-      {props.serviceSittings?.length > 1 && <Card className="mb-4 border border-stone-200 shadow-sm"><CardContent className="px-3 py-4 sm:px-5 sm:py-5">
+      {(props.serviceSittings?.length > 1 || props.serviceSittings?.some(s => s.venueAddress && s.venueAddress.trim() !== props.venue.trim())) && <Card className="mb-4 border border-stone-200 shadow-sm"><CardContent className="px-3 py-4 sm:px-5 sm:py-5">
         <p className="mb-2 text-xs font-bold uppercase tracking-[0.15em] text-brand-primary">Delivery locations</p>
-        <ul className="space-y-1 text-sm text-stone-700">{props.serviceSittings.map(s => <li key={s.sequenceNumber}>Sitting {s.sequenceNumber} · {s.guestCount} guests{s.serviceTime ? ` · ${formatClock(s.serviceTime)}` : ""}{(s.venueName || s.venueAddress) ? ` · ${[s.venueName, s.venueAddress].filter(Boolean).join(" — ")}` : ""}</li>)}</ul>
+        <ul className="space-y-2 text-sm text-stone-700">{props.serviceSittings.map(s => <li key={s.sequenceNumber}>Sitting {s.sequenceNumber} · {s.guestCount} guests{s.serviceTime ? ` · ${formatClock(s.serviceTime)}` : ""}{(s.venueName || s.venueAddress || props.venue) ? ` · ${[s.venueName, s.venueAddress || props.venue].filter(Boolean).join(" — ")}` : ""}{(Number(s.deliveryFee) > 0 || Number(s.collectionFee) > 0) && <span className="block pl-3 text-xs text-stone-500">{Number(s.deliveryFee) > 0 ? `Delivery ${fmtMoney.format(Number(s.deliveryFee))}` : ""}{Number(s.deliveryFee) > 0 && Number(s.collectionFee) > 0 ? " · " : ""}{Number(s.collectionFee) > 0 ? `Collection ${fmtMoney.format(Number(s.collectionFee))}` : ""}</span>}</li>)}</ul>
       </CardContent></Card>}
 
       {/* ITEMS */}

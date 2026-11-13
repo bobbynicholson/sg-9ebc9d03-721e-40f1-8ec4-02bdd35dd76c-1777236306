@@ -26,7 +26,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export interface PublicQuoteView {
-  service_sittings?: Array<{ sequence_number: number; guest_count: number; service_time: string; venue_name?: string | null; venue_address?: string | null }>;
+  service_sittings?: Array<{ sequence_number: number; guest_count: number; service_time: string; venue_name?: string | null; venue_address?: string | null; delivery_fee?: number | null; collection_fee?: number | null }>;
   id: string;
   updated_at: string | null;
   quote_number: string;

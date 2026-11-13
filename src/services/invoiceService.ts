@@ -339,7 +339,7 @@ export const invoiceService = {
       console.error("[invoiceService] order_items fetch failed:", orderItemsErr);
     }
     const lineItems: InvoiceLineItem[] = (orderItemRows || []).map((item: any) => ({
-      description: item.item_name || item.description || "Item",
+      description: [item.item_name, item.description].filter(Boolean).join(" - ") || "Item",
       quantity: Number(item.quantity) || 1,
       unitPrice: Number(item.unit_price) || 0,
       total:

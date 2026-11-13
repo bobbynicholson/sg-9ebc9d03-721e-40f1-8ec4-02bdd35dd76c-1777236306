@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Eye, Truck, ChefHat, ShoppingCart, Sparkles, User, LayoutDashboard } from "lucide-react";
 
 interface StaffMember {
@@ -29,6 +30,9 @@ interface ViewSwitcherProps {
 export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
   const router = useRouter();
   const { profile } = useAuth();
+  const isMobile = useIsMobile();
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
+  const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [currentView, setCurrentView] = useState<string>("admin");
   const [loading, setLoading] = useState(false);
@@ -37,6 +41,14 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
     loadStaffMembers();
     detectCurrentView();
   }, [profile, router.pathname]);
+
+  useEffect(() => {
+    if (!isMobile || typeof document === "undefined") {
+      setPortalContainer(null);
+      return;
+    }
+    setPortalContainer(document.querySelector<HTMLElement>('[role="dialog"][data-state="open"]'));
+  }, [isMobile]);
 
   const loadStaffMembers = async () => {
     if (!profile?.company_id) return;
@@ -110,10 +122,6 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
     }
   };
 
-  const getViewBadgeColor = () => {
-    return "bg-brand-primary";
-  };
-
   const getViewLabel = () => {
     const labels: Record<string, string> = {
       admin: "Admin View",
@@ -140,30 +148,26 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={viewMenuOpen} onOpenChange={setViewMenuOpen}>
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
           size="icon"
           disabled={loading}
           title={`Switch view (currently ${getViewLabel()})`}
-          className="relative h-9 w-9 shrink-0 rounded-lg border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+          aria-label={`Switch view, currently ${getViewLabel()}`}
+          className="h-11 w-11 shrink-0 rounded-lg border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-brand-primary dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15 dark:focus-visible:ring-white"
         >
-          <Eye className="h-4 w-4" />
-          <span
-            // Keep the status dot inside the compact sidebar control. The
-            // previous negative offset added horizontal spill in the narrow
-            // desktop rail and could be clipped by the nav scroller.
-            className={`absolute right-0 top-0 h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-slate-900 ${getViewBadgeColor()}`}
-          />
+          <Eye className="h-[18px] w-[18px]" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        side="right"
-        align="start"
+        side={isMobile ? "bottom" : "right"}
+        align={isMobile ? "center" : "start"}
+        portalContainer={portalContainer}
         sideOffset={10}
         collisionPadding={12}
-        className="z-[1200] max-h-[min(80vh,34rem)] w-[min(22rem,calc(100vw-2rem))] overflow-x-hidden overflow-y-auto"
+        className={`z-[1200] ${isMobile ? "max-h-[min(55dvh,var(--radix-dropdown-menu-content-available-height))]" : "max-h-[min(80vh,34rem)]"} w-[min(22rem,calc(100vw-2rem))] overflow-x-hidden overflow-y-auto border-slate-200 bg-white text-slate-900 shadow-2xl dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 [&_[role=menuitem]]:min-h-11`}
       >
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">

@@ -1,6 +1,7 @@
 /** Paging helpers for the Replies page. Pure, so they can be tested directly. */
 export interface ThreadMessage {
   id: string;
+  dedupeId?: string;
   direction: "in" | "out";
   text: string;
   at: string;
@@ -9,6 +10,9 @@ export interface ThreadMessage {
   templateName?: string | null;
   templateLabel?: string | null;
   failureReason?: string | null;
+  source?: "whatsapp_business_app" | "synced_history";
+  relatedMessageId?: string | null;
+  reactionEmoji?: string | null;
 }
 
 export const CONVERSATION_PAGE_SIZE = 25;
@@ -38,8 +42,13 @@ export function cleanSearch(value: unknown): string {
  * Merges received and sent messages into one page, oldest first. Each list
  * holds up to size + 1 rows, newest first, so a spare row means there's more.
  */
-export function mergeThreadPage(received: ThreadMessage[], sent: ThreadMessage[], size: number) {
-  const newestFirst = [...received, ...sent].sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id));
+export function mergeThreadPage(received: ThreadMessage[], sent: ThreadMessage[], size: number, external: ThreadMessage[] = []) {
+  const byId = new Map<string, ThreadMessage>();
+  for (const message of [...received, ...sent, ...external]) {
+    const key = message.dedupeId || message.id;
+    if (!byId.has(key)) byId.set(key, message);
+  }
+  const newestFirst = [...byId.values()].sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id));
   const page = newestFirst.slice(0, size);
   const oldestShown = page[page.length - 1];
   return {

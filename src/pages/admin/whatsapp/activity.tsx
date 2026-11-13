@@ -60,7 +60,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "rounded-full border px-3 py-1 text-xs font-medium",
+        "min-h-11 rounded-full border px-3 py-2 text-xs font-medium",
         active ? "border-brand-primary bg-brand-primary text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800",
       )}
     >
@@ -157,7 +157,7 @@ function ActivityPage() {
               {ACTIVITY_PERIODS.map((value) => (
                 <Chip key={value} active={days === value} onClick={() => { setDays(value); setPage(1); }}>Last {value} days</Chip>
               ))}
-              <Button type="button" variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" disabled={loading} onClick={() => void load(true)}>
+              <Button type="button" variant="ghost" size="sm" className="h-auto min-h-11 gap-1.5 whitespace-normal text-xs" disabled={loading} onClick={() => void load(true)}>
                 <RefreshCw className="h-3.5 w-3.5" /> Refresh activity
               </Button>
             </div>
@@ -195,7 +195,23 @@ function ActivityPage() {
                 ) : !data?.report.length ? (
                   <p className="text-xs text-slate-500">Nothing was sent in this period.</p>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <>
+                  <div className="space-y-2 md:hidden">
+                    {data.report.map((row) => (
+                      <div key={row.name} className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+                        <p className="break-words text-sm font-medium text-slate-900 dark:text-white">{row.name}</p>
+                        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                          {[['Sent', row.sent], ['Delivered', row.delivered], ['Read', row.read], ['Failed', row.failed]].map(([label, value]) => (
+                            <div key={String(label)} className="flex items-center justify-between gap-2">
+                              <dt className="text-slate-500">{label}</dt>
+                              <dd className="font-semibold tabular-nums text-slate-900 dark:text-white">{value}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="hidden overflow-x-auto md:block">
                     <table className="w-full min-w-[28rem] text-xs">
                       <thead>
                         <tr className="text-left text-slate-500">
@@ -215,6 +231,7 @@ function ActivityPage() {
                       </tbody>
                     </table>
                   </div>
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -226,7 +243,7 @@ function ActivityPage() {
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input
                     aria-label="Search messages"
-                    className="pl-9"
+                    className="pl-9 text-base sm:text-sm"
                     placeholder="Search by name, number or template"
                     value={search}
                     onChange={(event) => { setSearch(event.target.value); setPage(1); }}
@@ -243,31 +260,33 @@ function ActivityPage() {
                   <div className={cn("transition-opacity", loading && "opacity-60")}>
                     <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                       {data.messages.map((message) => (
-                        <li key={message.id} className="space-y-3 py-3">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
+                      <li key={message.id} className="min-w-0 space-y-2.5 py-3">
+                          <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-sm font-medium text-slate-900 dark:text-white">{message.name}</span>
                               <span className="block truncate text-xs text-slate-500">
                                 {message.recipient} | {new Date(message.at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                               </span>
                             </span>
-                            <span className="flex flex-wrap items-center gap-1.5">
+                            <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5">
                               <Badge variant="outline">{message.source}</Badge>
                               <Badge variant={message.status === "failed" ? "destructive" : "secondary"}>{statusLabel(message.status)}</Badge>
+                            </div>
+                          </div>
+                          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5">
                               {message.orderId && (
-                                <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
-                                  <Link href={withSlug(`/order/${message.orderId}`)}>Open order</Link>
+                                <Button asChild variant="ghost" size="sm" className="h-auto min-h-11 whitespace-normal text-xs">
+                                  <Link href={withSlug(`/order/${message.orderId}`)}><span className="sm:hidden">Order</span><span className="hidden sm:inline">Open order</span></Link>
                                 </Button>
                               )}
-                              <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
-                                <Link href={withSlug(`/admin/whatsapp/replies?phone=${encodeURIComponent(message.phone)}`)}>Open conversation</Link>
+                              <Button asChild variant="ghost" size="sm" className="h-auto min-h-11 whitespace-normal text-xs">
+                                <Link href={withSlug(`/admin/whatsapp/replies?phone=${encodeURIComponent(message.phone)}`)}><span className="sm:hidden">Conversation</span><span className="hidden sm:inline">Open conversation</span></Link>
                               </Button>
                               {message.status === "failed" && (
-                                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" disabled={retrying === message.id} onClick={() => void retry(message.id)}>
-                                  {retrying === message.id ? "Queueing..." : "Queue retry"}
+                                <Button type="button" variant="outline" size="sm" className="h-auto min-h-11 whitespace-normal text-xs" disabled={retrying === message.id} onClick={() => void retry(message.id)}>
+                                  {retrying === message.id ? "Queueing..." : <><span className="sm:hidden">Retry</span><span className="hidden sm:inline">Queue retry</span></>}
                                 </Button>
                               )}
-                            </span>
                           </div>
                           {message.failureReason && (message.status === "failed" || message.status === "pending" || message.status === "sending") && (
                             <WhatsAppFailureNotice reason={message.failureReason} state={message.status === "failed" ? "failed" : "retrying"} />
@@ -295,10 +314,10 @@ function ActivityPage() {
                         <p className="text-xs text-slate-500">
                           Showing {firstShown.toLocaleString("en-ZA")}-{lastShown.toLocaleString("en-ZA")} of {matching.toLocaleString("en-ZA")}
                         </p>
-                        <div className="flex items-center gap-1.5">
-                          <Button type="button" variant="outline" size="sm" className="h-7 text-xs" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>Previous page</Button>
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
+                          <Button type="button" variant="outline" size="sm" className="h-auto min-h-11 whitespace-normal text-xs" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>Previous page</Button>
                           <span className="text-xs text-slate-500">Page {page} of {lastPage.toLocaleString("en-ZA")}</span>
-                          <Button type="button" variant="outline" size="sm" className="h-7 text-xs" disabled={page >= lastPage || loading} onClick={() => setPage(page + 1)}>Next page</Button>
+                          <Button type="button" variant="outline" size="sm" className="h-auto min-h-11 whitespace-normal text-xs" disabled={page >= lastPage || loading} onClick={() => setPage(page + 1)}>Next page</Button>
                         </div>
                       </div>
                     )}

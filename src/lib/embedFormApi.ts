@@ -17,6 +17,7 @@ export type EmbedFieldType =
   | "number"
   | "date"
   | "textarea"
+  | "locations"
   | "select"
   | "radio"
   | "checkbox"
@@ -198,6 +199,24 @@ export function validateField(field: EmbedField, value: any): ValidateResult {
   }
 
   switch (field.type) {
+    case "locations": {
+      if (!Array.isArray(value)) return { ok: false, error: "Enter one or more delivery locations." };
+      if (value.length > 12) return { ok: false, error: "Add no more than 12 locations." };
+      for (const location of value) {
+        if (!location || typeof location !== "object" || Array.isArray(location)) {
+          return { ok: false, error: "Check each delivery location." };
+        }
+        const name = typeof location.name === "string" ? location.name.trim() : "";
+        const address = typeof location.address === "string" ? location.address.trim() : "";
+        if (!address) return { ok: false, error: "Enter an address for each location, or remove the empty row." };
+        if (name.length > 120 || address.length > 300) return { ok: false, error: "Location names must be 120 characters and addresses 300 characters or fewer." };
+        const guests = Number(location.guestCount);
+        if (!Number.isInteger(guests) || guests < 1) return { ok: false, error: "Enter a whole-number guest count for each location." };
+        const serviceTime = typeof location.serviceTime === "string" ? location.serviceTime.trim() : "";
+        if (serviceTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(serviceTime)) return { ok: false, error: "Choose a valid service time." };
+      }
+      break;
+    }
     case "email": {
       if (typeof value !== "string" || !EMAIL_RE.test(value.trim())) {
         return { ok: false, error: "Enter a valid email address" };
@@ -225,11 +244,20 @@ export function validateField(field: EmbedField, value: any): ValidateResult {
       if (Number.isNaN(num)) {
         return { ok: false, error: "Enter a valid number" };
       }
+      if (field.mapsTo === "guest_count" && !Number.isInteger(num)) {
+        return { ok: false, error: "Enter a whole-number guest count." };
+      }
       if (rules.min !== undefined && num < rules.min) {
         return { ok: false, error: `Minimum ${rules.min}` };
       }
       if (rules.max !== undefined && num > rules.max) {
         return { ok: false, error: `Maximum ${rules.max}` };
+      }
+      break;
+    }
+    case "time": {
+      if (typeof value !== "string" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) {
+        return { ok: false, error: "Choose a valid time." };
       }
       break;
     }
@@ -287,6 +315,34 @@ export function validateSubmission(
     }
   }
 
+  const locationFields = (fields || []).filter((field) => field.type === "locations" && isVisible(field, payload));
+  const requestedLocations = locationFields.flatMap((field) => Array.isArray(payload[field.id]) ? payload[field.id] : []);
+  const firstLocationField = locationFields[0];
+  if (firstLocationField && requestedLocations.length > 0 && !locationFields.some((field) => errors[field.id])) {
+    const venueField = (fields || []).find((field) => field.mapsTo === "venue" && isVisible(field, payload));
+    const hasPrimaryVenue = !!String(venueField ? payload[venueField.id] || "" : "").trim();
+    const maxLocations = hasPrimaryVenue ? 11 : 12;
+    if (requestedLocations.length > maxLocations) {
+      errors[firstLocationField.id] = hasPrimaryVenue
+        ? "A booking can have up to 12 sitting locations including the main venue. Remove one additional location."
+        : "A booking can have up to 12 sitting locations.";
+    }
+
+    const guestsField = (fields || []).find((field) => field.mapsTo === "guest_count" && isVisible(field, payload));
+    const totalGuests = Number(guestsField ? payload[guestsField.id] : NaN);
+    const locationGuests = requestedLocations.reduce((sum, location) => sum + Number(location.guestCount), 0);
+    if (hasPrimaryVenue && (!Number.isInteger(totalGuests) || totalGuests < 1) && (!guestsField || !errors[guestsField.id])) {
+      errors[firstLocationField.id] = "Enter the overall guest count so we can calculate the guests at the main venue.";
+    }
+    if (!errors[firstLocationField.id] && Number.isInteger(totalGuests) && totalGuests > 0) {
+      if (hasPrimaryVenue && locationGuests >= totalGuests) {
+        errors[firstLocationField.id] = "The additional locations must leave at least one guest for the main venue.";
+      } else if (!hasPrimaryVenue && locationGuests !== totalGuests) {
+        errors[firstLocationField.id] = `Location guest counts must add up to ${totalGuests}.`;
+      }
+    }
+  }
+
   if (Object.keys(errors).length > 0) {
     return { ok: false, errors };
   }
@@ -325,12 +381,40 @@ export function mapPayloadToLead(
   // in the raw submission row, invisible on the lead the team works from.
   const extraDetails: string[] = [];
   const seen = new Set<string>();
+  let allLocationGuestsKnown = true;
+  let locationGuestTotal = 0;
+  let hasPrimaryVenue = false;
 
   for (const field of fields || []) {
     seen.add(field.id);
     if (!isVisible(field, payload)) continue;
     const value = payload[field.id];
     if (isEmpty(value)) continue;
+    if (field.type === "locations") {
+      const locations = Array.isArray(value)
+        ? value
+          .filter((location: any) => location && typeof location.address === "string" && location.address.trim())
+          .slice(0, 12)
+          .flatMap((location: any, index: number) => {
+            const name = typeof location.name === "string" ? location.name.trim().slice(0, 120) : "";
+            const address = location.address.trim().slice(0, 300);
+            const guests = Number(location.guestCount);
+            const serviceTime = typeof location.serviceTime === "string" ? location.serviceTime.trim() : "";
+            const lines = [`${index + 1}. ${name ? `${name} — ` : ""}${address}`];
+            if (Number.isInteger(guests) && guests > 0) {
+              lines.push(`   Guests: ${guests}`);
+              locationGuestTotal += guests;
+            } else {
+              allLocationGuestsKnown = false;
+            }
+            if (/^([01]\d|2[0-3]):[0-5]\d$/.test(serviceTime)) lines.push(`   Service time: ${serviceTime}`);
+            return [lines.join("\n")];
+          })
+        : [];
+      if (locations.length) notesParts.push(`Requested delivery locations:\n${locations.join("\n")}`);
+      continue;
+    }
+    if (field.mapsTo === "venue" && String(value || "").trim()) hasPrimaryVenue = true;
     // Event start time: the field mapped to it, else the first time
     // question (e.g. "Eating time"). Still listed in the notes below.
     if (
@@ -431,8 +515,15 @@ export function mapPayloadToLead(
     notesParts.push(`Other details from the form:\n${extraDetails.join("\n")}`);
   }
 
+  // When a form collects a full sitting split but omits the separate event
+  // headcount field, the locations still provide a trustworthy total if no
+  // primary venue is left outside the repeatable plan.
+  if (lead.guest_count == null && !hasPrimaryVenue && allLocationGuestsKnown && locationGuestTotal > 0) {
+    lead.guest_count = locationGuestTotal;
+  }
+
   if (notesParts.length > 0) {
-    lead.notes = notesParts.join("\n\n").slice(0, 5000);
+    lead.notes = notesParts.join("\n\n").slice(0, 10000);
   }
 
   return lead;

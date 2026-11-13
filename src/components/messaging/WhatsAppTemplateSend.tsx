@@ -180,17 +180,19 @@ export function WhatsAppTemplateSend({ entityType, entityId, companyId, recipien
           type="button"
           size="sm"
           variant="outline"
-          className={iconOnly ? `h-8 w-8 p-0 ${className || ""}` : className}
+          className={iconOnly
+            ? `h-11 w-11 shrink-0 p-0 lg:h-8 lg:w-8 ${className || ""}`
+            : `h-auto min-h-11 max-w-full whitespace-normal text-left lg:min-h-9 ${className || ""}`}
           aria-label={iconOnly ? `${actionLabel} ${recipientName || "contact"}` : undefined}
           title={iconOnly ? actionLabel : undefined}
           onClick={(event) => event.stopPropagation()}
         >
-          <Send className="h-3.5 w-3.5" />
-          <span className={iconOnly ? "sr-only" : ""}>{actionLabel}</span>
+          <Send className="h-3.5 w-3.5 shrink-0" />
+          <span className={iconOnly ? "sr-only" : "min-w-0"}>{actionLabel}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" collisionPadding={12} className="w-[min(90vw,22rem)] p-3">
-        <div className="space-y-3">
+      <PopoverContent align="start" collisionPadding={12} className="max-h-[min(80dvh,var(--radix-popper-available-height))] w-[min(calc(100vw-1.5rem),22rem)] overflow-y-auto overscroll-contain p-3">
+        <div className="min-w-0 space-y-3">
           <div>
               <p className="text-sm font-semibold text-slate-900">
                 {ENTITY_COPY[entityType].noun} messages{choices.length ? ` (${choices.length})` : ""}
@@ -233,7 +235,7 @@ export function WhatsAppTemplateSend({ entityType, entityId, companyId, recipien
                           disabled={!canSend}
                           aria-pressed={selectedChoice}
                           onClick={() => setSelectedKey(choice.key)}
-                          className={`flex w-full items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 disabled:cursor-not-allowed disabled:opacity-75 ${
+                          className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 disabled:cursor-not-allowed disabled:opacity-75 ${
                             selectedChoice
                               ? "border-brand-primary bg-brand-primary/5 ring-1 ring-brand-primary/30"
                               : "border-slate-200 bg-white hover:bg-slate-50 disabled:hover:bg-white"
@@ -263,7 +265,7 @@ export function WhatsAppTemplateSend({ entityType, entityId, companyId, recipien
                   <a href={settingsHref} className="inline-flex font-medium text-brand-primary hover:underline">Open WhatsApp settings</a>
                 </div>
               )}
-              <Button type="button" size="sm" className="w-full" disabled={!selected || sending} onClick={() => void send()}>
+              <Button type="button" size="sm" className="h-auto min-h-11 w-full whitespace-normal" disabled={!selected || sending} onClick={() => void send()}>
                 <Send className="h-3.5 w-3.5" /> {sending ? "Queueing..." : "Send through business WhatsApp"}
               </Button>
             </>

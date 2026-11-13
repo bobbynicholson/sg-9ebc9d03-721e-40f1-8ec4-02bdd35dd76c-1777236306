@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UserRole } from "@/types/app";
+import { cn } from "@/lib/utils";
 
 // Role icons mapping
 const roleIcons: Record<string, React.ReactNode> = {
@@ -63,9 +64,10 @@ const roleColors: Record<string, string> = {
 interface RoleSwitcherProps {
   variant?: "default" | "compact";
   showLabel?: boolean;
+  className?: string;
 }
 
-export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwitcherProps) {
+export function RoleSwitcher({ variant = "default", showLabel = true, className }: RoleSwitcherProps) {
   const { userRoles, activeRole, switchRole, companySlug } = useAuth();
   const { toast } = useToast();
   const [switching, setSwitching] = useState(false);
@@ -117,7 +119,7 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
           <Button
             variant="ghost"
             size="sm"
-            className="min-h-11 min-w-11 shrink-0 justify-center gap-2"
+            className={cn("min-h-11 min-w-11 shrink-0 justify-center gap-2", className)}
             aria-label="Switch dashboard"
             disabled={switching}
           >
@@ -134,7 +136,7 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
             )}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuContent align="end" collisionPadding={12} className="max-h-[min(70dvh,var(--radix-dropdown-menu-content-available-height))] w-56 max-w-[calc(100vw-1.5rem)] overflow-y-auto border-slate-200 bg-white text-slate-900 shadow-xl dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 [&_[role=menuitem]]:min-h-11">
           <DropdownMenuLabel>Switch Dashboard</DropdownMenuLabel>
           <DropdownMenuSeparator />
           {displayRoles.map((role) => {
@@ -169,7 +171,7 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          className="min-h-11 gap-2 min-w-[180px] justify-between"
+          className={cn("min-h-11 gap-2 min-w-[180px] justify-between", className)}
           disabled={switching}
         >
           {switching ? (
@@ -190,7 +192,7 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
+      <DropdownMenuContent align="end" collisionPadding={12} className="max-h-[min(70dvh,var(--radix-dropdown-menu-content-available-height))] w-64 max-w-[calc(100vw-1.5rem)] overflow-y-auto border-slate-200 bg-white text-slate-900 shadow-xl dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 [&_[role=menuitem]]:min-h-11">
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">Switch Dashboard</p>

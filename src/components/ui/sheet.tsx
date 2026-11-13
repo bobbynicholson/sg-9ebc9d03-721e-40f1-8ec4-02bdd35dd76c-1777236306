@@ -51,12 +51,14 @@ const sheetVariants = cva(
 
 interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
-    VariantProps<typeof sheetVariants> {}
+    VariantProps<typeof sheetVariants> {
+  closeButtonClassName?: string;
+}
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(({ side = "right", className, children, ...props }, ref) => (
+>(({ side = "right", className, closeButtonClassName, children, ...props }, ref) => (
   <SheetPortal>
     <SheetOverlay />
     <SheetPrimitive.Content
@@ -64,8 +66,11 @@ const SheetContent = React.forwardRef<
       className={cn(sheetVariants({ side }), className)}
       {...props}
     >
-      <SheetPrimitive.Close className="absolute right-4 top-4 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground opacity-80 ring-offset-background transition-[color,background-color,transform] duration-150 hover:bg-slate-100 hover:opacity-100 active:scale-95 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-secondary motion-reduce:transform-none">
-        <X className="h-4 w-4" />
+      <SheetPrimitive.Close className={cn(
+        "absolute right-4 top-4 z-10 inline-flex h-9 w-9 after:absolute after:-inset-1 after:content-[''] items-center justify-center rounded-full text-muted-foreground opacity-80 ring-offset-background transition-[color,background-color,transform] duration-150 hover:bg-slate-100 hover:opacity-100 active:scale-95 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-secondary motion-reduce:transform-none",
+        closeButtonClassName,
+      )}>
+        <X className="h-3.5 w-3.5" />
         <span className="sr-only">Close</span>
       </SheetPrimitive.Close>
       {children}

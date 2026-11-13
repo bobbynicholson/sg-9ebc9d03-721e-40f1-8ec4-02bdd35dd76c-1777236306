@@ -87,8 +87,9 @@ import {
   isDriverCollection, resolveEquipmentReturn, type EquipmentReturnMethod,
 } from "@/lib/equipmentReturn";
 import { revealSection } from "@/lib/ui/revealSection";
-import { describeServiceSittings, normaliseServiceSittings, type ServiceSittingInput } from "@/lib/serviceSittings";
+import { allocateSittingMoney, describeServiceSittings, normaliseServiceSittings, type ServiceSittingInput } from "@/lib/serviceSittings";
 import { AdminServicePlanEditor } from "@/components/quote/AdminServicePlanEditor";
+import { buildRequestedSittingPlan, parseRequestedDeliveryLocations, type RequestedDeliveryLocation } from "@/lib/requestedDeliveryLocations";
 import { resolveBranchSettings } from "@/services/branchSettingsService";
 import { suggestKitchenForDate, type CapacitySuggestion } from "@/services/kitchenCapacityService";
 import { ClientTypeahead } from "@/components/admin/ClientTypeahead";
@@ -153,6 +154,8 @@ interface LineItem {
   unitPrice: number;
   /** For per_person: copy of guestCount. per_portion: portions. flat: 1. */
   quantity: number;
+  /** Null means this menu line is served at every sitting. */
+  service_sitting_sequence?: number | null;
   /**
    * Flow audit Leg B P0-9: when the operator types a non-default
    * quantity on a per_person line ("vegetarian for 5 of 100"),
@@ -180,6 +183,8 @@ interface EquipmentLineItem {
   name: string;
   category: string | null;
   quantity: number;
+  /** Null means this equipment is shared across all sitting locations. */
+  service_sitting_sequence?: number | null;
   /** When true, a staff member explicitly chose a non-guest quantity. */
   quantityOverridden?: boolean;
   unitPrice: number;
@@ -304,6 +309,10 @@ function quoteContentSignatureFromPayload(payload: any): string {
       venueAddress:s.venue_address ?? s.venueAddress ?? null,
       venueLat:s.venue_lat ?? s.venueLat ?? null,
       venueLng:s.venue_lng ?? s.venueLng ?? null,
+      deliveryFee:money(s.delivery_fee ?? s.deliveryFee),
+      collectionFee:money(s.collection_fee ?? s.collectionFee),
+      deliveryFeeManual:!!(s.delivery_fee_manual ?? s.deliveryFeeManual),
+      collectionFeeManual:!!(s.collection_fee_manual ?? s.collectionFeeManual),
     })),
     currency: text(payload.currency).toUpperCase(),
     client_company_name: text(payload.client_company_name),
@@ -323,6 +332,8 @@ function quoteContentSignatureFromPayload(payload: any): string {
         image_url: m.image_url ?? null,
         pricing_mode: m.pricing_mode ?? m.pricingMode ?? null,
         quantity: safeNum(m.quantity),
+        service_sitting_sequence: m.service_sitting_sequence ?? m.serviceSittingSequence ?? null,
+        quantity_overridden: !!m.quantity_overridden,
         unit_price: money(m.unit_price ?? m.unitPrice ?? m.pricePerPerson),
         discount_pct: money(m.discount_pct ?? m.discountPct),
         line_total: money(m.line_total),
@@ -334,6 +345,8 @@ function quoteContentSignatureFromPayload(payload: any): string {
         name: text(e.name),
         category: e.category ?? null,
         quantity: safeNum(e.quantity),
+        service_sitting_sequence: e.service_sitting_sequence ?? e.serviceSittingSequence ?? null,
+        quantity_overridden: !!e.quantity_overridden,
         unit_price: money(e.unit_price ?? e.unitPrice ?? e.rentalPrice),
         from_stock_qty: safeNum(e.from_stock_qty),
         from_hire_qty: safeNum(e.from_hire_qty),
@@ -442,6 +455,7 @@ function NewQuotePage() {
   const [venueAddress, setVenueAddress] = useState("");
   const [venueLat, setVenueLat] = useState<number | null>(null);
   const [venueLng, setVenueLng] = useState<number | null>(null);
+  const [leadRequestedLocations, setLeadRequestedLocations] = useState<RequestedDeliveryLocation[]>([]);
   const [distanceStatus, setDistanceStatus] = useState<"idle" | "loading" | "ready" | "manual" | "error">("idle");
 
   const [menuItems, setMenuItems] = useState<LineItem[]>([
@@ -886,11 +900,13 @@ function NewQuotePage() {
       setEmail(l.email || l.client_email || "");
       setPhone(l.phone || l.client_phone || "");
       if (l.event_date) setEventDate(l.event_date);
+      if (l.event_time) setEventTime(String(l.event_time).slice(0, 5));
       if (l.event_type) setEventName(l.event_type);
       if (typeof l.guest_count === "number") setGuestCount(l.guest_count);
       if (l.venue_address) setVenueAddress(l.venue_address);
       if (l.venue_lat) setVenueLat(l.venue_lat);
       if (l.venue_lng) setVenueLng(l.venue_lng);
+      setLeadRequestedLocations(parseRequestedDeliveryLocations(l.notes));
 
       // Carry through requested_items from a client portal rebook lead.
       if (Array.isArray(l.requested_items) && l.requested_items.length > 0) {
@@ -946,7 +962,7 @@ function NewQuotePage() {
       setHydrateError(null);
       const { data, error } = await supabase
         .from("quotes")
-        .select("*,service_sittings(sequence_number,guest_count,service_time,venue_name,venue_address,venue_lat,venue_lng)")
+        .select("*,service_sittings(sequence_number,guest_count,service_time,venue_name,venue_address,venue_lat,venue_lng,delivery_fee,collection_fee,delivery_fee_manual,collection_fee_manual)")
         .eq("id", fromQuoteId)
         .maybeSingle();
       if (cancelled) return;
@@ -958,6 +974,27 @@ function NewQuotePage() {
         );
         return;
       }
+
+      // Website submissions with catalogue selections create a private draft
+      // quote linked to the lead. Load the original enquiry's requested
+      // locations as well, so opening that quote directly preserves the
+      // same sitting-plan handoff as opening it from the lead.
+      let linkedLeadNotes: unknown = null;
+      if ((data as any).lead_id) {
+        try {
+          const { data: linkedLead } = await supabase
+            .from("leads")
+            .select("notes")
+            .eq("id", (data as any).lead_id)
+            .eq("company_id", (data as any).company_id)
+            .maybeSingle();
+          linkedLeadNotes = linkedLead?.notes;
+        } catch (leadError) {
+          console.warn("[quotes/new] linked lead location lookup failed:", leadError);
+        }
+      }
+      if (cancelled) return;
+      setLeadRequestedLocations(parseRequestedDeliveryLocations(linkedLeadNotes));
 
       // Fetch the latest PENDING change request BEFORE hydrating, so the
       // quote-load and the request-overlay happen in ONE synchronous pass
@@ -1042,6 +1079,7 @@ function NewQuotePage() {
               pricingMode: "per_portion" as PricingMode,
               unitPrice: safeNum(m.unit_price ?? m.unitPrice),
               quantity: safeNum(m.quantity),
+              service_sitting_sequence: m.service_sitting_sequence ?? m.serviceSittingSequence ?? null,
               discountPct: 0,
             })),
           );
@@ -1054,9 +1092,10 @@ function NewQuotePage() {
               name: e.name ?? "",
               category: null,
               quantity: safeNum(e.quantity),
-              quantityOverridden: typeof rc.guest_count === "number"
-                ? safeNum(e.quantity) !== safeNum(data.guest_count)
-                : false,
+              service_sitting_sequence: e.service_sitting_sequence ?? e.serviceSittingSequence ?? null,
+              quantityOverridden: !!e.quantity_overridden || safeNum(e.quantity) !== safeNum(
+                proposedPlan?.find((s: any, index: number) => index + 1 === Number(e.service_sitting_sequence))?.guestCount ?? data.guest_count,
+              ),
               unitPrice: safeNum(e.unit_price ?? e.unitPrice),
               hireInCost: 0,
             })),
@@ -1094,7 +1133,7 @@ function NewQuotePage() {
   }, [fromQuoteId, changeRequestId, hydrateRetryTick]);
 
   function hydrateFromQuote(q: any) {
-    setServicePlan(q.service_sittings?.length ? [...q.service_sittings].sort((a: any,b: any) => a.sequence_number-b.sequence_number).map((s: any) => ({guestCount:s.guest_count,serviceTime:s.service_time.slice(0,5),venueName:s.venue_name,venueAddress:s.venue_address,venueLat:s.venue_lat,venueLng:s.venue_lng})) : null);
+    setServicePlan(q.service_sittings?.length ? [...q.service_sittings].sort((a: any,b: any) => a.sequence_number-b.sequence_number).map((s: any) => ({guestCount:s.guest_count,serviceTime:s.service_time.slice(0,5),venueName:s.venue_name,venueAddress:s.venue_address,venueLat:s.venue_lat,venueLng:s.venue_lng,deliveryFee:s.delivery_fee ?? 0,collectionFee:s.collection_fee ?? 0,deliveryFeeManual:!!s.delivery_fee_manual,collectionFeeManual:!!s.collection_fee_manual})) : null);
     setClientId(q.client_id || null);
     // Saved quote currency is part of the agreed price. Legacy quotes
     // without it continue to inherit the company default.
@@ -1208,10 +1247,11 @@ function NewQuotePage() {
             pricingMode,
             unitPrice: safeNum(m.unit_price ?? m.unitPrice ?? m.pricePerPerson),
             quantity,
-            quantityOverridden: savedQuantityWasOverridden(
+            service_sitting_sequence: m.service_sitting_sequence ?? m.serviceSittingSequence ?? null,
+            quantityOverridden: m.quantity_overridden === true || savedQuantityWasOverridden(
               pricingMode,
               quantity,
-              safeNum(q.guest_count),
+              safeNum(q.service_sittings?.find((s: any) => Number(s.sequence_number) === Number(m.service_sitting_sequence))?.guest_count ?? q.guest_count),
             ),
             discountPct: safeNum(m.discountPct ?? m.discount_pct),
           };
@@ -1226,7 +1266,10 @@ function NewQuotePage() {
           name: e.name ?? "",
           category: e.category ?? null,
           quantity: safeNum(e.quantity),
-          quantityOverridden: safeNum(e.quantity) !== safeNum(q.guest_count),
+          service_sitting_sequence: e.service_sitting_sequence ?? e.serviceSittingSequence ?? null,
+          quantityOverridden: e.quantity_overridden === true || safeNum(e.quantity) !== safeNum(
+            q.service_sittings?.find((s: any) => Number(s.sequence_number) === Number(e.service_sitting_sequence))?.guest_count ?? q.guest_count,
+          ),
           unitPrice: safeNum(e.unit_price ?? e.rentalPrice ?? e.unitPrice),
           hireInCost: safeNum(e.hire_in_cost_per_unit),
         })),
@@ -1336,6 +1379,7 @@ function NewQuotePage() {
   // triggered distance recompute. Real user-driven changes (switching
   // kitchen or picking a new venue) still re-run and clear the override.
   const havInitRef = useRef(false);
+  const servicePlanVenueKey = servicePlan?.map(sitting => `${sitting.venueAddress || ""}:${sitting.venueLat ?? ""}:${sitting.venueLng ?? ""}`).join("|") || "";
   useEffect(() => {
     if (!selectedKitchen || (!venueAddress.trim() && (typeof venueLat !== "number" || typeof venueLng !== "number"))) {
       setDistanceStatus("idle");
@@ -1344,6 +1388,19 @@ function NewQuotePage() {
 
     let cancelled = false;
     setDistanceStatus("loading");
+
+    const kitchenOrigin = selectedKitchen.address || `${selectedKitchen.lat},${selectedKitchen.lng}`;
+    const primaryAddress = venueAddress.trim() || `${venueLat},${venueLng}`;
+    const sittingRows = servicePlan?.length ? servicePlan : [{ venueAddress: null, venueLat: null, venueLng: null }];
+    const routes = sittingRows.map(sitting => {
+      const sittingAddress = sitting.venueAddress?.trim() || "";
+      const inheritsPrimary = !sittingAddress || sittingAddress.toLocaleLowerCase() === venueAddress.trim().toLocaleLowerCase();
+      return {
+        address: inheritsPrimary ? primaryAddress : sittingAddress,
+        lat: inheritsPrimary ? venueLat : sitting.venueLat ?? null,
+        lng: inheritsPrimary ? venueLng : sitting.venueLng ?? null,
+      };
+    });
 
     const applyDistance = (kmRounded: number) => {
       if (cancelled) return;
@@ -1361,60 +1418,72 @@ function NewQuotePage() {
         // saved distance (e.g. a draft from a website lead) gets the
         // computed one, otherwise its delivery fee stays empty.
         havInitRef.current = true;
-        if (!fromQuoteId || !savedDistanceRef.current) {
+        if (!fromQuoteId || !savedDistanceRef.current || routes.length > 1) {
           setDeliveryDistance(kmRounded);
           setCollectionDistance(kmRounded);
         }
       }
     };
 
-    // Try Google Distance Matrix first for accurate road distance.
-    // Build the best available origin string (address preferred;
-    // coord string as fallback when address is null).
-    const kitchenOrigin =
-      selectedKitchen.address ||
-      `${selectedKitchen.lat},${selectedKitchen.lng}`;
-    const venueDestination = venueAddress.trim() || `${venueLat},${venueLng}`;
-
-    // Fallback when the road-distance lookup fails or the Maps key isn't
-    // set: straight-line distance between known coordinates, scaled by a
-    // typical road factor (1.3) so the fee isn't systematically low.
-    const fallbackToStraightLine = () => {
-      if (cancelled) return;
-      const kLat = Number(selectedKitchen.lat);
-      const kLng = Number(selectedKitchen.lng);
-      if (typeof venueLat === "number" && typeof venueLng === "number" && Number.isFinite(kLat) && Number.isFinite(kLng)) {
-        const toRad = (d: number) => (d * Math.PI) / 180;
-        const dLat = toRad(venueLat - kLat);
-        const dLng = toRad(venueLng - kLng);
-        const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(kLat)) * Math.cos(toRad(venueLat)) * Math.sin(dLng / 2) ** 2;
-        const straightKm = 2 * 6371 * Math.asin(Math.sqrt(h));
-        applyDistance(Number((straightKm * 1.3).toFixed(2)));
-      } else {
-        setDistanceStatus("error");
-      }
+    const straightLineKm = (destinationLat: number, destinationLng: number) => {
+      const kitchenLat = Number(selectedKitchen.lat);
+      const kitchenLng = Number(selectedKitchen.lng);
+      if (![kitchenLat, kitchenLng, destinationLat, destinationLng].every(Number.isFinite)) return null;
+      const toRad = (degrees: number) => (degrees * Math.PI) / 180;
+      const deltaLat = toRad(destinationLat - kitchenLat);
+      const deltaLng = toRad(destinationLng - kitchenLng);
+      const h = Math.sin(deltaLat / 2) ** 2
+        + Math.cos(toRad(kitchenLat)) * Math.cos(toRad(destinationLat)) * Math.sin(deltaLng / 2) ** 2;
+      return 2 * 6371 * Math.asin(Math.sqrt(h)) * 1.3;
     };
 
-    if (kitchenOrigin && venueDestination) {
-      googleMapsService.calculateDistance(kitchenOrigin, venueDestination)
-        .then((result) => {
-          if (cancelled) return;
-          if (!result) {
-            fallbackToStraightLine();
-            return;
-          }
-          // result.distance is in metres from the Distance Matrix API.
-          const roadKm = Number((result.distance / 1000).toFixed(2));
-          applyDistance(roadKm);
-        })
-        .catch(() => {
-          // Google Maps unavailable or API key not set: fall back to haversine.
-          fallbackToStraightLine();
-        });
-    }
+    void (async () => {
+      try {
+        const locatedRoutes = await Promise.all(routes.map(async route => {
+          if (typeof route.lat === "number" && typeof route.lng === "number") return route;
+          const point = route.address.length >= 6 ? await googleMapsService.geocodeAddress(route.address) : null;
+          return point ? { ...route, lat: point.lat, lng: point.lng } : null;
+        }));
+        if (cancelled) return;
+        if (locatedRoutes.some(route => !route)) {
+          setDistanceStatus("error");
+          return;
+        }
+        const distances = await Promise.all(locatedRoutes.map(async route => {
+          if (!route) return null;
+          const road = await googleMapsService.calculateDistance(kitchenOrigin, route.address || `${route.lat},${route.lng}`);
+          return road ? road.distance / 1000 : straightLineKm(Number(route.lat), Number(route.lng));
+        }));
+        if (cancelled) return;
+        if (distances.some(distance => distance == null || !Number.isFinite(distance))) {
+          setDistanceStatus("error");
+          return;
+        }
+        if (servicePlan?.length) {
+          setServicePlan(current => {
+            if (!current || current.length !== locatedRoutes.length) return current;
+            let changed = false;
+            const next = current.map((sitting, index) => {
+              const address = sitting.venueAddress?.trim() || "";
+              const isSeparate = address && address.toLocaleLowerCase() !== venueAddress.trim().toLocaleLowerCase();
+              const route = locatedRoutes[index];
+              if (!isSeparate || sitting.venueLat != null || sitting.venueLng != null || !route
+                || typeof route.lat !== "number" || typeof route.lng !== "number") return sitting;
+              changed = true;
+              return { ...sitting, venueLat: route.lat, venueLng: route.lng };
+            });
+            return changed ? next : current;
+          });
+        }
+        const totalKm = Number(distances.reduce((sum, distance) => sum + Number(distance), 0).toFixed(2));
+        applyDistance(totalKm);
+      } catch {
+        if (!cancelled) setDistanceStatus("error");
+      }
+    })();
 
     return () => { cancelled = true; };
-  }, [selectedKitchen?.id, selectedKitchen?.lat, selectedKitchen?.lng, selectedKitchen?.address, venueLat, venueLng, venueAddress]);
+  }, [selectedKitchen?.id, selectedKitchen?.lat, selectedKitchen?.lng, selectedKitchen?.address, venueLat, venueLng, venueAddress, servicePlanVenueKey]); // eslint-disable-line react-hooks/exhaustive-deps -- fee edits do not change delivery routes
 
   // ── Auto-fee from distance × 2 (round-trip) × per-km, floored at
   // min fee. The ×2 covers the return leg - a venue 10km away costs
@@ -1434,38 +1503,54 @@ function NewQuotePage() {
     setCollectionFee(Number(Math.max(calc, 0).toFixed(2)));
   }, [collectionDistance, collectionCostPerKm, collectionFeeOverridden]);
 
+  // Split shared route fees by sitting guest count. The quote and invoice
+  // keep one total, while dispatch can see the amount attributed to each stop.
+  useEffect(() => {
+    if (!servicePlan || servicePlan.length < 2) return;
+    const deliverySplit = servicePlan.some(sitting => sitting.deliveryFeeManual)
+      ? null
+      : allocateSittingMoney(deliveryFee, servicePlan.map(sitting => sitting.guestCount));
+    const collectionSplit = servicePlan.some(sitting => sitting.collectionFeeManual)
+      ? null
+      : allocateSittingMoney(collectionFee, servicePlan.map(sitting => sitting.guestCount));
+    if (!deliverySplit && !collectionSplit) return;
+    setServicePlan(previous => {
+      if (!previous || previous.length !== servicePlan.length) return previous;
+      let changed = false;
+      const next = previous.map((sitting, index) => {
+        const nextDelivery = deliverySplit ? deliverySplit[index] : sitting.deliveryFee ?? 0;
+        const nextCollection = collectionSplit ? collectionSplit[index] : sitting.collectionFee ?? 0;
+        if (Math.abs(nextDelivery - (sitting.deliveryFee ?? 0)) > 0.005 || Math.abs(nextCollection - (sitting.collectionFee ?? 0)) > 0.005) changed = true;
+        return { ...sitting, deliveryFee: nextDelivery, collectionFee: nextCollection };
+      });
+      return changed ? next : previous;
+    });
+  }, [deliveryFee, collectionFee, servicePlan]);
+
   // ── Cascade guest count to per_person lines ───────────────────────
-  // Only cascades into lines the operator hasn't overridden. A line
-  // with quantityOverridden=true is intentionally tracking a subset
-  // of the guest list (the "5 vegetarians of 100" case) and the
-  // operator's number is sacred.
+  // Only cascades into lines the operator hasn't overridden. Sitting-bound
+  // lines track that sitting's guest count; shared lines track the full event.
   useEffect(() => {
     setMenuItems((prev) =>
-      prev.map((it) =>
-        it.pricingMode === "per_person" && !it.quantityOverridden && it.quantity !== guestCount
-          ? { ...it, quantity: guestCount }
-          : it,
-      ),
+      prev.map((it) => {
+        if (it.pricingMode !== "per_person" || it.quantityOverridden) return it;
+        const sequence = Number(it.service_sitting_sequence || 0);
+        const targetGuests = sequence > 0 ? servicePlan?.[sequence - 1]?.guestCount : guestCount;
+        return targetGuests != null && it.quantity !== targetGuests ? { ...it, quantity: targetGuests } : it;
+      }),
     );
-  }, [guestCount]);
+  }, [guestCount, servicePlan]);
 
-  // Cutlery, crockery and drinkware are normally one-per-guest. When a
-  // client changes the guest count, carry that change through to equipment
-  // lines that were still tracking the previous guest count. Explicitly
-  // edited quantities remain untouched.
-  const previousGuestCountRef = useRef<number | null>(null);
+  // Default equipment quantities track either the full event or the sitting
+  // they are assigned to. Explicit quantities remain untouched.
   useEffect(() => {
-    const next = Number(guestCount || 0);
-    const previous = previousGuestCountRef.current;
-    if (previous != null && previous > 0 && next > 0 && previous !== next) {
-      setEquipment((items) => items.map((item) =>
-        !item.quantityOverridden && item.quantity === previous
-          ? { ...item, quantity: next }
-          : item,
-      ));
-    }
-    previousGuestCountRef.current = next;
-  }, [guestCount]);
+    setEquipment((items) => items.map((item) => {
+      if (item.quantityOverridden) return item;
+      const sequence = Number(item.service_sitting_sequence || 0);
+      const targetGuests = sequence > 0 ? servicePlan?.[sequence - 1]?.guestCount : guestCount;
+      return targetGuests != null && item.quantity !== targetGuests ? { ...item, quantity: targetGuests } : item;
+    }));
+  }, [guestCount, servicePlan]);
 
   // ── Client typeahead pick ─────────────────────────────────────────
   const handleClientPick = useCallback(async (pick: KnownClientResult) => {
@@ -1542,8 +1627,9 @@ function NewQuotePage() {
           (m.pricing_mode || m.pricingMode) === "flat"
             ? 1
             : safeNum(m.quantity) || guestCount,
-        quantityOverridden:
-          (m.pricing_mode || m.pricingMode || "per_person") !== "per_person",
+        service_sitting_sequence: m.service_sitting_sequence ?? m.serviceSittingSequence ?? null,
+        quantityOverridden: m.quantity_overridden === true
+          || (m.pricing_mode || m.pricingMode || "per_person") !== "per_person",
         discountPct: 0,
       })),
     );
@@ -1563,6 +1649,7 @@ function NewQuotePage() {
         pricingMode: "per_person",
         unitPrice: 0,
         quantity: guestCount,
+        service_sitting_sequence: null,
         discountPct: 0,
       },
     ]);
@@ -1613,6 +1700,7 @@ function NewQuotePage() {
         // the operator can override for table-level kit (carving
         // station x1, gas burner x2).
         quantity: guestCount > 0 ? guestCount : 1,
+        service_sitting_sequence: null,
         unitPrice: 0,
       },
     ]);
@@ -1756,6 +1844,8 @@ function NewQuotePage() {
           unit_price: l.unitPrice,
           pricePerPerson: l.unitPrice,
           quantity: q,
+          service_sitting_sequence: l.service_sitting_sequence ?? null,
+          quantity_overridden: !!l.quantityOverridden,
           discount_pct: l.discountPct,
           line_total: net,
         };
@@ -1778,6 +1868,8 @@ function NewQuotePage() {
           name: e.name,
           category: e.category,
           quantity: e.quantity,
+          service_sitting_sequence: e.service_sitting_sequence ?? null,
+          quantity_overridden: !!e.quantityOverridden,
           unit_price: e.unitPrice,
           rentalPrice: e.unitPrice,
           line_total: e.unitPrice * e.quantity,
@@ -1881,7 +1973,26 @@ function NewQuotePage() {
   const persistQuote = useCallback(async (override: { status?: string; sent_at?: string; __skipSentEmail?: boolean; __contentChanged?: boolean } = {}): Promise<string | null> => {
     if (!companyId || !user?.id) return null;
     if (!clientName) return null;          // never save an empty husk
-    const parsedPlan = servicePlan ? normaliseServiceSittings(servicePlan, guestCount) : {};
+    if (servicePlan?.some(sitting => sitting.venueAddress === "")) {
+      toast({ title: "Choose a sitting address", description: "Select a delivery address for each separate location, or switch that sitting back to the primary venue.", variant: "destructive" });
+      return null;
+    }
+    const invalidSittingAllocation = [...menuItems, ...equipment].some(line => {
+      if (line.service_sitting_sequence == null || line.service_sitting_sequence === ("" as any)) return false;
+      const sequence = Number(line.service_sitting_sequence);
+      return !Number.isSafeInteger(sequence) || sequence < 1 || !servicePlan || sequence > servicePlan.length;
+    });
+    if (invalidSittingAllocation) {
+      toast({ title: "Review sitting allocations", description: "A menu or equipment line is assigned to a sitting that is no longer in this plan. Choose a valid sitting, or leave food shared across sittings and equipment at the primary venue.", variant: "destructive" });
+      return null;
+    }
+    const feePlan = servicePlan?.map((sitting, index) => ({
+      ...sitting,
+      deliveryFee: servicePlan.length === 1 ? deliveryFee : sitting.deliveryFee ?? 0,
+      collectionFee: servicePlan.length === 1 ? collectionFee : sitting.collectionFee ?? 0,
+      ...(servicePlan.length === 1 ? { deliveryFeeManual: false, collectionFeeManual: false } : {}),
+    }));
+    const parsedPlan = feePlan ? normaliseServiceSittings(feePlan, guestCount) : {};
     if (parsedPlan.error) { toast({title:"Check the serving times",description:parsedPlan.error,variant:"destructive"}); return null; }
     // Time sanity gate: never persist a quote whose setup / delivery
     // time isn't at least 30 min before the start. Blocks the explicit
@@ -3220,12 +3331,11 @@ function NewQuotePage() {
                       )}
                     </div>
                   </div>
-                  <AdminServicePlanEditor value={servicePlan || [{guestCount,serviceTime:eventTime}]} totalGuests={guestCount} defaultVenueAddress={venueAddress} defaultVenueLat={venueLat} defaultVenueLng={venueLng} disabled={!!linkedOrderId || saving} onChange={plan => {setServicePlan(plan);setEventTime(plan[0]?.serviceTime || "");setSetupTime("");}} />
                   <div>
-                    <Label className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" /> Venue address</Label>
+                    <Label className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" /> Primary venue / first delivery address</Label>
                     <AddressAutocomplete
                       value={venueAddress}
-                      placeholder="Start typing the venue..."
+                      placeholder="Search for the main event address..."
                       countryCode="za"
                       onChange={(pick) => {
                         setVenueAddress(pick.address);
@@ -3233,7 +3343,69 @@ function NewQuotePage() {
                         setVenueLng(pick.lng);
                       }}
                     />
+                    <p className="mt-1 text-xs text-slate-500">Used as the booking's main address. Sitting locations inherit it unless you choose a separate address. Sitting route fees roll up into the one client total.</p>
                   </div>
+                  {leadRequestedLocations.length > 0 && <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950">
+                    <p className="font-semibold">The client requested additional sitting locations</p>
+                    <ul className="mt-1 list-inside list-disc text-xs text-sky-900">
+                      {leadRequestedLocations.map((location, index) => <li key={`${location.venueAddress}-${index}`}>{location.venueName ? `${location.venueName} — ` : ""}{location.venueAddress}{location.guestCount != null ? ` · ${location.guestCount} guests` : ""}{location.serviceTime ? ` · ${location.serviceTime}` : ""}</li>)}
+                    </ul>
+                    <p className="mt-2 text-xs text-sky-900">Use the client’s requested guest split and times as a starting plan. Review every location and pick map suggestions before sending.</p>
+                    <Button type="button" variant="outline" className="mt-2" disabled={!!linkedOrderId || saving || guestCount < 1} onClick={() => {
+                      const plan = buildRequestedSittingPlan({ totalGuests: guestCount, mainVenueAddress: venueAddress, mainServiceTime: eventTime, locations: leadRequestedLocations });
+                      if ("error" in plan) {
+                        toast({ title: "Review the sitting plan", description: plan.error, variant: "destructive" });
+                        return;
+                      }
+                      if (!venueAddress.trim()) setVenueAddress(plan.primaryVenueAddress);
+                      setServicePlan(plan.sittings.map(sitting => ({ ...sitting, venueLat: null, venueLng: null })));
+                      setEventTime(plan.sittings[0]?.serviceTime || "");
+                      setSetupTime("");
+                    }}>Use locations, guest split &amp; times</Button>
+                  </div>}
+                  <AdminServicePlanEditor
+                    value={servicePlan || [{guestCount,serviceTime:eventTime}]}
+                    totalGuests={guestCount}
+                    defaultVenueAddress={venueAddress}
+                    menuItems={menuItems.filter(line => line.name).map(line => ({ name: line.name, serviceSittingSequence: line.service_sitting_sequence }))}
+                    equipmentItems={equipment.filter(line => line.name).map(line => ({ name: line.name, serviceSittingSequence: line.service_sitting_sequence }))}
+                    onRouteFeeChange={(kind, index, amount) => {
+                      const current = servicePlan || [{ guestCount, serviceTime: eventTime }];
+                      const feeKey = kind === "delivery" ? "deliveryFee" : "collectionFee";
+                      const manualKey = kind === "delivery" ? "deliveryFeeManual" : "collectionFeeManual";
+                      const next = current.map((sitting, sittingIndex) => sittingIndex === index
+                        ? { ...sitting, [feeKey]: amount, [manualKey]: true }
+                        : sitting);
+                      setServicePlan(next);
+                      const combined = Number(next.reduce((sum, sitting) => sum + Number(sitting[feeKey] || 0), 0).toFixed(2));
+                      if (kind === "delivery") { setDeliveryFee(combined); setDeliveryFeeOverridden(true); }
+                      else { setCollectionFee(combined); setCollectionFeeOverridden(true); }
+                    }}
+                    disabled={!!linkedOrderId || saving}
+                    onSittingRemoved={removedIndex => {
+                      const currentPlan = servicePlan || [{ guestCount, serviceTime: eventTime }];
+                      const removedSequence = removedIndex + 1;
+                      const remainingCount = currentPlan.length - 1;
+                      const remainingPlan = currentPlan.filter((_, index) => index !== removedIndex);
+                      const remapLine = <T extends { service_sitting_sequence?: number | null; quantity?: number; quantityOverridden?: boolean; pricingMode?: PricingMode }>(line: T): T => {
+                        const sequence = Number(line.service_sitting_sequence || 0);
+                        if (!sequence) return line;
+                        let nextSequence: number | null;
+                        if (remainingCount <= 1) nextSequence = null;
+                        else if (sequence === removedSequence) nextSequence = Math.min(removedSequence, remainingCount);
+                        else nextSequence = sequence > removedSequence ? sequence - 1 : sequence;
+                        const targetGuests = nextSequence ? (remainingPlan[nextSequence - 1]?.guestCount ?? line.quantity) : guestCount;
+                        return {
+                          ...line,
+                          service_sitting_sequence: nextSequence,
+                          ...(!line.quantityOverridden && (!line.pricingMode || line.pricingMode === "per_person") && targetGuests != null ? { quantity: targetGuests } : {}),
+                        };
+                      };
+                      setMenuItems(previous => previous.map(remapLine));
+                      setEquipment(previous => previous.map(remapLine));
+                    }}
+                    onChange={plan => {setServicePlan(plan);setEventTime(plan[0]?.serviceTime || "");setSetupTime("");}}
+                  />
 
                   {/* Distance + delivery fee. Auto-calculated from
                       kitchen -> venue once both lat/lng are set; the
@@ -3309,9 +3481,10 @@ function NewQuotePage() {
                           No kitchen with coordinates set up. Open Company profile and pin your HQ address (or add a Region with lat/lng) so distance auto-calculates.
                         </p>
                       )}
+                      {servicePlan && servicePlan.length > 1 && <p className="text-[11px] text-brand-primary/80">Total distance covers a return route to every sitting. Route fees split across sittings and appear as one total on the quote and invoice.</p>}
                       <div className="grid grid-cols-3 gap-2">
                         <div>
-                          <Label className="text-[11px] text-brand-primary">Distance (km)</Label>
+                          <Label className="text-[11px] text-brand-primary">{servicePlan && servicePlan.length > 1 ? "Total route distance (km)" : "Distance (km)"}</Label>
                           <Input id="quote-delivery-distance"
                             type="number"
                             min={0}
@@ -3321,6 +3494,8 @@ function NewQuotePage() {
                               setDeliveryDistance(safeNum(e.target.value));
                               setDistanceStatus("manual");
                               setDeliveryFeeOverridden(false);
+                              setServicePlan(previous => previous?.map(sitting => ({ ...sitting, deliveryFeeManual: false })) || null);
+                              setServicePlan(previous => previous?.map(sitting => ({ ...sitting, deliveryFeeManual: false })) || null);
                             }}
                             className="bg-white"
                           />
@@ -3354,6 +3529,7 @@ function NewQuotePage() {
                             onChange={(e) => {
                               setDeliveryFee(safeNum(e.target.value));
                               setDeliveryFeeOverridden(true);
+                              setServicePlan(previous => previous?.map(sitting => ({ ...sitting, deliveryFeeManual: false })) || null);
                             }}
                             className="bg-white"
                           />
@@ -3363,9 +3539,9 @@ function NewQuotePage() {
                         {distanceStatus === "loading" && "Finding the Google Maps driving distance… "}
                         {distanceStatus === "error" && "Google Maps could not calculate this route. Enter the distance manually. "}
                         {deliveryFeeOverridden
-                          ? `Flat fee active. Fee = ${fmtR(deliveryFee)}. Clear the box and re-enter distance to switch back to auto.`
+                          ? `Flat fee active. ${fmtR(deliveryFee)} covers this booking. Clear the box and re-enter distance to switch back to the route estimate.`
                           : deliveryDistance > 0
-                            ? `Auto: ${deliveryDistance.toFixed(1)}km × 2 (round-trip) × ${quoteCurrencySymbol}${deliveryCostPerKm}/km${minDeliveryFee > 0 ? `, floor ${quoteCurrencySymbol}${minDeliveryFee}` : ""} = ${fmtR(deliveryFee)}`
+                            ? `Auto: ${deliveryDistance.toFixed(1)}km across ${Math.max(1, servicePlan?.length || 1)} sitting route${(servicePlan?.length || 1) === 1 ? "" : "s"} × 2 (return legs) × ${quoteCurrencySymbol}${deliveryCostPerKm}/km${minDeliveryFee > 0 ? `, floor ${quoteCurrencySymbol}${minDeliveryFee}` : ""} = ${fmtR(deliveryFee)}`
                             : `Pick a venue or type a distance to auto-calculate; or type a flat fee directly into the Fee box.`}
                       </p>
                     </div>
@@ -3396,6 +3572,8 @@ function NewQuotePage() {
                             onChange={(e) => {
                               setCollectionDistance(safeNum(e.target.value));
                               setCollectionFeeOverridden(false);
+                              setServicePlan(previous => previous?.map(sitting => ({ ...sitting, collectionFeeManual: false })) || null);
+                              setServicePlan(previous => previous?.map(sitting => ({ ...sitting, collectionFeeManual: false })) || null);
                             }}
                             className="bg-white"
                           />
@@ -3430,6 +3608,7 @@ function NewQuotePage() {
                             onChange={(e) => {
                               setCollectionFee(safeNum(e.target.value));
                               setCollectionFeeOverridden(true);
+                              setServicePlan(previous => previous?.map(sitting => ({ ...sitting, collectionFeeManual: false })) || null);
                             }}
                             className="bg-white"
                           />
@@ -3556,7 +3735,7 @@ function NewQuotePage() {
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div>
                       <CardTitle className="text-base">Menu items</CardTitle>
-                      <CardDescription>Each line picks a pricing mode, qty + per-line discount.</CardDescription>
+                      <CardDescription>Each line picks a pricing mode, qty and per-line discount.{servicePlan && servicePlan.length > 1 ? " Choose which sitting receives each dish, or leave it shared across all sittings." : ""}</CardDescription>
                     </div>
                     <Button size="sm" variant="outline" onClick={() => addLine()}>
                       <Plus className="w-4 h-4 mr-1" /> Add line
@@ -3712,6 +3891,24 @@ function NewQuotePage() {
                               />
                             </div>
                           </div>
+                          {servicePlan && servicePlan.length > 1 && <div className="max-w-sm">
+                            <Label className="text-xs">Served at</Label>
+                            <select
+                              value={line.service_sitting_sequence ?? ""}
+                              onChange={event => {
+                                const nextSequence = event.target.value ? Number(event.target.value) : null;
+                                const nextGuests = nextSequence ? servicePlan[nextSequence - 1]?.guestCount : guestCount;
+                                updateLine(line.id, {
+                                  service_sitting_sequence: nextSequence,
+                                  ...(line.pricingMode === "per_person" && !line.quantityOverridden && nextGuests != null ? { quantity: nextGuests } : {}),
+                                });
+                              }}
+                              className="mt-1 min-h-10 w-full rounded-md border border-slate-200 bg-white px-2 text-sm"
+                            >
+                              <option value="">All sittings (shared)</option>
+                              {servicePlan.map((sitting, sittingIndex) => <option key={sittingIndex} value={sittingIndex + 1}>Sitting {sittingIndex + 1} · {sitting.guestCount} guests{sitting.venueName ? ` · ${sitting.venueName}` : ""}</option>)}
+                            </select>
+                          </div>}
                           <div className="text-xs text-slate-500 flex justify-between flex-wrap gap-2 pt-1">
                             <span>
                               {fmtR(line.unitPrice)} {PRICING_LABEL[line.pricingMode]} × {computedQty}
@@ -3773,21 +3970,25 @@ function NewQuotePage() {
                           match the guest count, so it never nags. */}
                       {guestCount > 0
                         && equipment.length > 0
-                        && equipment.some((e) => e.name && e.quantity !== guestCount) && (
+                        && equipment.some((e) => e.name && e.quantity !== (e.service_sitting_sequence ? servicePlan?.[e.service_sitting_sequence - 1]?.guestCount ?? guestCount : guestCount)) && (
                         <Button
                           size="sm"
                           variant="outline"
                           className="border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
                           onClick={() => {
                             setEquipment((prev) =>
-                              prev.map((e) => (e.name ? { ...e, quantity: guestCount } : e)),
+                              prev.map((e) => (e.name ? {
+                                ...e,
+                                quantity: e.service_sitting_sequence ? servicePlan?.[e.service_sitting_sequence - 1]?.guestCount ?? guestCount : guestCount,
+                                quantityOverridden: false,
+                              } : e)),
                             );
                             toast({
-                              title: `Equipment set to ${guestCount}`,
-                              description: "All equipment lines now match the guest count. Edit any line if it shouldn't scale.",
+                              title: "Equipment quantities matched",
+                              description: "Each line now matches the guest count for its sitting, or the full event if it is shared.",
                             });
                           }}
-                          title={`Set every equipment line's Qty to ${guestCount} so cutlery / crockery / drinkware matches the guest count.`}
+                          title="Match each equipment line to the full guest count or its assigned sitting."
                         >
                           <Users className="w-3.5 h-3.5 mr-1" />
                           Match {guestCount} guests
@@ -3872,6 +4073,24 @@ function NewQuotePage() {
                               />
                             </div>
                           </div>
+                          {servicePlan && servicePlan.length > 1 && <div className="max-w-sm">
+                            <Label className="text-xs">Delivered to</Label>
+                            <select
+                              value={e.service_sitting_sequence ?? ""}
+                              onChange={event => {
+                                const nextSequence = event.target.value ? Number(event.target.value) : null;
+                                const nextGuests = nextSequence ? servicePlan[nextSequence - 1]?.guestCount : guestCount;
+                                updateEquip(e.id, {
+                                  service_sitting_sequence: nextSequence,
+                                  ...(!e.quantityOverridden && nextGuests != null ? { quantity: nextGuests } : {}),
+                                });
+                              }}
+                              className="mt-1 min-h-10 w-full rounded-md border border-slate-200 bg-white px-2 text-sm"
+                            >
+                              <option value="">Primary venue (not assigned to a sitting)</option>
+                              {servicePlan.map((sitting, sittingIndex) => <option key={sittingIndex} value={sittingIndex + 1}>Sitting {sittingIndex + 1} · {sitting.guestCount} guests{sitting.venueName ? ` · ${sitting.venueName}` : ""}</option>)}
+                            </select>
+                          </div>}
 
                           {/*
                             Live availability + split. Only renders when
@@ -4061,7 +4280,7 @@ function NewQuotePage() {
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-base">Items in this quote</CardTitle>
-                      <CardDescription>Dishes + equipment on this quote and what each adds up to.</CardDescription>
+                      <CardDescription>Dishes + equipment on this quote and what each adds up to. Sitting-specific items stay on the assigned delivery.</CardDescription>
                     </CardHeader>
                     <CardContent className="text-sm space-y-3">
                       {menuItems.some((l) => l.name) && (
@@ -4082,7 +4301,7 @@ function NewQuotePage() {
                               const net = l.unitPrice * q * (1 - l.discountPct / 100);
                               return (
                                 <li key={i} className="flex justify-between text-xs gap-2">
-                                  <span className="text-slate-700">{l.name} × {q}</span>
+                                  <span className="text-slate-700">{l.service_sitting_sequence ? `Sitting ${l.service_sitting_sequence} · ` : ""}{l.name} × {q}</span>
                                   <span className="text-slate-900 font-medium flex-shrink-0">{fmtR(net)}</span>
                                 </li>
                               );
@@ -4096,7 +4315,7 @@ function NewQuotePage() {
                           <ul className="space-y-1">
                             {equipment.filter((e) => e.name).map((e, i) => (
                               <li key={`e${i}`} className="flex justify-between text-xs gap-2">
-                                <span className="text-slate-700">{e.name} × {e.quantity}</span>
+                                <span className="text-slate-700">{e.service_sitting_sequence ? `Sitting ${e.service_sitting_sequence} · ` : "Primary venue · "}{e.name} × {e.quantity}</span>
                                 <span className="text-slate-900 font-medium flex-shrink-0">{fmtR(e.unitPrice * e.quantity)}</span>
                               </li>
                             ))}
@@ -4163,14 +4382,14 @@ function NewQuotePage() {
                             const net = l.unitPrice * q * (1 - l.discountPct / 100);
                             return (
                               <li key={i} className="flex justify-between text-xs">
-                                <span className="text-slate-700">{l.name} × {q}</span>
+                                <span className="text-slate-700">{l.service_sitting_sequence ? `Sitting ${l.service_sitting_sequence} · ` : ""}{l.name} × {q}</span>
                                 <span className="text-slate-900 font-medium">{fmtR(net)}</span>
                               </li>
                             );
                           })}
                           {equipment.filter((e) => e.name).map((e, i) => (
                             <li key={`e${i}`} className="flex justify-between text-xs">
-                              <span className="text-slate-700">{e.name} × {e.quantity}</span>
+                              <span className="text-slate-700">{e.service_sitting_sequence ? `Sitting ${e.service_sitting_sequence} · ` : ""}{e.name} × {e.quantity}</span>
                               <span className="text-slate-900 font-medium">{fmtR(e.unitPrice * e.quantity)}</span>
                             </li>
                           ))}

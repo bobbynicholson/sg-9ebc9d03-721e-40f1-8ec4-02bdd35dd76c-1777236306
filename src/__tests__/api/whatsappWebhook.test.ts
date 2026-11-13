@@ -11,6 +11,8 @@ const mockTables: Record<string, any[]> = {};
 const mockUpdates: Array<{ table: string; patch: any; filters: Record<string, unknown>; neq: Record<string, unknown> }> = [];
 const mockDeletes: Array<Record<string, unknown>> = [];
 const mockUpserts: any[] = [];
+const mockExternalMessages: any[] = [];
+const mockExternalUpsertErrors: any[] = [];
 const mockAlert = jest.fn().mockResolvedValue(undefined);
 
 jest.mock("@/lib/whatsapp/alerts", () => ({ alertWhatsAppReply: (...args: unknown[]) => mockAlert(...args) }));
@@ -36,7 +38,15 @@ jest.mock("@/lib/supabase/service", () => ({
         limit: () => chain,
         is: () => chain,
         or: (value: string) => { filters.__or = value; return chain; },
-        upsert: async (row: any) => { mockUpserts.push(row); return { error: null }; },
+        upsert: async (row: any) => {
+          mockUpserts.push(row);
+          if (table === "whatsapp_external_messages") {
+            const error = mockExternalUpsertErrors.shift();
+            if (error) return { error };
+            mockExternalMessages.push(...(Array.isArray(row) ? row : [row]));
+          }
+          return { error: null };
+        },
         update: (next: unknown) => { mode = "update"; patch = next; return chain; },
         delete: () => { mode = "delete"; return chain; },
         insert: async (row: any) => {
@@ -90,6 +100,8 @@ describe("WhatsApp webhook", () => {
     mockUpdates.length = 0;
     mockDeletes.length = 0;
     mockUpserts.length = 0;
+    mockExternalMessages.length = 0;
+    mockExternalUpsertErrors.length = 0;
     mockAlert.mockClear();
     mockTables.integrations = [{
       id: "integration-1",
@@ -133,6 +145,105 @@ describe("WhatsApp webhook", () => {
     expect(mockAlert).toHaveBeenCalledTimes(1);
     expect(mockUpserts).toHaveLength(1);
     expect(mockUpserts[0]).toMatchObject({ company_id: "company-1", phone: "27825550001", contact_name: "Sam", last_preview: "Yes please" });
+  });
+
+  it("stores a reaction with its emoji and the message it refers to", async () => {
+    const payload = { entry: [{ changes: [{ value: {
+      metadata: { phone_number_id: "111" },
+      contacts: [{ wa_id: "27825550001", profile: { name: "Sam" } }],
+      messages: [{
+        id: "wamid.reaction-1",
+        from: "27825550001",
+        type: "reaction",
+        timestamp: "1790000000",
+        reaction: { message_id: "wamid.original-1", emoji: "👍" },
+      }],
+    } }] }] };
+
+    expect(await post(payload)).toBe(200);
+    expect(mockTables.whatsapp_inbound_messages[0]).toMatchObject({
+      message_type: "reaction",
+      reaction_emoji: "👍",
+      related_message_id: "wamid.original-1",
+      body: "Reacted 👍 to message wamid.original-1",
+    });
+    expect(mockUpserts.find((row) => row.phone === "27825550001")?.last_preview).toBe("Reacted 👍 to message wamid.original-1");
+  });
+
+  it("mirrors messages sent from the WhatsApp Business app", async () => {
+    const payload = { entry: [{ changes: [{ field: "smb_message_echoes", value: {
+      metadata: { phone_number_id: "111", display_phone_number: "27820000000" },
+      contacts: [{ wa_id: "27825550001", profile: { name: "Sam" } }],
+      message_echoes: [{
+        id: "wamid.app-echo",
+        from: "27820000000",
+        to: "27825550001",
+        type: "text",
+        timestamp: "1790000000",
+        text: { body: "Sent from the WhatsApp Business app" },
+      }],
+    } }] }] };
+
+    expect(await post(payload)).toBe(200);
+    expect(mockExternalMessages).toHaveLength(1);
+    expect(mockExternalMessages[0]).toMatchObject({
+      company_id: "company-1",
+      contact_phone: "27825550001",
+      contact_name: "Sam",
+      direction: "out",
+      body: "Sent from the WhatsApp Business app",
+      wa_message_id: "wamid.app-echo",
+      source: "whatsapp_business_app",
+    });
+  });
+
+  it("imports inbound and outbound messages from WhatsApp Business app history", async () => {
+    const payload = { entry: [{ changes: [{ field: "history", value: {
+      metadata: { phone_number_id: "111", display_phone_number: "27820000000" },
+      history: [{ metadata: { phase: 0, chunk_order: 1, progress: 100 }, threads: [{ id: "27825550001", messages: [
+        { id: "wamid.history-in", from: "27825550001", type: "text", timestamp: "1790000000", text: { body: "Message from the client" }, history_context: { status: "read" } },
+        { id: "wamid.history-out", from: "27820000000", type: "text", timestamp: "1790000010", text: { body: "Reply sent from the phone" }, history_context: { status: "delivered" } },
+      ] }] }],
+    } }] }] };
+
+    expect(await post(payload)).toBe(200);
+    expect(mockExternalMessages).toHaveLength(2);
+    expect(mockExternalMessages).toEqual(expect.arrayContaining([
+      expect.objectContaining({ contact_phone: "27825550001", direction: "in", body: "Message from the client", source: "synced_history", status: "read", message_at: new Date(1790000000 * 1000).toISOString() }),
+      expect.objectContaining({ contact_phone: "27825550001", direction: "out", body: "Reply sent from the phone", source: "synced_history", status: "delivered", message_at: new Date(1790000010 * 1000).toISOString() }),
+    ]));
+    expect(mockUpdates.find((item) => item.table === "integrations")?.patch.settings.whatsappBusinessAppHistoryStatus).toBe("complete");
+  });
+
+  it("does not acknowledge app history if its message rows could not be saved", async () => {
+    mockExternalUpsertErrors.push({ code: "42P01" });
+    const payload = { entry: [{ changes: [{ field: "smb_message_echoes", value: {
+      metadata: { phone_number_id: "111" },
+      message_echoes: [{ id: "wamid.not-saved", to: "27825550001", type: "text", timestamp: "1790000000", text: { body: "Do not lose this echo" } }],
+    } }] }] };
+
+    expect(await post(payload)).toBe(500);
+  });
+
+  it("keeps a reaction event readable while the reaction columns migration is pending", async () => {
+    mockExternalUpsertErrors.push({ code: "42703" });
+    const payload = { entry: [{ changes: [{ field: "smb_message_echoes", value: {
+      metadata: { phone_number_id: "111" },
+      message_echoes: [{
+        id: "wamid.app-reaction",
+        to: "27825550001",
+        type: "reaction",
+        timestamp: "1790000000",
+        reaction: { message_id: "wamid.original", emoji: "❤️" },
+      }],
+    } }] }] };
+
+    expect(await post(payload)).toBe(200);
+    expect(mockExternalMessages[0]).toMatchObject({
+      message_type: "reaction",
+      body: "Reacted ❤️ to message wamid.original",
+    });
+    expect(mockExternalMessages[0]).not.toHaveProperty("related_message_id");
   });
 
   it("accepts a real message when an emoji is split across network chunks", async () => {

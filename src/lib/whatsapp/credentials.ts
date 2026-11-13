@@ -150,7 +150,7 @@ export async function callMeta(
   credentials: StoredWhatsAppCredentials,
   path: string,
   options: { method?: string; body?: unknown } = {},
-): Promise<{ ok: boolean; json: any; error: string | null }> { // eslint-disable-line @typescript-eslint/no-explicit-any
+): Promise<{ ok: boolean; json: any; error: string | null; httpStatus: number }> { // eslint-disable-line @typescript-eslint/no-explicit-any
   const response = await fetch(`${GRAPH_URL}/${path}`, {
     method: options.method || "GET",
     headers: {
@@ -164,6 +164,7 @@ export async function callMeta(
     ok: response.ok,
     json,
     error: response.ok ? null : json?.error?.error_user_msg || json?.error?.message || `HTTP ${response.status}`,
+    httpStatus: response.status,
   };
 }
 

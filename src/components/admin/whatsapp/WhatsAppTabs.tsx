@@ -19,7 +19,7 @@ export function WhatsAppTabs({ active }: { active: (typeof TABS)[number]["key"] 
           href={withSlug(tab.href)}
           aria-current={active === tab.key ? "page" : undefined}
           className={cn(
-            "flex-1 rounded-md px-3 py-2 text-center text-sm font-medium transition-colors",
+            "flex min-h-11 flex-1 items-center justify-center rounded-md px-3 py-2 text-center text-sm font-medium transition-colors",
             active === tab.key
               ? "bg-brand-primary text-white"
               : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",

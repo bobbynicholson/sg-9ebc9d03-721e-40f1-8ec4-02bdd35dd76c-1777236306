@@ -16,7 +16,7 @@
  * fallback in inventoryDeductionService - this lets self-service menu
  * editing work today without breaking tenants on the legacy map.
  */
-import { allocateSittingQuantities } from "@/lib/serviceSittings";
+import { allocateSittingQuantities, menuLineSittingSequence } from "@/lib/serviceSittings";
 import { tenantDateTime } from "@/lib/portalTime";
 import { supabase } from "@/integrations/supabase/client";
 import { getRecipe as getLegacyRecipe } from "./inventoryDeductionService";
@@ -66,7 +66,7 @@ export interface ScaledRecipe {
   ingredients: ScaledIngredient[];
 }
 
-export type KitchenSittingPlan = { id: string; guestCount: number; serviceTime: string; kitchenReadyTime?: string; dispatchTime?: string; venueName?: string | null; venueAddress?: string | null };
+export type KitchenSittingPlan = { id: string; sequenceNumber?: number; guestCount: number; serviceTime: string; kitchenReadyTime?: string; dispatchTime?: string; venueName?: string | null; venueAddress?: string | null };
 
 export interface PrepTask {
   service_sitting_id?: string | null;
@@ -418,7 +418,7 @@ export const kitchenPrepService = {
     if (!pickupAt && !sittingPlan?.length && !order.service_sittings?.length) return [];
 
     const savedSittings = [...(order.service_sittings || [])].sort((a: any, b: any) => a.sequence_number - b.sequence_number);
-    const rawBatches: KitchenSittingPlan[] = sittingPlan || (savedSittings.length > 1 ? savedSittings.map((row: any) => ({ id: row.id, guestCount: row.guest_count, serviceTime: row.service_time, kitchenReadyTime: row.kitchen_ready_time, dispatchTime: row.dispatch_time, venueName: row.venue_name, venueAddress: row.venue_address })) : []);
+    const rawBatches: KitchenSittingPlan[] = sittingPlan || (savedSittings.length > 1 ? savedSittings.map((row: any) => ({ id: row.id, sequenceNumber: Number(row.sequence_number), guestCount: row.guest_count, serviceTime: row.service_time, kitchenReadyTime: row.kitchen_ready_time, dispatchTime: row.dispatch_time, venueName: row.venue_name, venueAddress: row.venue_address })) : []);
     const batches: KitchenSittingPlan[] = rawBatches.map((row) => ({
       ...row,
       venueName: row.venueName || order.venue_name || null,
@@ -477,7 +477,13 @@ export const kitchenPrepService = {
       for (const item of items) {
         const name = item?.name || item?.item_name || item?.menu_item_name;
         if (!name) continue;
-        const portions = split ? allocateSittingQuantities(Number(item.quantity != null ? item.quantity : order.guest_count || 1), planningBatches.map((row) => row.guestCount))[batchIndex] : null;
+        const assignedSequence = menuLineSittingSequence(item);
+        if (split && assignedSequence && assignedSequence !== batch.sequenceNumber) continue;
+        const portions = split
+          ? assignedSequence === batch.sequenceNumber
+            ? Number(item.quantity != null && Number(item.quantity) > 0 ? item.quantity : batch.guestCount)
+            : allocateSittingQuantities(Number(item.quantity != null ? item.quantity : order.guest_count || 1), planningBatches.map((row) => row.guestCount))[batchIndex]
+          : null;
         if (split && !portions) continue;
         const locationNote = batch.venueAddress ? ` Delivery to: ${batch.venueName ? `${batch.venueName} — ` : ""}${batch.venueAddress}.` : "";
         const batchFields = split ? { service_sitting_id: batch.id, planned_yield: portions, yield_unit: "portions", notes: `Sitting ${batchIndex + 1}: ${batch.guestCount} guests at ${String(batch.serviceTime).slice(0, 5)}.${locationNote} ${portions} portions of ${name}.` } : {};

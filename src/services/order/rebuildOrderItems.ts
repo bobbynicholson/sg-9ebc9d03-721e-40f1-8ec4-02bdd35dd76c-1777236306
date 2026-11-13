@@ -15,6 +15,7 @@
 // this hard-deletes then re-inserts (simpler + safer than a per-line diff).
 
 import { sortByCourse } from "@/lib/menuCourses";
+import { menuLineOrderDescription } from "@/lib/serviceSittings";
 
 export interface RebuildOrderItemsResult {
   rebuilt: boolean;
@@ -109,7 +110,7 @@ export async function rebuildOrderItemsFromMenu(
         order_id: orderId,
         menu_item_id: menuItemId,
         item_name: name,
-        description: it.category || it.dietary_tags?.join?.(", ") || null,
+        description: menuLineOrderDescription(it),
         quantity: qty,
         unit_price: unit,
         unit_cost: unitCost,

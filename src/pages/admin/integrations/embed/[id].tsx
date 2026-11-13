@@ -37,6 +37,7 @@ import {
   CircleDot,
   SquareCheck,
   BadgeDollarSign,
+  MapPin,
   EyeOff,
   ChevronRight,
 } from "lucide-react";
@@ -83,6 +84,7 @@ const FIELD_TYPE_HINTS: Record<string, string> = {
   date: "A date picker. Past dates are blocked.",
   time: "A time picker, e.g. serving time.",
   textarea: "A larger box for longer answers.",
+  locations: "Let clients give each additional venue's address, guest count and requested service time. Your team reviews the sitting plan before sending the quote.",
   select: "A dropdown: the visitor picks one option.",
   radio: "Option cards: the visitor picks one.",
   checkbox: "One tick box with your own text, e.g. to accept terms.",
@@ -99,6 +101,7 @@ const FIELD_TYPE_META: Record<string, { icon: LucideIcon; tone: string; label: s
   date:       { icon: CalendarDays,    tone: "bg-rose-50 text-rose-700 ring-rose-200",          label: "Date" },
   time:       { icon: Clock,           tone: "bg-orange-50 text-orange-700 ring-orange-200",    label: "Time" },
   textarea:   { icon: AlignLeft,       tone: "bg-slate-100 text-slate-700 ring-slate-200",      label: "Long answer" },
+  locations:  { icon: MapPin,          tone: "bg-rose-50 text-rose-700 ring-rose-200",           label: "Multiple locations" },
   select:     { icon: ChevronsUpDown,  tone: "bg-violet-50 text-violet-700 ring-violet-200",    label: "Dropdown" },
   radio:      { icon: CircleDot,       tone: "bg-fuchsia-50 text-fuchsia-700 ring-fuchsia-200", label: "Option cards" },
   checkbox:   { icon: SquareCheck,     tone: "bg-teal-50 text-teal-700 ring-teal-200",          label: "Single tick box" },
@@ -114,6 +117,7 @@ const FIELD_TYPES: { value: EmbedFieldType; label: string }[] = [
   { value: "date",       label: "Date" },
   { value: "time",       label: "Time" },
   { value: "textarea",   label: "Long text" },
+  { value: "locations",  label: "Sitting locations & guest split" },
   { value: "select",     label: "Dropdown" },
   { value: "radio",      label: "Radio (single choice)" },
   { value: "checkbox",   label: "Checkbox (single)" },
@@ -1155,7 +1159,11 @@ function FieldEditor({
           {/* 2. Answer type, with icon + plain-English hint */}
           <div>
             <Label className="text-[11px] font-semibold text-slate-700">Answer type</Label>
-            <Select value={field.type} onValueChange={(v) => changeAndSave({ type: v as EmbedFieldType })}>
+            <Select value={field.type} onValueChange={(v) => changeAndSave({
+              type: v as EmbedFieldType,
+              ...(v === "locations" && field.label === "New field" ? { label: "Additional sitting locations" } : {}),
+              ...(v === "locations" ? { mapsTo: undefined } : {}),
+            })}>
               <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {FIELD_TYPES.map((t) => {
@@ -1267,7 +1275,7 @@ function FieldEditor({
 
           {showAdvanced && (
             <div className="space-y-2 pt-1 border-t border-slate-200">
-              <div>
+              {field.type === "locations" ? <p className="rounded-md bg-sky-50 px-2.5 py-2 text-[11px] text-sky-800">Each requested address, guest count and service time is saved in the lead notes and shown in the quote builder. The team reviews and confirms the sitting schedule.</p> : <div>
                 <Label className="text-[10px] uppercase tracking-wide text-slate-500">Maps to lead column</Label>
                 <p className="text-[10px] text-slate-500">Where the answer goes on the lead. &quot;No mapping&quot; still keeps it: it&apos;s added to the lead notes.</p>
                 <Select
@@ -1279,7 +1287,7 @@ function FieldEditor({
                     {MAPPINGS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
-              </div>
+              </div>}
               {otherFields.length > 0 && (
                 <div>
                   <Label className="text-[10px] uppercase tracking-wide text-slate-500">Show only if</Label>
@@ -1400,6 +1408,9 @@ function FieldPreview({ field }: { field: EmbedField }) {
   switch (field.type) {
     case "textarea":
       control = <div className="h-14 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-400">{field.placeholder || "Longer answer..."}</div>;
+      break;
+    case "locations":
+      control = <div className="space-y-2"><div className="grid grid-cols-2 gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-500"><span>Office / venue name</span><span>Delivery address</span><span>Guests</span><span>Service time (optional)</span></div><span className="inline-flex min-h-8 items-center rounded-md border border-slate-200 px-2.5 text-xs text-slate-600">+ Add another location</span></div>;
       break;
     case "date":
       control = <div className={box}>dd / mm / yyyy <CalendarDays className="h-3.5 w-3.5" /></div>;

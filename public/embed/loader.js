@@ -125,7 +125,8 @@
       },
       { id: 'event_date', type: 'date', label: 'Event date', required: true, visible: true, order: 5 },
       { id: 'guest_count', type: 'number', label: 'Number of guests', required: true, visible: true, validation: { min: 1, max: 5000 }, order: 6 },
-      { id: 'venue', type: 'text', label: 'Venue address', required: true, visible: true, order: 7 }
+      { id: 'venue', type: 'text', label: 'Venue address', required: true, visible: true, order: 7 },
+      { id: 'delivery_locations', type: 'locations', label: 'Additional delivery locations', required: false, visible: true, order: 8, helpText: 'List any other offices or venues that need their own delivery.' }
     ];
 
     // The quote-oriented previews should demonstrate the complete visitor
@@ -265,7 +266,7 @@
       // Venue-style text fields get live address suggestions (needs a
       // real token, so not in the placeholder demo).
       var isAddress = f.mapsTo === 'venue' || ADDRESS_FIELD_IDS[f.id];
-      if (isAddress && (!f.type || f.type === 'text') && token && UUID_RE.test(token)) {
+      if ((f.type === 'locations' || (isAddress && (!f.type || f.type === 'text'))) && token && UUID_RE.test(token)) {
         f.addressSuggestUrl = API_BASE + '/api/public/embed/' + encodeURIComponent(token) + '/address-suggest';
         // Google Places only on our own domain (hosted /quote page and
         // admin previews): the browser key is restricted to it.

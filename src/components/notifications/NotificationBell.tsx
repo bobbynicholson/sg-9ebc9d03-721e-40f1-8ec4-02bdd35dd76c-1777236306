@@ -545,7 +545,7 @@ export function NotificationBell() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+          className="relative h-11 w-11 shrink-0 rounded-full hover:bg-slate-100 data-[state=open]:bg-brand-primary/10 data-[state=open]:text-brand-primary dark:hover:bg-slate-800 dark:data-[state=open]:bg-brand-primary/20"
           aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
         >
           <Bell className="h-5 w-5" />
@@ -575,14 +575,14 @@ export function NotificationBell() {
           // floating panel hovering above the dashboard, not something laid
           // flat over the content. overflow-hidden keeps the rounded corners
           // clean against the header / footer fills.
-          "w-[calc(100vw-1.5rem)] max-w-[420px] sm:w-[420px] p-0 overflow-hidden",
+          "z-[1200] flex max-h-[min(calc(100dvh-1.5rem),var(--radix-dropdown-menu-content-available-height))] w-[calc(100vw-1.5rem)] max-w-[420px] flex-col overflow-hidden border-slate-200 bg-white p-0 text-slate-900 shadow-2xl sm:w-[420px] dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100",
           "rounded-2xl border border-slate-200/80 dark:border-slate-700/70",
           "shadow-2xl ring-1 ring-black/5 dark:ring-white/10",
         )}
         sideOffset={10}
       >
         {/* Header */}
-        <div className="flex items-center justify-between gap-2 px-4 py-3.5 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 bg-white px-4 py-3.5 dark:border-slate-800 dark:bg-slate-950">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-brand-primary/10">
               <Bell className="h-4 w-4 text-brand-primary" />
@@ -603,7 +603,7 @@ export function NotificationBell() {
               variant="ghost"
               size="sm"
               onClick={handleMarkAllAsRead}
-              className="h-7 flex-shrink-0 text-xs text-brand-primary hover:bg-brand-primary/10 hover:text-brand-primary"
+              className="h-auto min-h-11 flex-shrink-0 px-2 text-xs text-brand-primary hover:bg-brand-primary/10 hover:text-brand-primary"
             >
               <CheckCircle className="h-3.5 w-3.5 mr-1" />
               Mark all read
@@ -612,7 +612,7 @@ export function NotificationBell() {
         </div>
 
         {/* Notifications List */}
-        <ScrollArea className="h-[420px] bg-slate-50/60 dark:bg-slate-950/40">
+        <ScrollArea className="h-[min(420px,max(8rem,calc(100dvh-12rem)))] min-h-0 shrink bg-slate-50/60 dark:bg-slate-950/40">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-16 text-slate-500">
               <Clock className="h-7 w-7 mb-3 animate-pulse text-slate-400" />
@@ -642,7 +642,7 @@ export function NotificationBell() {
                   key={notification.id}
                   onClick={() => handleNotificationClick(notification)}
                   className={cn(
-                    "group relative flex gap-3 px-4 py-3.5 cursor-pointer transition-colors",
+                    "group relative flex min-w-0 cursor-pointer gap-3 px-4 py-3.5 transition-colors",
                     !notification.is_read
                       ? "bg-white hover:bg-brand-primary/[0.04] dark:bg-slate-900 dark:hover:bg-brand-primary/10"
                       : "hover:bg-white dark:hover:bg-slate-900/60",
@@ -667,7 +667,7 @@ export function NotificationBell() {
                     <div className="flex items-start justify-between gap-2">
                       <h4
                         className={cn(
-                          "text-[13px] leading-snug pr-1",
+                          "min-w-0 break-words pr-1 text-[13px] leading-snug",
                           !notification.is_read
                             ? "font-semibold text-slate-900 dark:text-white"
                             : "font-medium text-slate-600 dark:text-slate-300",
@@ -675,14 +675,14 @@ export function NotificationBell() {
                       >
                         {notification.title}
                       </h4>
-                      {/* Row actions - hidden until hover so the row stays calm */}
-                      <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                          {/* Keep row actions visible so touch users can reach them. */}
+                      <div className="flex shrink-0 items-center gap-0.5">
                         {!notification.is_read && (
                           <Button
                             variant="ghost"
                             size="icon"
                             aria-label="Mark as read"
-                            className="h-6 w-6 text-slate-400 hover:text-brand-primary hover:bg-brand-primary/10"
+                            className="h-11 w-11 text-slate-500 hover:text-brand-primary hover:bg-brand-primary/10 lg:h-8 lg:w-8"
                             onClick={(e) => handleMarkAsRead(notification.id, e)}
                           >
                             <Check className="h-3.5 w-3.5" />
@@ -692,7 +692,7 @@ export function NotificationBell() {
                           variant="ghost"
                           size="icon"
                           aria-label="Dismiss"
-                          className="h-6 w-6 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                          className="h-11 w-11 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 lg:h-8 lg:w-8"
                           onClick={(e) => handleDelete(notification.id, e)}
                         >
                           <X className="h-3.5 w-3.5" />
@@ -727,10 +727,10 @@ export function NotificationBell() {
 
         {/* Footer */}
         {visibleNotifications.length > 0 && (
-          <div className="border-t border-slate-100 dark:border-slate-800 p-2 bg-white dark:bg-slate-950">
+          <div className="shrink-0 border-t border-slate-100 bg-white p-2 dark:border-slate-800 dark:bg-slate-950">
             <Button
               variant="ghost"
-              className="w-full h-9 text-sm font-medium text-brand-primary hover:bg-brand-primary/10 hover:text-brand-primary"
+              className="h-11 w-full text-sm font-medium text-brand-primary hover:bg-brand-primary/10 hover:text-brand-primary"
               onClick={handleViewAll}
             >
               View all notifications

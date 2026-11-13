@@ -40,6 +40,31 @@ describe("embed submission rules", () => {
     expect(lead.notes).not.toContain("uuid-1");
   });
 
+  it("validates and carries requested sitting details into lead notes", () => {
+    const locations: EmbedField = { id: "delivery_locations", type: "locations", label: "Additional sitting locations" };
+    const payload = { delivery_locations: [
+      { name: "Cape Town office", address: "39 Salt River Road, Cape Town", guestCount: 45, serviceTime: "17:00" },
+      { name: "Peninsula office", address: "Cape of Good Hope, Cape Town", guestCount: 45, serviceTime: "18:00" },
+    ] };
+    expect(validateSubmission([locations], payload).ok).toBe(true);
+    expect(mapPayloadToLead([locations], payload).notes).toContain("1. Cape Town office — 39 Salt River Road, Cape Town\n   Guests: 45\n   Service time: 17:00\n2. Peninsula office — Cape of Good Hope, Cape Town\n   Guests: 45\n   Service time: 18:00");
+    expect(mapPayloadToLead([locations], payload).guest_count).toBe(90);
+    expect(validateSubmission([locations], { delivery_locations: [{ name: "Cape Town office", address: "" }] }).errors?.delivery_locations).toMatch(/enter an address/i);
+    expect(validateSubmission([locations], { delivery_locations: [{ name: "Cape Town office", address: "39 Salt River Road" }] }).errors?.delivery_locations).toMatch(/guest count/i);
+  });
+
+  it("checks requested sitting guests against the main venue and event total", () => {
+    const fields: EmbedField[] = [
+      { id: "guest_count", type: "number", label: "Total guests", mapsTo: "guest_count" },
+      { id: "venue", type: "text", label: "Main venue", mapsTo: "venue" },
+      { id: "delivery_locations", type: "locations", label: "Additional sitting locations" },
+    ];
+    const base = { guest_count: 90, venue: "Main venue, Cape Town" };
+    expect(validateSubmission(fields, { ...base, delivery_locations: [{ address: "Office 2", guestCount: 45 }] }).ok).toBe(true);
+    expect(validateSubmission(fields, { ...base, delivery_locations: [{ address: "Office 2", guestCount: 90 }] }).errors?.delivery_locations).toMatch(/leave at least one guest/i);
+    expect(validateSubmission(fields, { guest_count: 90, delivery_locations: [{ address: "Office 1", guestCount: 45 }] }).errors?.delivery_locations).toMatch(/add up to 90/i);
+  });
+
   it("accepts legacy string options", () => {
     const field = { ...eventType, options: ["Wedding", "Birthday"] } as EmbedField;
     expect(validateSubmission([field], { event_type: "Birthday" }).ok).toBe(true);

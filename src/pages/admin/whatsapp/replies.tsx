@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { buildWhatsAppUrl, normaliseToE164 } from "@/lib/whatsapp";
 import { mergeConversations, type ThreadMessage } from "@/lib/whatsapp/conversations";
 import { statusLabel } from "@/lib/whatsapp/activity";
@@ -67,6 +68,9 @@ function messageKindLabel(kind: string | undefined): string {
     button: "Button reply",
     contacts: "Contact card",
     reaction: "Reaction",
+    media_placeholder: "Media message",
+    unsupported: "Unsupported message",
+    ephemeral: "Disappearing message",
   };
   return labels[kind || ""] || (kind ? kind.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) : "Message");
 }
@@ -85,6 +89,20 @@ function mediaFallback(kind: string | undefined, direction: "in" | "out"): strin
   return `${label} sent`;
 }
 
+function reactionTargetId(message: ThreadMessage): string | null {
+  if (message.relatedMessageId) return message.relatedMessageId;
+  return message.text.match(/(?:to|from) message (wamid\.[^\s]+)/i)?.[1] || null;
+}
+
+function reactionEmoji(message: ThreadMessage): string | null {
+  if (message.reactionEmoji) return message.reactionEmoji;
+  return message.text.match(/^Reacted\s+(.+?)\s+to (?:a )?message/i)?.[1] || null;
+}
+
+function reactionWasRemoved(message: ThreadMessage): boolean {
+  return /^Removed a reaction/i.test(message.text);
+}
+
 function conversationPreview(value: string | null): string {
   if (!value) return "No message preview";
   const media = value.match(/^\((.+) message\)$/i);
@@ -96,6 +114,7 @@ function RepliesPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [unreadConversations, setUnreadConversations] = useState(0);
@@ -113,12 +132,41 @@ function RepliesPage() {
   const [reply, setReply] = useState("");
   const [replyError, setReplyError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [mobileViewportHeight, setMobileViewportHeight] = useState<number | null>(null);
   const selectedRef = useRef<string | null>(null);
   const threadScrollRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
+  const viewportResizeRef = useRef(false);
   const olderScrollRef = useRef<{ top: number; height: number } | null>(null);
   const previousThreadPhoneRef = useRef<string | null>(null);
   selectedRef.current = selected;
+
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileViewportHeight(null);
+      return;
+    }
+
+    const viewport = window.visualViewport;
+    const updateViewportHeight = () => {
+      viewportResizeRef.current = true;
+      setMobileViewportHeight(Math.round(viewport?.height || window.innerHeight));
+      window.requestAnimationFrame(() => {
+        const element = threadScrollRef.current;
+        if (element && stickToBottomRef.current) element.scrollTop = element.scrollHeight;
+        window.requestAnimationFrame(() => { viewportResizeRef.current = false; });
+      });
+    };
+
+    updateViewportHeight();
+    viewport?.addEventListener("resize", updateViewportHeight);
+    window.addEventListener("resize", updateViewportHeight);
+    return () => {
+      viewport?.removeEventListener("resize", updateViewportHeight);
+      window.removeEventListener("resize", updateViewportHeight);
+      viewportResizeRef.current = false;
+    };
+  }, [isMobile]);
 
   useEffect(() => {
     if (!thread) return;
@@ -294,23 +342,49 @@ function RepliesPage() {
   };
 
   const title = thread?.name || selected || "";
+  const mobileThreadView = Boolean(selected && isMobile);
+  const mobileThreadHeight = mobileViewportHeight === null
+    ? undefined
+    : `${Math.max(0, mobileViewportHeight - 88)}px`;
+  const reactionGroups = useMemo(() => {
+    const messages = thread?.messages || [];
+    const messageByWhatsappId = new Map<string, string>();
+    for (const message of messages) {
+      if (message.kind === "reaction") continue;
+      messageByWhatsappId.set(message.id, message.id);
+      if (message.dedupeId) messageByWhatsappId.set(message.dedupeId, message.id);
+    }
+    const byMessage = new Map<string, ThreadMessage[]>();
+    const attachedIds = new Set<string>();
+    for (const reaction of messages) {
+      const targetMessageId = reactionTargetId(reaction);
+      if (reaction.kind !== "reaction" || !targetMessageId) continue;
+      const targetId = messageByWhatsappId.get(targetMessageId);
+      if (!targetId) continue;
+      byMessage.set(targetId, [...(byMessage.get(targetId) || []), reaction]);
+      attachedIds.add(reaction.id);
+    }
+    return { byMessage, attachedIds };
+  }, [thread?.messages]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950" data-chatbot-suppress={mobileThreadView ? "true" : undefined}>
       <Head><title>WhatsApp replies - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          <PortalHeader
-            variant="hero"
-            icon={MessageCircle}
-            title="WhatsApp replies"
-            subtitle={unreadConversations > 0
-              ? `${unreadConversations} conversation${unreadConversations === 1 ? "" : "s"} waiting for you.`
-              : "Read and answer what clients send back."}
-          />
-          <WhatsAppTabs active="replies" />
+          <div className={cn(selected && "hidden md:block")}>
+            <PortalHeader
+              variant="hero"
+              icon={MessageCircle}
+              title="WhatsApp replies"
+              subtitle={unreadConversations > 0
+                ? `${unreadConversations} conversation${unreadConversations === 1 ? "" : "s"} waiting for you.`
+                : "Read and answer what clients send back."}
+            />
+            <WhatsAppTabs active="replies" />
+          </div>
 
           {!available ? (
             <Card><CardContent className="flex flex-wrap items-center justify-center gap-3 py-8 text-center text-sm text-amber-800 dark:text-amber-200">
@@ -318,14 +392,14 @@ function RepliesPage() {
               <Button type="button" variant="outline" size="sm" onClick={() => void loadFirstPage(false)}>Refresh replies</Button>
             </CardContent></Card>
           ) : (
-            <div className="grid items-start gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)]">
-              <Card className={cn(selected && "hidden md:block")}>
+            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)]">
+              <Card className={cn("min-w-0", selected && "hidden md:block")}>
                 <CardContent className="space-y-3 py-4">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <Input aria-label="Search conversations" className="pl-9" placeholder="Search by name or number" value={search} onChange={(event) => setSearch(event.target.value)} />
+                    <Input aria-label="Search conversations" className="pl-9 text-base sm:text-sm" placeholder="Search by name or number" value={search} onChange={(event) => setSearch(event.target.value)} />
                   </div>
-                  <div className="flex gap-1.5" role="group" aria-label="Filter conversations">
+                  <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter conversations">
                     {([[false, "All conversations"], [true, "Unread"]] as const).map(([value, label]) => (
                       <button
                         key={label}
@@ -333,7 +407,7 @@ function RepliesPage() {
                         aria-pressed={unreadOnly === value}
                         onClick={() => setUnreadOnly(value)}
                         className={cn(
-                          "rounded-full border px-3 py-1 text-xs font-medium",
+                          "min-h-11 rounded-full border px-3 py-2 text-xs font-medium",
                           unreadOnly === value ? "border-brand-primary bg-brand-primary text-white" : "border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300",
                         )}
                       >
@@ -363,7 +437,7 @@ function RepliesPage() {
                     </p>
                   )}
 
-                  <div className="max-h-[32rem] space-y-1 overflow-y-auto">
+                  <div className="max-h-[min(32rem,55dvh)] space-y-1 overflow-y-auto overscroll-contain">
                     {conversations.map((item) => (
                       <button
                         key={item.phone}
@@ -371,7 +445,7 @@ function RepliesPage() {
                         aria-current={selected === item.phone}
                         onClick={() => void openConversation(item.phone)}
                         className={cn(
-                          "flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left",
+                          "flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left",
                           selected === item.phone ? "border-brand-primary bg-brand-primary/10" : "border-transparent hover:bg-slate-100 dark:hover:bg-slate-800",
                         )}
                       >
@@ -384,7 +458,7 @@ function RepliesPage() {
                       </button>
                     ))}
                     {nextCursor && (
-                      <Button type="button" variant="outline" size="sm" className="w-full" disabled={loadingMore} onClick={() => void loadMore()}>
+                      <Button type="button" variant="outline" size="sm" className="h-auto min-h-11 w-full whitespace-normal" disabled={loadingMore} onClick={() => void loadMore()}>
                         {loadingMore ? "Loading..." : "Load more conversations"}
                       </Button>
                     )}
@@ -392,40 +466,64 @@ function RepliesPage() {
                 </CardContent>
               </Card>
 
-              <Card className={cn(!selected && "hidden md:block")}>
-                <CardContent className="space-y-3 py-4">
+              <Card
+                className={cn(
+                  "min-w-0",
+                  !selected && "hidden md:block",
+                  mobileThreadView && "flex min-h-0 flex-col overflow-hidden",
+                )}
+                style={mobileThreadView && mobileThreadHeight ? { height: mobileThreadHeight } : undefined}
+              >
+                <CardContent className={cn(
+                  "space-y-3 py-4",
+                  mobileThreadView && "flex min-h-0 flex-1 flex-col gap-3 space-y-0 p-3",
+                )}>
                   {!selected ? (
                     <p className="py-16 text-center text-sm text-slate-500">Choose a conversation to read it.</p>
                   ) : (
                     <>
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <Button type="button" variant="ghost" size="sm" className="gap-1 md:hidden" onClick={() => { setSelected(null); setThread(null); }}>
-                            <ArrowLeft className="h-4 w-4" /> Back to conversations
+                      <div className="flex min-w-0 items-center gap-2">
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            aria-label="Back to conversations"
+                            className="h-auto min-h-11 shrink-0 gap-1 whitespace-nowrap px-2 md:hidden"
+                            onClick={() => { setSelected(null); setThread(null); }}
+                          >
+                            <ArrowLeft className="h-4 w-4" />
+                            <span className="sm:hidden">Inbox</span>
+                            <span className="hidden sm:inline">Back to conversations</span>
                           </Button>
-                          <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{title}</p>
+                          <p className="min-w-0 truncate text-sm font-semibold text-slate-900 dark:text-white">{title}</p>
                         </div>
-                        <div className="flex gap-1.5">
-                          <Button asChild variant="outline" size="sm" className="gap-1.5">
-                            <a href={`tel:+${selected}`}><Phone className="h-3.5 w-3.5" /> Call client</a>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <Button asChild variant="outline" size="sm" className="h-11 min-w-11 shrink-0 px-0 sm:px-3">
+                            <a href={`tel:+${selected}`} aria-label="Call client"><Phone className="h-4 w-4" /><span className="hidden sm:inline">Call client</span></a>
                           </Button>
-                          <Button asChild variant="outline" size="sm" className="gap-1.5">
-                            <a href={buildWhatsAppUrl(selected, "")} target="_blank" rel="noopener noreferrer"><MessageCircle className="h-3.5 w-3.5" /> Open in WhatsApp</a>
+                          <Button asChild variant="outline" size="sm" className="h-11 min-w-11 shrink-0 px-0 sm:px-3">
+                            <a href={buildWhatsAppUrl(selected, "")} target="_blank" rel="noopener noreferrer" aria-label="Open in WhatsApp"><MessageCircle className="h-4 w-4" /><span className="hidden sm:inline">Open in WhatsApp</span></a>
                           </Button>
                         </div>
                       </div>
 
                       <div
                         ref={threadScrollRef}
+                        data-whatsapp-thread-messages
                         onScroll={(event) => {
+                          if (viewportResizeRef.current) return;
                           const element = event.currentTarget;
                           stickToBottomRef.current = element.scrollHeight - element.scrollTop - element.clientHeight < 48;
                         }}
-                        className="max-h-[28rem] space-y-2 overflow-y-auto rounded-lg bg-slate-100 p-3 dark:bg-slate-800"
+                        className={cn(
+                          "min-h-32 max-h-[min(28rem,60dvh)] space-y-2 overflow-y-auto overscroll-contain rounded-lg bg-slate-100 p-3 dark:bg-slate-800",
+                          mobileThreadView && "min-h-0 max-h-none flex-1",
+                        )}
                       >
                         {thread?.hasOlder && (
                           <div className="text-center">
-                            <Button type="button" variant="outline" size="sm" disabled={loadingOlder} onClick={() => void loadOlder()}>
+                            <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={loadingOlder} onClick={() => void loadOlder()}>
                               {loadingOlder ? "Loading..." : "Load older messages"}
                             </Button>
                           </div>
@@ -439,15 +537,17 @@ function RepliesPage() {
                           </div>
                         )}
                         {thread?.messages.length === 0 && <p className="py-8 text-center text-sm text-slate-500">No WhatsApp messages with this number yet.</p>}
-                        {thread?.messages.map((message) => (
+                        {thread?.messages.filter((message) => !reactionGroups.attachedIds.has(message.id)).map((message) => (
                           <div key={message.id} className="space-y-1.5">
                             <div className={cn("flex", message.direction === "out" && "justify-end")}>
                               <div className={cn(
-                                "max-w-[85%] rounded-lg px-3 py-2 text-sm shadow-sm",
+                                "min-w-0 max-w-[85%] rounded-lg px-3 py-2 text-sm shadow-sm",
                                 message.direction === "out" ? "bg-brand-primary text-white" : "bg-white text-slate-800 dark:bg-slate-900 dark:text-slate-100",
                               )}>
                                 <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide">
                                   <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">{message.direction === "out" ? "You sent" : "Client sent"}</span>
+                                  {message.source === "whatsapp_business_app" && <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">WhatsApp app</span>}
+                                  {message.source === "synced_history" && <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">Synced history</span>}
                                   {message.kind !== "text" && <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">{message.kind === "template" ? "Template" : messageKindLabel(message.kind)}</span>}
                                 </div>
                                 {message.direction === "out" && message.kind === "template" ? (
@@ -455,14 +555,43 @@ function RepliesPage() {
                                     <p className="font-medium">{message.templateLabel || messageKindLabel(message.templateName || "template")}</p>
                                     <p className="mt-1 text-xs leading-relaxed opacity-80">The approved message content is managed in Meta and is not stored in this history.</p>
                                   </div>
+                                ) : message.kind === "reaction" ? (
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-2xl leading-none" aria-hidden="true">{reactionEmoji(message) || (reactionWasRemoved(message) ? "−" : "💬")}</span>
+                                    <div>
+                                      <p className="font-medium">{reactionEmoji(message) ? `Reacted ${reactionEmoji(message)}` : reactionWasRemoved(message) ? "Reaction removed" : "Reaction received"}</p>
+                                      <p className="mt-1 text-xs leading-relaxed opacity-80">
+                                        {reactionTargetId(message)
+                                          ? thread?.hasOlder ? "Load older messages to see which message this reaction refers to." : "The original message is not included in the loaded history."
+                                          : reactionWasRemoved(message)
+                                            ? "WhatsApp did not include a reference to the original message."
+                                            : "Emoji and original message details were not saved with this older event."}
+                                      </p>
+                                    </div>
+                                  </div>
                                 ) : message.text.trim() ? (
-                                  <p className="whitespace-pre-wrap break-words">{message.text}</p>
+                                  <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.text}</p>
                                 ) : (
                                   <div>
                                     <p>{mediaFallback(message.kind, message.direction)}</p>
                                     {message.direction === "in" && <p className="mt-1 text-xs opacity-75">{message.kind === "text" ? "The message text is not available in this conversation history." : "This inbox stores the message type, but not its media preview."}</p>}
                                   </div>
                                 )}
+                                {reactionGroups.byMessage.get(message.id)?.length ? (
+                                  <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Reactions to this message">
+                                    {reactionGroups.byMessage.get(message.id)!.map((reaction) => (
+                                      <span
+                                        key={reaction.id}
+                                        title={`${reaction.direction === "in" ? "Client" : "You"} reacted at ${shortTime(reaction.at)}`}
+                                        aria-label={`${reaction.direction === "in" ? "Client" : "You"} reacted ${reactionEmoji(reaction) || "removed a reaction"} at ${shortTime(reaction.at)}`}
+                                        className="inline-flex min-h-7 items-center gap-1 rounded-full border border-slate-300/70 bg-white/70 px-2 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900/50 dark:text-slate-100"
+                                      >
+                                        <span className="text-base leading-none">{reactionEmoji(reaction) || "−"}</span>
+                                        <span className="text-[9px] opacity-75">{shortTime(reaction.at)}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : null}
                                 <div className="flex items-center justify-end gap-1.5 pt-1 text-[10px] opacity-80">
                                   <span>{shortTime(message.at)}</span>
                                   {message.status && <span aria-label={`Delivery status: ${statusLabel(message.status)}`}>· {statusLabel(message.status)}</span>}
@@ -490,19 +619,43 @@ function RepliesPage() {
                       {thread && replyError && <WhatsAppFailureNotice reason={replyError} />}
 
                       {thread?.canReply ? (
-                        <div className="space-y-2">
-                          <p className="text-xs leading-relaxed text-slate-500">You can send a free-text reply within 24 hours of the client's latest WhatsApp message. A new client message starts that window again.</p>
-                          <Label htmlFor="wa-reply" className="text-xs">Your reply</Label>
-                          <Textarea id="wa-reply" rows={2} value={reply} onChange={(event) => setReply(event.target.value)} />
-                          <Button
-                            type="button"
-                            className="gap-1.5"
-                            disabled={!reply.trim() || sending}
-                            title={reply.trim() ? undefined : "Type your reply first"}
-                            onClick={() => void sendReply()}
-                          >
-                            <Send className="h-3.5 w-3.5" /> {sending ? "Sending..." : "Send reply"}
-                          </Button>
+                        <div className={cn(
+                          "space-y-2",
+                          mobileThreadView && "flex-none border-t border-slate-200 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] dark:border-slate-700",
+                        )}>
+                          <p className={cn("text-xs leading-relaxed text-slate-500", mobileThreadView && "hidden sm:block")}>
+                            You can send a free-text reply within 24 hours of the client's latest WhatsApp message. A new client message starts that window again.
+                          </p>
+                          {mobileThreadView && <p className="text-xs leading-tight text-slate-500 sm:hidden">Reply within 24 hours of the latest client message.</p>}
+                          <Label htmlFor="wa-reply" className={cn("text-xs", mobileThreadView && "sr-only")}>Your reply</Label>
+                          <div className="flex min-w-0 items-end gap-2">
+                            <Textarea
+                              id="wa-reply"
+                              rows={2}
+                              placeholder="Type your reply..."
+                              className={cn("text-base sm:text-sm", mobileThreadView && "min-h-[68px] flex-1 resize-none")}
+                              value={reply}
+                              onChange={(event) => setReply(event.target.value)}
+                              onFocus={() => {
+                                stickToBottomRef.current = true;
+                                window.requestAnimationFrame(() => {
+                                  const element = threadScrollRef.current;
+                                  if (element) element.scrollTop = element.scrollHeight;
+                                });
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              className={cn("min-h-11 gap-1.5", mobileThreadView && "h-11 w-11 shrink-0 p-0")}
+                              disabled={!reply.trim() || sending}
+                              title={reply.trim() ? undefined : "Type your reply first"}
+                              aria-label={sending ? "Sending reply" : "Send reply"}
+                              onClick={() => void sendReply()}
+                            >
+                              <Send className="h-4 w-4" />
+                              <span className={mobileThreadView ? "sr-only" : ""}>{sending ? "Sending..." : "Send reply"}</span>
+                            </Button>
+                          </div>
                         </div>
                       ) : thread ? (
                         <p className="text-xs text-amber-700">
