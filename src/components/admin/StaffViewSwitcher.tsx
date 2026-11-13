@@ -14,38 +14,71 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Eye, Truck, ChefHat, ShoppingCart, Sparkles, User, LayoutDashboard } from "lucide-react";
+import { Check, ChefHat, Eye, LayoutDashboard, ShoppingCart, Sparkles, Truck, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { normalizeRoleValue } from "@/lib/roleDerivation";
+import { deriveUserRoles, normalizeRoleValue } from "@/lib/roleDerivation";
 import { roleService } from "@/services/roleService";
+import { UserRole } from "@/types/app";
 
 interface StaffMember {
   id: string;
   full_name: string;
   email: string;
-  active_role: string;
-  role?: string;
+  active_role: UserRole;
+  roles: UserRole[];
 }
 
 interface ViewSwitcherProps {
   companySlug: string;
 }
 
+const DEPARTMENT_ROLES: Record<string, UserRole[]> = {
+  driver: [UserRole.DRIVER],
+  waiter: [UserRole.WAITER],
+  kitchen: [UserRole.KITCHEN_MANAGER, UserRole.KITCHEN_STAFF],
+  shopping: [UserRole.SHOPPING_STAFF],
+  cleaning: [UserRole.CLEANING_MANAGER, UserRole.CLEANING_STAFF],
+  admin: [UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER, UserRole.REGION_ADMIN, UserRole.SALES_ADMIN],
+};
+
+const STAFF_ROLE_GROUPS: Array<{ label: string; roles: UserRole[] }> = [
+  { label: "Administrators", roles: DEPARTMENT_ROLES.admin },
+  { label: "Drivers", roles: DEPARTMENT_ROLES.driver },
+  { label: "Waiters", roles: DEPARTMENT_ROLES.waiter },
+  { label: "Kitchen", roles: DEPARTMENT_ROLES.kitchen },
+  { label: "Shopping", roles: DEPARTMENT_ROLES.shopping },
+  { label: "Cleaning", roles: DEPARTMENT_ROLES.cleaning },
+];
+
+const PREVIEWABLE_ROLES = new Set<UserRole>(STAFF_ROLE_GROUPS.flatMap((group) => group.roles));
+
 export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
   const router = useRouter();
-  const { profile, authenticatedUser, userRoles, staffPreview, startStaffPreview, clearStaffPreview } = useAuth();
+  const {
+    profile,
+    authenticatedUser,
+    userRoles,
+    activeRole,
+    staffPreview,
+    startStaffPreview,
+    switchStaffPreviewRole,
+    clearStaffPreview,
+  } = useAuth();
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
-  const [currentView, setCurrentView] = useState<string>("admin");
+  const [currentView, setCurrentView] = useState("admin");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    loadStaffMembers();
+    void loadStaffMembers();
+  }, [profile?.company_id, authenticatedUser?.id]);
+
+  useEffect(() => {
     detectCurrentView();
-  }, [profile, router.pathname]);
+  }, [router.pathname, activeRole]);
 
   useEffect(() => {
     if (!isMobile || typeof document === "undefined") {
@@ -56,173 +89,198 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
   }, [isMobile]);
 
   const loadStaffMembers = async () => {
-    if (!profile?.company_id || !authenticatedUser?.id) return;
+    if (!profile?.company_id || !authenticatedUser?.id) {
+      setStaffMembers([]);
+      return;
+    }
 
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email, active_role, role")
+        .select("id, full_name, email, active_role, role, is_active, deleted_at")
         .eq("company_id", profile.company_id)
         .neq("id", authenticatedUser.id)
-        .neq("active_role", "super_admin")
         .order("active_role")
         .order("full_name");
-
       if (error) throw error;
-      setStaffMembers((data || []).map((staff) => ({
-        ...staff,
-        active_role: String(
-          normalizeRoleValue(staff.active_role, normalizeRoleValue(staff.role)) ||
-          staff.active_role ||
-          staff.role ||
-          "",
-        ),
-      })));
+
+      const activeProfiles = (data || []).filter((person) =>
+        person.is_active !== false && !person.deleted_at &&
+        person.role !== UserRole.SUPER_ADMIN && person.active_role !== UserRole.SUPER_ADMIN,
+      );
+      const personIds = activeProfiles.map((person) => person.id);
+      const assignmentsByPerson = new Map<string, Array<{ department?: string | null; is_primary?: boolean | null }>>();
+
+      if (personIds.length) {
+        const { data: assignments, error: assignmentsError } = await supabase
+          .from("user_departments")
+          .select("user_id, department, is_primary")
+          .in("user_id", personIds);
+        if (assignmentsError) throw assignmentsError;
+        for (const assignment of assignments || []) {
+          const rows = assignmentsByPerson.get(assignment.user_id) || [];
+          rows.push({ department: assignment.department, is_primary: assignment.is_primary });
+          assignmentsByPerson.set(assignment.user_id, rows);
+        }
+      }
+
+      const staff = activeProfiles.flatMap((person) => {
+        const resolved = deriveUserRoles({
+          profileRole: person.role,
+          activeRole: person.active_role,
+          departments: assignmentsByPerson.get(person.id) || [],
+        });
+        const roles = resolved.roles.filter((role) => PREVIEWABLE_ROLES.has(role));
+        if (!roles.length) return [];
+        return [{
+          id: person.id,
+          full_name: person.full_name || "",
+          email: person.email || "",
+          active_role: roles.includes(resolved.activeRole) ? resolved.activeRole : roles[0],
+          roles,
+        }];
+      });
+      setStaffMembers(staff);
     } catch (error) {
-      console.error("Error loading staff:", error);
+      console.error("Error loading staff accounts for preview:", error);
+      toast({
+        title: "Staff accounts could not be loaded",
+        description: "Refresh the page or check that your account has administrator access.",
+        variant: "destructive",
+      });
     }
   };
 
   const detectCurrentView = () => {
     const path = router.pathname;
-    
-    if (path.includes("/team-portal/driver")) {
-      setCurrentView("driver");
-    } else if (path.includes("/team-portal/waiter")) {
-      setCurrentView("waiter");
-    } else if (path.includes("/team-portal/kitchen")) {
-      setCurrentView("kitchen");
-    } else if (path.includes("/team-portal/shopping")) {
-      setCurrentView("shopping");
-    } else if (path.includes("/team-portal/cleaning")) {
-      setCurrentView("cleaning");
-    } else if (path.includes("/admin")) {
-      setCurrentView("admin");
-    }
+    if (path.includes("/team-portal/driver")) setCurrentView("driver");
+    else if (path.includes("/team-portal/waiter")) setCurrentView("waiter");
+    else if (path.includes("/team-portal/kitchen")) setCurrentView("kitchen");
+    else if (path.includes("/team-portal/shopping")) setCurrentView("shopping");
+    else if (path.includes("/team-portal/cleaning")) setCurrentView("cleaning");
+    else if (path.includes("/admin")) setCurrentView("admin");
   };
 
   const withTeamSlug = (href: string) => companySlug ? `/${companySlug}${href}` : href;
-
-  const switchToDepartmentView = (department: string) => {
-    const routes: Record<string, string> = {
-      driver: withTeamSlug("/team-portal/driver/dashboard"),
-      waiter: withTeamSlug("/team-portal/waiter/dashboard"),
-      kitchen: withTeamSlug("/team-portal/kitchen/today"),
-      shopping: withTeamSlug("/team-portal/shopping/dashboard"),
-      cleaning: withTeamSlug("/team-portal/cleaning/dashboard"),
-      admin: companySlug ? `/${companySlug}/admin/dashboard` : "/admin/dashboard",
+  const staffCountForDepartment = (department: string) => {
+    const roles = DEPARTMENT_ROLES[department] || [];
+    return staffMembers.filter((staff) => roles.some((role) => staff.roles.includes(role))).length;
+  };
+  const routeForRole = (role: UserRole) => {
+    const routes: Partial<Record<UserRole, string>> = {
+      [UserRole.COMPANY_ADMIN]: withTeamSlug("/admin/dashboard"),
+      [UserRole.ADMIN]: withTeamSlug("/admin/dashboard"),
+      [UserRole.OWNER]: withTeamSlug("/admin/dashboard"),
+      [UserRole.REGION_ADMIN]: withTeamSlug("/admin/dashboard"),
+      [UserRole.SALES_ADMIN]: withTeamSlug("/admin/dashboard"),
+      [UserRole.DRIVER]: withTeamSlug("/team-portal/driver/dashboard"),
+      [UserRole.WAITER]: withTeamSlug("/team-portal/waiter/dashboard"),
+      [UserRole.KITCHEN_MANAGER]: withTeamSlug("/team-portal/kitchen/today"),
+      [UserRole.KITCHEN_STAFF]: withTeamSlug("/team-portal/kitchen/today"),
+      [UserRole.SHOPPING_STAFF]: withTeamSlug("/team-portal/shopping/dashboard"),
+      [UserRole.CLEANING_MANAGER]: withTeamSlug("/team-portal/cleaning/dashboard"),
+      [UserRole.CLEANING_STAFF]: withTeamSlug("/team-portal/cleaning/dashboard"),
     };
+    return routes[role] || withTeamSlug("/admin/dashboard");
+  };
 
-    if (staffPreview && department !== "admin") {
-      const departmentRoles: Record<string, string[]> = {
-        driver: ["driver"],
-        waiter: ["waiter"],
-        kitchen: ["kitchen_manager", "kitchen_staff"],
-        shopping: ["shopping_staff"],
-        cleaning: ["cleaning_manager", "cleaning_staff"],
-      };
-      const assignedRoles = departmentRoles[department] || [];
-      if (!assignedRoles.some((role) => userRoles.includes(role as any))) {
-        toast({
-          title: "This account has no access to that portal",
-          description: "Choose a staff account assigned to that role, or select another role from this account.",
-          variant: "destructive",
-        });
+  const navigateToRole = async (role: UserRole) => {
+    if (staffPreview) await switchStaffPreviewRole(role);
+    setViewMenuOpen(false);
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("cms:portal-nav-close"));
+    await router.push(routeForRole(role));
+  };
+
+  const switchToDepartmentView = async (department: string) => {
+    if (department === "admin") {
+      const matchingRole = userRoles.find((role) => DEPARTMENT_ROLES.admin.includes(role));
+      if (staffPreview && matchingRole) {
+        try {
+          await navigateToRole(matchingRole);
+        } catch (error) {
+          showNavigationError(error);
+        }
         return;
       }
-    }
-
-    if (department === "admin" || !staffPreview) clearStaffPreview();
-    if (typeof window !== "undefined") window.dispatchEvent(new Event("cms:portal-nav-close"));
-    setLoading(true);
-    router.push(routes[department] || routes.admin).finally(() => setLoading(false));
-  };
-
-  const switchToStaffView = (staffMember: StaffMember) => {
-    setLoading(true);
-    const roleRoutes: Record<string, string> = {
-      company_admin: withTeamSlug("/admin/dashboard"),
-      admin: withTeamSlug("/admin/dashboard"),
-      owner: withTeamSlug("/admin/dashboard"),
-      region_admin: withTeamSlug("/admin/dashboard"),
-      sales_admin: withTeamSlug("/admin/dashboard"),
-      driver: withTeamSlug("/team-portal/driver/dashboard"),
-      waiter: withTeamSlug("/team-portal/waiter/dashboard"),
-      server: withTeamSlug("/team-portal/waiter/dashboard"),
-      waitering: withTeamSlug("/team-portal/waiter/dashboard"),
-      kitchen_manager: withTeamSlug("/team-portal/kitchen/today"),
-      kitchen_staff: withTeamSlug("/team-portal/kitchen/today"),
-      kitchen: withTeamSlug("/team-portal/kitchen/today"),
-      shopping_staff: withTeamSlug("/team-portal/shopping/dashboard"),
-      shopping: withTeamSlug("/team-portal/shopping/dashboard"),
-      cleaning_manager: withTeamSlug("/team-portal/cleaning/dashboard"),
-      cleaning_staff: withTeamSlug("/team-portal/cleaning/dashboard"),
-      cleaning: withTeamSlug("/team-portal/cleaning/dashboard"),
-    };
-
-    const route = roleRoutes[staffMember.active_role];
-    if (!route) {
-      setLoading(false);
+      clearStaffPreview();
+      setViewMenuOpen(false);
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("cms:portal-nav-close"));
+      setLoading(true);
+      void router.push(withTeamSlug("/admin/dashboard")).finally(() => setLoading(false));
       return;
     }
-    void startStaffPreview(staffMember.id)
-      .then(() => {
-        setViewMenuOpen(false);
-        if (typeof window !== "undefined") window.dispatchEvent(new Event("cms:portal-nav-close"));
-        return router.push(route);
-      })
-      .catch((error) => {
-        toast({
-          title: "Could not open this staff dashboard",
-          description: error instanceof Error ? error.message : "Please refresh and try again.",
-          variant: "destructive",
-        });
-      })
-      .finally(() => setLoading(false));
-  };
 
-  const getViewLabel = () => {
-    if (staffPreview) {
-      return `${staffPreview.fullName} · ${roleService.getRoleDisplayName(staffPreview.role)}`;
+    const roleOptions = DEPARTMENT_ROLES[department] || [];
+    const currentRole = staffPreview ? roleOptions.find((role) => userRoles.includes(role)) : undefined;
+    if (currentRole) {
+      try {
+        await navigateToRole(currentRole);
+      } catch (error) {
+        showNavigationError(error);
+      }
+      return;
     }
-    const labels: Record<string, string> = {
-      admin: "Admin View",
-      company_admin: "Business Administrator",
-      owner: "Company Owner",
-      region_admin: "Region Admin",
-      sales_admin: "Sales Admin",
-      operations_admin: "Operations Administrator",
-      driver: "Driver Dashboard",
-      waiter: "Waiter Dashboard",
-      kitchen: "Kitchen Today",
-      shopping: "Shopping Dashboard",
-      cleaning: "Cleaning Dashboard",
-    };
-    return labels[currentView] || "Unknown View";
+
+    const staff = staffMembers.find((person) => roleOptions.some((role) => person.roles.includes(role)));
+    if (!staff) {
+      toast({
+        title: "No staff account has that portal",
+        description: "Assign the role to a staff account, then open that account from this menu.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const role = roleOptions.find((candidate) => staff.roles.includes(candidate)) || staff.active_role;
+    await switchToStaffView(staff, role);
   };
 
-  // Group staff by role
-  const staffByRole = {
-    driver: staffMembers.filter(s => s.active_role === "driver"),
-    waiter: staffMembers.filter(s => s.active_role === "waiter"),
-    kitchen_staff: staffMembers.filter(s => s.active_role === "kitchen_staff" || s.active_role === "kitchen_manager"),
-    shopping_staff: staffMembers.filter(s => s.active_role === "shopping_staff"),
-    cleaning_staff: staffMembers.filter(s => s.active_role === "cleaning_staff" || s.active_role === "cleaning_manager"),
-    company_admin: staffMembers.filter(s => s.active_role === "company_admin"),
-    admin: staffMembers.filter(s => s.active_role === "admin"),
-    owner: staffMembers.filter(s => s.active_role === "owner"),
-    region_admin: staffMembers.filter(s => s.active_role === "region_admin"),
-    sales_admin: staffMembers.filter(s => s.active_role === "sales_admin"),
+  const showNavigationError = (error: unknown) => {
+    toast({
+      title: "Could not open that portal",
+      description: error instanceof Error ? error.message : "Please refresh and try again.",
+      variant: "destructive",
+    });
   };
+
+  const switchToStaffView = async (staffMember: StaffMember, role = staffMember.active_role) => {
+    if (!staffMember.roles.includes(role)) return;
+    setLoading(true);
+    try {
+      await startStaffPreview(staffMember.id, role);
+      setViewMenuOpen(false);
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("cms:portal-nav-close"));
+      await router.push(routeForRole(role));
+    } catch (error) {
+      showNavigationError(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getViewLabel = () => staffPreview
+    ? `${staffPreview.fullName} · ${roleService.getRoleDisplayName(staffPreview.role)}`
+    : currentView === "admin" ? "Admin View" : `${currentView} dashboard`;
+
+  const staffByRole = Object.fromEntries(
+    STAFF_ROLE_GROUPS.map(({ label, roles }) => [
+      label,
+      staffMembers.filter((staff) => roles.some((role) => staff.roles.includes(role))),
+    ]),
+  ) as Record<string, StaffMember[]>;
+  const departmentViews = [
+    { id: "driver", label: "Driver", icon: Truck },
+    { id: "waiter", label: "Waiter", icon: Sparkles },
+    { id: "kitchen", label: "Kitchen", icon: ChefHat },
+    { id: "shopping", label: "Shopping", icon: ShoppingCart },
+    { id: "cleaning", label: "Cleaning", icon: Sparkles },
+  ];
 
   const accountRoles = [profile?.role, profile?.active_role, ...userRoles].map((role) => String(role || ""));
   const canSwitchWorkspace = Boolean(staffPreview) || accountRoles.some((role) =>
-    ["company_admin", "admin", "owner", "super_admin"].includes(role),
+    [UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER, UserRole.SUPER_ADMIN].includes(role as UserRole),
   );
 
-  if (!canSwitchWorkspace) {
-    return null;
-  }
+  if (!canSwitchWorkspace) return null;
 
   return (
     <DropdownMenu open={viewMenuOpen} onOpenChange={setViewMenuOpen}>
@@ -247,252 +305,87 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
         className={`z-[1200] ${isMobile ? "max-h-[min(55dvh,var(--radix-dropdown-menu-content-available-height))]" : "max-h-[min(80vh,34rem)]"} w-[min(22rem,calc(100vw-2rem))] overflow-x-hidden overflow-y-auto border-slate-200 bg-white text-slate-900 shadow-2xl dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 [&_[role=menuitem]]:min-h-11`}
       >
         <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium">Switch workspace</p>
-            <p className="text-xs text-muted-foreground">
-              Preview an employee’s portal across pages
-            </p>
-          </div>
+          <span className="block text-sm font-medium">Switch workspace</span>
+          <span className="block text-xs text-muted-foreground">Open a staff portal and keep access as you move around</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
-        {/* Admin View */}
         <DropdownMenuGroup>
-          <DropdownMenuLabel className="text-xs text-muted-foreground px-2 py-1">
-            Admin
-          </DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => switchToDepartmentView("admin")}>
+          <DropdownMenuLabel className="px-2 py-1 text-xs text-muted-foreground">Administrator</DropdownMenuLabel>
+          <DropdownMenuItem onClick={() => { void switchToDepartmentView("admin"); }}>
             <LayoutDashboard className="mr-2 h-4 w-4" />
-            <span>Admin Dashboard</span>
-            {currentView === "admin" && (
-              <Badge className="ml-auto bg-slate-900 text-white text-xs dark:bg-white dark:text-slate-950">Current</Badge>
-            )}
+            <span className="min-w-0 flex-1 truncate">{staffPreview ? "Return to admin workspace" : "Admin dashboard"}</span>
+            {!staffPreview && currentView === "admin" && <Badge className="ml-auto text-xs">Current</Badge>}
           </DropdownMenuItem>
         </DropdownMenuGroup>
 
         {staffPreview && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => switchToDepartmentView("admin")}>
-              <Eye className="mr-2 h-4 w-4" />
-              <span className="min-w-0 flex-1 truncate">Exit preview · {staffPreview.fullName}</span>
-            </DropdownMenuItem>
-          </>
-        )}
-
-        <DropdownMenuSeparator />
-
-        {/* Department Views */}
-        <DropdownMenuGroup>
-          <DropdownMenuLabel className="text-xs text-muted-foreground px-2 py-1">
-            Department Dashboards
-          </DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => switchToDepartmentView("driver")}>
-            <Truck className="mr-2 h-4 w-4" />
-            <span>Driver Portal</span>
-            {currentView === "driver" && (
-              <Badge className="ml-auto bg-slate-900 text-white text-xs dark:bg-white dark:text-slate-950">Current</Badge>
-            )}
-            {currentView !== "driver" && staffByRole.driver.length > 0 && (
-              <Badge variant="secondary" className="ml-auto text-xs">
-                {staffByRole.driver.length}
-              </Badge>
-            )}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => switchToDepartmentView("waiter")}>
-            <Sparkles className="mr-2 h-4 w-4" />
-            <span>Waiter Portal</span>
-            {currentView === "waiter" && (
-              <Badge className="ml-auto bg-slate-900 text-white text-xs dark:bg-white dark:text-slate-950">Current</Badge>
-            )}
-            {currentView !== "waiter" && staffByRole.waiter.length > 0 && (
-              <Badge variant="secondary" className="ml-auto text-xs">
-                {staffByRole.waiter.length}
-              </Badge>
-            )}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => switchToDepartmentView("kitchen")}>
-            <ChefHat className="mr-2 h-4 w-4" />
-            <span>Kitchen Portal</span>
-            {currentView === "kitchen" && (
-              <Badge className="ml-auto bg-slate-900 text-white text-xs dark:bg-white dark:text-slate-950">Current</Badge>
-            )}
-            {currentView !== "kitchen" && staffByRole.kitchen_staff.length > 0 && (
-              <Badge variant="secondary" className="ml-auto text-xs">
-                {staffByRole.kitchen_staff.length}
-              </Badge>
-            )}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => switchToDepartmentView("shopping")}>
-            <ShoppingCart className="mr-2 h-4 w-4" />
-            <span>Shopping Portal</span>
-            {currentView === "shopping" && (
-              <Badge className="ml-auto bg-slate-900 text-white text-xs dark:bg-white dark:text-slate-950">Current</Badge>
-            )}
-            {currentView !== "shopping" && staffByRole.shopping_staff.length > 0 && (
-              <Badge variant="secondary" className="ml-auto text-xs">
-                {staffByRole.shopping_staff.length}
-              </Badge>
-            )}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => switchToDepartmentView("cleaning")}>
-            <Sparkles className="mr-2 h-4 w-4" />
-            <span>Cleaning Portal</span>
-            {currentView === "cleaning" && (
-              <Badge className="ml-auto bg-slate-900 text-white text-xs dark:bg-white dark:text-slate-950">Current</Badge>
-            )}
-            {currentView !== "cleaning" && staffByRole.cleaning_staff.length > 0 && (
-              <Badge variant="secondary" className="ml-auto text-xs">
-                {staffByRole.cleaning_staff.length}
-              </Badge>
-            )}
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-
-        {/* Staff Member Views */}
-        {staffMembers.length > 0 && (
-          <>
-            <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuLabel className="text-xs text-muted-foreground px-2 py-1">
-                Preview a staff account
+              <DropdownMenuLabel className="px-2 py-1 text-xs text-muted-foreground">
+                Portals for {staffPreview.fullName}
               </DropdownMenuLabel>
-
-              {(staffByRole.company_admin.length + staffByRole.admin.length + staffByRole.owner.length + staffByRole.region_admin.length + staffByRole.sales_admin.length) > 0 && (
-                <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Administrators
-                  </div>
-                  {[...staffByRole.company_admin, ...staffByRole.admin, ...staffByRole.owner, ...staffByRole.region_admin, ...staffByRole.sales_admin].map((staff) => (
-                    <DropdownMenuItem
-                      key={staff.id}
-                      onClick={() => switchToStaffView(staff)}
-                      disabled={loading}
-                      className="pl-8"
-                    >
-                      <Eye className="mr-2 h-3 w-3" />
-                      <span className="min-w-0 flex-1 truncate text-sm">{staff.full_name || staff.email}</span>
-                      {staffPreview?.userId === staff.id && (
-                        <Badge className="ml-auto text-xs">Viewing</Badge>
-                      )}
-                    </DropdownMenuItem>
-                  ))}
-                </>
-              )}
-              
-              {/* Drivers */}
-              {staffByRole.driver.length > 0 && (
-                <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Drivers
-                  </div>
-                  {staffByRole.driver.map((staff) => (
-                    <DropdownMenuItem
-                      key={staff.id}
-                      onClick={() => switchToStaffView(staff)}
-                      disabled={loading}
-                      className="pl-8"
-                    >
-                      <User className="mr-2 h-3 w-3" />
-                      <span className="text-sm">{staff.full_name}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </>
-              )}
-
-              {/* Waiters */}
-              {staffByRole.waiter.length > 0 && (
-                <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 mt-2">
-                    Waiters
-                  </div>
-                  {staffByRole.waiter.map((staff) => (
-                    <DropdownMenuItem
-                      key={staff.id}
-                      onClick={() => switchToStaffView(staff)}
-                      disabled={loading}
-                      className="pl-8"
-                    >
-                      <User className="mr-2 h-3 w-3" />
-                      <span className="text-sm">{staff.full_name}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </>
-              )}
-
-              {/* Kitchen Staff */}
-              {staffByRole.kitchen_staff.length > 0 && (
-                <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 mt-2">
-                    Kitchen Staff
-                  </div>
-                  {staffByRole.kitchen_staff.map((staff) => (
-                    <DropdownMenuItem
-                      key={staff.id}
-                      onClick={() => switchToStaffView(staff)}
-                      disabled={loading}
-                      className="pl-8"
-                    >
-                      <User className="mr-2 h-3 w-3" />
-                      <span className="text-sm">{staff.full_name}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </>
-              )}
-
-              {/* Shopping Staff */}
-              {staffByRole.shopping_staff.length > 0 && (
-                <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 mt-2">
-                    Shopping Staff
-                  </div>
-                  {staffByRole.shopping_staff.map((staff) => (
-                    <DropdownMenuItem
-                      key={staff.id}
-                      onClick={() => switchToStaffView(staff)}
-                      disabled={loading}
-                      className="pl-8"
-                    >
-                      <User className="mr-2 h-3 w-3" />
-                      <span className="text-sm">{staff.full_name}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </>
-              )}
-
-              {/* Cleaning Staff */}
-              {staffByRole.cleaning_staff.length > 0 && (
-                <>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 mt-2">
-                    Cleaning Staff
-                  </div>
-                  {staffByRole.cleaning_staff.map((staff) => (
-                    <DropdownMenuItem
-                      key={staff.id}
-                      onClick={() => switchToStaffView(staff)}
-                      disabled={loading}
-                      className="pl-8"
-                    >
-                      <User className="mr-2 h-3 w-3" />
-                      <span className="text-sm">{staff.full_name}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </>
-              )}
+              {userRoles.map((role) => (
+                <DropdownMenuItem
+                  key={role}
+                  disabled={loading || role === staffPreview.role}
+                  onClick={() => { void navigateToRole(role).catch(showNavigationError); }}
+                >
+                  <User className="mr-2 h-4 w-4" />
+                  <span className="min-w-0 flex-1 truncate">{roleService.getRoleDisplayName(role)}</span>
+                  {role === staffPreview.role && <Check className="ml-auto h-4 w-4 text-emerald-600" />}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuItem onClick={() => { void switchToDepartmentView("admin"); }}>
+                <Eye className="mr-2 h-4 w-4" />
+                <span className="min-w-0 flex-1 truncate">Exit preview · {staffPreview.fullName}</span>
+              </DropdownMenuItem>
             </DropdownMenuGroup>
           </>
         )}
 
-        {staffMembers.length === 0 && (
-          <>
-            <DropdownMenuSeparator />
-            <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-              No staff members yet.
-              <br />
-              Add staff to view their dashboards.
-            </div>
-          </>
-        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="px-2 py-1 text-xs text-muted-foreground">Department dashboards</DropdownMenuLabel>
+          {departmentViews.map(({ id, label, icon: Icon }) => (
+            <DropdownMenuItem key={id} onClick={() => { void switchToDepartmentView(id); }}>
+              <Icon className="mr-2 h-4 w-4" />
+              <span className="min-w-0 flex-1 truncate">{label} portal</span>
+              {currentView === id && <Badge className="ml-auto text-xs">Current</Badge>}
+              {currentView !== id && staffCountForDepartment(id) > 0 && (
+                <Badge variant="secondary" className="ml-auto text-xs">
+                  {staffCountForDepartment(id)}
+                </Badge>
+              )}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="px-2 py-1 text-xs text-muted-foreground">All staff accounts</DropdownMenuLabel>
+          {staffMembers.map((staff) => (
+            <DropdownMenuItem
+              key={staff.id}
+              onClick={() => { void switchToStaffView(staff); }}
+              disabled={loading}
+              className="items-start"
+            >
+              <User className="mr-2 mt-0.5 h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm">{staff.full_name || staff.email}</span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {staff.roles.map((role) => roleService.getRoleDisplayName(role)).join(" · ")}
+                </span>
+              </span>
+              {staffPreview?.userId === staff.id && <Badge className="ml-2 shrink-0 text-xs">Viewing</Badge>}
+            </DropdownMenuItem>
+          ))}
+          {staffMembers.length === 0 && (
+            <div className="px-2 py-5 text-center text-sm text-muted-foreground">No active staff accounts are available.</div>
+          )}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

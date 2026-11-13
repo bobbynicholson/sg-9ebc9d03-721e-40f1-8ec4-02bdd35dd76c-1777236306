@@ -51,7 +51,7 @@ export function OperationalPortalPageShell({
   switchBorderClassName,
   switchDescription,
 }: OperationalPortalPageShellProps) {
-  const { isStaffPreview, isStaffPreviewLoading } = useAuth();
+  const { isStaffPreviewLoading } = useAuth();
 
   if (isStaffPreviewLoading) return <PwaLoadingScreen />;
 
@@ -67,30 +67,28 @@ export function OperationalPortalPageShell({
       <div className="min-h-screen overflow-x-hidden pt-16 lg:pl-72 lg:pt-0 xl:pl-80">
         <PortalShell width={width === "narrow" ? "narrow" : "default"}>
           <StaffPreviewBanner />
-          <div {...(isStaffPreview ? { inert: "" } as any : {})}>
-            <PortalRoleSwitchBar
-              borderClassName={switchBorderClassName}
-              description={switchDescription}
-            />
-            <PortalHeader
-              variant="hero"
-              title={heading}
-              subtitle={subheading}
-              icon={icon}
-              actions={headerAction}
-              meta={meta}
-            />
-            <PageWorkbench />
-            {overview}
+          <PortalRoleSwitchBar
+            borderClassName={switchBorderClassName}
+            description={switchDescription}
+          />
+          <PortalHeader
+            variant="hero"
+            title={heading}
+            subtitle={subheading}
+            icon={icon}
+            actions={headerAction}
+            meta={meta}
+          />
+          <PageWorkbench />
+          {overview}
 
-            <div id="main-content">{children}</div>
+          <div id="main-content">{children}</div>
 
-            {!hideFooter && (
-              <div className="mt-12">
-                <Footer />
-              </div>
-            )}
-          </div>
+          {!hideFooter && (
+            <div className="mt-12">
+              <Footer />
+            </div>
+          )}
         </PortalShell>
       </div>
     </>

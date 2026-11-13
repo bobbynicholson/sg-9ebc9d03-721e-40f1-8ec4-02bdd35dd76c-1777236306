@@ -31,6 +31,7 @@ interface StoredStaffPreview {
   adminUserId: string;
   companyId: string | null;
   targetUserId: string;
+  activeRole?: UserRole;
 }
 
 interface StaffPreviewState {
@@ -719,7 +720,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile((current) => current ? { ...current, active_role: newRole } : current);
   };
 
-  const requestStaffPreview = async (targetUserId: string) => {
+  const requestStaffPreview = async (targetUserId: string, requestedRole?: UserRole) => {
     if (!user?.id) throw new Error("Sign in again before opening a staff preview.");
     const requestId = ++staffPreviewRequestRef.current;
     const { data: sessionData } = await supabase.auth.getSession();
@@ -755,6 +756,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!targetProfile.id || targetRoles.length === 0) {
       throw new Error("That account does not have an active portal to preview.");
     }
+    const selectedRole = requestedRole && targetRoles.includes(requestedRole)
+      ? requestedRole
+      : String(targetProfile.active_role || "") as UserRole;
+    if (selectedRole && targetRoles.includes(selectedRole)) {
+      targetProfile.active_role = selectedRole;
+    }
 
     const preview: StaffPreviewState = {
       adminUserId: user.id,
@@ -768,9 +775,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         adminUserId: user.id,
         companyId: preview.companyId,
         targetUserId: String(targetProfile.id),
+        activeRole: String(targetProfile.active_role || "") as UserRole,
       } satisfies StoredStaffPreview));
     } catch {
       // The current tab still previews correctly if storage is unavailable.
+    }
+  };
+
+  const switchStaffPreviewRole = async (newRole: UserRole) => {
+    if (!staffPreviewState || !staffPreviewState.roles.includes(newRole)) {
+      throw new Error("That portal is not assigned to the selected staff account.");
+    }
+    setStaffPreviewState((current) => current
+      ? { ...current, profile: { ...current.profile, active_role: newRole } }
+      : current,
+    );
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(STAFF_PREVIEW_STORAGE_KEY) || "null") as StoredStaffPreview | null;
+      if (stored && stored.adminUserId === staffPreviewState.adminUserId && stored.targetUserId === String(staffPreviewState.profile.id)) {
+        window.localStorage.setItem(STAFF_PREVIEW_STORAGE_KEY, JSON.stringify({ ...stored, activeRole: newRole } satisfies StoredStaffPreview));
+      }
+    } catch {
+      // The selected portal remains active for this tab if storage is unavailable.
     }
   };
 
@@ -805,7 +831,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false;
     setIsStaffPreviewLoading(true);
-    void requestStaffPreview(stored.targetUserId)
+    void requestStaffPreview(stored.targetUserId, stored.activeRole)
       .catch((error) => {
         console.warn("[AuthContext] staff preview could not be restored:", error);
         window.localStorage.removeItem(STAFF_PREVIEW_STORAGE_KEY);
@@ -845,6 +871,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updateProfile = async (updates: Partial<DbProfile>) => {
+    if (staffPreviewState) {
+      const updated = await profileService.updateProfile(String(staffPreviewState.profile.id), updates);
+      if (updated) {
+        setStaffPreviewState((current) => current
+          ? { ...current, profile: updated as DbProfile }
+          : current,
+        );
+      }
+      return;
+    }
     if (user && profile) {
       await profileService.updateProfile(user.id, updates);
       setProfile({ ...profile, ...updates });
@@ -907,6 +943,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isStaffPreview: Boolean(activeStaffPreview),
     isStaffPreviewLoading,
     startStaffPreview: requestStaffPreview,
+    switchStaffPreviewRole,
     clearStaffPreview,
     switchRole,
     signIn,

@@ -32,7 +32,7 @@ export function StaffPreviewBanner() {
             Previewing {staffPreview.fullName} · {roleName}
           </p>
           <p className="mt-0.5 text-xs text-indigo-800/80 dark:text-indigo-200/80">
-            Showing this account’s data. Page controls are read-only during preview.
+            Showing this account’s data. Actions use your administrator access.
           </p>
         </div>
       </div>

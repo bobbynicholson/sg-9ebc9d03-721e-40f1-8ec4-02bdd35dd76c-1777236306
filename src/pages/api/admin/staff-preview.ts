@@ -5,7 +5,7 @@ import { deriveUserRoles } from "@/lib/roleDerivation";
 
 const ADMIN_ROLES = new Set(["super_admin", "owner", "company_admin", "admin"]);
 
-/** Resolve a same-company staff identity for an administrator's read-only preview. */
+/** Resolve a same-company staff identity for an administrator's portal preview. */
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");

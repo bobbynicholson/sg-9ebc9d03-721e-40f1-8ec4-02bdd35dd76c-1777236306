@@ -65,7 +65,8 @@ export interface AuthContextType {
   staffPreview: StaffPreviewIdentity | null;
   isStaffPreview: boolean;
   isStaffPreviewLoading: boolean;
-  startStaffPreview: (targetUserId: string) => Promise<void>;
+  startStaffPreview: (targetUserId: string, activeRole?: UserRole) => Promise<void>;
+  switchStaffPreviewRole: (activeRole: UserRole) => Promise<void>;
   clearStaffPreview: () => void;
   switchRole: (newRole: UserRole) => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ user: unknown; error: { message: string } | null }>;
