@@ -1437,7 +1437,19 @@ function AdminLeadsInner() {
                       <div className="flex items-center justify-between flex-wrap gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-3 mb-2 flex-wrap">
-                            <h3 className="font-semibold text-slate-900">{lead.client_name}</h3>
+                            <h3 className="font-semibold text-slate-900">
+                              <button
+                                type="button"
+                                aria-expanded={expandedLeadId === lead.id}
+                                aria-controls={`lead-details-${lead.id}`}
+                                onClick={() => setExpandedLeadId(expandedLeadId === lead.id ? null : lead.id)}
+                                className="inline-flex items-center gap-1.5 rounded-sm text-left underline decoration-transparent underline-offset-4 transition hover:text-brand-primary hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
+                                title={`${expandedLeadId === lead.id ? "Hide" : "Open"} details for ${lead.client_name || "this lead"}`}
+                              >
+                                {lead.client_name || "Unknown lead"}
+                                <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${expandedLeadId === lead.id ? "rotate-180" : ""}`} aria-hidden="true" />
+                              </button>
+                            </h3>
                             <RegionBadge regionId={(lead as any).region_id} />
                             <Badge className={getStatusColor(lead.status || "new")}>
                               {lead.status || "new"}
@@ -1811,7 +1823,7 @@ function AdminLeadsInner() {
                         </div>
                       </div>
                       {expandedLeadId === lead.id && (
-                        <div className="mt-4 pt-4 border-t border-slate-200 text-sm">
+                        <div id={`lead-details-${lead.id}`} className="mt-4 pt-4 border-t border-slate-200 text-sm">
                           {/* Provenance caption - tells the operator
                               which underlying record we're reading
                               from. Keeps drift bugs visible: if a

@@ -2235,12 +2235,7 @@ function AdminQuotesInner() {
               }}
               withSlug={withSlug}
               onOpen={(quoteId) => {
-                setFocusedQuoteId(quoteId);
-                setBucket("all");
-                setTimeout(() => {
-                  document.getElementById(`quote-${quoteId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-                  setViewMode("list");
-                }, 0);
+                void router.push(withSlug(`/admin/quotes/${quoteId}`));
               }}
             />
           )}
@@ -2389,7 +2384,15 @@ function AdminQuotesInner() {
                       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between xl:gap-0">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-3 mb-3 flex-wrap">
-                            <h3 className="text-xl font-semibold text-slate-900">{quote.client_name}</h3>
+                            <h3 className="text-xl font-semibold text-slate-900">
+                              <Link
+                                href={withSlug(`/admin/quotes/${quote.id}`)}
+                                className="rounded-sm underline decoration-transparent underline-offset-4 transition hover:text-brand-primary hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
+                                aria-label={`Open quote for ${quote.client_name || "this client"}`}
+                              >
+                                {quote.client_name || "Unknown client"}
+                              </Link>
+                            </h3>
                             {(quote as any).quote_number && (
                               <button
                                 type="button"
