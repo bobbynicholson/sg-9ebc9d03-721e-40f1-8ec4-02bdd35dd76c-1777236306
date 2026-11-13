@@ -68,10 +68,10 @@ async function loadThread(sb: any, companyId: string, phone: string, req: NextAp
 
   let received = sb.from("whatsapp_inbound_messages").select("id, wa_message_id, contact_name, body, message_type, received_at, related_message_id, reaction_emoji")
     .eq("company_id", companyId).eq("from_phone", phone).order("received_at", { ascending: false }).order("id", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
-  let sent = sb.from("whatsapp_messages").select("id, gateway_message_id, recipient_name, message_content, message_type, template_name, status, failure_reason, created_at")
+  let sent = sb.from("whatsapp_messages").select("id, gateway_message_id, enqueued_by, recipient_name, message_content, message_type, template_name, status, failure_reason, created_at")
     .eq("company_id", companyId).eq("recipient_phone", phone).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
   let external = sb.from("whatsapp_external_messages")
-    .select("id, wa_message_id, direction, body, message_type, status, source, message_at, related_message_id, reaction_emoji")
+    .select("id, wa_message_id, direction, contact_name, body, message_type, status, source, message_at, related_message_id, reaction_emoji")
     .eq("company_id", companyId).eq("contact_phone", phone)
     .order("message_at", { ascending: false }).order("id", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
   const constrainBefore = (query: any, column: string) => before
@@ -97,7 +97,7 @@ async function loadThread(sb: any, companyId: string, phone: string, req: NextAp
     external,
     sb.from("whatsapp_inbound_messages").select("received_at, contact_name")
       .eq("company_id", companyId).eq("from_phone", phone).order("received_at", { ascending: false }).limit(1),
-    sb.from("whatsapp_external_messages").select("message_at")
+    sb.from("whatsapp_external_messages").select("message_at, contact_name")
       .eq("company_id", companyId).eq("contact_phone", phone).eq("direction", "in")
       .order("message_at", { ascending: false }).limit(1),
     sb.from("integrations").select("settings").eq("company_id", companyId).eq("integration_type", "whatsapp").maybeSingle(),
@@ -117,7 +117,7 @@ async function loadThread(sb: any, companyId: string, phone: string, req: NextAp
   }
   if (externalError && REACTION_COLUMNS_MISSING.has(String(externalError.code))) {
     let fallback = sb.from("whatsapp_external_messages")
-      .select("id, wa_message_id, direction, body, message_type, status, source, message_at")
+      .select("id, wa_message_id, direction, contact_name, body, message_type, status, source, message_at")
       .eq("company_id", companyId).eq("contact_phone", phone)
       .order("message_at", { ascending: false }).order("id", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
     fallback = constrainBefore(fallback, "message_at");
@@ -142,12 +142,23 @@ async function loadThread(sb: any, companyId: string, phone: string, req: NextAp
     return templateLabels.get(name) || name.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
   };
 
+  const senderIds = Array.from(new Set(
+    (outbound || []).map((row: any) => row.enqueued_by).filter((id: unknown): id is string => typeof id === "string" && !!id),
+  ));
+  const { data: senderProfiles } = senderIds.length
+    ? await sb.from("profiles").select("id, full_name").eq("company_id", companyId).in("id", senderIds)
+    : { data: [] };
+  const senderNames = new Map<string, string>(
+    (senderProfiles || []).flatMap((profile: any) => profile.id && profile.full_name ? [[profile.id, profile.full_name]] : []),
+  );
+
   const page = mergeThreadPage(
-    (inbound || []).map((row: any) => ({ id: row.id, dedupeId: row.wa_message_id || undefined, direction: "in" as const, text: row.body || "", kind: row.message_type || "text", at: row.received_at, relatedMessageId: row.related_message_id || null, reactionEmoji: row.reaction_emoji || null })),
+    (inbound || []).map((row: any) => ({ id: row.id, dedupeId: row.wa_message_id || undefined, direction: "in" as const, senderName: row.contact_name || null, text: row.body || "", kind: row.message_type || "text", at: row.received_at, relatedMessageId: row.related_message_id || null, reactionEmoji: row.reaction_emoji || null })),
     (outbound || []).map((row: any) => ({
       id: row.id,
       dedupeId: row.gateway_message_id || undefined,
       direction: "out" as const,
+      senderName: senderNames.get(row.enqueued_by) || null,
       text: row.message_content || "",
       kind: row.message_type || (row.template_name ? "template" : "text"),
       templateName: row.template_name,
@@ -161,6 +172,7 @@ async function loadThread(sb: any, companyId: string, phone: string, req: NextAp
       id: row.id,
       dedupeId: row.wa_message_id || undefined,
       direction: row.direction as "in" | "out",
+      senderName: row.direction === "in" ? row.contact_name || null : null,
       text: row.body || "",
       kind: row.message_type || "text",
       at: row.message_at,
@@ -170,13 +182,14 @@ async function loadThread(sb: any, companyId: string, phone: string, req: NextAp
       reactionEmoji: row.reaction_emoji || null,
     })),
   );
+  const externalContactName = (externalMessages || []).find((row: any) => row.contact_name)?.contact_name;
   const lastReceived = [latest?.[0]?.received_at, latestExternal?.[0]?.message_at]
     .filter((value): value is string => !!value)
     .sort((a, b) => b.localeCompare(a))[0];
   return res.status(200).json({
     available: true,
     phone,
-    name: latest?.[0]?.contact_name || outbound?.find((row: any) => row.recipient_name)?.recipient_name || null,
+    name: latest?.[0]?.contact_name || latestExternal?.[0]?.contact_name || externalContactName || outbound?.find((row: any) => row.recipient_name)?.recipient_name || null,
     canReply: !!lastReceived && Date.now() - new Date(lastReceived).getTime() < REPLY_WINDOW_MS,
     ...page,
   });

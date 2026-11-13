@@ -550,7 +550,12 @@ function RepliesPage() {
                                   : "rounded-tl-md border border-slate-200 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
                               )}>
                                 <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide">
-                                  <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">{message.direction === "out" ? "You" : "Client"}</span>
+                                  <span
+                                    title={message.senderName || (message.direction === "out" ? "Business" : thread?.name || "Client")}
+                                    className="inline-flex max-w-[min(18rem,65vw)] truncate rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10"
+                                  >
+                                    {message.senderName || (message.direction === "out" ? "Business" : thread?.name || "Client")}
+                                  </span>
                                   {message.source === "whatsapp_business_app" && <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">WhatsApp app</span>}
                                   {message.source === "synced_history" && <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">Synced history</span>}
                                   {message.kind !== "text" && <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">{message.kind === "template" ? "Template" : messageKindLabel(message.kind)}</span>}

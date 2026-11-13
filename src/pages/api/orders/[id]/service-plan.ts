@@ -6,6 +6,92 @@ import { normaliseServiceSittings } from "@/lib/serviceSittings";
 
 export const maxDuration = 60;
 
+type ScheduleSnapshot = { assignments: any[]; sittings: any[] };
+
+async function readScheduleSnapshot(db: any, orderId: string, companyId: string): Promise<ScheduleSnapshot | null> {
+  if (typeof db?.from !== "function") return null;
+  try {
+    const [assignments, sittings] = await Promise.all([
+      db.from("driver_assignments").select("service_sitting_id,driver_id,assignment_type,status,scheduled_for")
+        .eq("order_id", orderId).eq("company_id", companyId),
+      db.from("service_sittings").select("id,sequence_number,guest_count,service_time,venue_name,venue_address,venue_lat,venue_lng,dispatch_time,return_date,return_time")
+        .eq("order_id", orderId).eq("company_id", companyId),
+    ]);
+    if (assignments.error || sittings.error) return null;
+    return { assignments: assignments.data || [], sittings: sittings.data || [] };
+  } catch {
+    return null;
+  }
+}
+
+async function notifyDriversOfScheduleChanges(db: any, orderId: string, companyId: string, before: ScheduleSnapshot | null) {
+  if (!before) return;
+  const after = await readScheduleSnapshot(db, orderId, companyId);
+  if (!after) return;
+  const active = (row: any) => !["cancelled", "rejected", "completed"].includes(String(row.status || "").toLowerCase());
+  const sittingById = new Map(after.sittings.map((row: any) => [row.id, row]));
+  const previousSittings = new Map(before.sittings.map((row: any) => [row.id, row]));
+  const changedSittings = new Set<string>();
+  const comparedFields = ["sequence_number", "guest_count", "service_time", "venue_name", "venue_address", "venue_lat", "venue_lng", "dispatch_time", "return_date", "return_time"];
+  for (const sitting of after.sittings) {
+    const previous = previousSittings.get(sitting.id) as any;
+    if (!previous || comparedFields.some(field => (previous[field] ?? null) !== (sitting[field] ?? null))) changedSittings.add(sitting.id);
+  }
+
+  const key = (row: any) => `${row.service_sitting_id}:${row.assignment_type}:${row.driver_id}`;
+  const previousAssignments = new Map(before.assignments.map((row: any) => [key(row), row]));
+  const currentAssignments = new Map(after.assignments.map((row: any) => [key(row), row]));
+  const messages = new Map<string, Set<string>>();
+  const add = (driverId: string | null, message: string) => {
+    if (!driverId) return;
+    const items = messages.get(driverId) || new Set<string>();
+    items.add(message);
+    messages.set(driverId, items);
+  };
+  const tripLabel = (row: any) => {
+    const sitting: any = sittingById.get(row.service_sitting_id) || previousSittings.get(row.service_sitting_id);
+    const leg = row.assignment_type === "collection" ? "equipment collection" : "delivery";
+    return `Sitting ${sitting?.sequence_number || "service"} ${leg}`;
+  };
+
+  for (const previous of before.assignments) {
+    if (!previous.service_sitting_id || !active(previous)) continue;
+    const current: any = currentAssignments.get(key(previous));
+    if (!current || !active(current)) add(previous.driver_id, `You are no longer assigned to ${tripLabel(previous)} for this booking.`);
+  }
+  for (const current of after.assignments) {
+    if (!current.service_sitting_id || !active(current)) continue;
+    const previous: any = previousAssignments.get(key(current));
+    if (!previous || !active(previous)) {
+      add(current.driver_id, `New assignment: ${tripLabel(current)}. Check Driver Trips for its schedule and destination.`);
+    } else if (previous.scheduled_for !== current.scheduled_for || changedSittings.has(current.service_sitting_id)) {
+      add(current.driver_id, `${tripLabel(current)} details changed. Refresh Driver Trips to see the latest guest split, schedule, and destination.`);
+    }
+  }
+  if (!messages.size) return;
+
+  try {
+    const { notificationService } = await import("@/services/notificationService");
+    const results = await Promise.allSettled(Array.from(messages, ([driverId, notes]) => notificationService.createNotification({
+      company_id: companyId,
+      recipient_id: driverId,
+      type: "driver_assigned",
+      title: "Sitting trip updated",
+      message: Array.from(notes).join(" "),
+      priority: "high",
+      link: "/team-portal/driver/deliveries",
+      related_entity_type: "order",
+      related_entity_id: orderId,
+      metadata: { source: "sitting_schedule" },
+    }, db)));
+    results.forEach((result, index) => {
+      if (result.status === "rejected") console.warn("[service-plan] driver schedule notification failed:", Array.from(messages.keys())[index], result.reason);
+    });
+  } catch (error) {
+    console.warn("[service-plan] driver schedule notification failed:", error);
+  }
+}
+
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   const access = await servicePlanAccess(req, res);
@@ -16,6 +102,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const sittings = req.body?.sittings;
   const returnPlan = req.body?.returnPlan;
   const confirmDriverOverlap = req.body?.confirmDriverOverlap === true;
+  const confirmActiveWork = req.body?.confirmActiveWork === true;
   const lastSequence = Array.isArray(sittings)
     ? Math.max(0, ...sittings.map((row: any) => Number(row.sequence_number) || 0))
     : 0;
@@ -43,6 +130,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       })
     : sittings;
   const editsPlan = Array.isArray(operations) && operations.some((row: any) => row.guest_count !== undefined || row.service_time !== undefined);
+  const scheduleBefore = await readScheduleSnapshot(access.db, id, access.companyId);
   let tasks: unknown[] = [];
   if (editsPlan) {
     const plan = normaliseServiceSittings(operations.map((row: any) => ({ guestCount: row.guest_count, serviceTime: String(row.service_time || "").slice(0, 5), venueName: row.venue_name ?? row.venueName, venueAddress: row.venue_address ?? row.venueAddress, venueLat: row.venue_lat ?? row.venueLat, venueLng: row.venue_lng ?? row.venueLng, kitchenReadyTime: row.kitchenReadyTime, dispatchTime: row.dispatchTime })), operations.reduce((sum: number, row: any) => sum + Number(row.guest_count || 0), 0));
@@ -58,7 +146,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     p_order_id: id, p_company_id: access.companyId,
     p_operations: operations,
     p_return_plan: returnPlan,
-    ...(editsPlan ? { p_kitchen_tasks: tasks } : {}),
+    ...(editsPlan ? { p_kitchen_tasks: tasks, p_confirm_active_work: confirmActiveWork } : {}),
   });
   // During deployment/schema-cache refresh, keep already saved trip plans
   // usable. A new guest/time split must wait for the atomic transaction.
@@ -74,7 +162,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         && (row.venue_lng === undefined && row.venueLng === undefined || (existing.venue_lng ?? null) === (row.venue_lng ?? row.venueLng ?? null))));
     if (!unchanged) return res.status(503).json({ error: "The new sitting planner is awaiting its database update. Your booking has not changed. Please try again after the update is complete." });
     ({ error } = await access.db.rpc("save_order_sitting_operations", { p_order_id:id,p_company_id:access.companyId,p_operations:operations,p_return_plan:returnPlan }));
-    if (!error) return res.status(200).json({ ok:true, notice:"Trip schedule saved. Kitchen batch updates will be available after the database update is complete." });
+    if (!error) {
+      await notifyDriversOfScheduleChanges(access.db, id, access.companyId, scheduleBefore);
+      return res.status(200).json({ ok:true, notice:"Trip schedule saved. Kitchen batch updates will be available after the database update is complete." });
+    }
   }
   if (error?.code === "22023" && String(error.message || "").startsWith("DISPATCH_OVERLAP_CONFIRMATION_REQUIRED:")) {
     return res.status(409).json({
@@ -82,7 +173,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       message: String(error.message).slice("DISPATCH_OVERLAP_CONFIRMATION_REQUIRED:".length).trim(),
     });
   }
+  if (error?.code === "22023" && String(error.message || "").startsWith("ACTIVE_ORDER_WORK_CONFIRMATION_REQUIRED:")) {
+    return res.status(409).json({
+      confirmationRequired: true,
+      confirmationType: "activeWork",
+      message: String(error.message).slice("ACTIVE_ORDER_WORK_CONFIRMATION_REQUIRED:".length).trim(),
+    });
+  }
   if (error) return res.status(error.code === "22023" ? 400 : 500).json({ error: error.message || "The sitting schedule could not be saved. Please retry." });
+  await notifyDriversOfScheduleChanges(access.db, id, access.companyId, scheduleBefore);
   return res.status(200).json({ ok: true });
 }
 export default withApiLogging(handler);

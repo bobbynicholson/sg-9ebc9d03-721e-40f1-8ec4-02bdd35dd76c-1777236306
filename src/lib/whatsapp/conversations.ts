@@ -3,6 +3,7 @@ export interface ThreadMessage {
   id: string;
   dedupeId?: string;
   direction: "in" | "out";
+  senderName?: string | null;
   text: string;
   at: string;
   status?: string;

@@ -4,7 +4,9 @@ import orderHandler from "@/pages/api/orders/[id]/service-plan";
 import tripHandler from "@/pages/api/driver/sitting-trip";
 import { servicePlanAccess } from "@/lib/servicePlanAccess";
 import { kitchenPrepService } from "@/services/kitchenPrepService";
+import { notificationService } from "@/services/notificationService";
 jest.mock("@/services/kitchenPrepService", () => ({ kitchenPrepService: { planTasksForOrder: jest.fn(async () => []) } }));
+jest.mock("@/services/notificationService", () => ({ notificationService: { createNotification: jest.fn(async () => null) } }));
 jest.mock("@/lib/servicePlanAccess", () => ({ servicePlanAccess: jest.fn() }));
 jest.mock("@/lib/withApiLogging", () => ({ withApiLogging: (fn: unknown) => fn }));
 const id = "00000000-0000-0000-0000-000000000001";
@@ -66,7 +68,49 @@ test("admin splits and kitchen batches enter the same tenant-scoped transaction"
   const tasks = [{ service_sitting_id:id,menu_item_name:"Brownie" }];
   (kitchenPrepService.planTasksForOrder as jest.Mock).mockResolvedValueOnce(tasks);
   const s=setup(orderHandler,{sittings,returnPlan:"per_sitting_collection"});await s.run();
-  expect(rpc).toHaveBeenCalledWith("save_admin_order_service_plan_with_venues",{p_order_id:id,p_company_id:"verified-company",p_operations:sittings.map(row=>({...row,collectionDriverIds:row.deliveryDriverIds})),p_return_plan:"per_sitting_collection",p_kitchen_tasks:tasks});
+  expect(rpc).toHaveBeenCalledWith("save_admin_order_service_plan_with_venues",{p_order_id:id,p_company_id:"verified-company",p_operations:sittings.map(row=>({...row,collectionDriverIds:row.deliveryDriverIds})),p_return_plan:"per_sitting_collection",p_kitchen_tasks:tasks,p_confirm_active_work:false});
+});
+test("started kitchen work asks for admin confirmation before changing the plan", async()=>{
+  rpc.mockResolvedValueOnce({error:{code:"22023",message:"ACTIVE_ORDER_WORK_CONFIRMATION_REQUIRED:Kitchen work has started."}});
+  const sittings=[{id,guest_count:60,service_time:"12:00"},{id:"00000000-0000-0000-0000-000000000002",guest_count:40,service_time:"18:00"}];
+  const s=setup(orderHandler,{sittings,returnPlan:"client_return"});await s.run();
+  expect(s.res.code).toBe(409);
+  expect(s.res.body).toEqual({confirmationRequired:true,confirmationType:"activeWork",message:"Kitchen work has started."});
+  expect(rpc).toHaveBeenCalledWith("save_admin_order_service_plan_with_venues",expect.objectContaining({p_confirm_active_work:false}));
+});
+test("confirmed admin plan updates pass the trusted active-work confirmation", async()=>{
+  const sittings=[{id,guest_count:60,service_time:"12:00"},{id:"00000000-0000-0000-0000-000000000002",guest_count:40,service_time:"18:00"}];
+  const s=setup(orderHandler,{sittings,returnPlan:"client_return",confirmActiveWork:true});await s.run();
+  expect(s.res.code).toBe(200);
+  expect(rpc).toHaveBeenCalledWith("save_admin_order_service_plan_with_venues",expect.objectContaining({p_confirm_active_work:true}));
+});
+test("driver reassignment and destination changes notify the old and new drivers", async()=>{
+  const sitting={id,sequence_number:1,guest_count:100,service_time:"12:00:00",venue_name:null,venue_address:null,venue_lat:null,venue_lng:null,dispatch_time:"11:00:00",return_date:null,return_time:null};
+  let snapshot:any={
+    driver_assignments:[{service_sitting_id:id,driver_id:"old-driver",assignment_type:"delivery",status:"assigned",scheduled_for:"2026-11-13T09:00:00Z"}],
+    service_sittings:[sitting],
+  };
+  const db:any={rpc,from:(table:string)=>{
+    const query:any={select:()=>query,eq:()=>query};
+    query.then=(resolve:any,reject:any)=>Promise.resolve({data:snapshot[table]||[],error:null}).then(resolve,reject);
+    return query;
+  }};
+  (servicePlanAccess as jest.Mock).mockResolvedValue({...access,db});
+  rpc.mockImplementationOnce(async()=>{
+    snapshot={
+      driver_assignments:[
+        {...snapshot.driver_assignments[0],status:"cancelled"},
+        {service_sitting_id:id,driver_id:"new-driver",assignment_type:"delivery",status:"assigned",scheduled_for:"2026-11-13T09:00:00Z"},
+      ],
+      service_sittings:[{...sitting,venue_address:"Updated venue"}],
+    };
+    return {error:null};
+  });
+  const s=setup(orderHandler,{sittings:[{...sitting,guest_count:100,service_time:"12:00",venue_address:"Updated venue",deliveryDriverIds:["new-driver"]}],returnPlan:"client_return"});
+  await s.run();
+  expect(s.res.code).toBe(200);
+  expect(notificationService.createNotification).toHaveBeenCalledTimes(2);
+  expect((notificationService.createNotification as jest.Mock).mock.calls.map(call=>call[0].recipient_id).sort()).toEqual(["new-driver","old-driver"]);
 });
 test("a kitchen planning error leaves the saved order untouched", async()=>{
   (kitchenPrepService.planTasksForOrder as jest.Mock).mockRejectedValueOnce(new Error("Kitchen unavailable"));

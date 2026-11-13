@@ -248,12 +248,19 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
     }
     setSaving(true); setError(""); setSaved(false); setSaveNotice("");
     try {
-      const submit = async (confirmDriverOverlap: boolean): Promise<boolean> => {
-        const response = await fetch(`/api/orders/${orderId}/service-plan`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sittings: rows, returnPlan, confirmDriverOverlap }) });
+      const submit = async (confirmDriverOverlap: boolean, confirmActiveWork: boolean): Promise<boolean> => {
+        const response = await fetch(`/api/orders/${orderId}/service-plan`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sittings: rows, returnPlan, confirmDriverOverlap, confirmActiveWork }) });
         const result = await response.json();
+        if (response.status === 409 && result.confirmationRequired && result.confirmationType === "activeWork" && !confirmActiveWork) {
+          const description = `${result.message || "Kitchen or service work has already started."}\n\nContinue with this schedule change? Started or completed kitchen batches keep their original quantities. Pending batches will be recalculated for the new guest split. A driver trip already underway must keep its current driver, time, and delivery address.`;
+          if (window.confirm(description)) return submit(confirmDriverOverlap, true);
+          setSaveNotice("Schedule unchanged. The new guest split and schedule were not saved.");
+          toast({ title: "Schedule unchanged", description: "The new guest split and schedule were not saved." });
+          return false;
+        }
         if (response.status === 409 && result.confirmationRequired && !confirmDriverOverlap) {
           const description = `${result.message || "A selected driver already has another trip within 45 minutes."}\n\nYou can assign a driver to several sitting stops as one shared run. Confirm that the driver has capacity and the route timing allows each stop. Assign this schedule anyway?`;
-          if (window.confirm(description)) return submit(true);
+          if (window.confirm(description)) return submit(true, confirmActiveWork);
           setSaveNotice("Schedule unchanged. Choose different drivers or times, or save again and confirm the shared run.");
           toast({ title: "Schedule unchanged", description: "Choose different drivers or times, or confirm the shared run when you save again." });
           return false;
@@ -267,7 +274,7 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
         onSaved?.();
         return true;
       };
-      await submit(false);
+      await submit(false, false);
     } catch (e: any) { saveFailed(e.message || "Please retry saving the schedule."); }
     finally { setSaving(false); }
   }
