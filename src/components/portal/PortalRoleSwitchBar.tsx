@@ -21,9 +21,9 @@ export function PortalRoleSwitchBar({
   borderClassName = "border-slate-200/80 dark:border-slate-700",
   description = "Move between your assigned portals without signing in again.",
 }: PortalRoleSwitchBarProps) {
-  const { userRoles } = useAuth();
+  const { userRoles, staffPreview } = useAuth();
 
-  if (userRoles.length <= 1) return null;
+  if (staffPreview || userRoles.length <= 1) return null;
 
   return (
     <div className={`mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-xl border bg-white/95 px-4 py-2.5 shadow-sm dark:bg-slate-900/95 lg:hidden ${borderClassName}`}>

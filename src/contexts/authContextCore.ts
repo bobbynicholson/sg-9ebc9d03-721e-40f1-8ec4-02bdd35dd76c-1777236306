@@ -44,8 +44,17 @@ export type AuthenticatedUser = {
   updated_at?: string;
 };
 
+export interface StaffPreviewIdentity {
+  userId: string;
+  fullName: string;
+  email: string;
+  role: UserRole;
+}
+
 export interface AuthContextType {
   user: AuthenticatedUser | null;
+  /** The signed-in account remains unchanged during a staff preview. */
+  authenticatedUser: AuthenticatedUser | null;
   profile: DbProfile | null;
   company: Company | null;
   companySlug: string | null;
@@ -53,6 +62,11 @@ export interface AuthContextType {
   error: string | null;
   userRoles: UserRole[];
   activeRole: string;
+  staffPreview: StaffPreviewIdentity | null;
+  isStaffPreview: boolean;
+  isStaffPreviewLoading: boolean;
+  startStaffPreview: (targetUserId: string) => Promise<void>;
+  clearStaffPreview: () => void;
   switchRole: (newRole: UserRole) => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ user: unknown; error: { message: string } | null }>;
   signOut: () => Promise<void>;

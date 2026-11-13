@@ -7,6 +7,7 @@ import { TrialExpiryBanner } from "@/components/TrialExpiryBanner";
 import { PageWorkbench } from "@/components/portal/ui";
 import { PaymentSetupBanner } from "@/components/billing/PaymentSetupBanner";
 import { PwaLoadingScreen } from "@/components/pwa/PwaLoadingScreen";
+import { StaffPreviewBanner } from "@/components/admin/StaffPreviewBanner";
 
 interface LayoutProps {
   children: ReactNode;
@@ -25,10 +26,10 @@ export function Layout({
   maxWidth = "7xl",
   showWorkbench = true,
 }: LayoutProps) {
-  const { user, loading } = useAuth();
+  const { user, loading, isStaffPreview, isStaffPreviewLoading } = useAuth();
 
   // Show loading state while auth is initializing
-  if (loading) {
+  if (loading || isStaffPreviewLoading) {
     return <PwaLoadingScreen />;
   }
 
@@ -65,8 +66,8 @@ export function Layout({
   return (
     <div className={`min-h-screen flex flex-col ${shellBackground} ${portalShell}`}>
       {/* Trial Expiry Banner - Shows for authenticated users with trial status */}
-      {user && <TrialExpiryBanner />}
-      {isPortal && <PaymentSetupBanner />}
+      {user && !isStaffPreview && <TrialExpiryBanner />}
+      {isPortal && !isStaffPreview && <PaymentSetupBanner />}
 
       {/* Header - Public/Marketing header */}
       {showHeader && !user && <Header />}
@@ -80,8 +81,11 @@ export function Layout({
       {/* Main Content */}
       <main className="relative z-0 flex-1 min-w-0">
         <div className={`${innerAlignment} min-w-0 px-4 sm:px-6 lg:px-8 py-8 ${innerMaxWidth}`}>
-          {isPortal && showWorkbench && <PageWorkbench />}
-          {children}
+          <StaffPreviewBanner />
+          <div {...(isStaffPreview ? { inert: "" } as any : {})}>
+            {isPortal && showWorkbench && <PageWorkbench />}
+            {children}
+          </div>
         </div>
       </main>
 

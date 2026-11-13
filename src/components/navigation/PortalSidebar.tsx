@@ -33,6 +33,7 @@ import { buildIsActive } from "@/lib/navActiveMatcher";
 import { useBrandingRow } from "@/lib/branding/useBranding";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { useAuth } from "@/contexts/AuthContext";
+import { StaffViewSwitcher } from "@/components/admin/StaffViewSwitcher";
 
 export interface PortalSidebarNavItem {
   title: string;
@@ -188,8 +189,12 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   useCloseOnDesktop(open, setOpen);
   const [isCollapsed, setIsCollapsed] = useState(false);
   useSyncSidebarCollapsed(isCollapsed);
-  const { userRoles } = useAuth();
-  const hasSeveralRoles = (userRoles?.length ?? 0) > 1;
+  const { userRoles, activeRole, profile, companySlug, staffPreview } = useAuth();
+  const hasSeveralRoles = !staffPreview && (userRoles?.length ?? 0) > 1;
+  const canSwitchWorkspace = Boolean(staffPreview) || [profile?.role, activeRole, profile?.active_role, ...userRoles].some((role) =>
+    ["company_admin", "admin", "owner", "super_admin"].includes(String(role || "")),
+  );
+  const workspaceCompanySlug = String(companySlug || profile?.company_slug || "");
 
   const requestPwaInstall = () => {
     if (typeof window !== "undefined") {
@@ -206,7 +211,12 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     const handler = () => setOpen(true);
     const eventName = `${config.role}-fab:open-nav`;
     window.addEventListener(eventName, handler);
-    return () => window.removeEventListener(eventName, handler);
+    const closeHandler = () => setOpen(false);
+    window.addEventListener("cms:portal-nav-close", closeHandler);
+    return () => {
+      window.removeEventListener(eventName, handler);
+      window.removeEventListener("cms:portal-nav-close", closeHandler);
+    };
   }, [config.role]);
 
   // Publish this portal's lead accent to a shared CSS var so
@@ -501,6 +511,15 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
       <div className="space-y-4">
         {mobile && (
           <div className="space-y-3">
+            {canSwitchWorkspace && workspaceCompanySlug && (
+              <div className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">Switch workspace</p>
+                  <p className="truncate text-xs text-slate-500 dark:text-slate-400">Preview a staff portal</p>
+                </div>
+                <StaffViewSwitcher companySlug={workspaceCompanySlug} />
+              </div>
+            )}
             <MobileSearchTrigger accent={searchAccent} hint={config.searchHint} />
             {config.renderMobileQuickActions ? (
               config.renderMobileQuickActions({ onNavigate: () => setOpen(false) })
@@ -747,6 +766,9 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                   {/* The labelled role picker sits right below this row, so
                       no compact copy here - it only squeezed the title. */}
                   <div className="flex items-center gap-2 shrink-0">
+                    {canSwitchWorkspace && workspaceCompanySlug && (
+                      <StaffViewSwitcher companySlug={workspaceCompanySlug} />
+                    )}
                     <NotificationBell />
                     <ThemeSwitch />
                   </div>
@@ -755,6 +777,9 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             ) : (
               <div className="flex flex-col items-center gap-3 w-full">
                 <PortalLogoTile config={config} logoUrl={logoUrl} size="lg" />
+                {canSwitchWorkspace && workspaceCompanySlug && (
+                  <StaffViewSwitcher companySlug={workspaceCompanySlug} />
+                )}
                 {/* Keep role switching available even when the rail is
                     collapsed; cross-trained staff must be able to return
                     to their manager portal without signing in again. */}

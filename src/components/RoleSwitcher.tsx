@@ -13,13 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   ChevronDown,
-  UserCog,
   Truck,
   Users,
   Sparkles,
   ShoppingCart,
   ChefHat,
   Crown,
+  Eye,
   Shield,
   Loader2,
 } from "lucide-react";
@@ -30,8 +30,8 @@ import { cn } from "@/lib/utils";
 // Role icons mapping
 const roleIcons: Record<string, React.ReactNode> = {
   super_admin: <Shield className="h-4 w-4" />,
-  company_admin: <UserCog className="h-4 w-4" />,
-  admin: <UserCog className="h-4 w-4" />,
+  company_admin: <Eye className="h-4 w-4" />,
+  admin: <Eye className="h-4 w-4" />,
   owner: <Crown className="h-4 w-4" />,
   driver: <Truck className="h-4 w-4" />,
   waiter: <Sparkles className="h-4 w-4" />,
@@ -68,7 +68,7 @@ interface RoleSwitcherProps {
 }
 
 export function RoleSwitcher({ variant = "default", showLabel = true, className }: RoleSwitcherProps) {
-  const { userRoles, activeRole, switchRole, companySlug } = useAuth();
+  const { userRoles, activeRole, switchRole, companySlug, staffPreview } = useAuth();
   const { toast } = useToast();
   const [switching, setSwitching] = useState(false);
 
@@ -79,7 +79,7 @@ export function RoleSwitcher({ variant = "default", showLabel = true, className 
   // unless their profile genuinely holds multiple roles.
   const displayRoles = userRoles;
 
-  if (displayRoles.length <= 1) {
+  if (staffPreview || displayRoles.length <= 1) {
     return null;
   }
 

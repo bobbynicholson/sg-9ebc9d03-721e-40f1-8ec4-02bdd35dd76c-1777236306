@@ -5,6 +5,9 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 import { PortalRoleSwitchBar } from "@/components/portal/PortalRoleSwitchBar";
+import { StaffPreviewBanner } from "@/components/admin/StaffPreviewBanner";
+import { useAuth } from "@/contexts/AuthContext";
+import { PwaLoadingScreen } from "@/components/pwa/PwaLoadingScreen";
 
 export type OperationalShellWidth = "narrow" | "wide" | "full";
 
@@ -48,6 +51,10 @@ export function OperationalPortalPageShell({
   switchBorderClassName,
   switchDescription,
 }: OperationalPortalPageShellProps) {
+  const { isStaffPreview, isStaffPreviewLoading } = useAuth();
+
+  if (isStaffPreviewLoading) return <PwaLoadingScreen />;
+
   return (
     <>
       <NoIndexMeta />
@@ -59,28 +66,31 @@ export function OperationalPortalPageShell({
 
       <div className="min-h-screen overflow-x-hidden pt-16 lg:pl-72 lg:pt-0 xl:pl-80">
         <PortalShell width={width === "narrow" ? "narrow" : "default"}>
-          <PortalRoleSwitchBar
-            borderClassName={switchBorderClassName}
-            description={switchDescription}
-          />
-          <PortalHeader
-            variant="hero"
-            title={heading}
-            subtitle={subheading}
-            icon={icon}
-            actions={headerAction}
-            meta={meta}
-          />
-          <PageWorkbench />
-          {overview}
+          <StaffPreviewBanner />
+          <div {...(isStaffPreview ? { inert: "" } as any : {})}>
+            <PortalRoleSwitchBar
+              borderClassName={switchBorderClassName}
+              description={switchDescription}
+            />
+            <PortalHeader
+              variant="hero"
+              title={heading}
+              subtitle={subheading}
+              icon={icon}
+              actions={headerAction}
+              meta={meta}
+            />
+            <PageWorkbench />
+            {overview}
 
-          <div id="main-content">{children}</div>
+            <div id="main-content">{children}</div>
 
-          {!hideFooter && (
-            <div className="mt-12">
-              <Footer />
-            </div>
-          )}
+            {!hideFooter && (
+              <div className="mt-12">
+                <Footer />
+              </div>
+            )}
+          </div>
         </PortalShell>
       </div>
     </>

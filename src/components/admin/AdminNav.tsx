@@ -77,7 +77,6 @@ import { UserRole } from "@/types/app";
 import { PortalSidebar, type PortalSidebarConfig, type PortalSidebarSection } from "@/components/navigation/PortalSidebar";
 import { BRAND_PORTAL_PALETTE, BRAND_ACCENT } from "@/lib/branding/portalPalette";
 import { RegionFilterDropdown } from "@/components/admin/RegionFilterDropdown";
-import { StaffViewSwitcher } from "@/components/admin/StaffViewSwitcher";
 import { CommandPaletteHint } from "@/components/CommandPaletteHint";
 import { AdminSmartQuickActions } from "@/components/admin/AdminSmartQuickActions";
 import { useAdminLiveCounts } from "@/hooks/useAdminLiveCounts";
@@ -90,13 +89,12 @@ interface AdminNavProps {
 }
 
 // ---------------------------------------------------------------------------
-// Top slot: identity strip + command-palette hint + region filter +
-// staff-view switcher + live intelligence (mode badge + state strip).
+// Top slot: identity strip + command-palette hint + region filter.
 // Mounts above the nav sections on both desktop expanded + mobile drawer,
 // mirroring PlatformNav's renderTopSlot pattern.
 // ---------------------------------------------------------------------------
 
-function AdminTopSlot({ companySlug }: { companySlug: string }) {
+function AdminTopSlot() {
   const { profile, company } = useAuth() as any;
   const companyName = company?.company_name || "Admin Portal";
   const initials =
@@ -132,14 +130,12 @@ function AdminTopSlot({ companySlug }: { companySlug: string }) {
         </div>
       </div>
 
-      {/* Compact utility row: region scope + (super-admin) staff-view
-          switch. Matched to the platform sidebar's restraint - the mode
+      {/* Compact utility row: region scope. Matched to the platform sidebar's restraint - the mode
           badge + 2x3 live-state pill grid that used to sit here were
           dropped from the nav (that live intelligence lives on the
           dashboard) so the navigation isn't pushed down the rail. */}
       <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
         <RegionFilterDropdown />
-        {companySlug && <StaffViewSwitcher companySlug={companySlug} />}
       </div>
     </div>
   );
@@ -154,11 +150,12 @@ export function AdminNav(_: AdminNavProps = {}) {
   // visible chrome must become the selected company's admin chrome while on
   // a tenant URL. Without this split the platform sections stayed visible.
   const isTenantBrowseView = baseRole === UserRole.SUPER_ADMIN && Boolean(tenantBrowseSlug);
+  // The selected portal controls its visible navigation. The profile role
+  // remains the account's authority ceiling; activeRole is the user's
+  // deliberate choice from the role picker.
   const effectiveRole = (isTenantBrowseView
     ? UserRole.COMPANY_ADMIN
-    : (["super_admin", "owner", "company_admin"].includes(baseRole)
-    ? baseRole
-    : String(activeRole || profile?.active_role || baseRole))) as UserRole;
+    : String(activeRole || profile?.active_role || baseRole)) as UserRole;
 
   // Live intelligence hooks - badges + liveDescriptions below close over
   // these so the operator sees urgency inline without opening a page.
@@ -439,7 +436,7 @@ export function AdminNav(_: AdminNavProps = {}) {
     ],
     // Mode-driven smart quick actions replace the static trio on mobile.
     renderMobileQuickActions: ({ onNavigate }) => <AdminSmartQuickActions onNavigate={onNavigate} />,
-    renderTopSlot: () => <AdminTopSlot companySlug={companySlug} />,
+    renderTopSlot: () => <AdminTopSlot />,
     sections,
   };
 

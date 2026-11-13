@@ -142,7 +142,7 @@ function DriverDashboardSummary({
 }
 
 function DriverDashboardInner() {
-  const { user, userRoles } = useAuth();
+  const { user, userRoles, staffPreview } = useAuth();
   const router = useRouter();
   const { withSlug } = useTenantHref();
   // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
@@ -286,7 +286,7 @@ function DriverDashboardInner() {
   // the portal at home doesn't burn battery. Audit Driver G7.
   const activeOrderIds = jobs.map((j) => j.id);
   const { isTracking: gpsActive, lastPingAt, lastError: gpsError, wakeLockHeld } =
-    useDriverGPSPing(user?.id ?? null, activeOrderIds);
+    useDriverGPSPing(staffPreview ? null : user?.id ?? null, activeOrderIds);
 
   const driverName = user?.full_name || user?.email?.split("@")[0] || "Driver";
 

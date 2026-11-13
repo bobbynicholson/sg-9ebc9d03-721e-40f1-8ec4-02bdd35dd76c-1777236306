@@ -310,7 +310,7 @@ function AdminUsersPage() {
     hint: string;
   }> = [
     { key: "leadership",     label: "Leadership",            hint: "Founder / shareholder. Full finance access." },
-    { key: "administrative", label: "Administrative",        hint: "Pick ONE level: Business Administrator is full access; Operations Administrator is daily operations; Region Admin is one branch." },
+    { key: "administrative", label: "Administrative",        hint: "Choose the access levels needed. Assign both Business and Operations for both views." },
     { key: "operational",    label: "Operational portals",   hint: "Hands-on roles. Tick any that apply if the user works in those teams too." },
     { key: "client",         label: "Client portal",         hint: "Only tick if this person should see their own client-facing view. Rare for staff." },
   ];
@@ -324,7 +324,7 @@ function AdminUsersPage() {
       return "Client + a staff role is unusual. The client portal is locked to /c/ and won't share session with the admin portal.";
     }
     if (set.has("admin") && set.has("company_admin")) {
-      return "Business Administrator already includes Operations Administrator access. Pick one administrative level.";
+      return "Both administrator views are assigned. Set Primary to choose which one opens after sign-in.";
     }
     if (selectedDepartments.length === 0) {
       return null;

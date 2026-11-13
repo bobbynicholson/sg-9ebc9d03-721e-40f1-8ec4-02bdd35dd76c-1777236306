@@ -8,7 +8,7 @@ import { UserRole } from "@/types/app";
 import { profileService } from "@/services/profileService";
 import { deriveUserRoles } from "@/lib/roleDerivation";
 import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
-import { AuthContext, type AuthContextType, type AuthenticatedUser } from "./authContextCore";
+import { AuthContext, type AuthContextType, type AuthenticatedUser, type StaffPreviewIdentity } from "./authContextCore";
 
 type Company = Tables<"companies">;
 type DbProfile = Tables<"profiles">;
@@ -25,6 +25,20 @@ export { useAuth } from "./authContextCore";
 // replaces it, and middleware + RLS enforce access on every request.
 const AUTH_SNAPSHOT_KEY = "cms-auth-snapshot-v1";
 const AUTH_SNAPSHOT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const STAFF_PREVIEW_STORAGE_KEY = "cms-staff-preview-v1";
+
+interface StoredStaffPreview {
+  adminUserId: string;
+  companyId: string | null;
+  targetUserId: string;
+}
+
+interface StaffPreviewState {
+  adminUserId: string;
+  companyId: string | null;
+  profile: DbProfile;
+  roles: UserRole[];
+}
 
 interface AuthSnapshot {
   sessionKey: string;
@@ -71,6 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [activeRole, setActiveRole] = useState<string>(UserRole.ADMIN);
+  const [staffPreviewState, setStaffPreviewState] = useState<StaffPreviewState | null>(null);
+  const [isStaffPreviewLoading, setIsStaffPreviewLoading] = useState(false);
   // "user id + tenant slug" of the last SUCCESSFUL hydration. Used to
   // no-op duplicate auth events for the already-hydrated user (token
   // refresh on tab refocus) so the app never unmounts mid-flow. Null
@@ -79,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hydratedSessionKeyRef = useRef<string | null>(null);
   const hydratingSessionKeyRef = useRef<string | null>(null);
   const hydrationRequestRef = useRef(0);
+  const staffPreviewRequestRef = useRef(0);
 
   useEffect(() => {
     // Dev shortcut. Only honoured outside production builds. The
@@ -662,6 +679,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const switchRole = async (newRole: UserRole) => {
+    if (staffPreviewState) {
+      throw new Error("Exit the staff preview before switching your account role.");
+    }
     if (!userRoles.includes(newRole)) {
       throw new Error("That portal is not assigned to your account. Ask an administrator to add it.");
     }
@@ -699,6 +719,107 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile((current) => current ? { ...current, active_role: newRole } : current);
   };
 
+  const requestStaffPreview = async (targetUserId: string) => {
+    if (!user?.id) throw new Error("Sign in again before opening a staff preview.");
+    const requestId = ++staffPreviewRequestRef.current;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const headers: Record<string, string> = {};
+    if (sessionData.session?.access_token) {
+      headers.Authorization = `Bearer ${sessionData.session.access_token}`;
+    }
+    const params = new URLSearchParams({ target_user_id: targetUserId });
+    const tenantSlug = getTenantSlugFromPathname(router.asPath);
+    if (tenantSlug) params.set("company_slug", tenantSlug);
+
+    const response = await fetch(`/api/admin/staff-preview?${params.toString()}`, {
+      headers,
+      credentials: "same-origin",
+    });
+    const result = await response.json().catch(() => ({}));
+    if (requestId !== staffPreviewRequestRef.current) {
+      throw new Error("The staff preview was cancelled.");
+    }
+    if (!response.ok || !result?.ok || !result?.profile) {
+      throw new Error(result?.error || "We could not open that staff dashboard.");
+    }
+
+    const targetProfile = {
+      ...(result.profile as DbProfile),
+      active_role: String(result.active_role || result.profile.active_role || result.profile.role || "client"),
+    } as DbProfile;
+    const targetRoles = Array.isArray(result.roles)
+      ? result.roles.filter((role: unknown): role is UserRole =>
+          Object.values(UserRole).includes(role as UserRole),
+        )
+      : [];
+    if (!targetProfile.id || targetRoles.length === 0) {
+      throw new Error("That account does not have an active portal to preview.");
+    }
+
+    const preview: StaffPreviewState = {
+      adminUserId: user.id,
+      companyId: targetProfile.company_id || profile?.company_id || null,
+      profile: targetProfile,
+      roles: targetRoles,
+    };
+    setStaffPreviewState(preview);
+    try {
+      window.localStorage.setItem(STAFF_PREVIEW_STORAGE_KEY, JSON.stringify({
+        adminUserId: user.id,
+        companyId: preview.companyId,
+        targetUserId: String(targetProfile.id),
+      } satisfies StoredStaffPreview));
+    } catch {
+      // The current tab still previews correctly if storage is unavailable.
+    }
+  };
+
+  const clearStaffPreview = () => {
+    staffPreviewRequestRef.current += 1;
+    setStaffPreviewState(null);
+    setIsStaffPreviewLoading(false);
+    try {
+      window.localStorage.removeItem(STAFF_PREVIEW_STORAGE_KEY);
+    } catch {
+      // The preview ends in memory even when browser storage is unavailable.
+    }
+  };
+
+  // Keep a staff preview active while the administrator moves between
+  // portal pages or refreshes. The target is always revalidated by the
+  // server against the current authenticated admin and tenant.
+  useEffect(() => {
+    if (loading || !user?.id || typeof window === "undefined") return;
+    let stored: StoredStaffPreview | null = null;
+    try {
+      stored = JSON.parse(window.localStorage.getItem(STAFF_PREVIEW_STORAGE_KEY) || "null");
+    } catch {
+      window.localStorage.removeItem(STAFF_PREVIEW_STORAGE_KEY);
+    }
+    if (!stored) return;
+    if (stored.adminUserId !== user.id) {
+      window.localStorage.removeItem(STAFF_PREVIEW_STORAGE_KEY);
+      setStaffPreviewState(null);
+      return;
+    }
+
+    let cancelled = false;
+    setIsStaffPreviewLoading(true);
+    void requestStaffPreview(stored.targetUserId)
+      .catch((error) => {
+        console.warn("[AuthContext] staff preview could not be restored:", error);
+        window.localStorage.removeItem(STAFF_PREVIEW_STORAGE_KEY);
+        if (!cancelled) setStaffPreviewState(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsStaffPreviewLoading(false);
+      });
+    return () => { cancelled = true; };
+    // requestStaffPreview intentionally reads the authenticated session and
+    // current tenant at the time this single restore begins.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, user?.id]);
+
   const signIn = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -714,6 +835,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     writeAuthSnapshot(null);
+    clearStaffPreview();
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
@@ -739,19 +861,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         company_slug: routeCompany.slug || routeTenantSlug,
       }
     : user;
-  const contextProfile = browsingTenant && profile && routeCompany
+  const authenticatedContextProfile = browsingTenant && profile && routeCompany
     ? { ...profile, company_id: routeCompany.id }
     : profile;
+  const activeStaffPreview = staffPreviewState?.adminUserId === user?.id
+    ? staffPreviewState
+    : null;
+  const previewRole = String(
+    activeStaffPreview?.profile.active_role || activeStaffPreview?.profile.role || "",
+  );
+  const previewUser = activeStaffPreview && contextUser
+    ? {
+        ...contextUser,
+        id: String(activeStaffPreview.profile.id),
+        email: activeStaffPreview.profile.email || "",
+        full_name: activeStaffPreview.profile.full_name || "",
+        role: (previewRole || UserRole.CLIENT) as UserRole,
+        active_role: previewRole || UserRole.CLIENT,
+        avatar_url: activeStaffPreview.profile.avatar_url || undefined,
+        phone_number: activeStaffPreview.profile.phone_number || undefined,
+        company_id: activeStaffPreview.profile.company_id || contextUser.company_id,
+      }
+    : contextUser;
+  const contextProfile = activeStaffPreview?.profile || authenticatedContextProfile;
+  const previewIdentity: StaffPreviewIdentity | null = activeStaffPreview
+    ? {
+        userId: String(activeStaffPreview.profile.id),
+        fullName: activeStaffPreview.profile.full_name || "Team member",
+        email: activeStaffPreview.profile.email || "",
+        role: (previewRole || UserRole.CLIENT) as UserRole,
+      }
+    : null;
 
   const contextValue: AuthContextType = {
-    user: contextUser,
+    user: previewUser,
+    authenticatedUser: contextUser,
     profile: contextProfile,
     company: contextCompany,
     companySlug: contextCompany?.slug || (browsingTenant ? routeTenantSlug : null),
     loading,
     error,
-    userRoles,
-    activeRole,
+    userRoles: activeStaffPreview ? activeStaffPreview.roles : userRoles,
+    activeRole: activeStaffPreview ? previewRole : activeRole,
+    staffPreview: previewIdentity,
+    isStaffPreview: Boolean(activeStaffPreview),
+    isStaffPreviewLoading,
+    startStaffPreview: requestStaffPreview,
+    clearStaffPreview,
     switchRole,
     signIn,
     signOut,

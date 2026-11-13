@@ -62,6 +62,7 @@ export function MarketingAuthProvider({ children }: { children: ReactNode }) {
 
   const signedOut = useMemo<AuthContextType>(() => ({
     user: null,
+    authenticatedUser: null,
     profile: null,
     company: null,
     companySlug: null,
@@ -69,6 +70,11 @@ export function MarketingAuthProvider({ children }: { children: ReactNode }) {
     error: null,
     userRoles: [],
     activeRole: UserRole.ADMIN,
+    staffPreview: null,
+    isStaffPreview: false,
+    isStaffPreviewLoading: false,
+    startStaffPreview: (targetUserId) => getReal().then((auth) => auth.startStaffPreview(targetUserId)),
+    clearStaffPreview: () => { void getReal().then((auth) => auth.clearStaffPreview()); },
     switchRole: (role) => getReal().then((auth) => auth.switchRole(role)),
     signIn: (email, password) => getReal().then((auth) => auth.signIn(email, password)),
     signOut: () => getReal().then((auth) => auth.signOut()),
