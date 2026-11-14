@@ -33,7 +33,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     if (error) {
       await recordCronHeartbeat(sb, CRON_NAME, "error", {
-        source: auth.source,
+        source: auth.source, run_id: auth.runId,
         error_message: error.message,
       });
       return res.status(500).json({ error: error.message });
@@ -41,7 +41,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     if (!lists?.length) {
       await recordCronHeartbeat(sb, CRON_NAME, "ok", {
-        source: auth.source,
+        source: auth.source, run_id: auth.runId,
         considered: 0,
         tenants: 0,
         emails: 0,
@@ -144,7 +144,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     await recordCronHeartbeat(sb, CRON_NAME, errors.length ? "error" : "ok", {
-      source: auth.source,
+      source: auth.source, run_id: auth.runId,
       considered: lists.length,
       tenants: byCompany.size,
       emails,
@@ -164,7 +164,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (err: any) {
     await recordCronHeartbeat(sb, CRON_NAME, "error", {
-      source: auth.source,
+      source: auth.source, run_id: auth.runId,
       error_message: err?.message || String(err),
     });
     return res.status(500).json({ error: err?.message || "Stale shopping list alert failed" });

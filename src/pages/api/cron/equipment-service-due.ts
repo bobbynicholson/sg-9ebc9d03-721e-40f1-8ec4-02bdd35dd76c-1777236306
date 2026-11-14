@@ -49,7 +49,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   if (equipErr) {
     console.error("[equipment-service-due] equipment lookup failed:", equipErr);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: equipErr.message });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: equipErr.message });
     return res.status(500).json({ error: equipErr.message });
   }
 
@@ -166,7 +166,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   await recordCronHeartbeat(sb, CRON_NAME, "ok", {
-    source: auth.source,
+    source: auth.source, run_id: auth.runId,
     checked: dueRows.length,
     checked_equipment: dueEquipment?.length ?? 0,
     checked_vehicles: dueVehicles?.length ?? 0,

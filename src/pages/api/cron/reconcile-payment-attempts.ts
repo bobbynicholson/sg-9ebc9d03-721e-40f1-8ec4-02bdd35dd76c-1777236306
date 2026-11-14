@@ -128,7 +128,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
   }
 
-  await recordCronHeartbeat(sb, "reconcile-payment-attempts", failures ? "error" : "ok", { source: auth.source, checked, expired, recovered, errors_count: failures });
+  await recordCronHeartbeat(sb, "reconcile-payment-attempts", failures ? "error" : "ok", { source: auth.source, run_id: auth.runId, checked, expired, recovered, errors_count: failures });
   return res.status(failures ? 503 : 200).json({ ok: failures === 0, checked, expired, recovered, webhook_missing: webhookMissing });
 }
 

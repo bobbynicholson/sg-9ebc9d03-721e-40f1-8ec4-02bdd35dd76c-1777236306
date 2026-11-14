@@ -78,7 +78,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .limit(200);
     if (error) {
       console.error("[deposit-reminder] orders fetch failed:", error);
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: error.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: error.message });
       return res.status(500).json({ error: error.message });
     }
     const candidateOrders = (orders || []) as any[];
@@ -107,7 +107,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       : { data: [], error: null };
     if (companiesError) {
       console.error("[deposit-reminder] companies fetch failed:", companiesError);
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: companiesError.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: companiesError.message });
       return res.status(500).json({ error: companiesError.message });
     }
     const reminderSettings = new Map<string, { reminders: PaymentReminderSettings; due: PaymentDueSettings }>();
@@ -340,7 +340,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     await recordCronHeartbeat(sb, CRON_NAME, errors.length > 0 ? "error" : "ok", {
-      source: auth.source,
+      source: auth.source, run_id: auth.runId,
       considered: candidateOrders.length,
       queued,
       skipped,
@@ -359,7 +359,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("[deposit-reminder] crashed:", e);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }

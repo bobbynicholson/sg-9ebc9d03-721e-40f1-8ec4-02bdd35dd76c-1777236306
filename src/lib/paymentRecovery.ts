@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { createHash } from "crypto";
 import { applyVerifiedPayment, settleTenantGatewayPayment } from "@/lib/tenantGatewaySettlement";
 import { fetchPayFastHistoryPage, type PayFastHistoryTransaction } from "@/lib/payfastService";
 
@@ -64,7 +65,91 @@ export async function recoverPayFastTransaction(admin: any, gateway: any, transa
     paymentAttempt: attempt, amount: Number(transaction.amount_gross), currency: transaction.currency });
 }
 
-/** One bounded history page. Persist the cursor only after every relevant row settles. */
+function isPayFastReviewRequired(error: unknown) {
+  return /unknown checkout attempt|history metadata does not match saved checkout|payment does not match saved checkout|transaction already belongs to another payment|invalid payment transaction or amount/i
+    .test(String(error || ""));
+}
+
+function minimalPayFastHistoryRow(transaction: PayFastHistoryTransaction) {
+  return Object.fromEntries(Object.entries({
+    pf_payment_id: transaction.pf_payment_id,
+    m_payment_id: transaction.m_payment_id,
+    amount_gross: transaction.amount_gross,
+    currency: transaction.currency,
+    payment_status: transaction.payment_status,
+    custom_str1: transaction.custom_str1,
+    custom_str2: transaction.custom_str2,
+    custom_str3: transaction.custom_str3,
+    custom_str4: transaction.custom_str4,
+    custom_str5: transaction.custom_str5,
+  }).filter(([, value]) => value !== undefined && value !== null));
+}
+
+async function storePayFastHistoryException(
+  admin: any,
+  gateway: any,
+  sourceId: string,
+  transaction: PayFastHistoryTransaction,
+  reason: string,
+) {
+  const payload = minimalPayFastHistoryRow(transaction);
+  const eventKey = createHash("sha256").update(`${sourceId}:${JSON.stringify(payload)}`).digest("hex");
+  const providerTransactionId = String(transaction.pf_payment_id || transaction.m_payment_id || eventKey.slice(0, 32));
+  const now = new Date().toISOString();
+  const { error } = await admin.from("payfast_recovery_exceptions").upsert({
+    event_key: eventKey,
+    source_id: sourceId,
+    gateway_id: gateway.id,
+    company_id: gateway.company_id,
+    provider_transaction_id: providerTransactionId,
+    transaction_payload: payload,
+    reason: String(reason).slice(0, 500),
+    last_seen_at: now,
+    updated_at: now,
+  }, { onConflict: "event_key" });
+  if (error) throw error;
+}
+
+async function retryPayFastHistoryExceptions(admin: any, gateway: any, sourceId: string, credentials: any) {
+  const { data: pending, error } = await admin.from("payfast_recovery_exceptions")
+    .select("id, transaction_payload, attempt_count")
+    .eq("source_id", sourceId).eq("status", "pending")
+    .order("first_seen_at", { ascending: true }).limit(100);
+  if (error) throw error;
+
+  let resolved = 0;
+  let retryErrors = 0;
+  for (const exception of pending || []) {
+    try {
+      const result = await recoverPayFastTransaction(admin, {
+        ...gateway,
+        merchantId: credentials.merchantId,
+      }, exception.transaction_payload as PayFastHistoryTransaction);
+      // Null means the provider row is still not an app payment that can be
+      // safely tied to this tenant and checkout. Leave it open for review.
+      if (!result) continue;
+      const resolvedAt = new Date().toISOString();
+      const update = await admin.from("payfast_recovery_exceptions")
+        .update({ status: "resolved", resolved_at: resolvedAt, last_error: null, updated_at: resolvedAt })
+        .eq("id", exception.id).eq("status", "pending").select("id").maybeSingle();
+      if (update.error) throw update.error;
+      if (update.data) resolved += 1;
+    } catch (failure: any) {
+      retryErrors += 1;
+      const now = new Date().toISOString();
+      const saved = await admin.from("payfast_recovery_exceptions").update({
+        attempt_count: Number(exception.attempt_count || 0) + 1,
+        last_seen_at: now,
+        last_error: String(failure?.message || failure).slice(0, 500),
+        updated_at: now,
+      }).eq("id", exception.id).eq("status", "pending");
+      if (saved.error) throw saved.error;
+    }
+  }
+  return { resolved, retryErrors };
+}
+
+/** One bounded history page. Advance only after rows settle or are durably quarantined. */
 export async function recoverPayFastGateway(admin: any, gateway: any, credentials: any) {
   const today = new Date().toISOString().slice(0, 10);
   const sourceId = gateway.recoverySourceId || gateway.id;
@@ -83,7 +168,11 @@ export async function recoverPayFastGateway(admin: any, gateway: any, credential
     if (saved.error) throw saved.error;
   }
   let recovered = 0;
+  let reviewRowsSeen = 0;
   try {
+    const exceptionRetry = await retryPayFastHistoryExceptions(admin, gateway, sourceId, credentials);
+    let exceptionsResolved = exceptionRetry.resolved;
+    let exceptionRetryErrors = exceptionRetry.retryErrors;
     // Fresh charges take priority over the historical backlog after an outage.
     // This offset is separate from the persistent oldest-unscanned-date cursor.
     const recentFrom = new Date(Date.now() - 2 * 86400000).toISOString().slice(0,10);
@@ -95,7 +184,12 @@ export async function recoverPayFastGateway(admin: any, gateway: any, credential
       try {
         const settlement = await recoverPayFastTransaction(admin, { ...gateway, merchantId: credentials.merchantId }, transaction);
         if (settlement && !settlement.duplicate) recovered += 1;
-      } catch (error: any) { failures.push(error); }
+      } catch (error: any) {
+        if (isPayFastReviewRequired(error)) {
+          await storePayFastHistoryException(admin, gateway, sourceId, transaction, error.message);
+          reviewRowsSeen += 1;
+        } else failures.push(error);
+      }
     }
     if (failures.length) throw new Error(`${failures.length} PayFast history rows need repair: ${failures[0].message}`);
     const recentSaved = await admin.from("payfast_recovery_cursors").update({
@@ -109,7 +203,12 @@ export async function recoverPayFastGateway(admin: any, gateway: any, credential
       try {
         const settlement = await recoverPayFastTransaction(admin, { ...gateway, merchantId: credentials.merchantId }, transaction);
         if (settlement && !settlement.duplicate) recovered += 1;
-      } catch (error: any) { failures.push(error); }
+      } catch (error: any) {
+        if (isPayFastReviewRequired(error)) {
+          await storePayFastHistoryException(admin, gateway, sourceId, transaction, error.message);
+          reviewRowsSeen += 1;
+        } else failures.push(error);
+      }
     }
     if (failures.length) throw new Error(`${failures.length} PayFast history rows need repair: ${failures[0].message}`);
     let nextDate = cursor.next_date;
@@ -126,7 +225,18 @@ export async function recoverPayFastGateway(admin: any, gateway: any, credential
       last_checked_at: new Date().toISOString(), last_error: null }).eq("source_id", sourceId)
       .eq("next_date", cursor.next_date).eq("page_offset", cursor.page_offset);
     if (saved.error) throw saved.error;
-    return { recovered, scanning_date: cursor.next_date, caught_up: cursor.next_date >= today };
+    const { count: exceptionsPending, error: exceptionCountError } = await admin.from("payfast_recovery_exceptions")
+      .select("id", { count: "exact", head: true }).eq("source_id", sourceId).eq("status", "pending");
+    if (exceptionCountError) throw exceptionCountError;
+    return {
+      recovered,
+      scanning_date: cursor.next_date,
+      caught_up: cursor.next_date >= today,
+      exceptions_pending: exceptionsPending || 0,
+      exceptions_resolved: exceptionsResolved,
+      exception_retry_errors: exceptionRetryErrors,
+      review_rows_seen: reviewRowsSeen,
+    };
   } catch (failure: any) {
     const saved = await admin.from("payfast_recovery_cursors").update({ last_checked_at: new Date().toISOString(),
       last_error: String(failure.message).slice(0, 500) }).eq("source_id", sourceId);

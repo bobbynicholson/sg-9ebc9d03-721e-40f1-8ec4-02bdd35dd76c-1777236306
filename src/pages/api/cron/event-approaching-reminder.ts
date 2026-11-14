@@ -173,7 +173,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   if (error) {
     console.error("[cron/event-approaching-reminder] read failed:", error);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: error.message });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: error.message });
     return res.status(500).json({ error: error.message });
   }
 
@@ -183,7 +183,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     : { data: [], error: null };
   if (companyError) {
     console.error("[cron/event-approaching-reminder] company timezone read failed:", companyError);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: companyError.message });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: companyError.message });
     return res.status(500).json({ error: companyError.message });
   }
   const timezoneByCompany = new Map<string, string | null>(
@@ -448,7 +448,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (errors.length > 0) console.warn("[cron/event-approaching-reminder] per-row errors:", errors);
 
   await recordCronHeartbeat(sb, CRON_NAME, errors.length > 0 ? "error" : "ok", {
-    source: auth.source,
+    source: auth.source, run_id: auth.runId,
     checked: (orders || []).length,
     shoppingPings,
     tomorrowPings,

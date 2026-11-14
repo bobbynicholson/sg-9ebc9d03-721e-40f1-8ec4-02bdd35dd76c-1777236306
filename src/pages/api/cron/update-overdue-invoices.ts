@@ -39,7 +39,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { data, error } = await sb.rpc("update_overdue_invoices");
     if (error) {
       console.error("[update-overdue-invoices] RPC failed:", error);
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: error.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: error.message });
       return res.status(500).json({ error: error.message });
     }
     const flipped = typeof data === "number" ? data : 0;
@@ -143,11 +143,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       console.warn("[update-overdue-invoices] digest pass failed (non-blocking):", notifyErr?.message || notifyErr);
     }
 
-    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, flipped, datesCorrected, notified, emailed });
+    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, flipped, datesCorrected, notified, emailed });
     return res.status(200).json({ ok: true, flipped, notified, emailed });
   } catch (e: any) {
     console.error("[update-overdue-invoices] crashed:", e);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }

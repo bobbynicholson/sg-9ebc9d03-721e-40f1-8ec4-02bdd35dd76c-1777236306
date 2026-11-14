@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import { Bell, Check, X, Clock, AlertCircle, CheckCircle, ChevronRight } from "lucide-react";
+import { Bell, BellRing, Check, X, Clock, AlertCircle, CheckCircle, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -16,10 +16,37 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { effectivePriority } from "@/lib/notificationDisplay";
 import { useTenantHref } from "@/lib/tenantUrl";
-import { shoppingNotificationLink } from "@/lib/shoppingNotificationLink";
 import { updatePwaAppBadge } from "@/lib/pwa/appBadge";
+import { pwaIconUrl } from "@/lib/pwa/metadata";
+import { notificationDestination, notificationInboxPathForRole } from "@/lib/notificationLinks";
 
 type SoundTier = "urgent" | "high" | "default";
+type DeviceNotificationPermission = NotificationPermission | "unsupported";
+type DevicePushStatus = "checking" | "ready" | "subscribed" | "unsupported" | "unconfigured";
+
+function applicationServerKey(value: string): Uint8Array {
+  const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+  const raw = window.atob(padded);
+  return Uint8Array.from(raw, character => character.charCodeAt(0));
+}
+
+const subscriptionSyncs = new Map<string, Promise<boolean>>();
+function saveDeviceSubscription(userId: string, activeRole: string, subscription: PushSubscription): Promise<boolean> {
+  const key = `${userId}:${subscription.endpoint}`;
+  const previous = subscriptionSyncs.get(key) || Promise.resolve(true);
+  const request = previous.catch(() => false).then(() => fetch("/api/pwa/push-subscription", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ ...subscription.toJSON(), activeRole }),
+  })).then(response => response.ok).catch(() => false)
+    .finally(() => {
+      if (subscriptionSyncs.get(key) === request) subscriptionSyncs.delete(key);
+    });
+  subscriptionSyncs.set(key, request);
+  return request;
+}
 
 // Browsers block audio started for the first time by a background realtime
 // event. Keep one AudioContext and unlock it on the operator's first click,
@@ -178,7 +205,7 @@ function claimToast(id: string): boolean {
 // realtime callback; the user must opt in from the browser/PWA settings.
 // Persisted notifications and the in-app bell remain the source of truth when
 // permission is unavailable or the tab has been fully terminated.
-async function showBackgroundNotification(notification: Notification, href: string) {
+async function showBackgroundNotification(notification: Notification, href: string, icon: string) {
   if (typeof window === "undefined" || document.visibilityState === "visible") return;
   if (!("Notification" in window) || window.Notification.permission !== "granted") return;
 
@@ -186,7 +213,10 @@ async function showBackgroundNotification(notification: Notification, href: stri
   const options = {
     body: notification.message || "You have a new notification.",
     tag: `cateringms-${notification.id}`,
-    data: { url: href },
+    icon,
+    badge: icon,
+    silent: false,
+    data: { url: href, notificationId: notification.id },
   };
   try {
     const registration = await navigator.serviceWorker?.getRegistration();
@@ -208,13 +238,18 @@ export function NotificationBell() {
   const router = useRouter();
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
-  const { user, activeRole, company, profile } = useAuth() as any;
+  const { user, activeRole, company, profile, isStaffPreview } = useAuth() as any;
   const { toast } = useToast();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [pwaUnreadCount, setPwaUnreadCount] = useState(0);
+  const [deviceNotificationPermission, setDeviceNotificationPermission] =
+    useState<DeviceNotificationPermission>("unsupported");
+  const [devicePushStatus, setDevicePushStatus] = useState<DevicePushStatus>("checking");
+  const [devicePushBusy, setDevicePushBusy] = useState(false);
   const readStateRef = useRef(new Map<string, boolean>());
+  const devicePushStatusRef = useRef<DevicePushStatus>("checking");
   const badgeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notificationLoadRequestRef = useRef(0);
   const companyId =
@@ -223,6 +258,191 @@ export function NotificationBell() {
     (user as any)?.company_id ||
     (user as any)?.user_metadata?.company_id ||
     null;
+  const notificationIcon = pwaIconUrl(company?.slug ? {
+    id: company.id,
+    slug: company.slug,
+    companyName: company.company_name,
+    logoUrl: company.logo_url,
+    primaryColor: company.primary_color,
+  } : null, 192);
+
+  useEffect(() => {
+    const syncPermission = () => {
+      if (!("Notification" in window)) {
+        setDeviceNotificationPermission("unsupported");
+        return;
+      }
+      setDeviceNotificationPermission(window.Notification.permission);
+    };
+
+    syncPermission();
+    window.addEventListener("focus", syncPermission);
+    document.addEventListener("visibilitychange", syncPermission);
+    return () => {
+      window.removeEventListener("focus", syncPermission);
+      document.removeEventListener("visibilitychange", syncPermission);
+    };
+  }, []);
+
+  useEffect(() => {
+    devicePushStatusRef.current = devicePushStatus;
+  }, [devicePushStatus]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const syncPushStatus = async () => {
+      if (!user?.id || isStaffPreview) {
+        setDevicePushStatus("checking");
+        return;
+      }
+      if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+        setDevicePushStatus("unsupported");
+        return;
+      }
+
+      try {
+        const configResponse = await fetch("/api/pwa/push-subscription", {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+        const config = configResponse.ok ? await configResponse.json() : null;
+        if (cancelled) return;
+        if (!config?.enabled || !config?.publicKey) {
+          setDevicePushStatus("unconfigured");
+          return;
+        }
+
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        if (cancelled) return;
+        if (!subscription) {
+          setDevicePushStatus("ready");
+          return;
+        }
+
+        const role = String(activeRole || profile?.active_role || profile?.role || user?.role || "client");
+        const saved = await saveDeviceSubscription(user.id, role, subscription);
+        if (!cancelled) setDevicePushStatus(saved ? "subscribed" : "ready");
+      } catch {
+        if (!cancelled) setDevicePushStatus("ready");
+      }
+    };
+
+    void syncPushStatus();
+    const refresh = () => {
+      if (document.visibilityState === "visible") void syncPushStatus();
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [user?.id, activeRole, isStaffPreview]);
+
+  const enableDeviceNotifications = async () => {
+    if (isStaffPreview) return;
+    if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window) || !user?.id) {
+      setDevicePushStatus("unsupported");
+      setDeviceNotificationPermission("unsupported");
+      return;
+    }
+
+    setDevicePushBusy(true);
+    try {
+      // Safari on iOS requires this permission prompt to be opened directly
+      // from the user's tap, before any network request yields the gesture.
+      const permission = window.Notification.permission === "granted"
+        ? "granted"
+        : await window.Notification.requestPermission();
+      setDeviceNotificationPermission(permission);
+      if (permission !== "granted") {
+        if (permission === "denied") {
+          toast({
+            title: "Device notifications are blocked",
+            description: "Allow notifications in your browser or installed-app settings.",
+            variant: "destructive",
+          });
+        }
+        return;
+      }
+
+      const configResponse = await fetch("/api/pwa/push-subscription", {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+      const config = configResponse.ok ? await configResponse.json() : null;
+      if (!config?.enabled || !config?.publicKey) {
+        setDevicePushStatus("unconfigured");
+        toast({
+          title: "Device alerts are unavailable",
+          description: "Push notifications are not configured for this app yet.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: applicationServerKey(config.publicKey) as unknown as BufferSource,
+        });
+      }
+      const role = String(activeRole || profile?.active_role || profile?.role || user?.role || "client");
+      if (!(await saveDeviceSubscription(user.id, role, subscription))) {
+        throw new Error("The device subscription could not be saved");
+      }
+
+      setDevicePushStatus("subscribed");
+      // Permission also unlocks numeric app badges on supported iOS devices.
+      await updatePwaAppBadge(pwaUnreadCount);
+      toast({
+        title: "Push alerts enabled",
+        description: "New alerts can reach this device in the background. Tap one to open its linked page.",
+      });
+    } catch (error) {
+      setDevicePushStatus("ready");
+      toast({
+        title: "Could not enable device notifications",
+        description: error instanceof Error ? error.message : "Please try again from the installed app.",
+        variant: "destructive",
+      });
+    } finally {
+      setDevicePushBusy(false);
+    }
+  };
+
+  const disableDeviceNotifications = async () => {
+    if (!("serviceWorker" in navigator) || !user?.id) return;
+    setDevicePushBusy(true);
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        const response = await fetch("/api/pwa/push-subscription", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ endpoint: subscription.endpoint }),
+        });
+        if (!response.ok) throw new Error("The device could not be removed from push notifications");
+        await subscription.unsubscribe();
+      }
+      setDevicePushStatus("ready");
+      toast({ title: "Push alerts turned off on this device" });
+    } catch (error) {
+      toast({
+        title: "Could not turn off device alerts",
+        description: error instanceof Error ? error.message : "Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDevicePushBusy(false);
+    }
+  };
 
   const refreshUnreadCount = async () => {
     if (!user?.id) return;
@@ -323,13 +543,24 @@ export function NotificationBell() {
         // the screen for routine items - the sound + badge cover those.
         if (claimToast(notification.id)) {
           const priority = (notification.priority || "").toLowerCase();
-          playNotifSound(priority);
-          void showBackgroundNotification(
-            notification,
-            /^https?:\/\//i.test(notification.link || "")
-              ? (notification.link as string)
-              : withSlug(notification.link || "/notifications"),
-          );
+          // The local chime is immediate while the app is visible. In the
+          // background, subscribed devices use the OS push sound instead.
+          // A foreground app uses the unlocked in-app chime. When hidden,
+          // an OS notification supplies the sound if permission is granted;
+          // otherwise audio playback is commonly blocked by the browser.
+          const canPlayLocalSound = document.visibilityState === "visible"
+            || (!("Notification" in window) || window.Notification.permission !== "granted");
+          if (canPlayLocalSound) {
+            playNotifSound(priority);
+          }
+          if (devicePushStatusRef.current !== "subscribed") {
+            const destination = notificationDestination(
+              notification,
+              activeRole || profile?.active_role || profile?.role || user?.role,
+            );
+            const href = /^https?:\/\//i.test(destination) ? destination : withSlug(destination);
+            void showBackgroundNotification(notification, href, notificationIcon);
+          }
           if (priority === "urgent" || priority === "high") {
             toast({
               title: notification.title || "New notification",
@@ -448,58 +679,20 @@ export function NotificationBell() {
       queueUnreadCountRefresh();
     }
     
-    if (notification.link) {
-      setOpen(false);
-      // Links are stored WITHOUT the tenant slug (e.g.
-      // "/team-portal/kitchen/prep-list", "/admin/quotes/{id}"). On a
-      // slug-routed tenant a bare push lands on a non-tenant path that
-      // 404s / bounces, so the click appeared to "do nothing". Route
-      // through withSlug (no-op for absolute http links / already-slugged
-      // paths) so every notification opens its target page.
-      // Shopping staff can't open /admin links; map those to the
-      // shopping-side page (no change for any other role).
-      const href = shoppingNotificationLink(notification.link, activeRole);
-      router.push(/^https?:\/\//i.test(href) ? href : withSlug(href));
-    }
+    setOpen(false);
+    const destination = notificationDestination(
+      notification,
+      activeRole || profile?.active_role || profile?.role || user?.role,
+    );
+    router.push(/^https?:\/\//i.test(destination) ? destination : withSlug(destination));
   };
 
   const handleViewAll = (e: React.MouseEvent) => {
     e.stopPropagation();
     setOpen(false);
 
-    // Route to the right notifications page based on the actual
-    // user_role enum values, not invented short forms. Previously
-    // every admin variant except literal 'admin' (e.g. company_admin,
-    // region_admin, sales_admin) and every team-portal staff role
-    // (kitchen_staff, shopping_staff, cleaning_staff) fell through
-    // to the client-portal default - which is why Bobby got bounced
-    // to /client-portal/notifications when he clicked View all from
-    // /admin/quotes. Match the canonical enum values:
-    //   super_admin / company_admin / admin / region_admin / sales_admin → /admin
-    //   kitchen_staff → /team-portal/kitchen
-    //   shopping_staff → /team-portal/shopping
-    //   cleaning_staff → /team-portal/cleaning
-    //   driver        → /team-portal/driver
-    //   anything else (client, undefined) → /client-portal
-    const role = activeRole as string | null | undefined;
-    const ADMIN_ROLES = new Set([
-      "super_admin", "company_admin", "admin", "region_admin", "sales_admin",
-    ]);
-    if (role && ADMIN_ROLES.has(role)) {
-      router.push(withSlug("/admin/notifications"));
-    } else if (role === "driver") {
-      router.push(withSlug("/team-portal/driver/notifications"));
-    } else if (role === "waiter") {
-      router.push(withSlug("/team-portal/waiter/notifications"));
-    } else if (role === "kitchen_staff") {
-      router.push(withSlug("/team-portal/kitchen/notifications"));
-    } else if (role === "shopping_staff") {
-      router.push(withSlug("/team-portal/shopping/notifications"));
-    } else if (role === "cleaning_staff") {
-      router.push(withSlug("/team-portal/cleaning/notifications"));
-    } else {
-      router.push(withSlug("/client-portal/notifications"));
-    }
+    const role = activeRole || profile?.active_role || profile?.role || user?.role;
+    router.push(withSlug(notificationInboxPathForRole(role)));
   };
 
   // Soft tinted icon chip per priority - replaces the old heavy
@@ -536,6 +729,8 @@ export function NotificationBell() {
     new Map(notifications.map((n) => [n.id, n])).values(),
   );
   const unreadCount = pwaUnreadCount;
+  const pushRoleLabel = String(activeRole || profile?.active_role || profile?.role || user?.role || "current")
+    .replace(/_/g, " ");
 
   if (!user) return null;
 
@@ -610,6 +805,63 @@ export function NotificationBell() {
             </Button>
           )}
         </div>
+
+        {devicePushStatus === "ready" && deviceNotificationPermission !== "denied" && (
+          <div className="shrink-0 border-b border-slate-100 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-primary/10 text-brand-primary">
+                <BellRing className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-slate-900 dark:text-white">Get alerts on this device</p>
+                <p className="mt-0.5 text-xs leading-snug text-slate-500 dark:text-slate-400">
+                  Receive {pushRoleLabel} updates in the background. Changing portals updates this device's alert role.
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => void enableDeviceNotifications()}
+                disabled={devicePushBusy}
+                className="min-h-10 shrink-0 px-3 text-xs"
+              >
+                {devicePushBusy ? "Enabling…" : "Enable"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {devicePushStatus === "subscribed" && (
+          <div className="shrink-0 border-b border-slate-100 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
+            <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300">
+                <BellRing className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-emerald-950 dark:text-emerald-100">Device alerts are on</p>
+                <p className="mt-0.5 text-xs leading-snug text-emerald-800 dark:text-emerald-300">
+                  Receiving {pushRoleLabel} alerts on this device. Tap one to open its linked page.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={devicePushBusy}
+                onClick={() => void disableDeviceNotifications()}
+                className="min-h-10 shrink-0 px-2 text-xs"
+              >
+                {devicePushBusy ? "Saving…" : "Turn off"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {deviceNotificationPermission === "denied" && (
+          <div role="status" className="shrink-0 border-b border-amber-100 bg-amber-50 px-4 py-2.5 text-xs leading-relaxed text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+            Device alerts are blocked. Allow them in your browser or installed-app settings.
+          </div>
+        )}
 
         {/* Notifications List */}
         <ScrollArea className="h-[min(420px,max(8rem,calc(100dvh-12rem)))] min-h-0 shrink bg-slate-50/60 dark:bg-slate-950/40">

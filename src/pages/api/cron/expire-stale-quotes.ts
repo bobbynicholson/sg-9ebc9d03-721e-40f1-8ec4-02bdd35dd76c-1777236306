@@ -87,7 +87,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .is("deleted_at", null)
       .limit(2000);
     if (selErr) {
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: selErr.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: selErr.message });
       return res.status(500).json({ error: selErr.message });
     }
 
@@ -125,7 +125,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           .in("status", ["draft", "sent"])
           .select(QUOTE_SELECT);
         if (updateError) {
-          await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: updateError.message });
+          await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: updateError.message });
           return res.status(500).json({ error: updateError.message });
         }
         updatedRows.push(...((updated || []) as QuoteExpiryRow[]));
@@ -143,7 +143,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .is("deleted_at", null)
       .limit(2000);
     if (retryError) {
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: retryError.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: retryError.message });
       return res.status(500).json({ error: retryError.message });
     }
 
@@ -154,7 +154,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const pendingRows = Array.from(rowsById.values()).filter(hasPendingDelivery);
     if (pendingRows.length === 0) {
       await recordCronHeartbeat(sb, CRON_NAME, "ok", {
-        source: auth.source, expired: newlyExpired.length, pending: 0,
+        source: auth.source, run_id: auth.runId, expired: newlyExpired.length, pending: 0,
       });
       return res.status(200).json({ ok: true, expired: newlyExpired.length, pending: 0 });
     }
@@ -380,7 +380,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     await recordCronHeartbeat(sb, CRON_NAME, deliveryFailures > 0 ? "error" : "ok", {
-      source: auth.source,
+      source: auth.source, run_id: auth.runId,
       expired: newlyExpired.length,
       pending: pendingRows.length,
       admin_in_app: adminNotified,
@@ -401,7 +401,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (error: any) {
     console.error("[expire-stale-quotes] crashed:", error);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: error?.message || "crash" });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: error?.message || "crash" });
     return res.status(500).json({ error: error?.message || "crash" });
   }
 }

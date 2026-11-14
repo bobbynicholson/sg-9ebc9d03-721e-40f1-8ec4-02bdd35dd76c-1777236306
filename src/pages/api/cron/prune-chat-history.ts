@@ -38,7 +38,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     await recordCronHeartbeat(sb, CRON_NAME, "ok", {
-      source: auth.source,
+      source: auth.source, run_id: auth.runId,
       cutoff_iso: cutoffIso,
       retention_days: CHAT_RETENTION_DAYS,
       deleted_sessions: sessions,
@@ -46,7 +46,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ ok: true, cutoff_iso: cutoffIso, retention_days: CHAT_RETENTION_DAYS, deleted_sessions: sessions });
   } catch (error: any) {
     console.error(`[${CRON_NAME}] failed:`, error);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: error?.message || "cleanup failed" });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: error?.message || "cleanup failed" });
     return res.status(500).json({ error: error?.message || "Could not prune chat history" });
   }
 }

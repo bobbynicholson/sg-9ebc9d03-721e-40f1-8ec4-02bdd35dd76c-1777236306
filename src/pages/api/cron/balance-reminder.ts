@@ -69,7 +69,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const companiesError = companiesOnError || companiesLoadError;
     if (companiesError) {
       console.error("[balance-reminder] companies fetch failed:", companiesError);
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: companiesError.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: companiesError.message });
       return res.status(500).json({ error: companiesError.message });
     }
     const reminderSettings = new Map<string, { reminders: PaymentReminderSettings; due: PaymentDueSettings }>();
@@ -84,7 +84,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       timezoneByCompany.set(co.id, co.timezone || null);
     }
     if (reminderSettings.size === 0) {
-      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, considered: 0, queued: 0 });
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, considered: 0, queued: 0 });
       return res.status(200).json({ ok: true, queued: 0 });
     }
     // Reminder copy and invoice links must show the same current due date.
@@ -107,11 +107,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .limit(1000);
     if (error) {
       console.error("[balance-reminder] invoices fetch failed:", error);
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: error.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: error.message });
       return res.status(500).json({ error: error.message });
     }
     if (!invoices || invoices.length === 0) {
-      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, considered: 0, queued: 0 });
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, considered: 0, queued: 0 });
       return res.status(200).json({ ok: true, queued: 0 });
     }
 
@@ -302,7 +302,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     await recordCronHeartbeat(sb, CRON_NAME, errors.length > 0 ? "error" : "ok", {
-      source: auth.source,
+      source: auth.source, run_id: auth.runId,
       considered: invoices.length,
       queued,
       errors_count: errors.length,
@@ -315,7 +315,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("[balance-reminder] crashed:", e);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }

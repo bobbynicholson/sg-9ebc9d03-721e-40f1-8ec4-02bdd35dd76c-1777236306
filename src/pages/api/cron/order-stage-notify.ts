@@ -75,11 +75,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     .limit(MAX_ORDERS_PER_RUN);
   if (ordersErr) {
     console.error("[cron/order-stage-notify] orders fetch failed:", ordersErr);
-    await recordCronHeartbeat(supabase, CRON_NAME, "error", { source: auth.source, error_message: ordersErr.message });
+    await recordCronHeartbeat(supabase, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: ordersErr.message });
     return res.status(500).json({ error: ordersErr.message });
   }
   if (!orders || orders.length === 0) {
-    await recordCronHeartbeat(supabase, CRON_NAME, "ok", { source: auth.source, checked: 0 });
+    await recordCronHeartbeat(supabase, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, checked: 0 });
     return res.status(200).json({ ok: true, checked: 0 });
   }
 
@@ -421,7 +421,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   await recordCronHeartbeat(supabase, CRON_NAME, errors.length > 0 ? "error" : "ok", {
-    source: auth.source,
+    source: auth.source, run_id: auth.runId,
     checked: orders.length,
     advance_fired: advanceFired,
     blocker_fired: blockerFired,

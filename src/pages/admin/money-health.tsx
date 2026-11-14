@@ -82,7 +82,7 @@ function MoneyHealthPage() {
       const response = await fetch("/api/admin/email-health", { method: "POST" });
       const body = await response.json().catch(() => ({}));
       if (response.ok && body?.ok) {
-        toast({ title: "Queue processed", description: `${body.drained?.sent || 0} sent, ${body.drained?.failed || 0} failed.` });
+        toast({ title: "Queue processed", description: `${body.drained?.sent || 0} sent, ${body.drained?.failed || 0} failed, ${body.drained?.recovered || 0} stalled claims recovered.` });
         setEmail(body.health);
         setEmailError(null);
       } else {
@@ -138,8 +138,8 @@ function MoneyHealthPage() {
                 )}
                 {email && (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                    <span className={`h-1.5 w-1.5 rounded-full ${email.queued === 0 && email.failed === 0 ? "bg-emerald-400" : "bg-amber-400"}`} />
-                    {email.queued} queued, {email.failed} failed
+                    <span className={`h-1.5 w-1.5 rounded-full ${email.queued === 0 && email.failed === 0 && !email.staleInProgress ? "bg-emerald-400" : "bg-amber-400"}`} />
+                    {email.queued} queued, {email.inProgress || 0} processing, {email.failed} failed
                   </span>
                 )}
               </>
@@ -213,6 +213,7 @@ function MoneyHealthPage() {
               ) : email ? (
                 <div className="flex flex-wrap items-center gap-4">
                   <div><p className="text-xs text-slate-500">Queued</p><p className={`text-xl font-bold ${email.stale ? "text-amber-600" : "text-slate-900 dark:text-white"}`}>{email.queued}</p></div>
+                  <div><p className="text-xs text-slate-500">In progress</p><p className={`text-xl font-bold ${email.staleInProgress ? "text-amber-600" : "text-slate-900 dark:text-white"}`}>{email.inProgress}</p></div>
                   <div><p className="text-xs text-slate-500">Failed</p><p className={`text-xl font-bold ${email.failed > 0 ? "text-rose-600" : "text-slate-900 dark:text-white"}`}>{email.failed}</p></div>
                   <div><p className="text-xs text-slate-500">Sent (24h)</p><p className="text-xl font-bold text-brand-primary">{email.sentLast24h}</p></div>
                   <div><p className="text-xs text-slate-500">Oldest waiting</p><p className="text-xl font-bold text-slate-900 dark:text-white">{email.oldestQueuedMinutes != null ? `${email.oldestQueuedMinutes}m` : "-"}</p></div>
@@ -220,12 +221,15 @@ function MoneyHealthPage() {
                     {email.stale && (
                       <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 gap-1"><AlertTriangle className="w-3 h-3" /> Queue stale - worker may be down</Badge>
                     )}
-                    {email.queued > 0 && (
+                    {email.staleInProgress && (
+                      <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 gap-1"><AlertTriangle className="w-3 h-3" /> Stalled claim will be recovered</Badge>
+                    )}
+                    {(email.queued > 0 || email.staleInProgress) && (
                       <Button onClick={drain} disabled={draining} className="gap-2 bg-brand-primary hover:bg-brand-primary/90">
-                        {draining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Send pending now
+                        {draining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Retry stalled / send pending
                       </Button>
                     )}
-                    {email.queued === 0 && email.failed === 0 && (
+                    {email.queued === 0 && email.inProgress === 0 && email.failed === 0 && (
                       <span className="text-sm text-emerald-600 inline-flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> All clear</span>
                     )}
                   </div>

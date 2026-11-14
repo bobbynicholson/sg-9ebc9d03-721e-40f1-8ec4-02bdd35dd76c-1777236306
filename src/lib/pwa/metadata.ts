@@ -6,6 +6,11 @@ export type PwaBranding = {
   primaryColor?: string | null;
 };
 
+// Keep browser and installed-app chrome neutral on every screen size. Tenant
+// primary colours remain available to the app UI, but should not tint the
+// phone's status/address bar.
+export const PWA_THEME_COLOR = "#ffffff";
+
 export const isCompanySlug = (value: unknown): value is string =>
   typeof value === "string" && /^[a-z0-9][a-z0-9-]{0,99}$/.test(value);
 
@@ -58,7 +63,6 @@ export function buildPwaManifest(branding: PwaBranding | null) {
   const slug = branding?.slug && isCompanySlug(branding.slug) ? branding.slug : null;
   const name = branding?.companyName?.trim() || "CateringMS";
   const color = branding?.primaryColor || "";
-  const themeColor = /^#[a-f\d]{6}$/i.test(color) ? color : "#10b981";
   const backgroundColor = /^#[a-f\d]{6}$/i.test(color) ? color : "#f8fafc";
   return {
     name,
@@ -79,7 +83,7 @@ export function buildPwaManifest(branding: PwaBranding | null) {
     orientation: "any",
     // Browsers use this for the OS-generated launch splash background.
     background_color: backgroundColor,
-    theme_color: themeColor,
+    theme_color: PWA_THEME_COLOR,
     categories: ["business", "productivity"],
     icons: ([192, 512] as const).map(size => ({
       src: pwaIconUrl(branding, size), sizes: `${size}x${size}`, type: "image/png", purpose: "any",

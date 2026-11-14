@@ -38,12 +38,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     if (countErr) {
       console.error("[archive-old-notifications] count failed:", countErr);
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: countErr.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: countErr.message });
       return res.status(500).json({ error: countErr.message });
     }
 
     if (!count || count === 0) {
-      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, cutoff_iso: cutoffIso, archived: 0 });
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, cutoff_iso: cutoffIso, archived: 0 });
       return res.status(200).json({
         ok: true,
         cutoff_iso: cutoffIso,
@@ -59,11 +59,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     if (delErr) {
       console.error("[archive-old-notifications] delete failed:", delErr);
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: delErr.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: delErr.message });
       return res.status(500).json({ error: delErr.message });
     }
 
-    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, cutoff_iso: cutoffIso, archived: count });
+    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, cutoff_iso: cutoffIso, archived: count });
     return res.status(200).json({
       ok: true,
       cutoff_iso: cutoffIso,
@@ -71,7 +71,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("[archive-old-notifications] crashed:", e);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }

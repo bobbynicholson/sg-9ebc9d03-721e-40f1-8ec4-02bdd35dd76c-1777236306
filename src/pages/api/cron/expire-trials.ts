@@ -70,7 +70,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     if (selErr) {
       console.error("[expire-trials] select failed:", selErr);
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: selErr.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: selErr.message });
       return res.status(500).json({ error: selErr.message });
     }
 
@@ -121,12 +121,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const ids = ((lapsed as any[]) || []).map((r) => r.id);
     if (ids.length === 0) {
-      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, expired: 0, trial_reminders: trialReminders });
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, expired: 0, trial_reminders: trialReminders });
       return res.status(200).json({ ok: true, expired: 0, trial_reminders: trialReminders });
     }
 
     if (dryRun) {
-      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, expired: 0, dryRun: true, would_expire: ids.length });
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, expired: 0, dryRun: true, would_expire: ids.length });
       return res.status(200).json({ ok: true, dryRun: true, would_expire: ids.length, companies: lapsed });
     }
 
@@ -137,7 +137,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     if (updErr) {
       console.error("[expire-trials] update failed:", updErr);
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: updErr.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: updErr.message });
       return res.status(500).json({ error: updErr.message });
     }
 
@@ -171,11 +171,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       console.warn("[expire-trials] notification cascade crashed (non-blocking):", notifyErr);
     }
 
-    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, expired: ids.length, trial_reminders: trialReminders });
+    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, expired: ids.length, trial_reminders: trialReminders });
     return res.status(200).json({ ok: true, expired: ids.length, trial_reminders: trialReminders });
   } catch (e: any) {
     console.error("[expire-trials] crashed:", e);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }

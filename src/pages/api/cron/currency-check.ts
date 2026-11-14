@@ -44,7 +44,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const result = await currencyMonitoringService.runDailyCheck(sb);
     await recordCronHeartbeat(sb, CRON_NAME, "ok", {
-      source: auth.source,
+      source: auth.source, run_id: auth.runId,
       rate: result.rate,
       fluctuation_pct: result.fluctuation,
       alert_created: result.alertCreated,
@@ -58,7 +58,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   } catch (e: any) {
     console.error("/api/cron/currency-check crashed:", e);
     await recordCronHeartbeat(sb, CRON_NAME, "error", {
-      source: auth.source,
+      source: auth.source, run_id: auth.runId,
       error_message: e?.message || "Currency check failed",
     });
     return res.status(500).json({ error: e?.message || "Currency check failed" });

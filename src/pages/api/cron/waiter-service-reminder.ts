@@ -91,7 +91,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   if (error) {
     console.error("[cron/waiter-service-reminder] orders fetch failed:", error);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: error.message });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: error.message });
     return res.status(500).json({ error: error.message });
   }
 
@@ -260,7 +260,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   await recordCronHeartbeat(sb, CRON_NAME, errors.length > 0 ? "error" : "ok", {
-    source: auth.source,
+    source: auth.source, run_id: auth.runId,
     checked: (orders || []).length,
     unassignedAlerts,
     waiterReminders,

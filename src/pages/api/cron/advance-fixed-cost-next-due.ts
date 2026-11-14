@@ -59,7 +59,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (selErr) {
       console.error("[advance-fixed-cost-next-due] select failed:", selErr);
       await recordCronHeartbeat(sb, CRON_NAME, "error", {
-        source: auth.source,
+        source: auth.source, run_id: auth.runId,
         elapsed_ms: Date.now() - startedAt,
         error_message: selErr.message,
       });
@@ -113,7 +113,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     await recordCronHeartbeat(sb, CRON_NAME, "ok", {
-      source: auth.source,
+      source: auth.source, run_id: auth.runId,
       elapsed_ms: Date.now() - startedAt,
       processed: rows.length,
       advanced,
@@ -131,7 +131,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   } catch (err: any) {
     console.error("[advance-fixed-cost-next-due] crashed:", err);
     await recordCronHeartbeat(sb, CRON_NAME, "error", {
-      source: auth.source,
+      source: auth.source, run_id: auth.runId,
       elapsed_ms: Date.now() - startedAt,
       error_message: err?.message,
     });

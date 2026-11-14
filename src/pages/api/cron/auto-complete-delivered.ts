@@ -8,6 +8,11 @@ import { withApiLogging } from "@/lib/withApiLogging";
 
 const CRON_NAME = "auto-complete-delivered";
 
+function isRetryableTransitionFailure(error: unknown) {
+  return /timeout|timed out|temporary|temporarily|network|fetch failed|connection|deadlock|serialization|too many connections|\b(408|429|500|502|503|504)\b/i
+    .test(String(error || ""));
+}
+
 /**
  * Cron: flip delivered orders to completed after the event window
  * closes.
@@ -61,7 +66,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     if (selErr) {
       console.error("[auto-complete-delivered] select failed:", selErr);
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: selErr.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: selErr.message });
       return res.status(500).json({ error: selErr.message });
     }
 
@@ -79,6 +84,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
 
     let flipped = 0;
+    let transitionRetries = 0;
     let damagesReconciled = 0;
     let totalRecovered = 0;
     const errors: string[] = [];
@@ -104,7 +110,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           errors.push(`${o.id} reconcile crashed: ${rErr?.message || rErr}`);
         }
 
-        const result = await updateOrderStatus(o.id, "completed");
+        let result = await updateOrderStatus(o.id, "completed");
+        if (!result.success && isRetryableTransitionFailure((result as any).error)) {
+          // A single item-level retry covers transient database/network
+          // failures. updateOrderStatus uses compare-and-set plus an
+          // already-completed guard, so an ambiguous first response cannot
+          // repeat status-change side effects.
+          transitionRetries += 1;
+          result = await updateOrderStatus(o.id, "completed");
+        }
         if (result.success) {
           flipped += 1;
         } else {
@@ -116,26 +130,30 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     await recordCronHeartbeat(sb, CRON_NAME, errors.length > 0 ? "error" : "ok", {
-      source: auth.source,
+      source: auth.source, run_id: auth.runId,
       considered: candidates?.length || 0,
       eligible: eligible.length,
       flipped,
+      transition_retries: transitionRetries,
       damagesReconciled,
       totalRecovered,
       errors_count: errors.length,
+      item_errors: errors.slice(0, 10).map((message) => message.slice(0, 300)),
+      item_errors_truncated: Math.max(0, errors.length - 10),
     });
     return res.status(200).json({
       ok: true,
       considered: candidates?.length || 0,
       eligible: eligible.length,
       flipped,
+      transitionRetries,
       damagesReconciled,
       totalRecovered,
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (e: any) {
     console.error("[auto-complete-delivered] crashed:", e);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }

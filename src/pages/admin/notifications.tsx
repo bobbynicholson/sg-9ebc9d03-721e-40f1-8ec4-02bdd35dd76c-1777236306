@@ -1,6 +1,6 @@
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -33,6 +33,32 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
 import { useToast } from "@/hooks/use-toast";
 
+type PushDeliveryHealth = {
+  last_started_at: string | null;
+  last_finished_at: string | null;
+  last_status: "never_run" | "running" | "ok" | "degraded" | "failed";
+  last_error: string | null;
+  last_claimed: number;
+  last_sent: number;
+  last_retried: number;
+  last_failed: number;
+};
+
+type PushDeliverySnapshot = {
+  health: PushDeliveryHealth | null;
+  counts: { pending: number; retry: number; processing: number; staleProcessing: number; failed: number; failedShown: number };
+  failedJobs: Array<{
+    id: string;
+    attempts: number;
+    manualRetryCount: number;
+    lastManualRetryAt: string | null;
+    createdAt: string;
+    lastError: string | null;
+    notificationTitle: string;
+    recipientName: string;
+  }>;
+};
+
 export default function ProtectedNotificationsPage() {
   // The fourth slot was a COMPANY_ADMIN copy-paste duplicate; OWNER is
   // the role that was actually missing (same admit-OWNER regression
@@ -63,6 +89,70 @@ function NotificationsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const loadRequestRef = useRef(0);
   const companyId = company?.id || profile?.company_id || user?.company_id || user?.user_metadata?.company_id || null;
+  const pushDeliveryUrl = companyId
+    ? `/api/admin/pwa-push-delivery?company_id=${encodeURIComponent(companyId)}`
+    : null;
+  const [pushDelivery, setPushDelivery] = useState<PushDeliverySnapshot | null>(null);
+  const [pushDeliveryLoading, setPushDeliveryLoading] = useState(true);
+  const [pushDeliveryError, setPushDeliveryError] = useState<string | null>(null);
+  const [retryingPushJob, setRetryingPushJob] = useState<string | null>(null);
+  const refreshPushDelivery = useCallback(async (quiet = false) => {
+    if (!pushDeliveryUrl) return;
+    if (!quiet) setPushDeliveryLoading(true);
+    try {
+      const response = await fetch(pushDeliveryUrl, { headers: { Accept: "application/json" } });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error || "Could not load push delivery status.");
+      setPushDelivery(payload);
+      setPushDeliveryError(null);
+    } catch (error: any) {
+      setPushDeliveryError(error?.message || "Could not load push delivery status.");
+    } finally {
+      setPushDeliveryLoading(false);
+    }
+  }, [pushDeliveryUrl]);
+
+  useEffect(() => {
+    setPushDelivery(null);
+    setPushDeliveryError(null);
+    setPushDeliveryLoading(true);
+    if (!pushDeliveryUrl) {
+      setPushDeliveryLoading(false);
+      return;
+    }
+    void refreshPushDelivery();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refreshPushDelivery(true);
+    }, 60_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refreshPushDelivery(true);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [pushDeliveryUrl, refreshPushDelivery]);
+
+  const retryPushDelivery = async (queueId: string) => {
+    if (!pushDeliveryUrl) return;
+    setRetryingPushJob(queueId);
+    try {
+      const response = await fetch(pushDeliveryUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ queueId }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error || "Could not retry this delivery.");
+      toast({ title: "Push delivery queued again", description: "The worker will retry it on its next run." });
+      await refreshPushDelivery(true);
+    } catch (error: any) {
+      toast({ title: "Retry could not be queued", description: error?.message || "Please refresh and try again.", variant: "destructive" });
+    } finally {
+      setRetryingPushJob(null);
+    }
+  };
   const [searchTerm, setSearchTerm] = useState("");
   // Phase 26 #5: "/" or Cmd-F focuses the search input.
   const searchRef = useRef<HTMLInputElement>(null);
@@ -351,6 +441,22 @@ function NotificationsPage() {
   const staleCount = notifications.filter((n) => isStaleNotification(n.created_at)).length;
   const readCount = notifications.length - unreadCount;
   const hasActiveFilters = !!searchTerm || priorityFilter !== "all" || typeFilter !== "all";
+  const pushHealth = pushDelivery?.health || null;
+  const pushWorkerTimestamp = pushHealth?.last_status === "running"
+    ? pushHealth.last_started_at
+    : pushHealth?.last_finished_at;
+  const heartbeatIsOverdue = !!pushHealth && pushHealth.last_status !== "never_run" && !!pushWorkerTimestamp
+    && Date.now() - new Date(pushWorkerTimestamp).getTime() > 3 * 60 * 1000;
+  const pushStatusLabel = heartbeatIsOverdue
+    ? "Heartbeat overdue"
+    : ({ never_run: "Waiting for worker", running: "Running", ok: "Healthy", degraded: "Needs attention", failed: "Worker failed" }[pushHealth?.last_status || "never_run"]);
+  const pushStatusClass = heartbeatIsOverdue || pushHealth?.last_status === "failed"
+    ? "border-rose-200 bg-rose-50 text-rose-700"
+    : pushHealth?.last_status === "degraded"
+      ? "border-amber-200 bg-amber-50 text-amber-800"
+      : pushHealth?.last_status === "ok"
+        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+        : "border-slate-200 bg-slate-50 text-slate-600";
 
   // Phase 18 #5: lightweight CSV export of the currently filtered list so admins
   // can keep an audit trail outside the app (forwarding to ops chats, archival, etc.).
@@ -468,6 +574,128 @@ function NotificationsPage() {
               <StatTile label="Urgent or high" value={urgentCount} hint="Priority items across the inbox" icon={AlertTriangle} />
               <StatTile label="Stale" value={staleCount} hint={`Older than ${STALE_NOTIFICATION_DAYS} days`} icon={Archive} />
             </div>
+          )}
+
+          {companyId && (
+            <PortalCard className="mb-6 overflow-hidden">
+              <div className="flex flex-col gap-4 p-4 sm:p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="rounded-xl bg-brand-primary/10 p-2.5 text-brand-primary">
+                      <Bell className="h-5 w-5" aria-hidden="true" />
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="font-semibold text-slate-900">Push delivery</h2>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Delivery is queued in the database and retried automatically. Queue counts are for this company; worker health is shared.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${pushStatusClass}`}>
+                      {pushHealth?.last_status === "ok" && !heartbeatIsOverdue && <CheckCircle className="mr-1.5 h-3.5 w-3.5" />}
+                      {(heartbeatIsOverdue || pushHealth?.last_status === "failed" || pushHealth?.last_status === "degraded") && <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />}
+                      {pushStatusLabel}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void refreshPushDelivery()}
+                      disabled={pushDeliveryLoading}
+                      aria-label="Refresh push delivery status"
+                    >
+                      <RefreshCw className={`mr-1.5 h-4 w-4 ${pushDeliveryLoading ? "animate-spin" : ""}`} />
+                      Refresh
+                    </Button>
+                  </div>
+                </div>
+
+                {pushDeliveryError && (
+                  <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{pushDeliveryError}</span>
+                  </div>
+                )}
+
+                {pushDeliveryLoading && !pushDelivery ? (
+                  <p className="text-sm text-slate-500">Loading delivery status…</p>
+                ) : pushDelivery ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                      {[
+                        ["Waiting", pushDelivery.counts.pending],
+                        ["Retry scheduled", pushDelivery.counts.retry],
+                        ["Processing", pushDelivery.counts.processing],
+                        ["Stuck over 10 min", pushDelivery.counts.staleProcessing],
+                        ["Failed", pushDelivery.counts.failed],
+                      ].map(([label, value]) => (
+                        <div key={label} className="rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2.5">
+                          <div className="text-xs text-slate-500">{label}</div>
+                          <div className="mt-0.5 text-lg font-semibold tabular-nums text-slate-900">{value}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                      <span>
+                        {pushHealth?.last_status === "running" ? "Worker started" : "Last completed run"}: {pushWorkerTimestamp
+                          ? formatDistanceToNow(new Date(pushWorkerTimestamp), { addSuffix: true })
+                          : "No run recorded yet"}
+                      </span>
+                      {pushHealth && <span>Last worker batch (all companies): {pushHealth.last_sent} sent · {pushHealth.last_retried} retried · {pushHealth.last_failed} failed</span>}
+                    </div>
+                    {heartbeatIsOverdue && (
+                      <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                        The scheduled worker has not completed a run recently. Queued notifications remain in the database and will be picked up when the worker resumes.
+                      </div>
+                    )}
+                    {pushHealth?.last_status === "failed" && pushHealth.last_error && (
+                      <div role="status" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+                        Latest worker error: {pushHealth.last_error}
+                      </div>
+                    )}
+
+                    {pushDelivery.counts.failed > 0 && (
+                      <div className="border-t border-slate-200 pt-4">
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <h3 className="text-sm font-semibold text-slate-900">Failed deliveries</h3>
+                            <p className="text-xs text-slate-500">
+                              Showing the latest {pushDelivery.counts.failedShown} of {pushDelivery.counts.failed}. Retrying resets the attempt counter.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          {pushDelivery.failedJobs.map((job) => (
+                            <div key={job.id} className="flex flex-col gap-3 rounded-lg border border-rose-100 bg-rose-50/40 p-3 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-medium text-slate-900">{job.notificationTitle}</div>
+                                <div className="mt-0.5 text-xs text-slate-600">
+                                  {job.recipientName} · {job.attempts} attempts · {formatDistanceToNow(new Date(job.createdAt), { addSuffix: true })}
+                                  {job.manualRetryCount > 0 && ` · manually retried ${job.manualRetryCount} ${job.manualRetryCount === 1 ? "time" : "times"}`}
+                                </div>
+                                {job.lastError && <div className="mt-1 break-words text-xs text-rose-700">{job.lastError}</div>}
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="shrink-0 border-rose-200 text-rose-700 hover:bg-rose-100"
+                                onClick={() => void retryPushDelivery(job.id)}
+                                disabled={retryingPushJob !== null}
+                              >
+                                <RefreshCw className={`mr-1.5 h-4 w-4 ${retryingPushJob === job.id ? "animate-spin" : ""}`} />
+                                {retryingPushJob === job.id ? "Queueing…" : "Retry delivery"}
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : null}
+              </div>
+            </PortalCard>
           )}
 
         {/* Toolbar: search + filters grouped in one card. */}

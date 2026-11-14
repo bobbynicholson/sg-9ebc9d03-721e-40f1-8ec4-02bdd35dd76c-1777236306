@@ -38,18 +38,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (error) {
       console.error("[prune-api-key-rate-limits] RPC failed:", error);
       await recordCronHeartbeat(sb, CRON_NAME, "error", {
-        source: auth.source,
+        source: auth.source, run_id: auth.runId,
         error_message: error.message,
       });
       return res.status(500).json({ error: error.message });
     }
     const deleted = typeof data === "number" ? data : 0;
-    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, deleted });
+    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, deleted });
     return res.status(200).json({ ok: true, deleted });
   } catch (e: any) {
     console.error("[prune-api-key-rate-limits] crashed:", e);
     await recordCronHeartbeat(sb, CRON_NAME, "error", {
-      source: auth.source,
+      source: auth.source, run_id: auth.runId,
       error_message: e?.message || "crash",
     });
     return res.status(500).json({ error: e?.message || "crash" });

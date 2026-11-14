@@ -14,7 +14,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const summary = await runDailyOperationsScheduler(new Date(), sb);
     await recordCronHeartbeat(sb, "daily-operations", summary.errors.length ? "error" : "ok", {
-      source: auth.source,
+      source: auth.source, run_id: auth.runId,
       companies: summary.companies,
       tasks_created: summary.tasksCreated,
       staff_notifications: summary.staffNotifications,
@@ -23,7 +23,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
     return res.status(200).json({ ok: true, ...summary });
   } catch (e: any) {
-    await recordCronHeartbeat(sb, "daily-operations", "error", { source: auth.source, error_message: e?.message || String(e) });
+    await recordCronHeartbeat(sb, "daily-operations", "error", { source: auth.source, run_id: auth.runId, error_message: e?.message || String(e) });
     return res.status(500).json({ error: e?.message || "Daily operations scheduler failed" });
   }
 }

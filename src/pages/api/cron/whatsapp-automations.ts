@@ -29,14 +29,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       companies: result.companies, queued: result.queued, skipped: result.skipped, errors: result.errors.length,
     });
     await recordCronHeartbeat(supabase, CRON_NAME, result.errors.length ? "error" : "ok", {
-      source: auth.source, sent: result.queued, failed: result.errors.length,
+      source: auth.source, run_id: auth.runId, sent: result.queued, failed: result.errors.length,
       ...(result.errors.length ? { error_message: result.errors.slice(0, 3).join("; ") } : {}),
     });
     return res.status(200).json({ ok: true, ...result });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "failed";
     console.error("[cron/whatsapp-automations] failed:", message);
-    await recordCronHeartbeat(supabase, CRON_NAME, "error", { source: auth.source, error_message: message });
+    await recordCronHeartbeat(supabase, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: message });
     return res.status(500).json({ error: message });
   }
 }

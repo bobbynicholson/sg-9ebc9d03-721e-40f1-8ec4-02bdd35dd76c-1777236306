@@ -113,9 +113,12 @@ export async function updateOrderStatus(
       .is("deleted_at", null)
       .maybeSingle();
     if (currentErr) {
-      console.error("[order/orderWorkflow] orders fetch failed:", currentErr);
+      throw currentErr;
     }
     const currentStatus = (current as any)?.status as string | null | undefined;
+    if (!current || !currentStatus) {
+      return { success: false, error: "Order not found or has no current status." };
+    }
 
     // Idempotency guard: if the order is already in the target state,
     // bail early. Without this, a duplicate markDelivered (network
@@ -228,14 +231,35 @@ export async function updateOrderStatus(
       }
     }
 
+    // Compare-and-set the status read above. Two overlapping cron retries
+    // may both see `delivered`; only one can win the transition and run the
+    // notification/after-sales side effects below.
     const { data: order, error } = await supabase
       .from("orders")
       .update(updates)
       .eq("id", orderId)
+      .is("deleted_at", null)
+      .eq("status", currentStatus)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+    if (!order) {
+      const { data: latest, error: latestError } = await supabase
+        .from("orders")
+        .select("status")
+        .eq("id", orderId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (latestError) throw latestError;
+      if (latest?.status === newStatus) {
+        return { success: true, data: { id: orderId, status: newStatus, _idempotent: true } };
+      }
+      return {
+        success: false,
+        error: `Order status changed during transition; current status is ${latest?.status || "unavailable"}.`,
+      };
+    }
 
     // Create status history entry
     await supabase.from("order_status_history").insert({

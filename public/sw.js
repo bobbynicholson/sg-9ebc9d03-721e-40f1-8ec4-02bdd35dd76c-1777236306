@@ -78,6 +78,52 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Server-delivered Web Push works even after the PWA window has been closed.
+// Each push creates a user-visible OS notification (required by browsers) and
+// carries the same deep link as the in-app notification row.
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { body: event.data ? event.data.text() : "You have a new update." };
+  }
+
+  event.waitUntil((async () => {
+    const unreadCount = Number(payload.unreadCount || 0);
+    try {
+      if (unreadCount > 0 && typeof self.navigator.setAppBadge === "function") {
+        await self.navigator.setAppBadge(unreadCount);
+      } else if (unreadCount <= 0 && typeof self.navigator.clearAppBadge === "function") {
+        await self.navigator.clearAppBadge();
+      }
+    } catch {
+      // The launcher badge is optional; always show the notification itself.
+    }
+
+    const notificationId = String(payload.notificationId || "new");
+    const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    const appIsVisible = windows.some((client) => client.visibilityState === "visible");
+    await self.registration.showNotification(
+      String(payload.title || "CateringMS notification"),
+      {
+        body: String(payload.body || "You have a new update."),
+        icon: String(payload.icon || "/icons/cateringms-192.png"),
+        badge: String(payload.badge || payload.icon || "/icons/cateringms-192.png"),
+        tag: `cateringms-${notificationId}`,
+        renotify: false,
+        // The foreground app plays its own chime. Let the operating system
+        // sound only when the app is not visible, avoiding a doubled alert.
+        silent: appIsVisible,
+        data: {
+          url: String(payload.url || "/notifications"),
+          notificationId,
+        },
+      },
+    );
+  })());
+});
+
 // Open the contextual page when a background notification is tapped in the
 // installed driver PWA. The page-level fallback handles browsers where this
 // worker is not controlling the current tenant-slug route.
@@ -87,12 +133,14 @@ self.addEventListener("notificationclick", (event) => {
   if (!targetUrl) return;
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-      const existing = clients.find((client) => "focus" in client);
+      const destination = new URL(targetUrl, self.location.origin);
+      if (destination.protocol !== "https:" && destination.origin !== self.location.origin) return;
+      const existing = clients.find((client) => client.url.startsWith(self.location.origin) && "focus" in client);
       if (existing) {
-        existing.navigate(targetUrl);
+        existing.navigate(destination.href);
         return existing.focus();
       }
-      return self.clients.openWindow(targetUrl);
+      return self.clients.openWindow(destination.href);
     }),
   );
 });

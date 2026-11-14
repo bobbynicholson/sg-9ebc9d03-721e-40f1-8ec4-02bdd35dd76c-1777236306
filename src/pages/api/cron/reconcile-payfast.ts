@@ -55,11 +55,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
     }
     const errors = details.filter((entry) => entry.error).length;
-    await recordCronHeartbeat(sb, "reconcile-payfast", errors ? "error" : "ok", { source: auth.source,
-      gateways_checked: details.length, errors_count: errors, details });
+    const exceptionsPending = details.reduce((count, entry) => count + Number(entry.exceptions_pending || 0), 0);
+    const exceptionsResolved = details.reduce((count, entry) => count + Number(entry.exceptions_resolved || 0), 0);
+    await recordCronHeartbeat(sb, "reconcile-payfast", errors ? "error" : "ok", { source: auth.source, run_id: auth.runId,
+      gateways_checked: details.length, errors_count: errors, exceptions_pending: exceptionsPending,
+      exceptions_resolved: exceptionsResolved, details });
     return res.status(errors ? 503 : 200).json({ ok: errors === 0, details });
   } catch (failure: any) {
-    await recordCronHeartbeat(sb, "reconcile-payfast", "error", { source: auth.source, error_message: failure.message });
+    await recordCronHeartbeat(sb, "reconcile-payfast", "error", { source: auth.source, run_id: auth.runId, error_message: failure.message });
     return res.status(503).json({ ok: false, error: "PayFast recovery failed" });
   }
 }

@@ -57,7 +57,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     if (logCountErr) {
       console.error("[archive-old-email-rows] log count failed:", logCountErr);
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: logCountErr.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: logCountErr.message });
       return res.status(500).json({ error: logCountErr.message });
     }
 
@@ -69,7 +69,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .lt("created_at", cutoffIso);
       if (logDelErr) {
         console.error("[archive-old-email-rows] log delete failed:", logDelErr);
-        await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: logDelErr.message });
+        await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: logDelErr.message });
         return res.status(500).json({ error: logDelErr.message });
       }
       logArchived = logCount;
@@ -84,7 +84,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     if (queueCountErr) {
       console.error("[archive-old-email-rows] queue count failed:", queueCountErr);
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: queueCountErr.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: queueCountErr.message });
       return res.status(500).json({ error: queueCountErr.message });
     }
 
@@ -97,14 +97,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .lt("created_at", cutoffIso);
       if (queueDelErr) {
         console.error("[archive-old-email-rows] queue delete failed:", queueDelErr);
-        await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: queueDelErr.message });
+        await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: queueDelErr.message });
         return res.status(500).json({ error: queueDelErr.message });
       }
       queueArchived = queueCount;
     }
 
     await recordCronHeartbeat(sb, CRON_NAME, "ok", {
-      source: auth.source,
+      source: auth.source, run_id: auth.runId,
       cutoff_iso: cutoffIso,
       email_automation_log_archived: logArchived,
       outgoing_email_queue_archived: queueArchived,
@@ -117,7 +117,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("[archive-old-email-rows] crashed:", e);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }

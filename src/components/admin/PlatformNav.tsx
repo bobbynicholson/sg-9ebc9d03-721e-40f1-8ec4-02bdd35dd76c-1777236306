@@ -178,6 +178,7 @@ export function PlatformNav(_: PlatformNavProps = {}) {
         defaultOpen: false,
         items: [
           { title: "Platform settings", href: "/admin/platform/settings",     icon: Settings,    description: "Import limits, origin" },
+          { title: "Scheduled tasks",   href: "/admin/cron-tasks",            icon: Activity,    description: "Run health and next times" },
           { title: "AI brain",          href: "/admin/ai-brain",              icon: Brain,       description: "Assistant knowledge" },
           { title: "AI access",         href: "/admin/ai-brain/access",       icon: ShieldCheck, description: "Live-data access by role" },
           { title: "Running to-do",     href: "/admin/platform/running-todo", icon: ListChecks,  description: "Engineering backlog" },

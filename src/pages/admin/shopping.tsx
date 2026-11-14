@@ -110,6 +110,9 @@ interface CreepRow {
 }
 
 interface DemandLine {
+  order_id: string;
+  order_item_id: string;
+  recipe_id: string | null;
   inventory_item_id: string;
   order_number: string;
   event_name: string;
@@ -156,6 +159,45 @@ const STATUS_META: Record<string, { label: string; tone: string; rank: number }>
 };
 
 const VALID_TABS = new Set(["buy_now", "plan", "supplier", "receipts"]);
+type PlanningWindow = "next_30" | "next_90" | "custom";
+
+function addCalendarDays(dateISO: string, days: number): string {
+  const date = new Date(`${dateISO}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return toLocalISO(date);
+}
+
+async function fetchDemandLines(
+  companyId: string,
+  startDate: string,
+  endDate: string,
+): Promise<{ data: DemandLine[]; error: any }> {
+  const pageSize = 500;
+  const rows: DemandLine[] = [];
+
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from("order_ingredient_demand")
+      .select("order_id, order_item_id, recipe_id, inventory_item_id, order_number, event_name, event_date, menu_item_name, quantity_required, unit, order_status")
+      .eq("company_id", companyId)
+      .gte("event_date", startDate)
+      .lte("event_date", endDate)
+      .in("order_status", ["confirmed", "preparing", "ready"])
+      .order("event_date", { ascending: true })
+      .order("order_id", { ascending: true })
+      .order("order_item_id", { ascending: true })
+      .order("inventory_item_id", { ascending: true })
+      .order("recipe_id", { ascending: true })
+      .range(offset, offset + pageSize - 1);
+
+    if (error) return { data: rows, error };
+    const page = (data || []) as DemandLine[];
+    rows.push(...page);
+    if (page.length < pageSize) break;
+  }
+
+  return { data: rows, error: null };
+}
 
 // SHOP-L (tabs deferred, 2026-05-24): supplier delivery cutoff
 // chip. Reads delivery_cutoff_time + delivery_cutoff_days +
@@ -237,6 +279,33 @@ function SmartShoppingPage() {
     financeRole === "admin" || financeRole === "super_admin";
   const { toast } = useToast();
   const router = useRouter();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayISO = toLocalISO(today);
+  const [planningWindow, setPlanningWindow] = useState<PlanningWindow>("next_30");
+  const [customStartDraft, setCustomStartDraft] = useState(todayISO);
+  const [customEndDraft, setCustomEndDraft] = useState(() => addCalendarDays(todayISO, 29));
+  const [customStartDate, setCustomStartDate] = useState(todayISO);
+  const [customEndDate, setCustomEndDate] = useState(() => addCalendarDays(todayISO, 29));
+  const planningDates = useMemo(() => {
+    if (planningWindow === "custom") {
+      return { start: customStartDate, end: customEndDate, label: "Custom range" };
+    }
+    const days = planningWindow === "next_90" ? 90 : 30;
+    return {
+      start: todayISO,
+      end: addCalendarDays(todayISO, days - 1),
+      label: `Next ${days} days`,
+    };
+  }, [planningWindow, customStartDate, customEndDate, todayISO]);
+  const customRangeError = !customStartDraft || !customEndDraft
+    ? "Choose both dates."
+    : customEndDraft < customStartDraft
+      ? "The end date must be on or after the start date."
+      : customStartDraft < todayISO
+        ? "Choose a start date from today onward."
+        : null;
+  const customRangeDirty = customStartDraft !== customStartDate || customEndDraft !== customEndDate;
   // Honour ?tab= so the "Manage receipts" CTA on /admin/tax-purchases
   // can deep-link straight to the receipts tab.
   const queryTab = typeof router.query.tab === "string" ? router.query.tab : null;
@@ -294,11 +363,14 @@ function SmartShoppingPage() {
     (async () => {
       setLoading(true);
       try {
-      const todayISO = toLocalISO(new Date());
       // SHOP-L: YTD window for the supplier-spend chip.
       const ytdStart = new Date(new Date().getFullYear(), 0, 1);
       const ytdStartISO = toLocalISO(ytdStart);
-      const [outlookRes, invRes, demandRes, supRes, linksRes, creepRes, receiptsRes] = await Promise.all([
+      // Load only the data needed to render the buying plan first. The
+      // previous all-at-once batch also ran receipt-history and supplier
+      // analytics queries against the database while the demand views were
+      // expanding every upcoming recipe line.
+      const [outlookRes, invRes, demandRes, supRes] = await Promise.all([
         supabase
           .from("inventory_demand_outlook")
           .select("inventory_item_id, item_name, category, unit_of_measure, current_stock, minimum_stock, reorder_quantity, demand_next_7_days, demand_next_14_days, demand_next_30_days, projected_stock_after_7_days, shortfall_next_7_days, upcoming_order_count, status")
@@ -308,17 +380,48 @@ function SmartShoppingPage() {
           .select("id, is_perishable, shelf_life_days, cost_per_unit, preferred_supplier_id, snooze_until, ordered_qty, ordered_at, ordered_until")
           .eq("company_id", companyId)
           .is("deleted_at", null),
-        supabase
-          .from("order_ingredient_demand")
-          .select("inventory_item_id, order_number, event_name, event_date, menu_item_name, quantity_required, unit, order_status")
-          .eq("company_id", companyId)
-          .gte("event_date", todayISO)
-          .in("order_status", ["confirmed", "preparing", "ready"]),
+        fetchDemandLines(companyId, planningDates.start, planningDates.end),
         (supabase as any)
           .from("suppliers")
           .select("id, supplier_name, email, phone, contact_person, delivery_cutoff_time, delivery_cutoff_days, delivery_lead_time_days")
           .eq("company_id", companyId)
           .is("deleted_at", null),
+      ]);
+      if (cancelled) return;
+      // Critical legs: without outlook/details/demand/suppliers the
+      // page's numbers are fiction. Surface and stop rather than
+      // painting an empty-but-healthy view.
+      const criticalFailures = [
+        { label: "Inventory demand outlook", error: outlookRes.error },
+        { label: "Inventory items", error: invRes.error },
+        { label: "Upcoming order demand", error: demandRes.error },
+        { label: "Suppliers", error: (supRes as any).error },
+      ].filter((failure) => failure.error);
+      if (criticalFailures.length) {
+        criticalFailures.forEach(({ label, error }) => captureException(error, {
+          tags: { surface: "admin/shopping", area: "load", query: label, tenant: companyId },
+        }));
+        setLoadError(criticalFailures
+          .map(({ label, error }) => `${label}: ${(error as any)?.message || "could not be loaded"}`)
+          .join("; "));
+        setLoading(false);
+        return;
+      }
+      setLoadError(null);
+      setOutlook((outlookRes.data || []) as OutlookRow[]);
+      const dMap: Record<string, InvDetail> = {};
+      (invRes.data || []).forEach((r: any) => { dMap[r.id] = r as InvDetail; });
+      setDetails(dMap);
+      setDemand((demandRes.data || []) as DemandLine[]);
+      const sMap: Record<string, Supplier> = {};
+      (supRes.data || []).forEach((s: any) => { sMap[s.id] = s as Supplier; });
+      setSuppliers(sMap);
+      // The core buying plan is usable now. Load optional supplier insights
+      // afterward so a slow receipt or price-history query cannot keep this
+      // critical screen from appearing.
+      setLoading(false);
+      try {
+      const [linksRes, creepRes, receiptsRes] = await Promise.all([
         // SHOP-C: multi-supplier links for swap suggestions.
         (supabase as any)
           .from("inventory_item_suppliers")
@@ -331,8 +434,7 @@ function SmartShoppingPage() {
           () => ({ data: [], error: null } as { data: CreepRow[]; error: null }),
         ),
         // SHOP-L: YTD spend + last-order date per supplier from the
-        // receipt log. Client-side rollup so we don't need another
-        // view. Bounded by ytdStartISO to keep the payload small.
+        // receipt log. Client-side rollup so we don't need another view.
         (supabase as any)
           .from("purchase_receipts")
           .select("supplier_id, total, receipt_date")
@@ -342,30 +444,11 @@ function SmartShoppingPage() {
           .gte("receipt_date", ytdStartISO),
       ]);
       if (cancelled) return;
-      // Critical legs: without outlook/details/demand/suppliers the
-      // page's numbers are fiction. Surface and stop rather than
-      // painting an empty-but-healthy view.
-      const critical =
-        outlookRes.error || invRes.error || demandRes.error || (supRes as any).error;
-      if (critical) {
-        captureException(critical, { tags: { surface: "admin/shopping", area: "load", tenant: companyId } });
-        setLoadError((critical as any)?.message || "Could not load procurement data.");
-        setLoading(false);
-        return;
-      }
-      setLoadError(null);
       // Best-effort legs: chips and history degrade gracefully but the
       // failure still gets logged.
       if ((linksRes as any)?.error) captureException((linksRes as any).error, { tags: { surface: "admin/shopping", area: "supplier-links" } });
+      if ((creepRes as any)?.error) captureException((creepRes as any).error, { tags: { surface: "admin/shopping", area: "supplier-price-history" } });
       if ((receiptsRes as any)?.error) captureException((receiptsRes as any).error, { tags: { surface: "admin/shopping", area: "receipt-history" } });
-      setOutlook((outlookRes.data || []) as OutlookRow[]);
-      const dMap: Record<string, InvDetail> = {};
-      (invRes.data || []).forEach((r: any) => { dMap[r.id] = r as InvDetail; });
-      setDetails(dMap);
-      setDemand((demandRes.data || []) as DemandLine[]);
-      const sMap: Record<string, Supplier> = {};
-      (supRes.data || []).forEach((s: any) => { sMap[s.id] = s as Supplier; });
-      setSuppliers(sMap);
       const linkMap: Record<string, ItemSupplierLink[]> = {};
       ((linksRes.data || []) as Array<{ inventory_item_id: string; supplier_id: string; unit_price: number | null; pack_size: string | null; is_preferred: boolean }>).forEach((l) => {
         if (!linkMap[l.inventory_item_id]) linkMap[l.inventory_item_id] = [];
@@ -392,7 +475,11 @@ function SmartShoppingPage() {
         hist[r.supplier_id] = slot;
       });
       setSupplierHistory(hist);
-      setLoading(false);
+      } catch (optionalError) {
+        if (!cancelled) captureException(optionalError, {
+          tags: { surface: "admin/shopping", area: "optional-enrichment", tenant: companyId },
+        });
+      }
       } catch (e: unknown) {
         // Audit fix (2026-07-02): the whole load ran with no
         // try/catch. Supabase returns query errors in-band, but a
@@ -406,9 +493,17 @@ function SmartShoppingPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId, refreshSignal, reloadNonce]);
+  }, [companyId, refreshSignal, reloadNonce, planningDates.start, planningDates.end]);
 
   // Earliest event_date per inventory item - drives buy-by date
+  const demandByItem = useMemo<Record<string, number>>(() => {
+    const totals: Record<string, number> = {};
+    demand.forEach((line) => {
+      totals[line.inventory_item_id] = (totals[line.inventory_item_id] || 0) + Number(line.quantity_required || 0);
+    });
+    return totals;
+  }, [demand]);
+
   const earliestEvent: Record<string, string> = useMemo(() => {
     const m: Record<string, string> = {};
     demand.forEach((d) => {
@@ -419,9 +514,6 @@ function SmartShoppingPage() {
     });
     return m;
   }, [demand]);
-
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const todayISO = toLocalISO(today);
 
   // Decorate every outlook row with derived fields
   const enriched = useMemo(() => {
@@ -437,14 +529,22 @@ function SmartShoppingPage() {
         if (buyBy < today) buyBy = today; // already overdue, get it today
       }
       const buyByDays = buyBy ? Math.ceil((buyBy.getTime() - today.getTime()) / 86400000) : null;
-      const reorderQty = Number(r.reorder_quantity) || Math.max(
-        Number(r.minimum_stock) - Number(r.current_stock),
-        Number(r.demand_next_14_days) - Number(r.current_stock),
+      const selectedDemand = demandByItem[r.inventory_item_id] || 0;
+      const reorderQty = Math.max(
+        Number(r.reorder_quantity) || 0,
+        Number(r.minimum_stock) + selectedDemand - Number(r.current_stock),
         0,
       );
       const cost = Number(det?.cost_per_unit ?? 0) * reorderQty;
       const supplier = det?.preferred_supplier_id ? suppliers[det.preferred_supplier_id] : null;
       const isUrgent = buyByDays !== null && buyByDays <= 2;
+      const planningStatus = selectedDemand > Number(r.current_stock)
+        ? "shortfall"
+        : Number(r.current_stock) < Number(r.minimum_stock)
+          ? "below_minimum"
+          : selectedDemand > 0 && Number(r.current_stock) - selectedDemand < Number(r.minimum_stock)
+            ? "low"
+            : "ok";
       // SHOP-C: snooze + ordered state. Both suppress the Buy-now
       // flag when the date is in the future. Cheap inline check.
       const isSnoozed = det?.snooze_until ? new Date(det.snooze_until + "T00:00:00") >= today : false;
@@ -453,12 +553,16 @@ function SmartShoppingPage() {
         (det?.ordered_until ? new Date(det.ordered_until + "T00:00:00") >= today : true);
       return {
         ...r,
+        status: planningStatus,
         is_perishable: !!det?.is_perishable,
         shelf_life_days: det?.shelf_life_days ?? null,
         cost_per_unit: Number(det?.cost_per_unit ?? 0),
         preferred_supplier_id: det?.preferred_supplier_id ?? null,
         supplier,
         earliestEvent: earliest,
+        selectedDemand,
+        selectedShortfall: Math.max(selectedDemand - Number(r.current_stock), 0),
+        planningStatus,
         buyBy,
         buyByDays,
         reorderQty,
@@ -473,9 +577,9 @@ function SmartShoppingPage() {
         orderedActive,
       };
     });
-  }, [outlook, details, suppliers, earliestEvent, today]);
+  }, [outlook, details, suppliers, earliestEvent, demandByItem, today]);
 
-  // Buy-now list: shortfalls + below_minimum, urgency-sorted
+  // Buy-now list: shortfalls + below-minimum for the selected planning window.
   // SHOP-C: filter out snoozed + ordered items so they stop firing as
   // shortfall the operator already actioned.
   const buyNow = useMemo(() => {
@@ -486,39 +590,40 @@ function SmartShoppingPage() {
         const sa = STATUS_META[a.status]?.rank ?? 9;
         const sb = STATUS_META[b.status]?.rank ?? 9;
         if (sa !== sb) return sa - sb;
-        return Number(b.shortfall_next_7_days) - Number(a.shortfall_next_7_days);
+        return Number(b.selectedShortfall) - Number(a.selectedShortfall);
       });
   }, [enriched]);
 
-  // - Plan-ahead list: anything with demand in next 14 days that isn't OK
+  // Plan-ahead list: demand in the selected planning window, plus items below par.
   // SHOP-J (tabs audit, 2026-05-24):
   // - Hide snoozed/ordered items here too. Buy-now already does; the
   //   audit caught that Plan-ahead was leaking them, surfacing rows
   //   the operator had explicitly told the page to suppress.
-  // - Include below_minimum rows even when no upcoming order pulls
-  //   on them. Restocking ahead of demand is exactly what "plan
-  //   ahead" is for - excluding these meant a perishable that fell
-  //   below minimum but had no upcoming bookings vanished.
-  // - Split the demand horizon by perishability: perishables stay
-  //   on the 14d window (anything further out is too risky to buy);
-  //   non-perishables widen to 30d so dry-goods top-ups surface
-  //   early instead of disappearing until day 15.
+  // Keep below-par stock visible even when the selected dates have no orders.
   const planAhead = useMemo(() => {
     return enriched
+      .map((r) => {
+        const reorderQty = Math.max(
+          Number(r.reorder_quantity) || 0,
+          Number(r.minimum_stock) + Number(r.selectedDemand) - Number(r.current_stock),
+          0,
+        );
+        return {
+          ...r,
+          status: r.planningStatus,
+          reorderQty,
+          cost: Number(r.cost_per_unit || 0) * reorderQty,
+        };
+      })
       .filter((r) => {
         if (r.isSnoozed || r.orderedActive) return false;
-        const horizonDemand = r.is_perishable
-          ? Number(r.demand_next_14_days)
-          : Number(r.demand_next_30_days);
-        const hasUpcomingDemand = r.upcoming_order_count > 0 && horizonDemand > 0;
+        const hasUpcomingDemand = Number(r.selectedDemand) > 0;
         const isBelowPar = r.status === "below_minimum" || r.status === "shortfall";
         return hasUpcomingDemand || isBelowPar;
       })
       .sort((a, b) => {
         if (!a.buyBy && !b.buyBy) {
-          const da = a.is_perishable ? Number(a.demand_next_14_days) : Number(a.demand_next_30_days);
-          const db = b.is_perishable ? Number(b.demand_next_14_days) : Number(b.demand_next_30_days);
-          return db - da;
+          return Number(b.selectedDemand) - Number(a.selectedDemand);
         }
         if (!a.buyBy) return 1;
         if (!b.buyBy) return -1;
@@ -1185,11 +1290,11 @@ function SmartShoppingPage() {
             title={
               <span className="flex items-center gap-2 flex-wrap">
                 Smart Shopping
-                <InfoTooltip content={"Looks at your stock, your confirmed orders for the week ahead, and your suppliers, then tells you exactly what to buy and when."} />
+                <InfoTooltip content={`Shortfalls, the Buy now list, and purchase quantities use the selected window (${planningDates.label.toLowerCase()}).`} />
               </span>
             }
             icon={ShoppingCart}
-            subtitle="Review what needs buying now and plan purchases for upcoming events."
+            subtitle="Review stock needs for the selected date range and plan purchases for upcoming events."
             meta={
               !loading && !loadError && outlook.length > 0 ? (
                 <>
@@ -1203,7 +1308,7 @@ function SmartShoppingPage() {
                     );
                   })()}
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                    {buyNow.length} item{buyNow.length === 1 ? "" : "s"} to buy now
+                    {buyNow.length} item{buyNow.length === 1 ? "" : "s"} flagged for this window
                   </span>
                   {(() => {
                     const urgent = enriched.filter((r) => r.isUrgent && r.status !== "ok").length;
@@ -1225,7 +1330,7 @@ function SmartShoppingPage() {
                   shopper out in the field wants a printable list
                   on their phone or a CSV they can paste into the
                   supplier's order form. Walks buyNow (the urgency-
-                  sorted shortfall + below-min set) so what you see
+                  sorted selected-window shortfall + below-min set) so what you see
                   on the Buy now tab is what you get. */}
               <Button
                 variant="outline"
@@ -1241,7 +1346,7 @@ function SmartShoppingPage() {
                     return /[",\n]/.test(s) ? `"${s}"` : s;
                   };
                   const headers = [
-                    "Item", "Category", "Status", "Current", "Minimum",
+                    "Item", "Category", "Status", `Demand (${planningDates.label})`, "Current", "Minimum",
                     "Reorder qty", "Unit", "Cost per unit", "Estimated cost",
                     "Supplier", "Buy by", "Urgent",
                   ];
@@ -1251,6 +1356,7 @@ function SmartShoppingPage() {
                       esc(r.item_name),
                       esc(r.category || ""),
                       esc(r.status),
+                      esc(r.selectedDemand),
                       esc(r.current_stock),
                       esc(r.minimum_stock),
                       esc(r.reorderQty),
@@ -1323,6 +1429,70 @@ function SmartShoppingPage() {
           <PageWorkbench />
           <CatalogueOperationsStrip active="shopping" />
 
+          <div className="mb-5 flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900">Planning window</p>
+              <p className="text-xs text-slate-500">Limit order demand and event details to the dates you&apos;re planning for.</p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <div className="min-w-[160px]">
+                <label htmlFor="shopping-planning-window" className="mb-1 block text-xs font-medium text-slate-600">Demand period</label>
+                <select
+                  id="shopping-planning-window"
+                  value={planningWindow}
+                  onChange={(event) => setPlanningWindow(event.target.value as PlanningWindow)}
+                  className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
+                >
+                  <option value="next_30">Next 30 days</option>
+                  <option value="next_90">Next 90 days</option>
+                  <option value="custom">Custom date range</option>
+                </select>
+              </div>
+              {planningWindow === "custom" && (
+                <div className="grid grid-cols-2 items-end gap-2 sm:grid-cols-[140px_140px_auto]">
+                  <div>
+                    <label htmlFor="shopping-range-start" className="mb-1 block text-xs font-medium text-slate-600">From</label>
+                    <Input
+                      id="shopping-range-start"
+                      type="date"
+                      min={todayISO}
+                      value={customStartDraft}
+                      onChange={(event) => setCustomStartDraft(event.target.value)}
+                      className="h-9 w-full"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="shopping-range-end" className="mb-1 block text-xs font-medium text-slate-600">Through</label>
+                    <Input
+                      id="shopping-range-end"
+                      type="date"
+                      min={customStartDraft || todayISO}
+                      value={customEndDraft}
+                      onChange={(event) => setCustomEndDraft(event.target.value)}
+                      className="h-9 w-full"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!customRangeDirty || !!customRangeError}
+                    onClick={() => {
+                      setCustomStartDate(customStartDraft);
+                      setCustomEndDate(customEndDraft);
+                    }}
+                    className="col-span-2 h-9 sm:col-span-1"
+                  >
+                    Apply dates
+                  </Button>
+                </div>
+              )}
+            </div>
+            {planningWindow === "custom" && customRangeError && (
+              <p role="alert" className="text-xs text-rose-700 sm:max-w-48">{customRangeError}</p>
+            )}
+          </div>
+
           {/* Top stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
             <SummaryTile
@@ -1330,8 +1500,8 @@ function SmartShoppingPage() {
               value={enriched.filter((r) => r.status === "shortfall").length}
               accent="text-rose-600"
               icon={AlertTriangle}
-              hint="Below 7-day demand"
-              tooltip={"Items where you don't have enough stock to cover the next 7 days of confirmed orders."}
+              hint="Demand exceeds stock in selected window"
+              tooltip={`Items where confirmed-order demand exceeds on-hand stock during the selected window (${planningDates.label.toLowerCase()}).`}
             />
             <SummaryTile
               label="Below par"
@@ -1339,7 +1509,7 @@ function SmartShoppingPage() {
               accent="text-amber-600"
               icon={TrendingDown}
               hint="Below minimum stock level"
-              tooltip={"Stock has slipped below your minimum threshold but you can still cover upcoming orders.\n\nGood time to top up before it becomes urgent."}
+              tooltip={`Items below minimum stock whose on-hand quantity still covers demand during the selected window (${planningDates.label.toLowerCase()}).`}
             />
             <SummaryTile
               label="Urgent (≤2 days)"
@@ -1357,7 +1527,7 @@ function SmartShoppingPage() {
                 icon={Receipt}
                 hint="Buy-now items at supplier prices"
                 isMoney
-                tooltip={"What you'll spend if you place a purchase order for everything currently flagged as short or below par.\n\nUses your supplier pricing and reorder quantities."}
+                tooltip={`Estimated supplier cost for items flagged as short or below par during the selected window (${planningDates.label.toLowerCase()}).`}
               />
             ) : (
               <SummaryTile
@@ -1574,7 +1744,7 @@ function SmartShoppingPage() {
                           Buy now
                         </CardTitle>
                         <CardDescription>
-                          Items below minimum stock or already short for the next 7 days. Tick to add to your PO list.
+                          Items below minimum stock or short of confirmed demand during the selected window ({planningDates.label.toLowerCase()}). Tick to add to your PO list.
                         </CardDescription>
                       </div>
                       {/* SHOP-D: bulk-tick. One click adds the whole
@@ -1615,6 +1785,8 @@ function SmartShoppingPage() {
                         picked={picked} togglePick={togglePick}
                         expandedItem={expandedItem} setExpandedItem={setExpandedItem}
                         demand={demand}
+                        demandMode="selected"
+                        demandLabel={`Need ${planningDates.label.toLowerCase()}`}
                         showBuyBy
                         supplierLinks={supplierLinks}
                         creep={creep}
@@ -1642,7 +1814,7 @@ function SmartShoppingPage() {
                           Plan ahead
                         </CardTitle>
                         <CardDescription>
-                          Perishables on a 14-day horizon, non-perishables 30. Sorted by buy-by date. Urgent items pulse amber.
+                          Demand for {planningDates.label.toLowerCase()}. Buy-by dates account for shelf life.
                         </CardDescription>
                       </div>
                       {/* SHOP-L: group-by-event toggle. Default OFF so
@@ -1666,17 +1838,16 @@ function SmartShoppingPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            const headers = ["Item", "Category", "On hand", "Need 14d (perishable) / 30d (non-perishable)", "Reorder qty", "Unit", "Cost", "Buy by", "Supplier", "Status"];
+                            const headers = ["Item", "Category", "On hand", `Need (${planningDates.label})`, "Reorder qty", "Unit", "Cost", "Buy by", "Supplier", "Status"];
                             const esc = (v: unknown) => {
                               const s = v == null ? "" : String(v).replace(/"/g, '""');
                               return /[",\n]/.test(s) ? `"${s}"` : s;
                             };
                             const lines = [headers.join(",")];
                             for (const r of planAhead) {
-                              const horizonDemand = r.is_perishable ? r.demand_next_14_days : r.demand_next_30_days;
                               lines.push([
                                 esc(r.item_name), esc(r.category), esc(r.current_stock),
-                                esc(horizonDemand), esc(r.reorderQty), esc(r.unit_of_measure),
+                                esc(r.selectedDemand), esc(r.reorderQty), esc(r.unit_of_measure),
                                 esc(r.cost), esc(r.buyBy ? toLocalISO(r.buyBy) : "any time"),
                                 esc(r.supplier?.supplier_name || ""), esc(r.status),
                               ].join(","));
@@ -1731,6 +1902,8 @@ function SmartShoppingPage() {
                               picked={picked} togglePick={togglePick}
                               expandedItem={expandedItem} setExpandedItem={setExpandedItem}
                               demand={demand}
+                              demandMode="selected"
+                              demandLabel={`Need ${planningDates.label.toLowerCase()}`}
                               showBuyBy
                               showShelfLife
                               supplierLinks={supplierLinks}
@@ -1752,6 +1925,8 @@ function SmartShoppingPage() {
                         picked={picked} togglePick={togglePick}
                         expandedItem={expandedItem} setExpandedItem={setExpandedItem}
                         demand={demand}
+                        demandMode="selected"
+                        demandLabel={`Need ${planningDates.label.toLowerCase()}`}
                         showBuyBy
                         showShelfLife
                         supplierLinks={supplierLinks}
@@ -1955,6 +2130,8 @@ function SmartShoppingPage() {
                                 picked={picked} togglePick={togglePick}
                                 expandedItem={expandedItem} setExpandedItem={setExpandedItem}
                                 demand={demand}
+                                demandMode="selected"
+                                demandLabel={`Need ${planningDates.label.toLowerCase()}`}
                                 hideSupplier
                                 showBuyBy
                                 supplierLinks={supplierLinks}
@@ -2312,7 +2489,7 @@ function SummaryTile({ label, value, accent, icon: Icon, hint, isMoney, tooltip 
 
 function ItemTable({
   rows, picked, togglePick, expandedItem, setExpandedItem, demand,
-  hideSupplier, showBuyBy, showShelfLife,
+  hideSupplier, showBuyBy, showShelfLife, demandMode, demandLabel,
   // SHOP-C: intel + action handlers passed in from the Buy-now /
   // Plan-ahead use. supplierLinks + creep drive the chips. onSnooze
   // + onMarkOrdered drive the per-row buttons. Optional - older
@@ -2323,6 +2500,10 @@ function ItemTable({
   // cost rows render with the active tenant's symbol.
   fmtMoney,
 }: any) {
+  const displayedDemand = (row: any) => demandMode === "selected"
+    ? row.selectedDemand
+    : row.demand_next_7_days;
+  const displayedDemandLabel = demandLabel || "Need 7d";
   return (
     <>
       {/* SHOP-G: desktop table - hidden under lg, swapped for the
@@ -2335,7 +2516,7 @@ function ItemTable({
             <th className="w-8 py-2"></th>
             <th className="text-left py-2 pr-3">Item</th>
             <th className="text-right py-2 px-3">On hand</th>
-            <th className="text-right py-2 px-3">Need 7d</th>
+            <th className="text-right py-2 px-3">{displayedDemandLabel}</th>
             <th className="text-right py-2 px-3">Reorder</th>
             <th className="text-right py-2 px-3">Cost</th>
             {showBuyBy && <th className="text-left py-2 px-3">Buy by</th>}
@@ -2424,7 +2605,7 @@ function ItemTable({
                     {Number(r.current_stock).toLocaleString()} <span className="text-slate-400 text-xs">{r.unit_of_measure}</span>
                   </td>
                   <td className="py-3 px-3 text-right tabular-nums text-slate-700">
-                    {Number(r.demand_next_7_days).toLocaleString()}
+                    {Number(displayedDemand(r) || 0).toLocaleString()}
                   </td>
                   <td className="py-3 px-3 text-right tabular-nums font-medium text-slate-900">
                     {Number(r.reorderQty).toLocaleString()} <span className="text-slate-400 text-xs">{r.unit_of_measure}</span>
@@ -2604,9 +2785,9 @@ function ItemTable({
                       </span>
                     </div>
                     <div>
-                      <span className="text-slate-500">Need 7d: </span>
+                      <span className="text-slate-500">{displayedDemandLabel}: </span>
                       <span className="font-medium text-slate-900 tabular-nums">
-                        {Number(r.demand_next_7_days).toLocaleString()}
+                        {Number(displayedDemand(r) || 0).toLocaleString()}
                       </span>
                     </div>
                     <div>

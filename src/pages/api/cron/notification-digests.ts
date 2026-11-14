@@ -35,7 +35,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const userIds = Array.from(new Set((preferenceRows || []).map((row: any) => row.user_id).filter(Boolean)));
     if (userIds.length === 0) {
-      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, recipients: 0, sent: 0 });
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, recipients: 0, sent: 0 });
       return res.status(200).json({ ok: true, recipients: 0, sent: 0 });
     }
 
@@ -116,7 +116,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     await recordCronHeartbeat(sb, CRON_NAME, failed > 0 ? "error" : "ok", {
-      source: auth.source,
+      source: auth.source, run_id: auth.runId,
       recipients: profiles?.length || 0,
       sent,
       skipped,
@@ -124,7 +124,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
     return res.status(200).json({ ok: failed === 0, recipients: profiles?.length || 0, sent, skipped, failed });
   } catch (error: any) {
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: error?.message || String(error) });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: error?.message || String(error) });
     return res.status(500).json({ error: error?.message || "Notification digest failed" });
   }
 }

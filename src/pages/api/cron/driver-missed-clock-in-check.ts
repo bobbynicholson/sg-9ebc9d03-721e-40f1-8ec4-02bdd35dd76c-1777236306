@@ -99,7 +99,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   if (error) {
     console.error("[cron/driver-missed-clock-in-check] read failed:", error);
-    await recordCronHeartbeat(supabase, CRON_NAME, "error", { source: auth.source, error_message: error.message });
+    await recordCronHeartbeat(supabase, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: error.message });
     return res.status(500).json({ error: error.message });
   }
 
@@ -233,7 +233,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   await recordCronHeartbeat(supabase, CRON_NAME, errors.length > 0 ? "error" : "ok", {
-    source: auth.source,
+    source: auth.source, run_id: auth.runId,
     checked: (rows || []).length,
     alerted, skipped,
     promoted_to_missed: promoted,

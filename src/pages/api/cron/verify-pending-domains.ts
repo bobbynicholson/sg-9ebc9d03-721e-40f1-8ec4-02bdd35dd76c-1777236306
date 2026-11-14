@@ -68,12 +68,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   if (selErr) {
     console.error("[verify-pending-domains] select failed:", selErr);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: selErr.message });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: selErr.message });
     return res.status(500).json({ error: selErr.message });
   }
 
   if (!pending || pending.length === 0) {
-    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, considered: 0, newly_verified: 0 });
+    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, considered: 0, newly_verified: 0 });
     return res.status(200).json({ ok: true, considered: 0 });
   }
 
@@ -176,7 +176,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   await recordCronHeartbeat(sb, CRON_NAME, failures > 0 ? "error" : "ok", {
-    source: auth.source,
+    source: auth.source, run_id: auth.runId,
     considered: pending.length,
     newly_verified: newlyVerified,
     still_pending: stillPending,

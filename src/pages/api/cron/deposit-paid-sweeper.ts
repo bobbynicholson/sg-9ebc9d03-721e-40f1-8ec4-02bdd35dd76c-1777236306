@@ -49,11 +49,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .limit(100);
     if (error) {
       console.error("[deposit-paid-sweeper] fetch failed:", error);
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: error.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: error.message });
       return res.status(500).json({ error: error.message });
     }
     if (!stuck || stuck.length === 0) {
-      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, considered: 0, swept: 0 });
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, considered: 0, swept: 0 });
       return res.status(200).json({ ok: true, swept: 0 });
     }
 
@@ -75,7 +75,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     await recordCronHeartbeat(sb, CRON_NAME, errors.length > 0 ? "error" : "ok", {
-      source: auth.source,
+      source: auth.source, run_id: auth.runId,
       considered: stuck.length,
       swept,
       errors_count: errors.length,
@@ -88,7 +88,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("[deposit-paid-sweeper] crashed:", e);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }

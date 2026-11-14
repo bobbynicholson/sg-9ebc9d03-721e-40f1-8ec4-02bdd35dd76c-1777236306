@@ -44,11 +44,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .eq("auto_followups_enabled", true);
     if (tenantErr) {
       console.error("[quote-followup-send] tenant fetch failed:", tenantErr);
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: tenantErr.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: tenantErr.message });
       return res.status(500).json({ error: tenantErr.message });
     }
     if (!tenants || tenants.length === 0) {
-      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, tenantsConsidered: 0 });
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, tenantsConsidered: 0 });
       return res.status(200).json({ ok: true, tenantsConsidered: 0 });
     }
 
@@ -213,7 +213,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     await recordCronHeartbeat(sb, CRON_NAME, errors.length > 0 ? "error" : "ok", {
-      source: auth.source,
+      source: auth.source, run_id: auth.runId,
       tenantsConsidered: tenants.length,
       quotesConsidered: totalConsidered,
       sent: totalSent,
@@ -230,7 +230,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("[quote-followup-send] crashed:", e);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }

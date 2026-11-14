@@ -37,6 +37,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const dryRun = String(req.query.dryRun || "").trim() === "1" || String(req.query.dry || "").trim() === "1";
 
   let authSource: CronAuthSource | "owner_dryrun" = "cron";
+  let authRunId: string | undefined;
   // OUT-B (2026-05-24): the dry-run path previously ran the
   // assignments query with no company_id scope - any owner clicking
   // "Test pre-event" got a preview list of provider emails / order ids
@@ -49,6 +50,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const auth = await requireCronAuth(req, res);
     if (!auth.ok) return;
     authSource = auth.source;
+    authRunId = auth.runId;
   } else {
     try {
       const { createPagesServerClient } = await import("@/lib/supabase/server");
@@ -102,11 +104,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     if (error) {
       console.error("[outsource-pre-event-reminder] fetch failed:", error);
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: authSource, error_message: error.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: authSource, run_id: authRunId, error_message: error.message });
       return res.status(500).json({ error: error.message });
     }
     if (!assignments || assignments.length === 0) {
-      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: authSource, candidates: 0, sent: 0 });
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: authSource, run_id: authRunId, candidates: 0, sent: 0 });
       return res.status(200).json({ ok: true, sent: 0 });
     }
 
@@ -116,7 +118,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .select("id, timezone")
       .in("id", companyIds);
     if (companiesError) {
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: authSource, error_message: companiesError.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: authSource, run_id: authRunId, error_message: companiesError.message });
       return res.status(500).json({ error: companiesError.message });
     }
     const timezoneByCompany = new Map<string, string | null>(
@@ -241,7 +243,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     await recordCronHeartbeat(sb, CRON_NAME, errors.length > 0 ? "error" : "ok", {
-      source: authSource,
+      source: authSource, run_id: authRunId,
       dryRun,
       candidates: assignments.length,
       sent, skipped,
@@ -260,7 +262,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (err: any) {
     console.error("[outsource-pre-event-reminder] crashed:", err);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: authSource, error_message: err?.message || "Cron crashed" });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: authSource, run_id: authRunId, error_message: err?.message || "Cron crashed" });
     return res.status(500).json({ error: err?.message || "Cron crashed" });
   }
 }

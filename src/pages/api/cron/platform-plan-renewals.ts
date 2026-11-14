@@ -44,7 +44,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // billing is configured) there is nothing for this job to do.
     const { error: schemaError } = await sb.from("platform_subscription_checkouts").select("id").limit(1);
     if (schemaError && ["42P01", "PGRST205", "42703"].includes(String(schemaError.code || ""))) {
-      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, skipped: "migration_not_applied" });
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, skipped: "migration_not_applied" });
       return res.status(200).json({ ok: true, skipped: "migration_not_applied" });
     }
     const { billingEmailService } = await import("@/services/billingEmailService");
@@ -124,11 +124,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
     }
 
-    await recordCronHeartbeat(sb, CRON_NAME, counts.errors ? "error" : "ok", { source: auth.source, ...counts });
+    await recordCronHeartbeat(sb, CRON_NAME, counts.errors ? "error" : "ok", { source: auth.source, run_id: auth.runId, ...counts });
     return res.status(counts.errors ? 207 : 200).json({ ok: counts.errors === 0, dryRun, ...counts, errors: errors.slice(0, 20) });
   } catch (e: any) {
     console.error("[platform-plan-renewals] failed:", e);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: e?.message });
     return res.status(500).json({ error: e?.message || "Renewal sweep failed" });
   }
 }

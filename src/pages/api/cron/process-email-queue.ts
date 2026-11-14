@@ -57,7 +57,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const allCompanies = (companies || []) as any[];
   if (allCompanies.length === 0) {
     await recordCronHeartbeat(supabase, CRON_NAME, "ok", {
-      source: auth.source, sent: 0, failed: 0, skipped: 0,
+      source: auth.source, run_id: auth.runId, sent: 0, failed: 0, skipped: 0,
       note: "no_companies",
     });
     return res.status(200).json({
@@ -114,21 +114,23 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       processed: transactional.processed + followups.processed,
       sent: transactional.sent + followups.sent,
       failed: transactional.failed + followups.failed,
+      recovered: (transactional.recovered || 0) + (followups.recovered || 0),
       turnedOff: (transactional.turnedOff || 0) + (followups.turnedOff || 0),
       skippedPastEvent: (transactional.skippedPastEvent || 0) + (followups.skippedPastEvent || 0),
     };
   } catch (e: any) {
     console.error("[cron/process-email-queue] drain failed:", e);
     await recordCronHeartbeat(supabase, CRON_NAME, "error", {
-      source: auth.source, error_message: e?.message || String(e),
+      source: auth.source, run_id: auth.runId, error_message: e?.message || String(e),
     });
     return res.status(500).json({ error: e?.message || "drain failed" });
   }
 
   await recordCronHeartbeat(supabase, CRON_NAME, result.failed > 0 ? "error" : "ok", {
-    source: auth.source,
+    source: auth.source, run_id: auth.runId,
     processed: result.processed,
     sent: result.sent, failed: result.failed, turned_off: result.turnedOff,
+    recovered: result.recovered,
     skipped_past_event: result.skippedPastEvent,
   });
   return res.status(200).json({
@@ -136,6 +138,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     processed: result.processed,
     sent: result.sent,
     failed: result.failed,
+    recovered: result.recovered,
     turned_off: result.turnedOff,
     skipped_past_event: result.skippedPastEvent,
   });

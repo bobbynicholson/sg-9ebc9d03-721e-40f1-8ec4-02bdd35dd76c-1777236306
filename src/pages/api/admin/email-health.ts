@@ -38,7 +38,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const service = getServiceSupabase();
 
-    let drained: { processed: number; sent: number; failed: number } | null = null;
+    let drained: { processed: number; sent: number; failed: number; recovered?: number } | null = null;
     if (req.method === "POST") {
       // Drain THIS company's queue regardless of auto_followups_enabled -
       // a manual operator "send now" is an explicit opt-in.
@@ -68,6 +68,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           processed: approved.processed + due.processed,
           sent: approved.sent + due.sent,
           failed: approved.failed + due.failed,
+          recovered: (approved.recovered || 0) + (due.recovered || 0),
         };
       }
     }

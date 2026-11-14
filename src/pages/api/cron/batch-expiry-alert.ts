@@ -64,7 +64,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     if (selErr) {
       console.error("[batch-expiry-alert] select failed:", selErr);
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: selErr.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: selErr.message });
       return res.status(500).json({ error: selErr.message });
     }
 
@@ -86,12 +86,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const batchCount = ((batches as any[]) || []).length;
 
     if (companyCount === 0) {
-      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, companies: 0, batches: 0 });
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, companies: 0, batches: 0 });
       return res.status(200).json({ ok: true, companies: 0, batches: 0 });
     }
 
     if (dryRun) {
-      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, dryRun: true, companies: companyCount, batches: batchCount });
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, dryRun: true, companies: companyCount, batches: batchCount });
       return res.status(200).json({
         ok: true,
         dryRun: true,
@@ -137,11 +137,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       console.warn("[batch-expiry-alert] notification cascade crashed (non-blocking):", notifyErr);
     }
 
-    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, companies: companyCount, batches: batchCount, notified });
+    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, companies: companyCount, batches: batchCount, notified });
     return res.status(200).json({ ok: true, companies: companyCount, batches: batchCount, notified });
   } catch (e: any) {
     console.error("[batch-expiry-alert] crashed:", e);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }

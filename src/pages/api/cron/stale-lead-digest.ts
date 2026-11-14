@@ -38,7 +38,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .lte("created_at", sevenDaysAgo);
     if (error) {
       console.error("[stale-lead-digest] leads fetch failed:", error);
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: error.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: error.message });
       return res.status(500).json({ error: error.message });
     }
 
@@ -71,7 +71,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     await recordCronHeartbeat(sb, CRON_NAME, "ok", {
-      source: auth.source,
+      source: auth.source, run_id: auth.runId,
       tenantsScanned: Object.keys(countsByTenant).length,
       tenantsNotified,
       totalStaleLeads: Object.values(countsByTenant).reduce((s, n) => s + n, 0),
@@ -84,7 +84,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("[stale-lead-digest] crashed:", e);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }

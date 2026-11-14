@@ -60,11 +60,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .lte("scheduled_for", tomorrowEnd);
     if (error) {
       console.error("[equipment-collection-reminder] fetch failed:", error);
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: error.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: error.message });
       return res.status(500).json({ error: error.message });
     }
     if (!assignments || assignments.length === 0) {
-      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, considered: 0, sent: 0, waiter_returns: waiter });
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, considered: 0, sent: 0, waiter_returns: waiter });
       return res.status(200).json({ ok: true, sent: 0, waiterReturns: waiter });
     }
 
@@ -247,7 +247,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     await recordCronHeartbeat(sb, CRON_NAME, errors.length > 0 ? "error" : "ok", {
-      source: auth.source,
+      source: auth.source, run_id: auth.runId,
       considered: assignments.length,
       sent,
       driverPings,
@@ -266,7 +266,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("[equipment-collection-reminder] crashed:", e);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }

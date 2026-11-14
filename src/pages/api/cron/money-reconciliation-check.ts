@@ -39,7 +39,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .select("id, company_name")
       .is("deleted_at", null);
     if (error) {
-      await recordCronHeartbeat(supabase, CRON_NAME, "error", { source: auth.source, error_message: error.message });
+      await recordCronHeartbeat(supabase, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: error.message });
       return res.status(500).json({ error: error.message });
     }
 
@@ -78,12 +78,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     await recordCronHeartbeat(supabase, CRON_NAME, "ok", {
-      source: auth.source, companiesScanned, companiesFlagged, totalIssues,
+      source: auth.source, run_id: auth.runId, companiesScanned, companiesFlagged, totalIssues,
     });
     return res.status(200).json({ ok: true, companiesScanned, companiesFlagged, totalIssues });
   } catch (e: any) {
     console.error("[money-reconciliation-check] crashed:", e);
-    await recordCronHeartbeat(supabase, CRON_NAME, "error", { source: auth.source, error_message: e?.message });
+    await recordCronHeartbeat(supabase, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: e?.message });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }

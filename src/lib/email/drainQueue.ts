@@ -73,11 +73,13 @@ export async function isQuoteAcceptanceBookingEmail(supabase: any, row: any): Pr
 
 const DEFAULT_MAX_ATTEMPTS = 5;
 const DEFAULT_BATCH_SIZE = 25;
+const STALE_CLAIM_MINUTES = 30;
 
 export interface DrainResult {
   processed: number;
   sent: number;
   failed: number;
+  recovered?: number;
   /** Due emails not sent because they are turned off in Email settings. */
   turnedOff?: number;
   /** Event reminders cancelled because the event date has passed. */
@@ -105,6 +107,42 @@ export async function drainEmailQueue(
 
   if (!allowList || allowList.length === 0) {
     return { processed: 0, sent: 0, failed: 0 };
+  }
+
+  // Recover abandoned claims before selecting due work. The provider receives
+  // the same idempotency key on every retry, covering a crash after acceptance
+  // but before the queue receipt is saved.
+  const staleClaimBefore = new Date(Date.now() - STALE_CLAIM_MINUTES * 60_000).toISOString();
+  const staleClaims = await supabase.from("outgoing_email_queue")
+    .select("id, company_id, attempts, claimed_at, created_at")
+    .eq("status", "in_progress")
+    .in("company_id", allowList)
+    .or(`claimed_at.lt.${staleClaimBefore},and(claimed_at.is.null,created_at.lt.${staleClaimBefore})`)
+    .limit(batchSize * 2);
+  if (staleClaims.error) throw new Error(`Stale email claim scan failed: ${staleClaims.error.message}`);
+
+  let recovered = 0;
+  let recoveredFailed = 0;
+  for (const stale of staleClaims.data || []) {
+    const exhausted = Number(stale.attempts || 0) >= maxAttempts;
+    let recovery = supabase.from("outgoing_email_queue").update({
+      status: exhausted ? "failed" : "queued",
+      claimed_at: null,
+      error_message: exhausted
+        ? "Worker stopped during delivery after the maximum attempts. Verify provider delivery before manually retrying."
+        : "Recovered an abandoned worker claim; retrying with the same email idempotency key.",
+    });
+    recovery = stale.claimed_at
+      ? recovery.eq("claimed_at", stale.claimed_at)
+      : recovery.is("claimed_at", null).lt("created_at", staleClaimBefore);
+    const result = await recovery
+      .eq("id", stale.id).eq("company_id", stale.company_id).eq("status", "in_progress")
+      .select("id").maybeSingle();
+    if (result.error) throw new Error(`Stale email claim recovery failed: ${result.error.message}`);
+    if (result.data) {
+      if (exhausted) recoveredFailed += 1;
+      else recovered += 1;
+    }
   }
 
   let due: any[];
@@ -139,7 +177,7 @@ export async function drainEmailQueue(
   }
 
   let sent = 0;
-  let failed = 0;
+  let failed = recoveredFailed;
   let processed = 0;
   let turnedOff = 0;
   let skippedPastEvent = 0;
@@ -149,7 +187,7 @@ export async function drainEmailQueue(
     let row = candidate;
     if (opts?.transactionalOnly || opts?.queueIds?.length) {
       const claim = await supabase.from("outgoing_email_queue")
-        .update({ status: "in_progress", attempts: candidate.attempts + 1 })
+        .update({ status: "in_progress", attempts: candidate.attempts + 1, claimed_at: new Date().toISOString() })
         .eq("id", candidate.id).eq("company_id", candidate.company_id)
         .in("status", ["queued", "awaiting_approval"]).eq("attempts", candidate.attempts)
         .select("*").maybeSingle();
@@ -163,8 +201,8 @@ export async function drainEmailQueue(
         // Turned off in Email settings: never sent, kept as a record.
         const cancelled = await supabase
           .from("outgoing_email_queue")
-          .update({ status: "cancelled", error_message: "Not sent: turned off in Email settings" })
-          .eq("id", row.id).eq("company_id", row.company_id);
+          .update({ status: "cancelled", claimed_at: null, error_message: "Not sent: turned off in Email settings" })
+          .eq("id", row.id).eq("company_id", row.company_id).eq("status", "in_progress").eq("attempts", row.attempts);
         if (cancelled.error) throw new Error(`Turned-off email could not be cancelled: ${cancelled.error.message}`);
         turnedOff += 1;
         continue;
@@ -176,8 +214,8 @@ export async function drainEmailQueue(
       // deposit is paid. Kept as a record, never sent.
       const cancelled = await supabase
         .from("outgoing_email_queue")
-        .update({ status: "cancelled", error_message: "Not sent: on quote acceptance the deposit invoice email is the only email" })
-        .eq("id", row.id).eq("company_id", row.company_id);
+        .update({ status: "cancelled", claimed_at: null, error_message: "Not sent: on quote acceptance the deposit invoice email is the only email" })
+        .eq("id", row.id).eq("company_id", row.company_id).eq("status", "in_progress").eq("attempts", row.attempts);
       if (cancelled.error) throw new Error(`Booking email could not be cancelled: ${cancelled.error.message}`);
       continue;
     }
@@ -197,8 +235,8 @@ export async function drainEmailQueue(
         if (hasEventDatePassed(context.eventDate, new Date(), context.timezone)) {
           const cancelled = await supabase
             .from("outgoing_email_queue")
-            .update({ status: "cancelled", error_message: "Not sent: event date has passed" })
-            .eq("id", row.id).eq("company_id", row.company_id);
+            .update({ status: "cancelled", claimed_at: null, error_message: "Not sent: event date has passed" })
+            .eq("id", row.id).eq("company_id", row.company_id).eq("status", "in_progress").eq("attempts", row.attempts);
           if (cancelled.error) throw new Error(`Past-event reminder could not be cancelled: ${cancelled.error.message}`);
           skippedPastEvent += 1;
           continue;
@@ -244,9 +282,11 @@ export async function drainEmailQueue(
     if (dispatchOk) {
       const saved = await supabase
         .from("outgoing_email_queue")
-        .update({ status: "sent", sent_at: sentAt || new Date().toISOString(), error_message: null })
-        .eq("id", row.id).eq("company_id", row.company_id);
+        .update({ status: "sent", sent_at: sentAt || new Date().toISOString(), claimed_at: null, error_message: null })
+        .eq("id", row.id).eq("company_id", row.company_id).eq("status", "in_progress").eq("attempts", row.attempts)
+        .select("id");
       if (saved.error) throw new Error(`Email sent, but queue receipt failed: ${saved.error.message}`);
+      if (!saved.data?.length) continue; // another invocation has recovered this lease
       // Quote follow-up cadence advances only after the held email is
       // actually delivered. The values are internal queue metadata and are
       // ignored by template variable replacement.
@@ -280,9 +320,11 @@ export async function drainEmailQueue(
       const captured = errorMessage || `Dispatch returned false (attempt ${attempts}/${maxAttempts})`;
       const saved = await supabase
         .from("outgoing_email_queue")
-        .update({ status: finalStatus, error_message: captured })
-        .eq("id", row.id).eq("company_id", row.company_id);
+        .update({ status: finalStatus, claimed_at: null, error_message: captured })
+        .eq("id", row.id).eq("company_id", row.company_id).eq("status", "in_progress").eq("attempts", row.attempts)
+        .select("id");
       if (saved.error) throw new Error(`Email retry could not be saved: ${saved.error.message}`);
+      if (!saved.data?.length) continue;
       failed += 1;
     }
   }
@@ -291,6 +333,7 @@ export async function drainEmailQueue(
     processed,
     sent,
     failed,
+    recovered,
     ...(turnedOff > 0 ? { turnedOff } : {}),
     ...(skippedPastEvent > 0 ? { skippedPastEvent } : {}),
   };
@@ -304,13 +347,16 @@ export async function drainEmailQueue(
  */
 export interface QueueHealth {
   queued: number;
+  inProgress: number;
   awaitingApproval: number;
   failed: number;
   sentLast24h: number;
   oldestQueuedMinutes: number | null;
+  oldestInProgressMinutes: number | null;
   /** True when the oldest queued email is older than the stale threshold,
    *  i.e. the worker probably isn't running. */
   stale: boolean;
+  staleInProgress: boolean;
 }
 
 const STALE_MINUTES = 30;
@@ -325,15 +371,18 @@ export async function getEmailQueueHealth(
     if (companyId) q = q.eq("company_id", companyId);
     return q;
   };
-  const [queuedResult, awaitingResult, failedResult] = await Promise.all([
+  const [queuedResult, inProgressResult, awaitingResult, failedResult] = await Promise.all([
     scoped("queued"),
+    scoped("in_progress"),
     scoped("awaiting_approval"),
     scoped("failed"),
   ]);
   if (queuedResult.error) throw queuedResult.error;
+  if (inProgressResult.error) throw inProgressResult.error;
   if (awaitingResult.error) throw awaitingResult.error;
   if (failedResult.error) throw failedResult.error;
   const queued = queuedResult.count;
+  const inProgress = inProgressResult.count;
   const awaitingApproval = awaitingResult.count;
   const failed = failedResult.count;
 
@@ -353,12 +402,25 @@ export async function getEmailQueueHealth(
     oldestQueuedMinutes = Math.round((Date.now() - new Date(oldest[0].created_at).getTime()) / 60000);
   }
 
+  let oldestProgressQ = base().select("claimed_at, created_at")
+    .eq("status", "in_progress").order("claimed_at", { ascending: true, nullsFirst: true }).limit(1);
+  if (companyId) oldestProgressQ = oldestProgressQ.eq("company_id", companyId);
+  const { data: oldestProgress, error: oldestProgressError } = await oldestProgressQ;
+  if (oldestProgressError) throw oldestProgressError;
+  const oldestProgressAt = oldestProgress?.[0]?.claimed_at || oldestProgress?.[0]?.created_at || null;
+  const oldestInProgressMinutes = oldestProgressAt
+    ? Math.round((Date.now() - new Date(oldestProgressAt).getTime()) / 60000)
+    : null;
+
   return {
     queued: Number(queued || 0),
+    inProgress: Number(inProgress || 0),
     awaitingApproval: Number(awaitingApproval || 0),
     failed: Number(failed || 0),
     sentLast24h: Number(sentLast24h || 0),
     oldestQueuedMinutes,
+    oldestInProgressMinutes,
     stale: oldestQueuedMinutes != null && oldestQueuedMinutes > STALE_MINUTES,
+    staleInProgress: oldestInProgressMinutes != null && oldestInProgressMinutes > STALE_MINUTES,
   };
 }

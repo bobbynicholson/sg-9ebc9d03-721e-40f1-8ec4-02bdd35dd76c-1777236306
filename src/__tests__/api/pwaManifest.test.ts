@@ -23,7 +23,7 @@ test("company manifest uses a real tenant launch path and same-origin square PNG
   await handler({ method: "GET", query: { slug: "company-a" } } as never, res as never);
   expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "application/manifest+json; charset=utf-8");
   const manifest = JSON.parse(res.send.mock.calls[0][0]);
-  expect(manifest).toMatchObject({ name: "Company A", id: "/pwa/company-a", start_url: "/company-a/login", scope: "/", display: "standalone", launch_handler: { client_mode: "navigate-existing" }, theme_color: "#f21f07" });
+  expect(manifest).toMatchObject({ name: "Company A", id: "/pwa/company-a", start_url: "/company-a/login", scope: "/", display: "standalone", launch_handler: { client_mode: "navigate-existing" }, theme_color: "#ffffff" });
   expect(manifest.background_color).toBe("#f21f07");
   expect(manifest.icons).toEqual([192, 512].map(size => expect.objectContaining({ src: expect.stringContaining(`/api/pwa/icon?slug=company-a&size=${size}`), sizes: `${size}x${size}`, type: "image/png", purpose: "any" })));
 });

@@ -7,6 +7,8 @@
   },
   "scripts": {
     "dev": "next dev",
+    "pwa:setup-push": "node scripts/setup-pwa-push-keys.mjs",
+    "check:cron-monitoring": "node scripts/check-cron-monitoring.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -101,6 +103,7 @@
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^1.1.2",
+    "web-push": "^4.0.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^4.6.7"
   },
@@ -114,6 +117,7 @@
     "@types/node": "^22",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/web-push": "^3.6.4",
     "eslint": "^9.27.0",
     "eslint-config-next": "^15.2.3",
     "jest": "^30.3.0",

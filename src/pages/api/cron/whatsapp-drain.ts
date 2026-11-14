@@ -5,9 +5,9 @@
  * Mirrors process-email-queue.ts but for the whatsapp_messages
  * table created in migration 20260524210000.
  *
- * Walks whatsapp_messages where status IN ('pending', 'sending')
- * and next_attempt_at <= NOW, claims a batch, fires each through
- * Meta Graph API, and stamps the result columns.
+ * Claims due pending messages with a lease, fires each through Meta's
+ * Graph API, and stamps the result columns. Expired leases are recovered
+ * after a timeout so overlapping runs cannot immediately re-send them.
  *
  * Auth: Vercel Cron bearer token (CRON_SECRET) - same gate every
  * other cron in this folder uses.
@@ -29,12 +29,11 @@
  * forever. The drain skips them silently. When the tenant
  * connects WhatsApp the queue starts flushing.
  *
- * No queue claim RPC yet (process-email-queue uses one). Using
- * a status='sending' transition + WHERE status='pending' as a
- * cheap optimistic lock - two concurrent drains either don't
- * overlap or one of the updates is a no-op, and the worse
- * outcome (double-send) is something Meta's gateway dedups via
- * idempotent message templates.
+ * A lease + status/attempt compare-and-set prevents overlapping drains from
+ * claiming the same row. External delivery is at-least-once: if Meta accepts
+ * a message and the process dies before saving the receipt, a later lease
+ * recovery can retry it because the WhatsApp send API has no queue-row
+ * idempotency key.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
@@ -47,6 +46,7 @@ import { loadWhatsAppCredentials, postWhatsAppMessage, type StoredWhatsAppCreden
 
 const MAX_ATTEMPTS = 5;
 const BATCH_SIZE = 25;
+const PROCESSING_LEASE_MS = 10 * 60 * 1000;
 const CRON_NAME = "whatsapp-drain";
 
 interface QueueRow {
@@ -90,7 +90,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (tenantErr) {
     console.error("[cron/whatsapp-drain] integrations lookup failed:", tenantErr);
     await recordCronHeartbeat(supabase, CRON_NAME, "error", {
-      source: auth.source, error_message: tenantErr.message,
+      source: auth.source, run_id: auth.runId, error_message: tenantErr.message,
     });
     return res.status(500).json({ error: tenantErr.message });
   }
@@ -98,7 +98,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const allowList = ((connectedTenants || []) as Array<{ company_id: string }>).map((t) => t.company_id);
   if (allowList.length === 0) {
     await recordCronHeartbeat(supabase, CRON_NAME, "ok", {
-      source: auth.source, sent: 0, failed: 0,
+      source: auth.source, run_id: auth.runId, sent: 0, failed: 0,
       note: "no_connected_tenants",
     });
     return res.status(200).json({
@@ -110,12 +110,76 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Cache integrations by company so each row doesn't re-fetch.
   const integrationByCompany: Record<string, StoredWhatsAppCredentials | null> = {};
 
-  // Claim a batch. Optimistic: select then update status to
-  // 'sending' so a second worker skips them.
+  // Recover only expired sending leases. Older queue rows predate locked_at;
+  // their created_at provides a conservative fallback timestamp.
+  const staleBefore = new Date(Date.now() - PROCESSING_LEASE_MS).toISOString();
+  const { data: staleRows, error: staleReadError } = await supabase
+    .from("whatsapp_messages")
+    .select("id, attempts, locked_at, created_at")
+    .eq("status", "sending")
+    .or(`locked_at.lt.${staleBefore},and(locked_at.is.null,created_at.lt.${staleBefore})`)
+    .lt("attempts", MAX_ATTEMPTS)
+    .limit(BATCH_SIZE);
+
+  if (staleReadError) {
+    await recordCronHeartbeat(supabase, CRON_NAME, "error", {
+      source: auth.source, run_id: auth.runId, error_message: staleReadError.message,
+    });
+    return res.status(500).json({ error: staleReadError.message });
+  }
+
+  let recovered = 0;
+  for (const stale of staleRows || []) {
+    let recovery = supabase.from("whatsapp_messages")
+      .update({ status: "pending", locked_at: null, next_attempt_at: nowIso });
+    recovery = stale.locked_at
+      ? recovery.eq("locked_at", stale.locked_at)
+      : recovery.is("locked_at", null).lt("created_at", staleBefore);
+    const { data: recoveredRow, error: recoveryError } = await recovery
+      .eq("id", stale.id).eq("status", "sending").select("id").maybeSingle();
+    if (recoveryError) {
+      console.error("[cron/whatsapp-drain] stale lease recovery failed:", recoveryError);
+      continue;
+    }
+    if (recoveredRow) recovered += 1;
+  }
+
+  // Attempts exhausted while a worker was interrupted: retain it as failed
+  // for operator review instead of leaving a permanently invisible `sending` row.
+  const { data: exhaustedRows, error: exhaustedReadError } = await supabase
+    .from("whatsapp_messages")
+    .select("id, locked_at, created_at")
+    .eq("status", "sending")
+    .gte("attempts", MAX_ATTEMPTS)
+    .or(`locked_at.lt.${staleBefore},and(locked_at.is.null,created_at.lt.${staleBefore})`)
+    .limit(BATCH_SIZE);
+  if (exhaustedReadError) {
+    await recordCronHeartbeat(supabase, CRON_NAME, "error", {
+      source: auth.source, run_id: auth.runId, error_message: exhaustedReadError.message,
+    });
+    return res.status(500).json({ error: exhaustedReadError.message });
+  }
+  for (const stale of exhaustedRows || []) {
+    let exhausted = supabase.from("whatsapp_messages").update({
+      status: "failed",
+      locked_at: null,
+      failed_at: new Date().toISOString(),
+      failure_reason: "Delivery worker lease expired after the maximum attempts; check WhatsApp before manually retrying.",
+      next_attempt_at: null,
+    });
+    exhausted = stale.locked_at
+      ? exhausted.eq("locked_at", stale.locked_at)
+      : exhausted.is("locked_at", null).lt("created_at", staleBefore);
+    const { error } = await exhausted.eq("id", stale.id).eq("status", "sending");
+    if (error) console.error("[cron/whatsapp-drain] exhausted lease update failed:", error);
+  }
+
+  // Read only pending work. Sending rows are eligible again only through the
+  // timed recovery above, never simply because another cron invocation began.
   const { data: due, error: readErr } = await supabase
     .from("whatsapp_messages")
     .select("id, company_id, recipient_phone, recipient_name, message_type, message_content, template_name, template_language, template_params, attempts")
-    .in("status", ["pending", "sending"])
+    .eq("status", "pending")
     .in("company_id", allowList)
     .lte("next_attempt_at", nowIso)
     .lt("attempts", MAX_ATTEMPTS)
@@ -125,7 +189,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (readErr) {
     console.error("[cron/whatsapp-drain] claim failed:", readErr);
     await recordCronHeartbeat(supabase, CRON_NAME, "error", {
-      source: auth.source, error_message: readErr.message,
+      source: auth.source, run_id: auth.runId, error_message: readErr.message,
     });
     return res.status(500).json({ error: readErr.message });
   }
@@ -137,19 +201,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const connectionProblems = new Set<string>();
 
   for (const row of rows) {
-    // Atomically claim: accept BOTH 'pending' and 'sending' (a retried row
-    // sits at 'pending' with attempts>=1, so the old `attempts===0?pending
-    // :sending` guard never matched it -> attempts never incremented ->
-    // the 5-try cap never fired -> rows retried forever). Check the result
-    // so a concurrent worker that already claimed it is skipped, not
-    // double-sent.
-    const { data: claimed } = await supabase
+    // Atomic compare-and-set claim. Include attempts so a stale selection
+    // cannot overwrite a newer retry state from another worker.
+    const lockAt = new Date().toISOString();
+    const { data: claimed, error: claimError } = await supabase
       .from("whatsapp_messages")
-      .update({ status: "sending", attempts: row.attempts + 1 })
+      .update({ status: "sending", attempts: row.attempts + 1, locked_at: lockAt })
       .eq("id", row.id)
-      .in("status", ["pending", "sending"])
+      .eq("status", "pending")
+      .eq("attempts", row.attempts)
       .select("id")
       .maybeSingle();
+    if (claimError) {
+      console.error("[cron/whatsapp-drain] row claim failed:", row.id, claimError);
+      continue;
+    }
     if (!claimed) continue;
 
     let ok = false;
@@ -193,7 +259,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     if (ok) {
-      await supabase
+      const { error: sentUpdateError } = await supabase
         .from("whatsapp_messages")
         .update({
           status: "sent",
@@ -202,22 +268,27 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           gateway_response: gatewayResponse,
           failure_reason: null,
         })
-        .eq("id", row.id);
+        .eq("id", row.id).eq("status", "sending").eq("locked_at", lockAt);
+      if (sentUpdateError) throw sentUpdateError;
       sent += 1;
     } else {
       const newAttempts = row.attempts + 1;
       const finalStatus = newAttempts >= MAX_ATTEMPTS ? "failed" : "pending";
       const next = new Date(Date.now() + backoffMinutes(newAttempts) * 60_000).toISOString();
-      await supabase
+      const { error: failureUpdateError } = await supabase
         .from("whatsapp_messages")
         .update({
           status: finalStatus,
+          locked_at: null,
           failure_reason: failureReason,
           failed_at: finalStatus === "failed" ? new Date().toISOString() : null,
           gateway_response: gatewayResponse,
           next_attempt_at: finalStatus === "failed" ? null : next,
         })
-        .eq("id", row.id);
+        .eq("id", row.id).eq("status", "sending").eq("locked_at", lockAt);
+      if (failureUpdateError) {
+        console.error("[cron/whatsapp-drain] failure state update failed:", row.id, failureUpdateError);
+      }
       failed += 1;
       if (isConnectionProblem(failureReason)) connectionProblems.add(row.company_id);
       if (finalStatus === "failed") failedByCompany.set(row.company_id, (failedByCompany.get(row.company_id) || 0) + 1);
@@ -228,8 +299,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   for (const [companyId, count] of failedByCompany) await alertWhatsAppFailures(companyId, count);
 
   await recordCronHeartbeat(supabase, CRON_NAME, "ok", {
-    source: auth.source,
+    source: auth.source, run_id: auth.runId,
     processed: rows.length,
+    stale_recovered: recovered,
     sent,
     failed,
     tenants_connected: allowList.length,

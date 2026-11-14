@@ -30,15 +30,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { data, error } = await sb.rpc("archive_old_gps_logs");
     if (error) {
       console.error("[archive-old-gps-logs] RPC failed:", error);
-      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: error.message });
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: error.message });
       return res.status(500).json({ error: error.message });
     }
     const archived = typeof data === "number" ? data : 0;
-    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, archived });
+    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, run_id: auth.runId, archived });
     return res.status(200).json({ ok: true, archived });
   } catch (e: any) {
     console.error("[archive-old-gps-logs] crashed:", e);
-    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });
+    await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: e?.message || "crash" });
     return res.status(500).json({ error: e?.message || "crash" });
   }
 }
