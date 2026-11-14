@@ -31,6 +31,17 @@ function applicationServerKey(value: string): Uint8Array {
   return Uint8Array.from(raw, character => character.charCodeAt(0));
 }
 
+function subscriptionUsesApplicationServerKey(subscription: PushSubscription, value: string): boolean {
+  const currentKey = subscription.options.applicationServerKey;
+  // Some browsers do not expose the key on an existing subscription. Keep
+  // that subscription intact when the browser cannot provide a comparison.
+  if (!currentKey) return true;
+  const currentBytes = new Uint8Array(currentKey);
+  const expectedBytes = applicationServerKey(value);
+  return currentBytes.length === expectedBytes.length
+    && currentBytes.every((byte, index) => byte === expectedBytes[index]);
+}
+
 const subscriptionSyncs = new Map<string, Promise<boolean>>();
 function saveDeviceSubscription(userId: string, activeRole: string, subscription: PushSubscription): Promise<boolean> {
   const key = `${userId}:${subscription.endpoint}`;
@@ -319,6 +330,10 @@ export function NotificationBell() {
           setDevicePushStatus("ready");
           return;
         }
+        if (!subscriptionUsesApplicationServerKey(subscription, config.publicKey)) {
+          setDevicePushStatus("ready");
+          return;
+        }
 
         const role = String(activeRole || profile?.active_role || profile?.role || user?.role || "client");
         const saved = await saveDeviceSubscription(user.id, role, subscription);
@@ -385,6 +400,17 @@ export function NotificationBell() {
 
       const registration = await navigator.serviceWorker.ready;
       let subscription = await registration.pushManager.getSubscription();
+      if (subscription && !subscriptionUsesApplicationServerKey(subscription, config.publicKey)) {
+        const removeResponse = await fetch("/api/pwa/push-subscription", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ endpoint: subscription.endpoint }),
+        });
+        if (!removeResponse.ok) throw new Error("The old device subscription could not be refreshed");
+        await subscription.unsubscribe();
+        subscription = null;
+      }
       if (!subscription) {
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,

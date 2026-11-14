@@ -31,7 +31,9 @@ Configure these same values in the production deployment environment:
 - `WEB_PUSH_VAPID_SUBJECT` — for example `mailto:support@cateringms.com`
 
 Do not rotate the VAPID pair after devices subscribe unless you also plan to
-resubscribe those devices. Apply the Supabase migration
+resubscribe those devices. If a device has an older key, its next **Enable
+device notifications** action replaces that subscription using the current
+public key. Apply the Supabase migration
 `20261114140000_pwa_web_push_delivery.sql`; Vercel runs the delivery endpoint
 once per minute. The same migration creates the worker health record used by
 the admin delivery panel.
