@@ -129,7 +129,7 @@ const EMPTY: Stats = {
 const ACTIVE_STATUSES = ["confirmed", "preparing", "ready", "in_transit"];
 
 function AdminDashboardPage() {
-  const { user, profile, companySlug } = useAuth();
+  const { user, profile, company, companySlug } = useAuth();
   const companyId = (profile as any)?.company_id || (user as any)?.company_id;
   // AD-6 audit follow-up (2026-05-26): route gating for the Cashflow
   // Snapshot + the Financial Reports Quick Action goes through
@@ -145,7 +145,9 @@ function AdminDashboardPage() {
   // Wave 27: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
 
-  const [range, setRange] = useState<DateRange>(() => resolvePreset("this_month"));
+  const [range, setRange] = useState<DateRange>(() =>
+    resolvePreset("this_month", tenantToday(company?.timezone || DEFAULT_TENANT_TIMEZONE)),
+  );
   const [stats, setStats] = useState<Stats>(EMPTY);
   const [loading, setLoading] = useState(true);
   const metricsRequestRef = useRef(0);
@@ -169,37 +171,21 @@ function AdminDashboardPage() {
   // header. The date pickers + cron windows interpret event_date
   // in companies.timezone, but multi-region tenants couldn't
   // see which clock was driving the math.
-  const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
-  const effectiveTenantTimezone = tenantTimezone || DEFAULT_TENANT_TIMEZONE;
+  const tenantTimezone = company?.timezone || DEFAULT_TENANT_TIMEZONE;
   const tenantDateAnchor = useMemo(
-    () => tenantToday(effectiveTenantTimezone),
-    [effectiveTenantTimezone],
+    () => tenantToday(tenantTimezone),
+    [tenantTimezone],
   );
-  useEffect(() => {
-    if (!companyId) return;
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await (supabase as any)
-        .from("companies")
-        .select("timezone")
-        .eq("id", companyId)
-        .maybeSingle();
-      if (error) {
-        console.error("[admin/dashboard] companies.timezone fetch failed:", error);
-      }
-      if (!cancelled) setTenantTimezone((data as any)?.timezone || DEFAULT_TENANT_TIMEZONE);
-    })();
-    return () => { cancelled = true; };
-  }, [companyId]);
 
   useEffect(() => {
-    if (!tenantTimezone) return;
-    setRange((prev) => (
-      prev.presetId === "custom"
+    setRange((prev) => {
+      if (prev.presetId === "custom") return prev;
+      const next = resolvePreset(prev.presetId, tenantDateAnchor);
+      return prev.from.getTime() === next.from.getTime() && prev.to.getTime() === next.to.getTime()
         ? prev
-        : resolvePreset(prev.presetId, tenantToday(tenantTimezone))
-    ));
-  }, [tenantTimezone]);
+        : next;
+    });
+  }, [tenantDateAnchor]);
 
   // Phase 11 #1: tenant currency on the main dashboard metric
   // cards. Resolves the symbol + locale from companies.currency
@@ -250,7 +236,7 @@ function AdminDashboardPage() {
 
       const fromISO = toLocalISO(range.from);
       const toISO   = toLocalISO(range.to);
-      const todayISO = toLocalISO(tenantToday(effectiveTenantTimezone));
+      const todayISO = toLocalISO(tenantToday(tenantTimezone));
 
       // Pull every order whose event falls in the range, plus the always-on
       // counters (low stock, pending quotes, team size) which don't bind to range.
@@ -819,7 +805,7 @@ function AdminDashboardPage() {
               today's confirmed events, in-transit deliveries, drivers
               on shift, kitchen prep load, money landed today. Refreshes
               every 60 seconds so the tab stays current. */}
-          <WidgetErrorBoundary label="Today's pulse"><TodaysPulse companyId={companyId} timezone={effectiveTenantTimezone} /></WidgetErrorBoundary>
+          <WidgetErrorBoundary label="Today's pulse"><TodaysPulse companyId={companyId} timezone={tenantTimezone} /></WidgetErrorBoundary>
 
           {/* === KPI HEADLINES (Wave 70.53) ====================================
               Moved here from below Quick Actions. Owner brief 2026-05-22:

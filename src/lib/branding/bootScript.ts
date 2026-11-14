@@ -7,10 +7,9 @@
  * subscription|order/...):
  *   - a palette cached on this device for that slug (cms.branding.<id>,
  *     written by TenantBrandingApplier) is applied to <html> at once;
- *   - with nothing cached (first visit on this device) the page stays
- *     blank (html[data-brand-pending]) until TenantBrandingApplier paints
- *     the real palette, at most BRAND_PENDING_MAX_MS, instead of showing
- *     the default colours first.
+ *   - with nothing cached (first visit on this device) a lightweight launch
+ *     screen covers the page until TenantBrandingApplier paints the real
+ *     palette, at most BRAND_PENDING_MAX_MS, instead of showing a blank page.
  * Every other path is left alone (marketing and global pages keep the
  * default theme).
  *
@@ -19,7 +18,10 @@
  * both on the same row and compares the result.
  */
 export const BRAND_PENDING_ATTR = "data-brand-pending";
-export const BRAND_PENDING_MAX_MS = 10000;
+// Keep the neutral launch screen brief if the branding lookup is slow. The
+// workspace remains visible after this; the tenant palette applies whenever
+// its request completes.
+export const BRAND_PENDING_MAX_MS = 1800;
 
 const TENANT_ENTRY_POINTS = ["admin", "team-portal", "client-portal", "account", "subscription", "order"];
 // Mirrors GLOBAL_ROOTS in src/lib/tenantRoute.ts.
@@ -52,8 +54,20 @@ st.setProperty("--primary",hsl(p)||"37 92% 50%");st.setProperty("--primary-foreg
 st.setProperty("--sidebar-primary",hsl(p)||"37 92% 50%");st.setProperty("--sidebar-primary-foreground",fg(p));st.setProperty("--sidebar-ring",hsl(a)||hsl(p)||"37 92% 50%");
 }catch(e){}})();`;
 
-/** Keeps a not-yet-branded tenant page blank rather than default-coloured. */
-export const BRANDING_BOOT_STYLE = `html[${BRAND_PENDING_ATTR}] body{visibility:hidden}`;
+/** Show an immediate launch surface instead of hiding the entire document. */
+export const BRANDING_BOOT_STYLE = `
+#cms-pwa-launch-screen{display:none}
+html.cms-pwa-starting #cms-pwa-launch-screen,
+html[${BRAND_PENDING_ATTR}] #cms-pwa-launch-screen{display:grid}
+#cms-pwa-launch-screen{position:fixed;inset:0;z-index:2147483647;place-items:center;background:#ffffff;color:#0f172a;padding:24px}
+#cms-pwa-launch-screen .cms-pwa-launch-content{display:flex;flex-direction:column;align-items:center;text-align:center}
+#cms-pwa-launch-screen img{width:76px;height:76px;object-fit:contain;border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:8px}
+#cms-pwa-launch-screen p{margin:18px 0 0;font:600 17px/1.3 ui-sans-serif,system-ui,sans-serif;letter-spacing:-.02em}
+#cms-pwa-launch-screen span{margin-top:6px;color:#64748b;font:400 14px/1.4 ui-sans-serif,system-ui,sans-serif}
+#cms-pwa-launch-screen i{width:22px;height:22px;margin-top:24px;border:2px solid #e2e8f0;border-top-color:var(--brand-primary,var(--primary));border-radius:50%;animation:cms-pwa-spin .75s linear infinite}
+@keyframes cms-pwa-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){#cms-pwa-launch-screen i{animation:none;border-color:var(--brand-primary,var(--primary))}}
+`;
 
 /** Called once the real palette is on the page (or defaults are intended). */
 export function clearBrandPending(): void {

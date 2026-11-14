@@ -18,6 +18,7 @@ import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { indexChatPageSections, scrollToChatHash } from "@/lib/chatbot/sectionAnchors";
 import { DeferredCommandPalette } from "./DeferredCommandPalette";
+import { isInstalledApp } from "@/lib/pwa/environment";
 
 // Both render nothing on the server and on the first client render (the
 // install prompt starts dismissed; the setup sticky waits for auth), so
@@ -153,6 +154,14 @@ function GlobalPWAInstallPrompt({ initialBranding }: { initialBranding: InitialB
   </>;
 }
 
+/** Remove the pre-hydration cover as soon as the app shell is interactive. */
+function PwaStartupGate() {
+  useEffect(() => {
+    if (isInstalledApp()) document.documentElement.classList.remove("cms-pwa-starting");
+  }, []);
+  return null;
+}
+
 /**
  * The full app shell for every page that is not a public marketing page:
  * the real auth provider, tenant branding, company time zone, region filter,
@@ -162,6 +171,7 @@ function GlobalPWAInstallPrompt({ initialBranding }: { initialBranding: InitialB
 export default function ProductShell({ children, initialBranding }: { children: ReactNode; initialBranding: InitialBranding | null }) {
   return (
       <AuthProvider>
+        <PwaStartupGate />
         <TenantBrandingApplier initialBranding={initialBranding} />
         {/* Company time zone + 12/24-hour format for every page. */}
         <PortalTimeSync />

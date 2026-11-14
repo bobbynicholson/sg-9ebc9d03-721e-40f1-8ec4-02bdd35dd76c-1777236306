@@ -162,6 +162,26 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Next's content-hashed JS and CSS cannot change at the same URL. Serve
+  // visited app assets from Cache Storage first so a relaunched PWA can paint
+  // without waiting for another round trip. Keep the build manifest on the
+  // network: _app uses its 404 to detect and recover from a replaced deploy.
+  if (url.pathname.startsWith("/_next/static/") && !url.pathname.endsWith("/_buildManifest.js")) {
+    event.respondWith(
+      caches.open(SHELL_CACHE).then(async (cache) => {
+        const cached = await cache.match(req);
+        if (cached) return cached;
+
+        const response = await fetch(req);
+        if (response.ok) {
+          event.waitUntil(cache.put(req, response.clone()));
+        }
+        return response;
+      }).catch(() => caches.match(req).then((cached) => cached || Response.error())),
+    );
+    return;
+  }
+
   // Network-first for everything else, fall back to shell cache.
   event.respondWith(
     fetch(req)
