@@ -13,10 +13,43 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     p_company_id: access.companyId, p_status: req.body?.status,
   });
   if (error) return res.status(error.code === "22023" ? 400 : 500).json({ error: error.message || "Trip progress could not be saved. Please retry." });
+  const { data: trip, error: tripError } = await access.db
+    .from("driver_assignments")
+    .select("id,order_id,assignment_type,service_sitting_id")
+    .eq("id", req.body.assignmentId)
+    .eq("driver_id", access.userId)
+    .eq("company_id", access.companyId)
+    .maybeSingle();
+  if (tripError || !trip) {
+    console.warn("[sitting-trip] Assignment was advanced but its timer context could not be loaded:", tripError);
+  } else {
+    const { driverPayService } = await import("@/services/driverPayService");
+    if (req.body?.status === "en_route") {
+      const timer = await driverPayService.autoClockIn({
+        companyId: access.companyId,
+        driverId: access.userId,
+        orderId: trip.order_id,
+        driverAssignmentId: trip.id,
+        serviceSittingId: trip.service_sitting_id,
+        assignmentType: trip.assignment_type,
+      }, access.db);
+      if (!timer.ok) console.error("[sitting-trip] Trip started but its driver timer could not be opened:", timer.error);
+    }
+    if (req.body?.status === "completed") {
+      const timer = await driverPayService.autoClockOut({
+        companyId: access.companyId,
+        driverId: access.userId,
+        orderId: trip.order_id,
+        driverAssignmentId: trip.id,
+        serviceSittingId: trip.service_sitting_id,
+        assignmentType: trip.assignment_type,
+      }, access.db);
+      if (!timer.ok) console.error("[sitting-trip] Trip completed but its driver timer could not be closed:", timer.error);
+    }
+  }
   // Equipment remains booked out while any sitting or return trip is open.
   // Only the final completed collection runs the existing return/cleaning flow.
   if (req.body?.status === "completed") {
-    const { data: trip } = await access.db.from("driver_assignments").select("order_id,assignment_type").eq("id", req.body.assignmentId).eq("driver_id", access.userId).single();
     if (trip?.assignment_type === "collection") {
       const [sittings, collections] = await Promise.all([
         access.db.from("service_sittings").select("id,status,return_required").eq("order_id", trip.order_id).eq("company_id", access.companyId),

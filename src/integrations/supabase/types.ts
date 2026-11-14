@@ -2287,6 +2287,13 @@ export type Database = {
           driver_id: string
           en_route_at: string | null
           estimated_drive_time_minutes: number | null
+          gps_distance_checked_at: string | null
+          gps_expected_distance_km: number | null
+          gps_distance_km: number | null
+          gps_distance_review_reason: string | null
+          gps_distance_review_required: boolean
+          gps_distance_status: string
+          gps_trip_duration_minutes: number | null
           id: string
           notes: string | null
           order_id: string
@@ -2294,6 +2301,7 @@ export type Database = {
           picked_up_at: string | null
           rejection_reason: string | null
           scheduled_for: string | null
+          service_sitting_id: string | null
           status: Database["public"]["Enums"]["assignment_status"] | null
           total_earnings: number | null
           updated_at: string | null
@@ -2318,6 +2326,13 @@ export type Database = {
           driver_id: string
           en_route_at?: string | null
           estimated_drive_time_minutes?: number | null
+          gps_distance_checked_at?: string | null
+          gps_expected_distance_km?: number | null
+          gps_distance_km?: number | null
+          gps_distance_review_reason?: string | null
+          gps_distance_review_required?: boolean
+          gps_distance_status?: string
+          gps_trip_duration_minutes?: number | null
           id?: string
           notes?: string | null
           order_id: string
@@ -2325,6 +2340,7 @@ export type Database = {
           picked_up_at?: string | null
           rejection_reason?: string | null
           scheduled_for?: string | null
+          service_sitting_id?: string | null
           status?: Database["public"]["Enums"]["assignment_status"] | null
           total_earnings?: number | null
           updated_at?: string | null
@@ -2349,6 +2365,13 @@ export type Database = {
           driver_id?: string
           en_route_at?: string | null
           estimated_drive_time_minutes?: number | null
+          gps_distance_checked_at?: string | null
+          gps_expected_distance_km?: number | null
+          gps_distance_km?: number | null
+          gps_distance_review_reason?: string | null
+          gps_distance_review_required?: boolean
+          gps_distance_status?: string
+          gps_trip_duration_minutes?: number | null
           id?: string
           notes?: string | null
           order_id?: string
@@ -2356,6 +2379,7 @@ export type Database = {
           picked_up_at?: string | null
           rejection_reason?: string | null
           scheduled_for?: string | null
+          service_sitting_id?: string | null
           status?: Database["public"]["Enums"]["assignment_status"] | null
           total_earnings?: number | null
           updated_at?: string | null
@@ -4073,12 +4097,15 @@ export type Database = {
           accuracy: number | null
           company_id: string | null
           created_at: string | null
+          driver_assignment_id: string | null
+          driver_shift_id: string | null
           driver_id: string | null
           heading: number | null
           id: string
           latitude: number | null
           longitude: number | null
           order_id: string | null
+          service_sitting_id: string | null
           speed: number | null
           timestamp: string | null
         }
@@ -4086,12 +4113,15 @@ export type Database = {
           accuracy?: number | null
           company_id?: string | null
           created_at?: string | null
+          driver_assignment_id?: string | null
+          driver_shift_id?: string | null
           driver_id?: string | null
           heading?: number | null
           id?: string
           latitude?: number | null
           longitude?: number | null
           order_id?: string | null
+          service_sitting_id?: string | null
           speed?: number | null
           timestamp?: string | null
         }
@@ -4099,12 +4129,15 @@ export type Database = {
           accuracy?: number | null
           company_id?: string | null
           created_at?: string | null
+          driver_assignment_id?: string | null
+          driver_shift_id?: string | null
           driver_id?: string | null
           heading?: number | null
           id?: string
           latitude?: number | null
           longitude?: number | null
           order_id?: string | null
+          service_sitting_id?: string | null
           speed?: number | null
           timestamp?: string | null
         }
@@ -10863,10 +10896,12 @@ export type Database = {
         Row: {
           actual_end: string | null
           actual_start: string | null
+          assignment_type: string | null
           company_id: string | null
           created_at: string | null
           created_by_user_id: string | null
           deleted_at: string | null
+          driver_assignment_id: string | null
           driver_id: string | null
           hours_worked: number | null
           id: string | null
@@ -10876,6 +10911,7 @@ export type Database = {
           planned_start: string | null
           rate_multiplier: number | null
           shift_date: string | null
+          service_sitting_id: string | null
           source: string | null
           status: string | null
           updated_at: string | null
@@ -10883,10 +10919,12 @@ export type Database = {
         Insert: {
           actual_end?: string | null
           actual_start?: string | null
+          assignment_type?: string | null
           company_id?: string | null
           created_at?: string | null
           created_by_user_id?: string | null
           deleted_at?: string | null
+          driver_assignment_id?: string | null
           driver_id?: string | null
           hours_worked?: number | null
           id?: string | null
@@ -10896,6 +10934,7 @@ export type Database = {
           planned_start?: string | null
           rate_multiplier?: number | null
           shift_date?: string | null
+          service_sitting_id?: string | null
           source?: string | null
           status?: string | null
           updated_at?: string | null
@@ -10903,10 +10942,12 @@ export type Database = {
         Update: {
           actual_end?: string | null
           actual_start?: string | null
+          assignment_type?: string | null
           company_id?: string | null
           created_at?: string | null
           created_by_user_id?: string | null
           deleted_at?: string | null
+          driver_assignment_id?: string | null
           driver_id?: string | null
           hours_worked?: number | null
           id?: string | null
@@ -10916,6 +10957,7 @@ export type Database = {
           planned_start?: string | null
           rate_multiplier?: number | null
           shift_date?: string | null
+          service_sitting_id?: string | null
           source?: string | null
           status?: string | null
           updated_at?: string | null

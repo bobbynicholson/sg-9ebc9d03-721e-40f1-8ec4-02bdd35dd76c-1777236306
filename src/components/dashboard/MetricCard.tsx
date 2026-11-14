@@ -25,6 +25,8 @@ interface MetricCardProps {
   iconColor?: string;
   /** Show a small loading skeleton when data isn't ready. */
   loading?: boolean;
+  /** Mark a failed query so its empty fallback is never shown as a real zero. */
+  unavailable?: boolean;
   /**
    * Wave 70.52a - optional drill-down link. When provided, wraps the
    * tile in a Next.js Link so clicking opens the dedicated surface
@@ -46,7 +48,7 @@ const BADGE_TONES = {
 };
 
 export function MetricCard({
-  label, value, hint, tooltip, badge, icon: Icon, iconColor = "text-slate-600", loading, href,
+  label, value, hint, tooltip, badge, icon: Icon, iconColor = "text-slate-600", loading, unavailable, href,
 }: MetricCardProps) {
   const cardBody = (
     <Card
@@ -79,11 +81,13 @@ export function MetricCard({
           <div className="h-7 sm:h-8 md:h-9 w-24 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
         ) : (
           <div className="text-xl sm:text-2xl xl:text-3xl font-bold text-slate-900 dark:text-slate-100 tabular-nums break-words">
-            {value}
+            {unavailable ? "Unavailable" : value}
           </div>
         )}
         {hint && (
-          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 break-words">{hint}</p>
+          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 break-words">
+            {unavailable ? "Data could not be loaded. Refresh to retry." : hint}
+          </p>
         )}
       </CardContent>
     </Card>

@@ -20,13 +20,13 @@
  * AD-6 of the admin-dashboard audit (docs/audits/
  * admin-dashboard-audit-2026-05-19.md).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatLocalDate } from "@/lib/localFormat";
 import { Badge } from "@/components/ui/badge";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { Banknote, ArrowRight, AlertTriangle } from "lucide-react";
+import { Banknote, ArrowRight, AlertTriangle, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fixedCostsService } from "@/services/fixedCostsService";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -49,12 +49,16 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
   const [income, setIncome] = useState<number>(0);
   const [costs, setCosts] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (!companyId) return;
     let cancelled = false;
     const load = async () => {
       setLoading(true);
+      setLoadError(null);
+      try {
       const today = new Date();
       const todayIso = today.toISOString().slice(0, 10);
       const horizon = new Date(today);
@@ -106,7 +110,7 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
           .gte("due_date", todayIso)
           .lte("due_date", horizonIso),
         // Costs: fixed_costs occurrences in window
-        fixedCostsService.list(companyId, { activeOnly: true }),
+        fixedCostsService.list(companyId, { activeOnly: true, throwOnError: true }),
         // Costs: food COGS for orders in window. TIGHTEN I.72: same
         // deleted_at + canonical pipeline guard as the income query, so
         // the COGS side can't drift from the revenue side.
@@ -120,6 +124,19 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
           .lte("event_date", horizonIso),
       ]);
       if (cancelled) return;
+
+      const failures = [
+        ...(companyRes?.error ? ["cash balance"] : []),
+        ...(ordersRes?.error ? ["booked income"] : []),
+        ...(hireRes?.error ? ["equipment hire"] : []),
+        ...(shoppingRes?.error ? ["shopping costs"] : []),
+        ...(payablesRes?.error ? ["supplier payables"] : []),
+        ...(orderItemsRes?.error ? ["food costs"] : []),
+      ];
+      if (failures.length) {
+        setLoadError(`Could not load ${failures.join(", ")}. Forecast totals are unavailable.`);
+        return;
+      }
 
       const company = (companyRes as any)?.data;
       if (company) {
@@ -159,11 +176,18 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
 
       setIncome(incomeTotal);
       setCosts(costsTotal);
-      setLoading(false);
+      } catch (error) {
+        if (!cancelled) {
+          console.error("[CashflowSnapshotWidget] forecast data load failed:", error);
+          setLoadError("Could not load the forecast data. The displayed totals are unavailable.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
     void load();
     return () => { cancelled = true; };
-  }, [companyId]);
+  }, [companyId, retryCount]);
 
   const forecast = cashOnHand + income - costs;
   const isPositive = forecast > 0;
@@ -189,6 +213,32 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
         </CardHeader>
         <CardContent>
           <div className="h-12 bg-slate-100 rounded animate-pulse" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Card className="border-2 border-amber-200 mb-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
+            <Banknote className="w-4 h-4 text-brand-primary" />
+            Cashflow snapshot
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 text-sm">
+          <p className="flex items-center gap-2 text-amber-800">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            {loadError}
+          </p>
+          <button
+            type="button"
+            onClick={() => setRetryCount((count) => count + 1)}
+            className="inline-flex items-center gap-1 rounded-md border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-50"
+          >
+            <RefreshCw className="h-3 w-3" /> Retry
+          </button>
         </CardContent>
       </Card>
     );

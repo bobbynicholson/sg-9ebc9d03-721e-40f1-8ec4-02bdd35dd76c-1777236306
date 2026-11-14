@@ -1817,7 +1817,11 @@ function FragmentRows({
                         </Link>
                         <span className="text-right">
                           {d.distance_km.toFixed(1)} km · {formatR(d.total)}
+                          {d.gps_trip_duration_minutes != null && <span className="block text-[10px] text-slate-500">Timer {Math.floor(d.gps_trip_duration_minutes / 60)}h {d.gps_trip_duration_minutes % 60}m</span>}
+                          {d.distance_source === "gps_actual" && <span className="block text-[10px] text-emerald-700">GPS actual distance</span>}
                           {d.distance_source === "booking_route_split" && <span className="block text-[10px] text-amber-700" title="The saved booking route total is allocated across sitting stops using their locations.">Allocated route share</span>}
+                          {d.gps_distance_status === "partial" && <span className="block text-[10px] text-amber-700" title="GPS samples were incomplete, so settlement uses the saved route estimate.">GPS partial · {d.gps_distance_km == null ? "no reliable points" : `${d.gps_distance_km.toFixed(1)} km captured`} · estimate used</span>}
+                          {d.gps_distance_review_required && <span className="block text-[10px] font-semibold text-red-700" title={d.gps_distance_review_reason || "GPS mileage materially exceeds the saved estimate."}>Review GPS route · {d.gps_expected_distance_km?.toFixed(1)} km estimated</span>}
                         </span>
                       </li>
                     ))}

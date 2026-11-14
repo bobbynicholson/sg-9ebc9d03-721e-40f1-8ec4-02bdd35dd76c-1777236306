@@ -419,8 +419,13 @@ function DeliveryTable({ summary, formatR, withSlug }: { summary: DriverPaySumma
                   )}
                   {d.sitting_sequence && <span className="block text-xs text-slate-500 dark:text-slate-400">Sitting {d.sitting_sequence}</span>}
                 </td>
-                <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300" title={d.distance_source === "booking_route_split" ? "Allocated from the booking's saved total route distance using sitting locations." : undefined}>
-                  {d.distance_km.toFixed(1)} km{d.distance_source === "booking_route_split" && <span className="block text-[10px] text-amber-700 dark:text-amber-400">Allocated route share</span>}
+                <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300" title={d.gps_distance_review_reason || (d.distance_source === "booking_route_split" ? "Allocated from the booking's saved total route distance using sitting locations." : undefined)}>
+                  {d.distance_km.toFixed(1)} km
+                  {d.gps_trip_duration_minutes != null && <span className="block text-[10px] text-slate-500 dark:text-slate-400">Timer {Math.floor(d.gps_trip_duration_minutes / 60)}h {d.gps_trip_duration_minutes % 60}m</span>}
+                  {d.distance_source === "gps_actual" && <span className="block text-[10px] text-emerald-700 dark:text-emerald-400">GPS actual</span>}
+                  {d.distance_source === "booking_route_split" && <span className="block text-[10px] text-amber-700 dark:text-amber-400">Allocated route share</span>}
+                  {d.gps_distance_status === "partial" && <span className="block text-[10px] text-amber-700 dark:text-amber-400">GPS partial · {d.gps_distance_km == null ? "no reliable points" : `${d.gps_distance_km.toFixed(1)} km captured`} · estimate used</span>}
+                  {d.gps_distance_review_required && <span className="block text-[10px] font-semibold text-red-700 dark:text-red-400">Route flagged for admin review</span>}
                 </td>
                 <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{formatR(d.distance_pay)}</td>
                 <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{formatR(d.callout_fee)}</td>

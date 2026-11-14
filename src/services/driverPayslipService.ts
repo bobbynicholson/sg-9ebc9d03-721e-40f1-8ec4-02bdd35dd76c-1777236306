@@ -478,9 +478,17 @@ export const driverPayslipService = {
         const job = delivery.event_name && delivery.event_name.toLowerCase() !== "untitled"
           ? `${reference}\n${delivery.event_name}`
           : reference;
+        const timer = delivery.gps_trip_duration_minutes == null
+          ? ""
+          : `\nTimer ${Math.floor(delivery.gps_trip_duration_minutes / 60)}h ${delivery.gps_trip_duration_minutes % 60}m`;
+        const gpsLabel = delivery.distance_source === "gps_actual"
+          ? "\nGPS actual"
+          : delivery.gps_distance_status === "partial"
+            ? `\nGPS partial${delivery.gps_distance_km == null ? "" : ` ${delivery.gps_distance_km.toFixed(1)} km captured`}; estimate used`
+            : "";
         return [
           delivery.sitting_sequence ? `${job}\nSitting ${delivery.sitting_sequence}` : job,
-          `${delivery.distance_km.toFixed(1)} km`,
+          `${delivery.distance_km.toFixed(1)} km${timer}${gpsLabel}${delivery.gps_distance_review_required ? "\nADMIN REVIEW" : ""}`,
           `${fmtMoney(delivery.distance_rate)}/km`,
           fmtMoney(delivery.distance_pay),
           fmtMoney(delivery.callout_fee),

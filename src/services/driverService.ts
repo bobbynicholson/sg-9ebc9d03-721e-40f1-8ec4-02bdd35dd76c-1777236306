@@ -49,6 +49,7 @@ export type {
 
 export type {
   GPSLocation,
+  ActiveDriverTrip,
 } from "./driver/gpsTracking";
 
 const calculateDepartureTimes = async (assignmentId: string) => {
@@ -64,7 +65,25 @@ const startTripToKitchen = async (assignmentId: string) => {
 };
 
 const trackGPS = async (driverId: string, orderId: string, assignmentId: string, location: any) => {
-  return gpsOps.updateDriverLocation(driverId, location);
+  const { data: shift, error } = await (supabase as any)
+    .from("driver_shifts")
+    .select("id,order_id,driver_assignment_id,service_sitting_id,assignment_type,actual_start")
+    .eq("driver_id", driverId)
+    .eq("order_id", orderId)
+    .eq("driver_assignment_id", assignmentId)
+    .is("actual_end", null)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) return { success: false, error: error.message };
+  if (!shift) return { success: false, error: "There is no active timer for this delivery." };
+  return gpsOps.updateDriverLocation(driverId, location, {
+    shiftId: shift.id,
+    orderId: shift.order_id,
+    driverAssignmentId: shift.driver_assignment_id || null,
+    serviceSittingId: shift.service_sitting_id || null,
+    assignmentType: shift.assignment_type === "collection" ? "collection" : "delivery",
+    startedAt: shift.actual_start || null,
+  });
 };
 
 const notifyDriverOfRouteAssignment = async (driverId: string, details: any) => {

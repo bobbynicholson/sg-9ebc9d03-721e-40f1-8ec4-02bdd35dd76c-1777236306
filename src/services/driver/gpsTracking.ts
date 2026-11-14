@@ -13,6 +13,15 @@ export interface GPSLocation {
   speed?: number;
 }
 
+export interface ActiveDriverTrip {
+  shiftId: string;
+  orderId: string;
+  driverAssignmentId: string | null;
+  serviceSittingId: string | null;
+  assignmentType: "delivery" | "collection";
+  startedAt: string | null;
+}
+
 /**
  * Update driver's current location.
  *
@@ -29,9 +38,24 @@ export interface GPSLocation {
 export async function updateDriverLocation(
   driverId: string,
   location: GPSLocation,
-  orderId?: string,
+  trip?: ActiveDriverTrip | string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // Preserve the old public signature for legacy callers. Only the
+    // timer-aware portal hook and driverService wrapper provide a shift id,
+    // so unmatched legacy points cannot be counted as paid trip mileage.
+    const tripContext: ActiveDriverTrip | null = !trip
+      ? null
+      : typeof trip === "string"
+        ? {
+          shiftId: "",
+          orderId: trip,
+          driverAssignmentId: null,
+          serviceSittingId: null,
+          assignmentType: "delivery",
+          startedAt: null,
+          }
+        : trip;
     // Resolve the driver's company_id once so the denormalised column
     // on driver_locations is correct (RLS keys off it).
     const { data: profile } = await supabase
@@ -60,14 +84,16 @@ export async function updateDriverLocation(
       );
     if (curErr) throw curErr;
 
-    // Append-only history. Failure here is non-fatal - "where is the
-    // driver right now" still works without the trail row. company_id is
-    // sent explicitly: the company_fk_* relationship checks run before the
-    // table's own stamp trigger and reject a row without it.
+    // Append-only history is required for calculating the exact trip distance.
+    // company_id is sent explicitly because the table's tenant checks run
+    // before its company-stamp trigger.
     const { error: histErr } = await supabase.from("gps_tracking").insert({
       driver_id: driverId,
       company_id: companyId,
-      order_id: orderId ?? null,
+      order_id: tripContext?.orderId || null,
+      driver_assignment_id: tripContext?.driverAssignmentId || null,
+      driver_shift_id: tripContext?.shiftId || null,
+      service_sitting_id: tripContext?.serviceSittingId || null,
       latitude: location.latitude,
       longitude: location.longitude,
       accuracy: location.accuracy,
@@ -75,7 +101,7 @@ export async function updateDriverLocation(
       speed: location.speed,
       timestamp: new Date().toISOString(),
     });
-    if (histErr) console.warn("[gpsTracking] history insert failed (non-fatal):", histErr);
+    if (histErr) throw histErr;
 
     return { success: true };
   } catch (error: any) {

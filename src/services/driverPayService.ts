@@ -33,6 +33,7 @@ import {
   promptForRoleHandoffNote,
   saveRoleHandoffNote,
 } from "@/services/roleClockService";
+import { getDriverTripDistance, type DriverTripDistance } from "@/services/driver/tripDistance";
 
 type Sb = SupabaseClient<any> | any;
 
@@ -103,8 +104,14 @@ export interface DeliveryPayLine {
   /** Distinguishes multiple driver-assigned sitting trips on one order. */
   line_id?: string;
   sitting_sequence?: number | null;
-  /** "booking_route_split" means the order's saved total was shared across sittings. */
-  distance_source?: "order" | "booking_route_split";
+  /** Identifies whether distance came from route estimate, sitting allocation, or GPS. */
+  distance_source?: "order" | "booking_route_split" | "gps_actual";
+  gps_distance_km?: number | null;
+  gps_trip_duration_minutes?: number | null;
+  gps_distance_status?: "complete" | "partial" | "not_available" | string | null;
+  gps_expected_distance_km?: number | null;
+  gps_distance_review_required?: boolean;
+  gps_distance_review_reason?: string | null;
   /** Driver-portal restructure: human order number (ORD-xxxxxx) so
    *  the earnings page can render something a driver recognises
    *  instead of a UUID fragment. Optional - the bulk-totals path
@@ -371,8 +378,14 @@ type DeliveryPaySource = {
   order_number?: string | null;
   event_name?: string | null;
   sitting_sequence?: number | null;
-  distance_source?: "order" | "booking_route_split";
+  distance_source?: "order" | "booking_route_split" | "gps_actual";
   delivery_distance_km: number;
+  gps_distance_km?: number | null;
+  gps_trip_duration_minutes?: number | null;
+  gps_distance_status?: "complete" | "partial" | "not_available" | string | null;
+  gps_expected_distance_km?: number | null;
+  gps_distance_review_required?: boolean;
+  gps_distance_review_reason?: string | null;
   locked_distance_fee?: number | null;
   locked_base_fee?: number | null;
   locked_total?: number | null;
@@ -386,13 +399,29 @@ function calculateDeliveryPayLine(source: DeliveryPaySource, rates: DriverPayRat
     event_name: source.event_name ?? null,
     line_id: source.line_id || source.id,
     sitting_sequence: source.sitting_sequence ?? null,
-    distance_source: source.distance_source || "order" as const,
+    distance_source: source.gps_distance_status === "complete" && Number(source.gps_distance_km) > 0
+      ? "gps_actual" as const
+      : source.distance_source || "order" as const,
+    gps_distance_km: source.gps_distance_km ?? null,
+    gps_trip_duration_minutes: source.gps_trip_duration_minutes ?? null,
+    gps_distance_status: source.gps_distance_status ?? "not_available",
+    gps_expected_distance_km: source.gps_expected_distance_km ?? null,
+    gps_distance_review_required: !!source.gps_distance_review_required,
+    gps_distance_review_reason: source.gps_distance_review_reason ?? null,
   };
 
   if (source.locked_total != null) {
-    const distanceKm = resolveRoundTripDistanceKm(source.locked_calculated_distance, oneWayKm);
+    const hasCompleteGpsDistance = source.gps_distance_status === "complete"
+      && Number(source.gps_distance_km) >= 0;
+    const distanceKm = hasCompleteGpsDistance
+      ? Number(source.gps_distance_km)
+      : resolveRoundTripDistanceKm(source.locked_calculated_distance, oneWayKm);
     const incompleteDistanceSnapshot = Number(source.locked_calculated_distance || 0) <= 0 && oneWayKm > 0;
-    const distancePay = incompleteDistanceSnapshot
+    const distancePay = hasCompleteGpsDistance
+      ? source.locked_distance_fee != null
+        ? +Number(source.locked_distance_fee).toFixed(2)
+        : +(distanceKm * rates.distance_rate_per_km).toFixed(2)
+      : incompleteDistanceSnapshot
       ? +(distanceKm * rates.distance_rate_per_km).toFixed(2)
       : +Number(source.locked_distance_fee || 0).toFixed(2);
     const calloutFee = +Number(source.locked_base_fee || 0).toFixed(2);
@@ -408,6 +437,21 @@ function calculateDeliveryPayLine(source: DeliveryPaySource, rates: DriverPayRat
       total: incompleteDistanceSnapshot
         ? +(distancePay + calloutFee).toFixed(2)
         : +Number(source.locked_total || 0).toFixed(2),
+    };
+  }
+
+  if (source.gps_distance_status === "complete" && Number(source.gps_distance_km) >= 0) {
+    const distanceKm = Number(source.gps_distance_km);
+    const distancePay = +(distanceKm * rates.distance_rate_per_km).toFixed(2);
+    const calloutFee = +rates.base_callout_fee.toFixed(2);
+    return {
+      order_id: source.id,
+      ...label,
+      distance_km: distanceKm,
+      distance_rate: rates.distance_rate_per_km,
+      distance_pay: distancePay,
+      callout_fee: calloutFee,
+      total: +(distancePay + calloutFee).toFixed(2),
     };
   }
 
@@ -504,7 +548,7 @@ async function listCompletedSittingDeliveries(
   if (opts.driverIds.length === 0) return [];
   const { data, error } = await (client as any)
     .from("driver_assignments")
-    .select("id,order_id,driver_id,service_sitting_id,base_fee,distance_fee,total_earnings,calculated_distance,sitting:service_sittings!driver_assignments_service_sitting_id_fkey(id,sequence_number,venue_lat,venue_lng),order:orders!driver_assignments_order_id_fkey(id,event_date,status,order_number,event_name,delivery_distance_km,region_id,venue_lat,venue_lng,quote:quotes!orders_quote_id_fkey(delivery_distance_km),service_sittings(id,sequence_number,status,venue_lat,venue_lng))")
+    .select("id,order_id,driver_id,service_sitting_id,base_fee,distance_fee,total_earnings,calculated_distance,gps_distance_km,gps_trip_duration_minutes,gps_expected_distance_km,gps_distance_status,gps_distance_review_required,gps_distance_review_reason,sitting:service_sittings!driver_assignments_service_sitting_id_fkey(id,sequence_number,venue_lat,venue_lng),order:orders!driver_assignments_order_id_fkey(id,event_date,status,order_number,event_name,delivery_distance_km,region_id,venue_lat,venue_lng,quote:quotes!orders_quote_id_fkey(delivery_distance_km),service_sittings(id,sequence_number,status,venue_lat,venue_lng))")
     .eq("company_id", opts.companyId)
     .in("driver_id", opts.driverIds)
     .eq("assignment_type", "delivery")
@@ -557,8 +601,14 @@ async function listCompletedSittingDeliveries(
     order_number: order.order_number ?? null,
     event_name: order.event_name ?? null,
     sitting_sequence: sitting.sequence_number,
-    distance_source: "booking_route_split",
+    distance_source: row.gps_distance_status === "complete" ? "gps_actual" : "booking_route_split",
     delivery_distance_km: distanceByOrder.get(order.id)?.get(sitting.id) || 0,
+    gps_distance_km: row.gps_distance_km == null ? null : Number(row.gps_distance_km),
+    gps_trip_duration_minutes: row.gps_trip_duration_minutes == null ? null : Number(row.gps_trip_duration_minutes),
+    gps_expected_distance_km: row.gps_expected_distance_km == null ? null : Number(row.gps_expected_distance_km),
+    gps_distance_status: row.gps_distance_status || "not_available",
+    gps_distance_review_required: !!row.gps_distance_review_required,
+    gps_distance_review_reason: row.gps_distance_review_reason || null,
     locked_distance_fee: row.distance_fee ?? null,
     locked_base_fee: row.base_fee ?? null,
     locked_total: row.total_earnings ?? null,
@@ -1050,12 +1100,18 @@ export const driverPayService = {
     // order the batch hit. Without this we'd otherwise pay per-
     // driver again to resolve assignments.
     const orderIds = orderRows.map((o) => o.id);
-    type AssignmentRow = { order_id: string; driver_id: string; base_fee: number | null; distance_fee: number | null; total_earnings: number | null; calculated_distance: number | null };
+    type AssignmentRow = {
+      order_id: string; driver_id: string; base_fee: number | null; distance_fee: number | null;
+      total_earnings: number | null; calculated_distance: number | null; gps_distance_km: number | null;
+      gps_trip_duration_minutes: number | null;
+      gps_expected_distance_km: number | null; gps_distance_status: string | null;
+      gps_distance_review_required: boolean | null; gps_distance_review_reason: string | null;
+    };
     let assignmentRows: AssignmentRow[] = [];
     if (orderIds.length > 0) {
       const { data } = await (client as any)
         .from("driver_assignments")
-        .select("order_id, driver_id, base_fee, distance_fee, total_earnings, calculated_distance")
+        .select("order_id, driver_id, base_fee, distance_fee, total_earnings, calculated_distance, gps_distance_km, gps_trip_duration_minutes, gps_expected_distance_km, gps_distance_status, gps_distance_review_required, gps_distance_review_reason")
         .in("driver_id", opts.driverIds)
         .in("order_id", orderIds)
         .eq("assignment_type", "delivery")
@@ -1089,6 +1145,12 @@ export const driverPayService = {
         locked_base_fee: snap?.base_fee ?? null,
         locked_total: snap?.total_earnings ?? null,
         locked_calculated_distance: snap?.calculated_distance ?? null,
+        gps_distance_km: snap?.gps_distance_km ?? null,
+        gps_trip_duration_minutes: snap?.gps_trip_duration_minutes ?? null,
+        gps_expected_distance_km: snap?.gps_expected_distance_km ?? null,
+        gps_distance_status: snap?.gps_distance_status ?? "not_available",
+        gps_distance_review_required: !!snap?.gps_distance_review_required,
+        gps_distance_review_reason: snap?.gps_distance_review_reason ?? null,
       });
       ordersByDriver.set(o.assigned_driver_id, list);
     }
@@ -1152,10 +1214,35 @@ export const driverPayService = {
    * The matching auto clock-out closes it.
    */
   async autoClockIn(
-    opts: { companyId: string; driverId: string; orderId: string },
+    opts: {
+      companyId: string;
+      driverId: string;
+      orderId: string;
+      driverAssignmentId?: string | null;
+      serviceSittingId?: string | null;
+      assignmentType?: string;
+    },
     client: Sb = defaultClient,
   ): Promise<{ ok: boolean; shiftId?: string | null; error?: string }> {
     try {
+      const assignmentType = opts.assignmentType || "delivery";
+      let driverAssignmentId = opts.driverAssignmentId || null;
+      let serviceSittingId = opts.serviceSittingId || null;
+      if (!driverAssignmentId) {
+        let assignmentQuery = (client as any)
+          .from("driver_assignments")
+          .select("id,service_sitting_id")
+          .eq("company_id", opts.companyId)
+          .eq("driver_id", opts.driverId)
+          .eq("order_id", opts.orderId)
+          .eq("assignment_type", assignmentType);
+        assignmentQuery = serviceSittingId
+          ? assignmentQuery.eq("service_sitting_id", serviceSittingId)
+          : assignmentQuery.is("service_sitting_id", null);
+        const { data: assignment } = await assignmentQuery.maybeSingle();
+        driverAssignmentId = assignment?.id || null;
+        serviceSittingId = assignment?.service_sitting_id || serviceSittingId;
+      }
       // Pickup/in-transit is an order-context start, so it must claim the
       // driver's single active role before the legacy delivery row is opened.
       const roleClock = await beginRoleClock({
@@ -1172,18 +1259,23 @@ export const driverPayService = {
           client,
         );
       }
-      // Check for an existing open shift on this order. Avoids dupe
-      // rows when the driver hits "picked up" twice or the API
-      // double-fires.
-      const { data: existing, error: existingErr } = await (client as any)
+      // Check the exact assignment's open timer. Sitting stops on the same
+      // order must never reuse one another's timer or GPS trail.
+      let existingQuery = (client as any)
         .from("driver_shifts")
         .select("id")
         .eq("company_id", opts.companyId)
         .eq("driver_id", opts.driverId)
         .eq("order_id", opts.orderId)
+        .eq("assignment_type", assignmentType)
         .is("actual_end", null)
-        .is("deleted_at", null)
-        .maybeSingle();
+        .is("deleted_at", null);
+      existingQuery = driverAssignmentId
+        ? existingQuery.eq("driver_assignment_id", driverAssignmentId)
+        : serviceSittingId
+          ? existingQuery.eq("service_sitting_id", serviceSittingId)
+          : existingQuery.is("service_sitting_id", null);
+      const { data: existing, error: existingErr } = await existingQuery.maybeSingle();
       if (existingErr) {
         console.error("[driverPayService] driver_shifts fetch failed:", existingErr);
       }
@@ -1200,6 +1292,9 @@ export const driverPayService = {
           status: "active",
           source: "auto",
           order_id: opts.orderId,
+          driver_assignment_id: driverAssignmentId,
+          service_sitting_id: serviceSittingId,
+          assignment_type: assignmentType,
         })
         .select("id")
         .single();
@@ -1225,6 +1320,8 @@ export const driverPayService = {
       companyId: string;
       driverId: string;
       orderId: string;
+      driverAssignmentId?: string | null;
+      serviceSittingId?: string | null;
       /** Wave 49 B6 - which leg is closing. Defaults to 'delivery'
        *  for back-compat callers; the collection close-out path
        *  (completeCollection) passes 'collection' so the snapshot
@@ -1235,15 +1332,21 @@ export const driverPayService = {
     client: Sb = defaultClient,
   ): Promise<{ ok: boolean; error?: string }> {
     try {
-      const { data: openShift, error: openShiftErr } = await (client as any)
+      let openShiftQuery = (client as any)
         .from("driver_shifts")
-        .select("id, actual_start")
+        .select("id, actual_start, driver_assignment_id, service_sitting_id, assignment_type")
         .eq("company_id", opts.companyId)
         .eq("driver_id", opts.driverId)
         .eq("order_id", opts.orderId)
+        .eq("assignment_type", opts.assignmentType || "delivery")
         .is("actual_end", null)
-        .is("deleted_at", null)
-        .maybeSingle();
+        .is("deleted_at", null);
+      openShiftQuery = opts.driverAssignmentId
+        ? openShiftQuery.eq("driver_assignment_id", opts.driverAssignmentId)
+        : opts.serviceSittingId
+          ? openShiftQuery.eq("service_sitting_id", opts.serviceSittingId)
+          : openShiftQuery.is("service_sitting_id", null);
+      const { data: openShift, error: openShiftErr } = await openShiftQuery.maybeSingle();
       if (openShiftErr) {
         console.error("[driverPayService] driver_shifts fetch failed:", openShiftErr);
       }
@@ -1251,6 +1354,12 @@ export const driverPayService = {
 
       const nowIso = new Date().toISOString();
       const startIso = (openShift as any).actual_start as string | null;
+      const gpsDistance = await getDriverTripDistance(client, {
+        shiftId: (openShift as any).id,
+        driverId: opts.driverId,
+        startedAt: startIso,
+        endedAt: nowIso,
+      });
       const closeNote = await promptForAutomaticRoleClockNote(
         "driver",
         "This delivery timer is closing automatically because the delivery is complete.",
@@ -1338,6 +1447,12 @@ export const driverPayService = {
           driverId: opts.driverId,
           orderId: opts.orderId,
           assignmentType: opts.assignmentType || "delivery",
+          driverAssignmentId: (openShift as any).driver_assignment_id || opts.driverAssignmentId || null,
+          serviceSittingId: (openShift as any).service_sitting_id || opts.serviceSittingId || null,
+          gpsDistance,
+          tripDurationMinutes: startIso
+            ? Math.max(0, Math.round((new Date(nowIso).getTime() - new Date(startIso).getTime()) / 60_000))
+            : null,
         });
       } catch (snapshotErr) {
         // Snapshot is bookkeeping; never block the clock-out on it.
@@ -1425,7 +1540,7 @@ export const driverPayService = {
     // pay locked total. Now each leg owns its own row.
     const { data: assignmentRows, error: assignmentRowsErr } = await (client as any)
       .from("driver_assignments")
-      .select("order_id, base_fee, distance_fee, total_earnings, calculated_distance")
+      .select("order_id, base_fee, distance_fee, total_earnings, calculated_distance, gps_distance_km, gps_trip_duration_minutes, gps_expected_distance_km, gps_distance_status, gps_distance_review_required, gps_distance_review_reason")
       .eq("driver_id", opts.driverId)
       .eq("assignment_type", "delivery")
       .is("service_sitting_id", null)
@@ -1433,19 +1548,36 @@ export const driverPayService = {
     if (assignmentRowsErr) {
       console.error("[driverPayService] driver_assignments fetch failed:", assignmentRowsErr);
     }
-    const lockedByOrder = new Map<string, { base: number | null; distance: number | null; total: number | null; calculated: number | null }>();
+    const lockedByOrder = new Map<string, {
+      base: number | null; distance: number | null; total: number | null; calculated: number | null;
+      gpsDistance: number | null; gpsExpected: number | null; gpsStatus: string | null;
+      gpsDuration: number | null;
+      reviewRequired: boolean | null; reviewReason: string | null;
+    }>();
     for (const a of (assignmentRows || []) as Array<{
       order_id: string;
       base_fee: number | null;
       distance_fee: number | null;
       total_earnings: number | null;
       calculated_distance: number | null;
+      gps_distance_km: number | null;
+      gps_trip_duration_minutes: number | null;
+      gps_expected_distance_km: number | null;
+      gps_distance_status: string | null;
+      gps_distance_review_required: boolean | null;
+      gps_distance_review_reason: string | null;
     }>) {
       lockedByOrder.set(a.order_id, {
         base: a.base_fee,
         distance: a.distance_fee,
         total: a.total_earnings,
         calculated: a.calculated_distance,
+        gpsDistance: a.gps_distance_km,
+        gpsDuration: a.gps_trip_duration_minutes,
+        gpsExpected: a.gps_expected_distance_km,
+        gpsStatus: a.gps_distance_status,
+        reviewRequired: a.gps_distance_review_required,
+        reviewReason: a.gps_distance_review_reason,
       });
     }
 
@@ -1461,6 +1593,12 @@ export const driverPayService = {
         locked_base_fee: locked?.base ?? null,
         locked_total: locked?.total ?? null,
         locked_calculated_distance: locked?.calculated ?? null,
+        gps_distance_km: locked?.gpsDistance ?? null,
+        gps_trip_duration_minutes: locked?.gpsDuration ?? null,
+        gps_expected_distance_km: locked?.gpsExpected ?? null,
+        gps_distance_status: locked?.gpsStatus ?? "not_available",
+        gps_distance_review_required: !!locked?.reviewRequired,
+        gps_distance_review_reason: locked?.reviewReason ?? null,
       };
     });
   },
@@ -1489,18 +1627,20 @@ async function snapshotDriverAssignmentForOrder(
     companyId: string;
     driverId: string;
     orderId: string;
-    /** Wave 49 B6 - defaults to 'delivery' for back-compat callers,
-     *  but caller should pass explicitly so collection legs land in
-     *  their own row. */
     assignmentType?: string;
+    driverAssignmentId?: string | null;
+    serviceSittingId?: string | null;
+    gpsDistance?: DriverTripDistance;
+    tripDurationMinutes?: number | null;
   },
 ): Promise<void> {
   const assignmentType = opts.assignmentType || "delivery";
 
-  // Pull the order's distance + the driver's effective rates.
+  // Load the route estimate and enough sitting geometry to allocate a
+  // multi-address booking's saved distance to this exact stop.
   const { data: orderRow, error: orderRowErr } = await (client as any)
     .from("orders")
-    .select("id, delivery_distance_km, quote:quotes!orders_quote_id_fkey(delivery_distance_km)")
+    .select("id, delivery_distance_km, region_id, venue_lat, venue_lng, quote:quotes!orders_quote_id_fkey(delivery_distance_km), service_sittings(id,sequence_number,status,venue_lat,venue_lng)")
     .eq("id", opts.orderId)
     .maybeSingle();
   if (orderRowErr) {
@@ -1508,26 +1648,64 @@ async function snapshotDriverAssignmentForOrder(
   }
   if (!orderRow) return;
 
+  let expectedOneWayKm = resolveDeliveryDistanceKm(orderRow as DeliveryDistanceSource);
+  if (opts.serviceSittingId) {
+    let origin: { lat: number; lng: number } | null = null;
+    if (orderRow.region_id) {
+      const { data: region } = await (client as any)
+        .from("regions").select("lat,lng").eq("id", orderRow.region_id).maybeSingle();
+      if (region?.lat != null && region?.lng != null) origin = { lat: Number(region.lat), lng: Number(region.lng) };
+    }
+    if (!origin) {
+      const { data: company } = await (client as any)
+        .from("companies").select("headquarters_lat,headquarters_lng").eq("id", opts.companyId).maybeSingle();
+      if (company?.headquarters_lat != null && company?.headquarters_lng != null) {
+        origin = { lat: Number(company.headquarters_lat), lng: Number(company.headquarters_lng) };
+      }
+    }
+    const orderForSplit = {
+      ...orderRow,
+      event_date: "",
+      status: "",
+      order_number: null,
+      event_name: null,
+    } as SittingOrderForPay;
+    expectedOneWayKm = splitBookingDistanceAcrossSittings(orderForSplit, origin).get(opts.serviceSittingId)
+      ?? expectedOneWayKm;
+  }
+
   const [defaults, profile] = await Promise.all([
     driverPayService.getCompanyDefaults(opts.companyId, client),
     driverPayService.getDriverProfile(opts.driverId, client),
   ]);
   const rates = resolveEffectiveRates(profile, defaults);
-  const line = calculateDeliveryPay(
-    { id: opts.orderId, delivery_distance_km: resolveDeliveryDistanceKm(orderRow as DeliveryDistanceSource) },
-    rates,
-  );
+  const gpsDistance = opts.gpsDistance || { distanceKm: null, status: "not_available" as const, acceptedPoints: 0 };
+  const expectedRoundTripKm = +(Math.max(0, expectedOneWayKm) * 2).toFixed(2);
+  const hasCompleteGpsDistance = gpsDistance.status === "complete" && gpsDistance.distanceKm != null;
+  const billableDistanceKm = hasCompleteGpsDistance ? gpsDistance.distanceKm as number : expectedRoundTripKm;
+  const distancePay = +(billableDistanceKm * rates.distance_rate_per_km).toFixed(2);
+  const calloutFee = +rates.base_callout_fee.toFixed(2);
+  const total = +(distancePay + calloutFee).toFixed(2);
+  const materialRouteOverage = hasCompleteGpsDistance && expectedRoundTripKm > 0
+    && billableDistanceKm > expectedRoundTripKm * 1.5
+    && billableDistanceKm - expectedRoundTripKm >= 5;
+  const reviewReason = materialRouteOverage
+    ? `GPS recorded ${billableDistanceKm.toFixed(1)} km against an estimated ${expectedRoundTripKm.toFixed(1)} km round trip. Review the route before approving settlement.`
+    : null;
 
-  // Upsert by (order_id, driver_id, assignment_type). The composite
-  // includes assignment_type now so a collection leg can't overwrite
-  // a delivery leg's snapshot.
-  const { data: existing, error: existingErr2 } = await (client as any)
+  let existingQuery = (client as any)
     .from("driver_assignments")
     .select("id")
+    .eq("company_id", opts.companyId)
     .eq("order_id", opts.orderId)
     .eq("driver_id", opts.driverId)
-    .eq("assignment_type", assignmentType)
-    .maybeSingle();
+    .eq("assignment_type", assignmentType);
+  existingQuery = opts.driverAssignmentId
+    ? existingQuery.eq("id", opts.driverAssignmentId)
+    : opts.serviceSittingId
+      ? existingQuery.eq("service_sitting_id", opts.serviceSittingId)
+      : existingQuery.is("service_sitting_id", null);
+  const { data: existing, error: existingErr2 } = await existingQuery.maybeSingle();
   if (existingErr2) {
     console.error("[driverPayService] driver_assignments fetch failed:", existingErr2);
   }
@@ -1538,10 +1716,17 @@ async function snapshotDriverAssignmentForOrder(
   // which is a different fact each row.
   const nowIso = new Date().toISOString();
   const payload: any = {
-    base_fee: line.callout_fee,
-    distance_fee: line.distance_pay,
-    total_earnings: line.total,
-    calculated_distance: line.distance_km,
+    base_fee: calloutFee,
+    distance_fee: distancePay,
+    total_earnings: total,
+    calculated_distance: billableDistanceKm,
+    gps_distance_km: gpsDistance.distanceKm,
+    gps_trip_duration_minutes: opts.tripDurationMinutes ?? null,
+    gps_expected_distance_km: expectedRoundTripKm > 0 ? expectedRoundTripKm : null,
+    gps_distance_status: gpsDistance.status,
+    gps_distance_review_required: materialRouteOverage,
+    gps_distance_review_reason: reviewReason,
+    gps_distance_checked_at: nowIso,
   };
   if (assignmentType === "delivery") {
     payload.delivered_at = nowIso;
@@ -1562,6 +1747,7 @@ async function snapshotDriverAssignmentForOrder(
         driver_id: opts.driverId,
         order_id: opts.orderId,
         assignment_type: assignmentType,
+        service_sitting_id: opts.serviceSittingId || undefined,
         status: "completed",
         ...payload,
       });

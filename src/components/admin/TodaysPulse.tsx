@@ -23,7 +23,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { Truck, ChefHat, Users, Calendar, Banknote } from "lucide-react";
+import { Truck, ChefHat, Users, Calendar, Banknote, RefreshCw, AlertTriangle } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { DEFAULT_TENANT_TIMEZONE, tenantToday, toLocalISO } from "@/lib/localDate";
 import { shiftService } from "@/services/shiftService";
@@ -31,15 +31,15 @@ import { ALL_ACTIVE_AND_REALISED_STATUSES } from "@/lib/orderRevenueClassificati
 import { useTenantHref } from "@/lib/tenantUrl";
 
 interface PulseStats {
-  todayEvents: number;
-  inTransit: number;
-  driversOnShift: number;
-  kitchenPrep: number;
-  paidToday: number;
+  todayEvents: number | null;
+  inTransit: number | null;
+  driversOnShift: number | null;
+  kitchenPrep: number | null;
+  paidToday: number | null;
 }
 
 const ZERO: PulseStats = {
-  todayEvents: 0, inTransit: 0, driversOnShift: 0, kitchenPrep: 0, paidToday: 0,
+  todayEvents: null, inTransit: null, driversOnShift: null, kitchenPrep: null, paidToday: null,
 };
 
 export function TodaysPulse({
@@ -51,6 +51,8 @@ export function TodaysPulse({
 }) {
   const [stats, setStats] = useState<PulseStats>(ZERO);
   const [loading, setLoading] = useState(true);
+  const [failedTiles, setFailedTiles] = useState<string[]>([]);
+  const [retryCount, setRetryCount] = useState(0);
   const tenantCurrency = useTenantCurrency(companyId);
   const { withSlug } = useTenantHref();
 
@@ -101,25 +103,39 @@ export function TodaysPulse({
             .lte("created_at", `${today}T23:59:59`),
           // Drivers currently on shift - service handles the
           // scheduled-vs-now window check internally.
-          shiftService.getActiveDriverIdsForCompany(companyId).catch(() => []),
+          shiftService.getActiveDriverIdsForCompany(companyId)
+            .then((data) => ({ data, error: null }))
+            .catch((error) => ({ data: null, error })),
         ]);
         if (cancelled) return;
+        const failed = [
+          ...(todayCount?.error ? ["Today's events"] : []),
+          ...(inTransitCount?.error ? ["In transit"] : []),
+          ...(prepCount?.error ? ["Kitchen prep"] : []),
+          ...(paymentsToday?.error ? ["Paid today"] : []),
+          ...(activeDrivers?.error ? ["Drivers on shift"] : []),
+        ];
         const paidSum = ((paymentsToday?.data || []) as any[]).reduce(
           (acc, p) => acc + Number(p.amount || 0), 0,
         );
-        const inTransit = inTransitCount?.count ?? 0;
+        const inTransit = inTransitCount?.error ? null : (inTransitCount?.count ?? 0);
+        const todayEvents = todayCount?.error ? null : Math.max(todayCount?.count ?? 0, inTransit ?? 0);
         setStats({
           // If an order is literally in transit today, it is part of
           // today's live workload even if a status-list drift or legacy
           // row shape makes the broader count miss it.
-          todayEvents: Math.max(todayCount?.count ?? 0, inTransit),
+          todayEvents,
           inTransit,
-          driversOnShift: Array.isArray(activeDrivers) ? activeDrivers.length : 0,
-          kitchenPrep: prepCount?.count ?? 0,
-          paidToday: paidSum,
+          driversOnShift: activeDrivers?.error ? null : (activeDrivers?.data?.length ?? 0),
+          kitchenPrep: prepCount?.error ? null : (prepCount?.count ?? 0),
+          paidToday: paymentsToday?.error ? null : paidSum,
         });
+        setFailedTiles(failed);
       } catch {
-        if (!cancelled) setStats(ZERO);
+        if (!cancelled) {
+          setStats(ZERO);
+          setFailedTiles(["dashboard totals"]);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -128,22 +144,22 @@ export function TodaysPulse({
     // Refresh every 60s so the strip stays live without a manual reload.
     const id = setInterval(load, 60_000);
     return () => { cancelled = true; clearInterval(id); };
-  }, [companyId, timezone]);
+  }, [companyId, timezone, retryCount]);
 
   if (!companyId) return null;
 
   const tiles: Array<{
     label: string;
-    value: string;
+    value: string | null;
     icon: any;
     href?: string;
     tone: string;
   }> = [
-    { label: "Today's events",   value: String(stats.todayEvents),  icon: Calendar, href: "/admin/orders", tone: "bg-blue-50 border-blue-200 text-blue-900" },
-    { label: "In transit",        value: String(stats.inTransit),    icon: Truck,    href: "/admin/tracking?status=in_transit&view=list", tone: "bg-brand-primary/10 border-brand-primary/20 text-brand-primary" },
-    { label: "Drivers on shift",  value: String(stats.driversOnShift), icon: Users,  href: "/admin/driver-management", tone: "bg-brand-primary/10 border-brand-primary/20 text-brand-primary" },
-    { label: "Kitchen prep",      value: String(stats.kitchenPrep),  icon: ChefHat,  href: "/admin/orders?status=preparing", tone: "bg-slate-50 border-slate-200 text-slate-900" },
-    { label: "Paid today",        value: tenantCurrency.format(stats.paidToday, 0), icon: Banknote, href: "/admin/invoices", tone: "bg-amber-50 border-amber-200 text-amber-900" },
+    { label: "Today's events",   value: stats.todayEvents == null ? null : String(stats.todayEvents),  icon: Calendar, href: "/admin/orders", tone: "bg-blue-50 border-blue-200 text-blue-900" },
+    { label: "In transit",        value: stats.inTransit == null ? null : String(stats.inTransit),    icon: Truck,    href: "/admin/tracking?status=in_transit&view=list", tone: "bg-brand-primary/10 border-brand-primary/20 text-brand-primary" },
+    { label: "Drivers on shift",  value: stats.driversOnShift == null ? null : String(stats.driversOnShift), icon: Users,  href: "/admin/driver-management", tone: "bg-brand-primary/10 border-brand-primary/20 text-brand-primary" },
+    { label: "Kitchen prep",      value: stats.kitchenPrep == null ? null : String(stats.kitchenPrep),  icon: ChefHat,  href: "/admin/orders?status=preparing", tone: "bg-slate-50 border-slate-200 text-slate-900" },
+    { label: "Paid today",        value: stats.paidToday == null ? null : tenantCurrency.format(stats.paidToday, 0), icon: Banknote, href: "/admin/invoices", tone: "bg-amber-50 border-amber-200 text-amber-900" },
   ];
 
   return (
@@ -159,7 +175,7 @@ export function TodaysPulse({
               <div className="min-w-0">
                 <p className="text-[10px] uppercase tracking-wide opacity-80 leading-none">{t.label}</p>
                 <p className="text-lg sm:text-xl font-bold tabular-nums leading-tight mt-0.5">
-                  {loading ? "..." : t.value}
+                  {loading ? "..." : t.value ?? "Unavailable"}
                 </p>
               </div>
             </CardContent>
@@ -171,6 +187,21 @@ export function TodaysPulse({
           <div key={t.label}>{content}</div>
         );
       })}
+      {failedTiles.length > 0 && (
+        <div className="col-span-full flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <span className="flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            Couldn&apos;t load {failedTiles.join(", ")}. These values are unavailable, not zero.
+          </span>
+          <button
+            type="button"
+            onClick={() => setRetryCount((count) => count + 1)}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium hover:bg-amber-100"
+          >
+            <RefreshCw className="h-3 w-3" /> Retry
+          </button>
+        </div>
+      )}
     </div>
   );
 }

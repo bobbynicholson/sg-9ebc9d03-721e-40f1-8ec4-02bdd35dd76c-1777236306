@@ -30,7 +30,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { MessageCircle, MessageSquare } from "lucide-react";
 import { openNavigation as openMapsNavigation } from "@/lib/driverNavigation";
 import { useKitchenOrigin } from "@/hooks/useKitchenOrigin";
-import { useDriverGPSPing } from "@/hooks/useDriverGPSPing";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { AvailableJobsCard } from "@/components/driver/AvailableJobsCard";
 import { WaiterServicePanel } from "@/components/waiter/WaiterServicePanel";
@@ -279,14 +278,6 @@ function DriverDashboardInner() {
   const [chatUnreadByOrder, setChatUnreadByOrder] = useState<Record<string, number>>({});
   // Kitchen origin: driver's region kitchen if set, otherwise company HQ
   const { origin: kitchenOrigin } = useKitchenOrigin(user?.id, user?.company_id);
-
-  // Foreground GPS pinger. Drip-feeds the driver's coords to
-  // driver_locations while they have at least one active job loaded.
-  // The hook bails when activeOrderIds is empty, so a driver browsing
-  // the portal at home doesn't burn battery. Audit Driver G7.
-  const activeOrderIds = jobs.map((j) => j.id);
-  const { isTracking: gpsActive, lastPingAt, lastError: gpsError, wakeLockHeld } =
-    useDriverGPSPing(staffPreview ? null : user?.id ?? null, activeOrderIds);
 
   const driverName = user?.full_name || user?.email?.split("@")[0] || "Driver";
 
@@ -818,6 +809,7 @@ function DriverDashboardInner() {
   return (
     <>
       <DriverPageShell
+        gpsEnabled={!staffPreview}
         pageTitle="Driver today - CateringMS"
         heading={<>Welcome back, {driverName.split(" ")[0]}</>}
         subheading={
@@ -1263,42 +1255,6 @@ function DriverDashboardInner() {
             <DriverDetailsDisclosure label="Shift history" count="Open history" className="mb-4 sm:mb-6">
               <DriverShiftHistory driverId={user?.id} />
             </DriverDetailsDisclosure>
-
-            {/* GPS pinger status. Quiet when no active jobs; brand
-             *  pulse while the foreground hook is dripping coords to
-             *  dispatch; a soft warning when geolocation was refused
-             *  so the driver knows the in-app tracker isn't running.
-             *  Wake-lock pill shows when the screen-keep-on is held so
-             *  drivers know they don't need to manually keep tapping
-             *  the phone. */}
-            {activeOrderIds.length > 0 && (
-              <div className="mb-4 sm:mb-6 flex flex-wrap items-center gap-2 text-xs sm:text-sm">
-                {gpsActive && !gpsError ? (
-                  <Badge className="bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/10 dark:text-brand-primary dark:border-brand-primary/30">
-                    <MapPin className="w-3 h-3 mr-1 animate-pulse" />
-                    GPS sharing on
-                    {lastPingAt
-                      ? ` - last ping ${formatLocalTime(lastPingAt)}`
-                      : ""}
-                  </Badge>
-                ) : (
-                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-900">
-                    <MapPin className="w-3 h-3 mr-1" />
-                    GPS off, dispatch can't see your live position
-                  </Badge>
-                )}
-                {wakeLockHeld && (
-                  <Badge className="bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-                    Screen lock disabled while on route
-                  </Badge>
-                )}
-                {gpsError && (
-                  <span className="text-slate-500 dark:text-slate-400 text-xs hidden sm:inline">
-                    ({gpsError})
-                  </span>
-                )}
-              </div>
-            )}
 
           </div>
       </DriverPageShell>

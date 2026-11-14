@@ -152,15 +152,16 @@ function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const metricsRequestRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
-  // Silent-failure audit (Wave 70.52b): when one of the parallel tile
-  // queries fails we keep the page alive but flag which tiles may be
-  // showing 0 instead of leaving the operator to guess.
+  // Keep the page usable on partial failures while marking affected
+  // metrics unavailable instead of presenting false zeros.
   const [tileWarning, setTileWarning] = useState<string | null>(null);
+  const [unavailableMetrics, setUnavailableMetrics] = useState<string[]>([]);
   // AD-7 (admin-dashboard audit): derived flag for "this tenant
   // has no data yet". Used both for the hero render at the top
   // of the page and to suppress the duplicate FirstStepsCard
   // render at the bottom.
   const isFreshTenant = !loading
+    && !unavailableMetrics.some((metric) => ["quotePipeline", "lowStockItems", "activeUsers"].includes(metric))
     && stats.totalOrdersInRange === 0
     && stats.bookedOrders === 0
     && stats.upcomingEvents === 0
@@ -319,25 +320,22 @@ function AdminDashboardPage() {
 
       if (ordersRes.error) throw ordersRes.error;
 
-      // Wave 70.52a - surface (don't swallow) errors from every other
-      // parallel query. Previously only ordersRes.error was re-thrown,
-      // so a broken filter on any other res (e.g. the
-      // quotes-in-circulation enum bug) silently zeroed the tile
-      // forever and nobody noticed. console.warn keeps the page alive;
-      // the affected tile renders its empty/zero state. Wave 70.52b:
-      // collect the failures and surface a "some tiles failed" banner.
+      // Keep secondary query failures visible without taking down the
+      // entire dashboard. Each affected metric will render as unavailable.
       const failedTiles: string[] = [];
+      const failedMetrics: string[] = [];
       [
-        ["quotesAll", quotesRes],
-        ["users", usersRes],
-        ["inventory", invRes],
-        ["closedQuotes", conversionRes],
-        ["shortfall", shortfallRes],
-        ["refunds", refundsRes],
-      ].forEach(([label, res]: any) => {
+        ["quotes", quotesRes, ["quotePipeline"]],
+        ["team members", usersRes, ["activeUsers"]],
+        ["inventory", invRes, ["lowStockItems"]],
+        ["quote conversion", conversionRes, ["quoteConversion"]],
+        ["stock shortfalls", shortfallRes, ["shortfallItems"]],
+        ["refunds", refundsRes, ["refunds"]],
+      ].forEach(([label, res, metrics]: any) => {
         if (res?.error) {
-          console.warn(`[admin/dashboard] ${label} query failed (tile may show 0):`, res.error);
+          console.warn(`[admin/dashboard] ${label} query failed:`, res.error);
           failedTiles.push(label);
+          failedMetrics.push(...metrics);
         }
       });
 
@@ -512,11 +510,12 @@ function AdminDashboardPage() {
         console.error("[admin/dashboard] payments refunds fetch failed:", refundRowsError);
       }
       if (requestId !== metricsRequestRef.current) return;
-      // Partial-failure banner: the page still renders, but the
-      // operator is told which tiles may be reading 0 by mistake.
+      // A partial-failure banner and per-tile unavailable state prevent
+      // failed reads from looking like real zero values.
+      setUnavailableMetrics(failedMetrics);
       setTileWarning(
         failedTiles.length
-          ? `Some dashboard tiles failed to load and may show 0 (${failedTiles.join(", ")}). Refresh to retry.`
+          ? `Could not load ${failedTiles.join(", ")}. Affected tiles show Unavailable. Refresh to retry.`
           : null,
       );
       const liveRefundRows = (refundRows || []).filter((r: any) => !isAutomatedTestOrder(r.order));
@@ -876,11 +875,11 @@ function AdminDashboardPage() {
                   href={withSlug("/admin/financial-dashboard")}
                 />
               )}
-              {stats.quoteConversionSample > 0 && (
+              {(stats.quoteConversionSample > 0 || unavailableMetrics.includes("quoteConversion")) && (
                 <MetricCard
                   label="Quote conversion"
-                  value={`${stats.quoteConversionRate.toFixed(0)}%`}
-                  hint={`${stats.quoteConversionSample} closed in range${stats.quoteConversionSample < 5 ? " (small sample)" : ""}`}
+                  value={unavailableMetrics.includes("quoteConversion") ? "Unavailable" : `${stats.quoteConversionRate.toFixed(0)}%`}
+                  hint={unavailableMetrics.includes("quoteConversion") ? "Data could not be loaded. Refresh to retry." : `${stats.quoteConversionSample} closed in range${stats.quoteConversionSample < 5 ? " (small sample)" : ""}`}
                   tooltip={"Accepted quotes divided by closed quotes (accepted + rejected + expired) whose decision landed in this date range. Drafts are excluded - they were never sent so the outcome is undecided.\n\nSample size matters. A 100% rate over 1 closed quote means much less than 60% over 30."}
                   icon={CheckCircle}
                   iconColor="text-brand-primary"
@@ -888,6 +887,7 @@ function AdminDashboardPage() {
                     ? { text: "Low n", tone: "amber" }
                     : { text: "Closed", tone: "green" }}
                   loading={loading}
+                  unavailable={unavailableMetrics.includes("quoteConversion")}
                   href={withSlug("/admin/quotes")}
                 />
               )}
@@ -907,6 +907,7 @@ function AdminDashboardPage() {
               iconColor="text-amber-600"
               badge={stats.quotesInCirculationCount > 0 ? { text: "In play", tone: "amber" } : undefined}
               loading={loading}
+              unavailable={unavailableMetrics.includes("quotePipeline")}
               href={withSlug("/admin/quotes")}
             />
           </div>
@@ -951,6 +952,7 @@ function AdminDashboardPage() {
               icon={Users}
               iconColor="text-brand-primary"
               loading={loading}
+              unavailable={unavailableMetrics.includes("activeUsers")}
               href={withSlug("/admin/users")}
             />
           </div>
@@ -1004,7 +1006,8 @@ function AdminDashboardPage() {
             || stats.pendingQuoteSent > 0
             || stats.pendingQuoteDrafts > 0
             || stats.lowStockItems > 0
-            || stats.upcomingEvents > 0) && (
+            || stats.upcomingEvents > 0
+            || unavailableMetrics.some((metric) => ["shortfallItems", "lowStockItems", "quotePipeline"].includes(metric))) && (
             <Card id="priority-actions" data-chat-section="admin.dashboard.priority-actions" data-chat-section-label="Priority actions" className="mb-6 scroll-mt-20 bg-gradient-to-r from-amber-50 to-orange-50">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -1014,6 +1017,30 @@ function AdminDashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 sm:space-y-3">
+                  {unavailableMetrics.includes("shortfallItems") && (
+                    <PriorityRow
+                      icon={AlertCircle} accent="border-amber-500" iconColor="text-amber-600"
+                      title="Stock shortfalls unavailable"
+                      sub="The demand outlook could not be loaded. Refresh to retry."
+                      cta={{ href: withSlug("/admin/shopping?tab=buy_now"), label: "Open shopping", variant: "outline" }}
+                    />
+                  )}
+                  {unavailableMetrics.includes("lowStockItems") && (
+                    <PriorityRow
+                      icon={Package} accent="border-amber-500" iconColor="text-amber-600"
+                      title="Low stock count unavailable"
+                      sub="Inventory could not be loaded. Refresh to retry."
+                      cta={{ href: withSlug("/admin/inventory"), label: "Open inventory", variant: "outline" }}
+                    />
+                  )}
+                  {unavailableMetrics.includes("quotePipeline") && (
+                    <PriorityRow
+                      icon={FileText} accent="border-amber-500" iconColor="text-amber-600"
+                      title="Quote pipeline unavailable"
+                      sub="Quotes could not be loaded. Refresh to retry."
+                      cta={{ href: withSlug("/admin/quotes"), label: "Open quotes", variant: "outline" }}
+                    />
+                  )}
                   {/* 1. SHORTFALL - confirmed orders in next 7 days
                        need more stock than we have. Top of the
                        list, red accent, drills to /admin/shopping
@@ -1297,7 +1324,9 @@ function AdminDashboardPage() {
                   <div>
                     <div className="font-semibold text-sm sm:text-base text-slate-900">Today&apos;s Shopping</div>
                     <div className="text-xs text-slate-600">
-                      {stats.lowStockItems > 0
+                      {unavailableMetrics.includes("lowStockItems")
+                        ? "Inventory count unavailable"
+                        : stats.lowStockItems > 0
                         ? `${stats.lowStockItems} item${stats.lowStockItems !== 1 ? "s" : ""} - print list`
                         : "Buy-now list + print"}
                     </div>
@@ -1310,7 +1339,9 @@ function AdminDashboardPage() {
                   <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 flex-shrink-0" />
                   <div>
                     <div className="font-semibold text-sm sm:text-base text-slate-900">Team Management</div>
-                    <div className="text-xs text-slate-600">{stats.activeUsers} members</div>
+                    <div className="text-xs text-slate-600">
+                      {unavailableMetrics.includes("activeUsers") ? "Team count unavailable" : `${stats.activeUsers} members`}
+                    </div>
                   </div>
                 </Link>
                 {canSeeFinance ? (
@@ -1340,7 +1371,9 @@ function AdminDashboardPage() {
                   <div>
                     <div className="font-semibold text-sm sm:text-base text-slate-900">Inventory</div>
                     <div className="text-xs text-slate-600">
-                      {stats.lowStockItems > 0
+                      {unavailableMetrics.includes("lowStockItems")
+                        ? "Inventory count unavailable"
+                        : stats.lowStockItems > 0
                         ? `${stats.lowStockItems} item${stats.lowStockItems !== 1 ? "s" : ""} low`
                         : "Add items + adjust stock"}
                     </div>

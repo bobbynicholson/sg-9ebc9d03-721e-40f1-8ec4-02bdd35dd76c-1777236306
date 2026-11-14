@@ -233,6 +233,29 @@ export const driverConfirmationService = {
       console.warn("[confirmDepartedKitchen] assignment sync failed (non-blocking):", asgErr);
     }
 
+    // Start the same order timer used by the driver dashboard. The GPS
+    // tracker reads this open timer and associates each breadcrumb with it.
+    try {
+      const [{ data: orderForTimer }, { data: assignmentForTimer }] = await Promise.all([
+        supabase.from("orders").select("company_id").eq("id", orderId).maybeSingle(),
+        supabase.from("driver_assignments").select("id")
+          .eq("order_id", orderId).eq("driver_id", driverId)
+          .eq("assignment_type", "delivery").is("service_sitting_id", null).maybeSingle(),
+      ]);
+      if (orderForTimer?.company_id) {
+        const { driverPayService } = await import("@/services/driverPayService");
+        const started = await driverPayService.autoClockIn({
+          companyId: orderForTimer.company_id,
+          driverId,
+          orderId,
+          driverAssignmentId: assignmentForTimer?.id || null,
+        });
+        if (!started.ok) console.warn("[confirmDepartedKitchen] driver timer failed to start:", started.error);
+      }
+    } catch (timerErr) {
+      console.warn("[confirmDepartedKitchen] driver timer start failed (non-blocking):", timerErr);
+    }
+
     // Guarantee the client gets "Driver on the way" + the live tracking link
     // on departure. The status-transition fan-out normally fires this, but if
     // the order was already in_transit (re-confirm / out-of-order taps) that

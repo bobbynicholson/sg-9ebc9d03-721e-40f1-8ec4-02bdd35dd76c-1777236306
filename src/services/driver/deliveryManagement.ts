@@ -92,16 +92,12 @@ export async function updateDeliveryStatus(
     await recordOrderContributor(orderId, driverId, "driver");
 
     // Auto shift bookkeeping (Stage 4 of driver hourly-rate build).
-    // in_transit -> open shift. delivered/completed -> close it.
+    // Start on departure; the return-to-base checkpoint closes the timer
+    // after both delivery and return-leg GPS have been captured.
     if (status === "in_transit") {
       const companyId = await companyIdForOrder(orderId);
       if (companyId) {
         await driverPayService.autoClockIn({ companyId, driverId, orderId });
-      }
-    } else if (status === "delivered" || status === "completed") {
-      const companyId = await companyIdForOrder(orderId);
-      if (companyId) {
-        await driverPayService.autoClockOut({ companyId, driverId, orderId });
       }
     }
 
@@ -186,12 +182,6 @@ export async function confirmDelivery(
       } catch {
         // Non-blocking
       }
-    }
-
-    // Close the auto-shift opened on pickup.
-    const companyId = await companyIdForOrder(orderId);
-    if (companyId) {
-      await driverPayService.autoClockOut({ companyId, driverId, orderId });
     }
 
     return { success: true };
