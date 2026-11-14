@@ -171,8 +171,8 @@ export async function recoverPayFastGateway(admin: any, gateway: any, credential
   let reviewRowsSeen = 0;
   try {
     const exceptionRetry = await retryPayFastHistoryExceptions(admin, gateway, sourceId, credentials);
-    let exceptionsResolved = exceptionRetry.resolved;
-    let exceptionRetryErrors = exceptionRetry.retryErrors;
+    const exceptionsResolved = exceptionRetry.resolved;
+    const exceptionRetryErrors = exceptionRetry.retryErrors;
     // Fresh charges take priority over the historical backlog after an outage.
     // This offset is separate from the persistent oldest-unscanned-date cursor.
     const recentFrom = new Date(Date.now() - 2 * 86400000).toISOString().slice(0,10);

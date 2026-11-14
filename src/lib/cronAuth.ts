@@ -223,14 +223,17 @@ async function beginCronTaskTracking(
     })();
 
     let sent = false;
-    let timeout: ReturnType<typeof setTimeout>;
+    const timeout = setTimeout(() => {
+      if (sent) return;
+      sent = true;
+      originalEnd(...args);
+    }, 1500);
     const sendResponse = () => {
       if (sent) return;
       sent = true;
       clearTimeout(timeout);
       originalEnd(...args);
     };
-    timeout = setTimeout(sendResponse, 1500);
     void Promise.resolve(completion).catch((updateError: any) => {
       console.warn("[cronAuth] task completion status write failed:", task.taskKey, updateError?.message || updateError);
     }).finally(sendResponse);
