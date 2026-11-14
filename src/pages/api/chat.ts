@@ -306,7 +306,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const accessPolicy = route.useLiveData
       ? await getChatAccessPolicy(db, identity.companyId, identity.role)
       : null;
-    const workflow = getRelevantWorkflows(message, identity.role, 1)[0];
+    const workflow = getRelevantWorkflows(message, identity.role, 1, resolvedIntent)[0];
     const trace: ChatTraceStep[] = [
       {
         id: "plan",

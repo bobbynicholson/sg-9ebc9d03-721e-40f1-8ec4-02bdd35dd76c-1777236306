@@ -57,7 +57,7 @@ export async function classifyChatIntentWithOpenAI(message: string, role: string
   const intentIds = allowed.map((item) => item.id);
   const prompt = [
     "Classify the user's request into exactly one capability id from the allowlist.",
-    "Use the authenticated role and normalized request. Choose a read intent for current data, a navigate intent when the user asks where/how to open a page, and account.help for general assistant help.",
+    "Use the authenticated role and the meaning of the request, including paraphrases and symptoms. Choose a workflow capability when the user asks for a multi-step process, setup, troubleshooting, or what to do next. For phone/browser/PWA alerts, choose device push setup rather than the notification inbox or company-wide event-category preferences. Choose a read intent for current data, a navigate intent when the user asks where/how to open a page, and account.help for general assistant help.",
     "Never invent an id. If no capability fits, use account.help and set needs_clarification true.",
     JSON.stringify({ authenticated_role: role, normalized_message: normalized, capabilities: allowed.map((item) => ({ id: item.id, domain: item.domain, action: item.action, entity: item.entity, description: item.description })) }),
   ].join("\n");

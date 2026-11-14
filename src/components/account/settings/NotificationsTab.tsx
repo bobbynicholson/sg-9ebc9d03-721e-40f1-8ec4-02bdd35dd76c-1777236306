@@ -6,6 +6,7 @@ import { PortalCard, PortalCardHeader } from "@/components/portal/ui";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { DevicePushSettings } from "@/components/account/settings/DevicePushSettings";
 import {
   AlertTriangle,
   Bell,
@@ -22,6 +23,9 @@ import { EMAIL_PREF_DEFAULTS } from "./types";
 interface Props {
   userId: string;
   companyId: string | null;
+  activeRole: string;
+  companyName?: string | null;
+  companySlug?: string | null;
 }
 
 interface Row {
@@ -105,7 +109,7 @@ const PREF_FIELDS = Object.keys(EMAIL_PREF_DEFAULTS) as Array<keyof EmailNotific
  * column on the same row (owned by /admin/notification-settings and
  * the broadcast fan-out) is left untouched.
  */
-export function NotificationsTab({ userId, companyId }: Props) {
+export function NotificationsTab({ userId, companyId, activeRole, companyName, companySlug }: Props) {
   const { toast } = useToast();
   const [prefs, setPrefs] = useState<EmailNotificationPrefs>(EMAIL_PREF_DEFAULTS);
   const [loading, setLoading] = useState(true);
@@ -219,20 +223,22 @@ export function NotificationsTab({ userId, companyId }: Props) {
   }
 
   return (
-    <PortalCard>
-      <PortalCardHeader
-        title={
-          <span className="flex items-center gap-2">
-            <Bell className="h-4 w-4 text-brand-primary" />
-            Email notifications
-          </span>
-        }
-      />
+    <div className="space-y-6">
+      <DevicePushSettings userId={userId} activeRole={activeRole} companyName={companyName} companySlug={companySlug} />
+      <PortalCard>
+        <PortalCardHeader
+          title={
+            <span className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-brand-primary" />
+              Email notifications
+            </span>
+          }
+        />
       <p className="-mt-2 mb-5 text-sm text-slate-500 dark:text-slate-400">
         Choose which events email you. These apply across all your devices.
       </p>
 
-      <div className="space-y-6">
+        <div className="space-y-6">
         {GROUPS.map((group) => (
           <div key={group.title}>
             <div className="mb-2 flex items-center gap-2">
@@ -283,7 +289,8 @@ export function NotificationsTab({ userId, companyId }: Props) {
             </>
           )}
         </Button>
-      </div>
-    </PortalCard>
+        </div>
+      </PortalCard>
+    </div>
   );
 }

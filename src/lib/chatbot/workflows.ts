@@ -1,5 +1,8 @@
 import { NAVIGATION_REFS, type ChatNavigationRef } from "./navigation";
 import { normalizeChatRole } from "./roles";
+import { classifyChatIntent } from "./intents/classifier";
+import { buildCompleteChatIntentRegistry } from "./intents/registry";
+import type { ChatIntentMatch } from "./intents/types";
 
 export interface ChatWorkflowStep {
   id: string;
@@ -30,6 +33,7 @@ interface WorkflowDefinition {
   description: string;
   keywords: string[];
   roles: string[];
+  intentIds?: string[];
   steps: WorkflowStepDefinition[];
 }
 
@@ -39,6 +43,7 @@ const SHOPPING = ["shopping_staff", "shopping"];
 const DRIVER = ["driver"];
 const CLEANING = ["cleaning_manager", "cleaning_staff"];
 const CLIENT = ["client"];
+const ALL_ROLES = [...ADMIN, ...KITCHEN, ...SHOPPING, ...DRIVER, ...CLEANING, ...CLIENT, "waiter", "staff"];
 
 export const WORKFLOW_DEFINITIONS: WorkflowDefinition[] = [
   {
@@ -238,15 +243,23 @@ export const WORKFLOW_DEFINITIONS: WorkflowDefinition[] = [
       { id: "each-email", title: "Turn individual emails on or off", description: "Under Automatic emails by category, search for an email or open its category. Choose Automatic or Off, then press Save settings at the top of the page.", ref: "admin.email-settings.each-email" },
     ],
   },
+  {
+    id: "enable-device-push-alerts",
+    label: "Enable or turn off push alerts on a device",
+    description: "Choose which operational events can alert you, then opt each phone or tablet into background push alerts. Browser permission is requested only after you tap Enable.",
+    keywords: ["push notification", "push notifications", "enable push", "enable notifications", "turn on push", "turn on notifications", "turn off push", "device alerts", "background alerts", "allow notifications", "notification permission", "permission prompt", "not receiving notifications", "notifications not working", "notifications blocked", "phone notifications", "iphone push", "android push", "pwa alerts", "push alerts"],
+    roles: ALL_ROLES,
+    intentIds: ["account.push_notifications"],
+    steps: [
+      { id: "open-device-notification-settings", title: "Open Notifications in Account settings", description: "Open Account settings, then choose Notifications. The Push alerts on this device card shows whether alerts are on, off, blocked, unsupported, or waiting for installation.", ref: "account.settings.notifications" },
+      { id: "enable-device-notifications", title: "Tap Enable alerts and allow the prompt", description: "On Android, use the latest Chrome; installation is optional. On iPhone or iPad, install CateringMS on the Home Screen, open the new icon, then tap Enable alerts. iOS/iPadOS 16.4 or later is required. Repeat on each device; permission belongs to that device. If permission is blocked, change it in browser/site settings or iPhone/iPad Settings, then return to the device card and check again.", ref: "account.settings.notifications" },
+      { id: "choose-notification-types", title: "Choose which events send alerts", description: "Admins can open Notification settings to turn event categories on or off. These account preferences are separate from enabling push permission on a device.", ref: "admin.notification-settings" },
+    ],
+  },
 ];
 
 function isAllowed(definition: WorkflowDefinition, role: string): boolean {
   return definition.roles.includes(role);
-}
-
-function score(query: string, definition: WorkflowDefinition): number {
-  const normalized = query.toLowerCase();
-  return definition.keywords.reduce((total, keyword) => total + (normalized.includes(keyword) ? (keyword.includes(" ") ? 3 : 1) : 0), 0);
 }
 
 function resolveStep(step: WorkflowStepDefinition, role: string): ChatWorkflowStep | null {
@@ -259,15 +272,25 @@ function resolveStep(step: WorkflowStepDefinition, role: string): ChatWorkflowSt
   };
 }
 
-export function getRelevantWorkflows(query: string, role: string, limit = 1): ChatWorkflow[] {
+const WORKFLOW_INTENT_REGISTRY = buildCompleteChatIntentRegistry([], NAVIGATION_REFS, WORKFLOW_DEFINITIONS);
+
+function matchesIntent(definition: WorkflowDefinition, intent: ChatIntentMatch): boolean {
+  return intent.id === `workflow.${definition.id}` || definition.intentIds?.includes(intent.id) === true;
+}
+
+export function getRelevantWorkflows(query: string, role: string, limit = 1, resolvedIntent?: ChatIntentMatch | null): ChatWorkflow[] {
   role = normalizeChatRole(role);
+  // Production passes the server-validated semantic intent. The local
+  // classifier uses the same intent catalog when OpenAI is not configured.
+  const intent = resolvedIntent === undefined
+    ? classifyChatIntent(query, role, WORKFLOW_INTENT_REGISTRY)
+    : resolvedIntent;
+  if (!intent) return [];
+
   return WORKFLOW_DEFINITIONS
-    .filter((definition) => isAllowed(definition, role))
-    .map((definition) => ({ definition, score: score(query, definition) }))
-    .filter(({ score: value }) => value > 0)
-    .sort((left, right) => right.score - left.score || left.definition.label.localeCompare(right.definition.label))
+    .filter((definition) => isAllowed(definition, role) && matchesIntent(definition, intent))
     .slice(0, limit)
-    .map(({ definition }) => ({
+    .map((definition) => ({
       id: definition.id,
       label: definition.label,
       description: definition.description,

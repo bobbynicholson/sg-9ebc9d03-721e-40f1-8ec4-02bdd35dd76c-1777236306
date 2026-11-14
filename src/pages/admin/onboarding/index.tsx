@@ -47,6 +47,8 @@ import { dashboardTodoService } from "@/services/dashboardTodoService";
 import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { ResendDomainCard } from "@/components/admin/ResendDomainCard";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
+import { DevicePushSettings } from "@/components/account/settings/DevicePushSettings";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { captureException } from "@/lib/observability";
 import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui";
 import {
@@ -107,6 +109,8 @@ interface CompanyForm {
    * include it in an update patch.
    */
   reminders_saved: boolean;
+  /** UI-only marker: confirms the admin reviewed notification setup. */
+  notifications_reviewed: boolean;
 }
 
 type PaymentProvider = "payfast" | "yoco" | "stripe";
@@ -128,6 +132,7 @@ const EMPTY_FORM: CompanyForm = {
   bank_branch_code: "", bank_account_type: "", eft_instructions: "",
   vat_registered: false, vat_number: "", vat_rate: 15,
   reminders_saved: false,
+  notifications_reviewed: false,
 };
 
 // Step ids in order. Centralised so the progress bar, breadcrumb,
@@ -141,6 +146,7 @@ const STEPS = [
   { id: "payment",  label: "Payments",  icon: CreditCard },
   { id: "vat",      label: "VAT",       icon: Receipt },
   { id: "email",    label: "Email",     icon: ShieldCheck },
+  { id: "notifications", label: "Alerts", icon: Bell },
   { id: "reminders", label: "Reminders", icon: Bell },
   { id: "clients",  label: "Clients",   icon: Users },
   { id: "done",     label: "Finish",    icon: Check },
@@ -151,7 +157,7 @@ type StepId = typeof STEPS[number]["id"];
 // Data-bearing sections (Welcome + Done excluded). Shared by the
 // Welcome checklist and the hero completion chip so both always
 // report the same "X of Y" count.
-const SECTION_IDS: StepId[] = ["company", "address", "branding", "banking", "payment", "vat", "email", "reminders", "clients"];
+const SECTION_IDS: StepId[] = ["company", "address", "branding", "banking", "payment", "vat", "email", "notifications", "reminders", "clients"];
 
 // ONB-B (task #217, 2026-05-25): pure helper - is this step's
 // key data already present on the companies row?  Drives the
@@ -167,6 +173,7 @@ function isStepComplete(stepId: StepId, form: CompanyForm): boolean {
     case "payment":  return false; // tracked in payment_gateways, not the company form
     case "vat":      return form.vat_registered ? !!form.vat_number.trim() : true; // not-registered is a real answer
     case "email":    return false; // tracked in email_provider_settings, not on the form
+    case "notifications": return form.notifications_reviewed;
     case "reminders": return form.reminders_saved; // dispatch_settings.paymentDue / paymentReminders saved
     case "clients":  return false; // tracked via clients table count, not on the form
     case "welcome":
@@ -271,6 +278,7 @@ function OnboardingWizard() {
           vat_number: r.vat_number || "",
           vat_rate: r.vat_rate ?? 15,
           reminders_saved: remindersSaved(r.dispatch_settings),
+          notifications_reviewed: false,
         });
       }
       setLoading(false);
@@ -455,7 +463,7 @@ function OnboardingWizard() {
   // companies row. Skips Welcome + Done; if everything else is
   // complete, lands on Done so the operator can finish.
   const resumeAtFirstIncomplete = () => {
-    const candidates: StepId[] = ["company", "address", "branding", "vat"];
+    const candidates: StepId[] = ["company", "address", "branding", "vat", "notifications"];
     for (const id of candidates) {
       if (!isStepComplete(id, form)) {
         setStep(id);
@@ -727,6 +735,26 @@ function OnboardingWizard() {
                 />
               )}
 
+              {step === "notifications" && (
+                <NotificationsStep
+                  userId={String(user?.id || "")}
+                  activeRole={String(profile?.active_role || profile?.role || user?.role || "admin")}
+                  companyName={form.company_name}
+                  companySlug={slug}
+                  onBack={goBack}
+                  onNext={async () => {
+                    setForm((current) => ({ ...current, notifications_reviewed: true }));
+                    try {
+                      await dashboardTodoService.setCompleted(companyId, "notifications", true);
+                    } catch (error) {
+                      console.warn("[onboarding] notification setup review could not be saved:", error);
+                      toast({ title: "Could not save checklist progress", description: "You can still continue. Please tick the notification task from the dashboard checklist later.", variant: "destructive" });
+                    }
+                    goNext();
+                  }}
+                />
+              )}
+
               {step === "reminders" && (
                 <RemindersStep
                   companyId={companyId}
@@ -763,6 +791,7 @@ function OnboardingWizard() {
           )}
         </PortalShell>
       </div>
+      <ChatBot userRole="admin" companyId={companyId ? String(companyId) : undefined} />
     </>
   );
 }
@@ -792,6 +821,7 @@ function WelcomeStep({
     { id: "banking",  label: "Banking",          helper: "optional - enables EFT as a payment option" },
     { id: "vat",      label: "VAT registration", helper: "changes your invoice document title" },
     { id: "email",    label: "Email sender",     helper: "use your domain or the shared CateringMS sender" },
+    { id: "notifications", label: "Push + alert preferences", helper: "enable this device and choose which events can alert you" },
     { id: "reminders", label: "Payment reminders + automatic emails", helper: "when payment is due, reminders, automatic emails on or off" },
     { id: "clients",  label: "Import clients",   helper: "optional - bulk upload your contact list" },
   ];
@@ -1810,6 +1840,69 @@ function RemindersStep({
         <Button onClick={save} disabled={saving || loading} className="bg-brand-primary hover:opacity-90">
           {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
           Save reminder settings <ArrowRight className="w-4 h-4 ml-2" />
+        </Button>
+      </div>
+    </StepShell>
+  );
+}
+
+function NotificationsStep({
+  userId, activeRole, companyName, companySlug, onBack, onNext,
+}: {
+  userId: string;
+  activeRole: string;
+  companyName: string;
+  companySlug: string;
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  const settingsHref = `${companySlug ? `/${companySlug}` : ""}/admin/notification-settings`;
+
+  return (
+    <StepShell
+      icon={Bell}
+      title="Set up alerts on your devices"
+      description="Choose which alerts you want, then enable background alerts on each phone or tablet you use."
+    >
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <p className="text-sm font-semibold text-slate-900">How to turn on push alerts</p>
+        <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm leading-relaxed text-slate-600">
+          <li>On Android, open CateringMS in Chrome. On iPhone or iPad, install it on the Home Screen and open it from its icon.</li>
+          <li>Tap <strong>Enable alerts</strong> below, then choose <strong>Allow</strong> when your browser asks.</li>
+          <li>Repeat on each device. The permission belongs to that device and signed-in account.</li>
+        </ol>
+        <p className="mt-2 text-xs leading-relaxed text-slate-500">
+          iPhone and iPad require iOS/iPadOS 16.4 or later and the Home Screen app. The permission prompt only appears after you tap Enable; opening the website cannot show it automatically.
+        </p>
+      </div>
+
+      <DevicePushSettings
+        userId={userId}
+        activeRole={activeRole}
+        companyName={companyName}
+        companySlug={companySlug}
+      />
+
+      <div className="flex flex-col gap-3 rounded-xl border border-brand-primary/20 bg-brand-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-slate-900">Choose which events send alerts</p>
+          <p className="mt-1 text-xs leading-relaxed text-slate-600">
+            Turn email and push alert types on or off, such as new orders, urgent issues, staff updates and stock alerts. These preferences are saved to your account.
+          </p>
+        </div>
+        <Button asChild variant="outline" className="min-h-11 shrink-0">
+          <Link href={settingsHref} target="_blank" rel="noopener noreferrer">
+            Open alert preferences <ArrowRight className="ml-2 h-4 w-4" />
+          </Link>
+        </Button>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-2 pt-2">
+        <Button variant="outline" onClick={onBack}>
+          <ArrowLeft className="w-4 h-4 mr-2" /> Back
+        </Button>
+        <Button onClick={onNext} className="ml-auto bg-brand-primary hover:opacity-90">
+          I&apos;ve reviewed this <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
       </div>
     </StepShell>

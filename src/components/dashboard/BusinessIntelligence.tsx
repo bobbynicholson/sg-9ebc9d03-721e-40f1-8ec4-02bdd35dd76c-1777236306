@@ -13,7 +13,7 @@
  *
  * Supporting charts start collapsed; explicit preferences persist per tenant.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
@@ -128,9 +128,18 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
   const [capacityCeiling, setCapacityCeiling] = useState(DEFAULT_MAX_CONCURRENT_EVENTS);
   const [loading, setLoading] = useState(true);
   const [overflow, setOverflow] = useState(false);
+  const loadedScopeRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!companyId) return;
+    if (!companyId || collapsed) {
+      setLoading(false);
+      return;
+    }
+    const scopeKey = `${companyId}:${regionFilterId || "all"}`;
+    if (loadedScopeRef.current === scopeKey) {
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     setOverflow(false);
@@ -259,6 +268,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
         } else {
           setCapacityCeiling(DEFAULT_MAX_CONCURRENT_EVENTS);
         }
+        loadedScopeRef.current = scopeKey;
       } catch (e) {
         console.warn("[BusinessIntelligence] fetch failed:", e);
       } finally {
@@ -267,7 +277,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
     })();
 
     return () => { cancelled = true; };
-  }, [companyId, regionFilterId]);
+  }, [companyId, regionFilterId, collapsed]);
 
   // ── Extractors (memoised so re-renders don't recompute) ─────────
   const revenueByMonth = useMemo(

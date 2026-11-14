@@ -245,7 +245,7 @@ function AdminDashboardPage() {
       // can compute accepted / (accepted + rejected + expired).
       // Drafts are excluded - they were never sent so their
       // outcome is undecided, not a 'loss'.
-      const [ordersRes, quotesRes, quotesCirculatingRes, usersRes, invRes, conversionRes, draftsRes, shortfallRes] = await Promise.all([
+      const [ordersRes, quotesRes, usersRes, invRes, conversionRes, shortfallRes, refundsRes] = await Promise.all([
         supabase
           .from("orders")
           .select("id, order_number, event_name, status, payment_status, total_amount, tax_amount, deposit_paid, deposit_amount, balance_paid, balance_amount, amount_paid, event_date, confirmed_at, cancelled_at, cancellation_reason_category")
@@ -255,24 +255,10 @@ function AdminDashboardPage() {
           .lte("event_date", toISO),
         supabase
           .from("quotes")
-          .select("id, status, quote_number, quote_name, client_name, notes")
+          .select("id, status, total_amount, quote_number, quote_name, client_name, notes")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .in("status", ["draft", "sent"]),
-        // Quotes "in circulation" - out for client response, not yet
-        // closed. Wave 70.52a fix: was filtering on ["sent", "viewed",
-        // "revised"] but the quote_status enum only has draft, sent,
-        // accepted, rejected, expired. The 'viewed' and 'revised'
-        // values never existed - PostgREST rejected the filter and
-        // the error was swallowed by the (only ordersRes.error
-        // checked) pattern below, so the tile silently zeroed forever.
-        // Filter on the one real "out for client" value: 'sent'.
-        supabase
-          .from("quotes")
-          .select("total_amount, quote_number, quote_name, client_name, notes")
-          .eq("company_id", companyId)
-          .is("deleted_at", null)
-          .in("status", ["sent"]),
         // Team Members tile: count only profiles that are actually
         // on the team right now. Previously this counted every row
         // attached to the company including soft-deleted (deleted_at
@@ -312,15 +298,6 @@ function AdminDashboardPage() {
           .in("status", ["accepted", "rejected", "expired"])
           .gte("updated_at", `${fromISO}T00:00:00`)
           .lte("updated_at", `${toISO}T23:59:59`),
-        // Wave 70.56: split drafts from sent in the pending pool so
-        // the Priority Actions row can say the right thing for each
-        // ("drafts to finish" vs "sent, awaiting client").
-        supabase
-          .from("quotes")
-          .select("id, quote_number, quote_name, client_name, notes")
-          .eq("company_id", companyId)
-          .is("deleted_at", null)
-          .eq("status", "draft"),
         // Wave 70.56: count items in 'shortfall' status from the
         // demand-outlook view (confirmed orders in next 7 days
         // need more than we have). RLS on the underlying tables
@@ -330,6 +307,14 @@ function AdminDashboardPage() {
           .select("inventory_item_id", { count: "exact", head: true })
           .eq("company_id", companyId)
           .eq("status", "shortfall"),
+        // Refunds are a dashboard tile too. Fetch them in parallel with
+        // the other metrics instead of adding another network round trip.
+        supabase
+          .from("payments")
+          .select("amount, payment_status, order:order_id ( order_number, event_name, client_name )")
+          .eq("company_id", companyId)
+          .eq("payment_type", "refund")
+          .in("payment_status", OPEN_REFUND_STATUSES),
       ]);
 
       if (ordersRes.error) throw ordersRes.error;
@@ -344,12 +329,11 @@ function AdminDashboardPage() {
       const failedTiles: string[] = [];
       [
         ["quotesAll", quotesRes],
-        ["quotesCirculating", quotesCirculatingRes],
         ["users", usersRes],
         ["inventory", invRes],
         ["closedQuotes", conversionRes],
-        ["draftQuotes", draftsRes],
         ["shortfall", shortfallRes],
+        ["refunds", refundsRes],
       ].forEach(([label, res]: any) => {
         if (res?.error) {
           console.warn(`[admin/dashboard] ${label} query failed (tile may show 0):`, res.error);
@@ -523,15 +507,9 @@ function AdminDashboardPage() {
         ?.replace(/_/g, " ") || "-";
 
       // Phase 4B: read payment_status (enum) instead of legacy status text mirror.
-      const { data: refundRows, error: refundRowsError } = await supabase
-        .from("payments")
-        .select("amount, payment_status, order:order_id ( order_number, event_name, client_name )")
-        .eq("company_id", companyId)
-        .eq("payment_type", "refund")
-        .in("payment_status", OPEN_REFUND_STATUSES);
+      const { data: refundRows, error: refundRowsError } = refundsRes;
       if (refundRowsError) {
         console.error("[admin/dashboard] payments refunds fetch failed:", refundRowsError);
-        failedTiles.push("refunds");
       }
       if (requestId !== metricsRequestRef.current) return;
       // Partial-failure banner: the page still renders, but the
@@ -548,16 +526,16 @@ function AdminDashboardPage() {
         0,
       );
 
-      const quotesInCirculationRows = ((quotesCirculatingRes.data || []) as any[])
+      const pendingQuoteRows = ((quotesRes.data || []) as any[])
         .filter((q: any) => !isAutomatedTestQuote(q));
+      const quotesInCirculationRows = pendingQuoteRows.filter((q: any) => q.status === "sent");
       const quotesInCirculationCount = quotesInCirculationRows.length;
       const quotesInCirculationValue = quotesInCirculationRows.reduce(
         (sum: number, q: any) => sum + (Number(q.total_amount) || 0),
         0,
       );
 
-      const pendingQuoteRows = ((quotesRes.data || []) as any[]).filter((q: any) => !isAutomatedTestQuote(q));
-      const pendingQuoteDrafts = ((draftsRes.data || []) as any[]).filter((q: any) => !isAutomatedTestQuote(q)).length;
+      const pendingQuoteDrafts = pendingQuoteRows.filter((q: any) => q.status === "draft").length;
       const pendingQuoteSent = quotesInCirculationCount; // already filters status='sent'
       const shortfallItems = shortfallRes?.count ?? 0;
 

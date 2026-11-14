@@ -40,6 +40,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 
 // Avoid an unused-import lint complaint. The Tabs component is
 // still re-exported in the codebase but the page no longer uses it.
@@ -406,9 +407,9 @@ function NotificationSettingsPage() {
                 <CardTitle className="flex items-center gap-2">
                   <Bell className="w-5 h-5 text-slate-600" />
                   Push Notifications
-                  <InfoTooltip content={"In-app push alerts for urgent issues, new orders, staff updates and stock changes.\n\nSaved to your account."} />
+                  <InfoTooltip content={"Choose which event types can send push alerts to your account.\n\nEnable background alerts for each phone or tablet in Account settings → Notifications."} />
                 </CardTitle>
-<CardDescription>Choose which events create push alerts.</CardDescription>
+                <CardDescription>Choose which events can alert your account. Enable background alerts for each device in Account settings → Notifications.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <ToggleRow control={control} name="push.urgentAlerts" id="urgentAlerts" title="Urgent Alerts" desc="Critical issues requiring immediate attention" />
@@ -473,6 +474,7 @@ function NotificationSettingsPage() {
 
         <Footer />
       </div>
+      <ChatBot userRole="admin" companyId={companyId || undefined} />
     </>
   );
 }

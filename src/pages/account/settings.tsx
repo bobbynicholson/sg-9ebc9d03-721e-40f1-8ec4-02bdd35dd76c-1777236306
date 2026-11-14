@@ -15,6 +15,7 @@ import { NotificationsTab } from "@/components/account/settings/NotificationsTab
 import { PrivacyTab } from "@/components/account/settings/PrivacyTab";
 import { ProfileTab, ProfileSummaryCard } from "@/components/account/settings/ProfileTab";
 import { SecurityTab } from "@/components/account/settings/SecurityTab";
+import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import type {
   ProfileFormData,
   PasswordFormData,
@@ -35,7 +36,7 @@ function ProfileSettingsPage() {
   // company name even when profiles.company_name (a denormalised cache)
   // is out of date or never populated. Without this fallback, every
   // tenant whose cache is stale sees a blank Company Name field.
-  const { user, profile, company, companySlug, updateProfile } = useAuth();
+  const { user, profile, company, companySlug, activeRole, updateProfile } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -464,6 +465,9 @@ function ProfileSettingsPage() {
               <NotificationsTab
                 userId={user.id}
                 companyId={((profile as any)?.company_id as string | undefined) || null}
+                activeRole={String(activeRole || profile?.active_role || profile?.role || user.role || "client")}
+                companyName={company?.company_name || profile?.company_name || null}
+                companySlug={companySlug || company?.slug || null}
               />
             </TabsContent>
 
@@ -476,6 +480,10 @@ function ProfileSettingsPage() {
           </Tabs>
         </div>
       </PortalLayout>
+      <ChatBot
+        userRole={String(activeRole || profile?.active_role || profile?.role || user?.role || "client")}
+        companyId={company?.id || profile?.company_id || (user as any)?.company_id}
+      />
     </>
   );
 }

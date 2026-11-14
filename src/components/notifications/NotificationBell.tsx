@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { Bell, BellRing, Check, X, Clock, AlertCircle, CheckCircle, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,30 +18,14 @@ import { useToast } from "@/hooks/use-toast";
 import { effectivePriority } from "@/lib/notificationDisplay";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { updatePwaAppBadge } from "@/lib/pwa/appBadge";
-import { pwaIconUrl } from "@/lib/pwa/metadata";
+import { pwaIconUrl, pwaInstallUrl } from "@/lib/pwa/metadata";
+import { isInstalledApp, isIosDevice } from "@/lib/pwa/environment";
+import { DEVICE_PUSH_CHANGED_EVENT, announceDevicePushChange, applicationServerKey, subscriptionUsesApplicationServerKey } from "@/lib/pwa/pushSubscription";
 import { notificationDestination, notificationInboxPathForRole } from "@/lib/notificationLinks";
 
 type SoundTier = "urgent" | "high" | "default";
 type DeviceNotificationPermission = NotificationPermission | "unsupported";
-type DevicePushStatus = "checking" | "ready" | "subscribed" | "unsupported" | "unconfigured";
-
-function applicationServerKey(value: string): Uint8Array {
-  const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
-  const raw = window.atob(padded);
-  return Uint8Array.from(raw, character => character.charCodeAt(0));
-}
-
-function subscriptionUsesApplicationServerKey(subscription: PushSubscription, value: string): boolean {
-  const currentKey = subscription.options.applicationServerKey;
-  // Some browsers do not expose the key on an existing subscription. Keep
-  // that subscription intact when the browser cannot provide a comparison.
-  if (!currentKey) return true;
-  const currentBytes = new Uint8Array(currentKey);
-  const expectedBytes = applicationServerKey(value);
-  return currentBytes.length === expectedBytes.length
-    && currentBytes.every((byte, index) => byte === expectedBytes[index]);
-}
+type DevicePushStatus = "checking" | "ready" | "subscribed" | "unsupported" | "unconfigured" | "needs-install";
 
 const subscriptionSyncs = new Map<string, Promise<boolean>>();
 function saveDeviceSubscription(userId: string, activeRole: string, subscription: PushSubscription): Promise<boolean> {
@@ -306,6 +291,10 @@ export function NotificationBell() {
         setDevicePushStatus("checking");
         return;
       }
+      if (isIosDevice() && !isInstalledApp()) {
+        setDevicePushStatus("needs-install");
+        return;
+      }
       if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
         setDevicePushStatus("unsupported");
         return;
@@ -349,15 +338,21 @@ export function NotificationBell() {
     };
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
+    window.addEventListener(DEVICE_PUSH_CHANGED_EVENT, refresh);
     return () => {
       cancelled = true;
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener(DEVICE_PUSH_CHANGED_EVENT, refresh);
     };
   }, [user?.id, activeRole, isStaffPreview]);
 
   const enableDeviceNotifications = async () => {
     if (isStaffPreview) return;
+    if (isIosDevice() && !isInstalledApp()) {
+      setDevicePushStatus("needs-install");
+      return;
+    }
     if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window) || !user?.id) {
       setDevicePushStatus("unsupported");
       setDeviceNotificationPermission("unsupported");
@@ -400,14 +395,9 @@ export function NotificationBell() {
 
       const registration = await navigator.serviceWorker.ready;
       let subscription = await registration.pushManager.getSubscription();
+      let oldEndpoint: string | null = null;
       if (subscription && !subscriptionUsesApplicationServerKey(subscription, config.publicKey)) {
-        const removeResponse = await fetch("/api/pwa/push-subscription", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({ endpoint: subscription.endpoint }),
-        });
-        if (!removeResponse.ok) throw new Error("The old device subscription could not be refreshed");
+        oldEndpoint = subscription.endpoint;
         await subscription.unsubscribe();
         subscription = null;
       }
@@ -417,11 +407,21 @@ export function NotificationBell() {
           applicationServerKey: applicationServerKey(config.publicKey) as unknown as BufferSource,
         });
       }
+      if (oldEndpoint) {
+        const removeResponse = await fetch("/api/pwa/push-subscription", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ endpoint: oldEndpoint }),
+        });
+        if (!removeResponse.ok) throw new Error("The old device subscription could not be refreshed");
+      }
       const role = String(activeRole || profile?.active_role || profile?.role || user?.role || "client");
       if (!(await saveDeviceSubscription(user.id, role, subscription))) {
         throw new Error("The device subscription could not be saved");
       }
 
+      announceDevicePushChange();
       setDevicePushStatus("subscribed");
       // Permission also unlocks numeric app badges on supported iOS devices.
       await updatePwaAppBadge(pwaUnreadCount);
@@ -457,6 +457,7 @@ export function NotificationBell() {
         if (!response.ok) throw new Error("The device could not be removed from push notifications");
         await subscription.unsubscribe();
       }
+      announceDevicePushChange();
       setDevicePushStatus("ready");
       toast({ title: "Push alerts turned off on this device" });
     } catch (error) {
@@ -841,7 +842,7 @@ export function NotificationBell() {
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold text-slate-900 dark:text-white">Get alerts on this device</p>
                 <p className="mt-0.5 text-xs leading-snug text-slate-500 dark:text-slate-400">
-                  Receive {pushRoleLabel} updates in the background. Changing portals updates this device's alert role.
+                  Tap Enable, then Allow in the browser prompt. Receive {pushRoleLabel} updates in the background.
                 </p>
               </div>
               <Button
@@ -854,6 +855,30 @@ export function NotificationBell() {
                 {devicePushBusy ? "Enabling…" : "Enable"}
               </Button>
             </div>
+          </div>
+        )}
+
+        {devicePushStatus === "needs-install" && (
+          <div className="shrink-0 border-b border-slate-100 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 dark:border-slate-700 dark:bg-slate-900">
+              <p className="text-xs font-semibold text-slate-900 dark:text-white">Install this app to enable iPhone/iPad alerts</p>
+              <p className="mt-1 text-xs leading-snug text-slate-600 dark:text-slate-300">Add it to your Home Screen, open it from the new icon, then tap Enable here. Requires iOS/iPadOS 16.4 or later.</p>
+              <Button asChild variant="outline" size="sm" className="mt-2 min-h-10 text-xs">
+                <Link href={pwaInstallUrl(company?.slug)}>View install steps</Link>
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {devicePushStatus === "unconfigured" && (
+          <div role="status" className="shrink-0 border-b border-amber-100 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+            Background alerts are not configured on the server yet. You can still read new alerts here in the app.
+          </div>
+        )}
+
+        {devicePushStatus === "unsupported" && (
+          <div role="status" className="shrink-0 border-b border-amber-100 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+            This browser does not support background alerts. Try the latest Chrome, or install the app on your iPhone/iPad Home Screen.
           </div>
         )}
 
