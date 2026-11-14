@@ -296,8 +296,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     );
     return res.status(200).json({ ok: true, ...counts, skipped });
   } catch (error: any) {
-    console.error("[pwa-push-delivery] delivery batch failed:", error?.message || error);
-    await updateWorkerHealth(sb, "failed", counts, "Worker failed; check Vercel function logs", startedAt);
+    const errorMessage = String(error?.message || error || "Unknown delivery worker error")
+      .replace(/\bBearer\s+\S+/gi, "Bearer [redacted]")
+      .replace(/\beyJ[A-Za-z0-9._-]{20,}/g, "[redacted JWT]")
+      .slice(0, 400);
+    console.error("[pwa-push-delivery] delivery batch failed:", errorMessage);
+    await updateWorkerHealth(sb, "failed", counts, errorMessage, startedAt);
     return res.status(500).json({ error: "Web Push delivery failed" });
   }
 }
