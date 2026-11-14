@@ -5,18 +5,12 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { notificationDestination } from "@/lib/notificationLinks";
 import { pwaIconUrl } from "@/lib/pwa/metadata";
+import { getVapidConfig } from "@/lib/pwa/vapidConfig";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 const BATCH_SIZE = 60;
 const MAX_ATTEMPTS = 5;
 const PROCESSING_LOCK_TIMEOUT_MS = 10 * 60 * 1000;
-
-function configuredVapid() {
-  const publicKey = process.env.WEB_PUSH_VAPID_PUBLIC_KEY?.trim() || "";
-  const privateKey = process.env.WEB_PUSH_VAPID_PRIVATE_KEY?.trim() || "";
-  const subject = process.env.WEB_PUSH_VAPID_SUBJECT?.trim() || "mailto:support@cateringms.com";
-  return publicKey && privateKey ? { publicKey, privateKey, subject } : null;
-}
 
 function statusCodeOf(error: any): number | null {
   const value = Number(error?.statusCode);
@@ -66,11 +60,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const counts = { claimed: 0, sent: 0, retried: 0, failed: 0 };
   await updateWorkerHealth(sb, "running", counts, null, startedAt);
 
-  const vapid = configuredVapid();
-  if (!vapid) {
-    await updateWorkerHealth(sb, "failed", counts, "VAPID keys are not configured", startedAt);
-    return res.status(503).json({ error: "Web Push VAPID keys are not configured" });
-  }
+  const vapid = getVapidConfig();
 
   try {
     webPush.setVapidDetails(vapid.subject, vapid.publicKey, vapid.privateKey);

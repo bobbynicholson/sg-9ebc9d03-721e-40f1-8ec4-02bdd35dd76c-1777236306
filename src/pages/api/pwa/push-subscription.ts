@@ -3,6 +3,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiRequestLogging } from "@/lib/withApiLogging";
 import { deriveUserRoles } from "@/lib/roleDerivation";
+import { getVapidConfig } from "@/lib/pwa/vapidConfig";
 import type { UserRole } from "@/types/app";
 
 type PushSubscriptionPayload = {
@@ -11,13 +12,6 @@ type PushSubscriptionPayload = {
   keys?: { p256dh?: unknown; auth?: unknown };
   activeRole?: unknown;
 };
-
-function vapidConfig() {
-  const publicKey = process.env.WEB_PUSH_VAPID_PUBLIC_KEY?.trim() || "";
-  const privateKey = process.env.WEB_PUSH_VAPID_PRIVATE_KEY?.trim() || "";
-  const subject = process.env.WEB_PUSH_VAPID_SUBJECT?.trim() || "mailto:support@cateringms.com";
-  return publicKey && privateKey ? { publicKey, privateKey, subject } : null;
-}
 
 function sameOriginRequest(req: NextApiRequest): boolean {
   const origin = req.headers.origin;
@@ -61,8 +55,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   res.setHeader("X-Content-Type-Options", "nosniff");
 
   if (req.method === "GET") {
-    const config = vapidConfig();
-    return res.status(200).json({ enabled: Boolean(config), publicKey: config?.publicKey || null });
+    const config = getVapidConfig();
+    return res.status(200).json({ enabled: true, publicKey: config.publicKey });
   }
 
   if (req.method !== "POST" && req.method !== "DELETE") {
@@ -70,8 +64,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
   if (!sameOriginRequest(req)) return res.status(403).json({ error: "Request origin could not be verified" });
-  if (!vapidConfig()) return res.status(503).json({ error: "Device push notifications are not configured" });
-
   const subscriptionBody = req.body as PushSubscriptionPayload;
   const endpoint = req.method === "DELETE" ? subscriptionBody?.endpoint : subscriptionBody?.endpoint;
   if (req.method === "POST" && !validSubscription(subscriptionBody)) {

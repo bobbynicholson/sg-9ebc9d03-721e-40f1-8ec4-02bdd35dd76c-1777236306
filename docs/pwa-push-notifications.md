@@ -30,6 +30,13 @@ Configure these same values in the production deployment environment:
 - `WEB_PUSH_VAPID_PRIVATE_KEY` — keep this server-only
 - `WEB_PUSH_VAPID_SUBJECT` — for example `mailto:support@cateringms.com`
 
+For temporary end-to-end testing, the current VAPID pair is also embedded as a
+server-only fallback in `src/lib/pwa/vapidConfig.ts`. This makes push available
+even when deployment environment variables are missing. Remove the fallback
+and configure the pair as server environment variables after testing; rotate
+the pair and re-enable device subscriptions if this code has been deployed to a
+public repository or environment.
+
 Do not rotate the VAPID pair after devices subscribe unless you also plan to
 resubscribe those devices. If a device has an older key, its next **Enable
 device notifications** action replaces that subscription using the current
