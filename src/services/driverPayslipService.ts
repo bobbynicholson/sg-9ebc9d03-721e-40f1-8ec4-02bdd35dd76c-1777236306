@@ -479,7 +479,7 @@ export const driverPayslipService = {
           ? `${reference}\n${delivery.event_name}`
           : reference;
         return [
-          job,
+          delivery.sitting_sequence ? `${job}\nSitting ${delivery.sitting_sequence}` : job,
           `${delivery.distance_km.toFixed(1)} km`,
           `${fmtMoney(delivery.distance_rate)}/km`,
           fmtMoney(delivery.distance_pay),

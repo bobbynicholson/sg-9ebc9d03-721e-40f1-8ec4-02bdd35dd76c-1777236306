@@ -409,7 +409,7 @@ function DeliveryTable({ summary, formatR, withSlug }: { summary: DriverPaySumma
           {summary.deliveries.map((d) => {
             const eventName = cleanEventName(d.event_name);
             return (
-              <tr key={d.order_id} className="border-t border-slate-100 dark:border-slate-800">
+              <tr key={d.line_id || d.order_id} className="border-t border-slate-100 dark:border-slate-800">
                 <td className="px-4 py-2 max-w-[180px]">
                   <span className="block truncate font-semibold text-slate-800 dark:text-slate-200">
                     {d.order_number || `${d.order_id.slice(0, 8)}...`}
@@ -417,8 +417,11 @@ function DeliveryTable({ summary, formatR, withSlug }: { summary: DriverPaySumma
                   {eventName && (
                     <span className="block truncate text-xs text-slate-500 dark:text-slate-400">{eventName}</span>
                   )}
+                  {d.sitting_sequence && <span className="block text-xs text-slate-500 dark:text-slate-400">Sitting {d.sitting_sequence}</span>}
                 </td>
-                <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{d.distance_km.toFixed(1)} km</td>
+                <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300" title={d.distance_source === "booking_route_split" ? "Allocated from the booking's saved total route distance using sitting locations." : undefined}>
+                  {d.distance_km.toFixed(1)} km{d.distance_source === "booking_route_split" && <span className="block text-[10px] text-amber-700 dark:text-amber-400">Allocated route share</span>}
+                </td>
                 <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{formatR(d.distance_pay)}</td>
                 <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{formatR(d.callout_fee)}</td>
                 <td className="px-4 py-2 text-right font-semibold text-slate-900 tabular-nums dark:text-white">{formatR(d.total)}</td>

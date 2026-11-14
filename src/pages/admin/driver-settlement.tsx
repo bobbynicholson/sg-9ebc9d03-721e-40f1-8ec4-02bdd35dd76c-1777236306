@@ -1806,16 +1806,19 @@ function FragmentRows({
                 ) : (
                   <ul className="text-xs space-y-1">
                     {detailSummary.deliveries.map((d) => (
-                      <li key={d.order_id} className="flex justify-between">
+                      <li key={d.line_id || d.order_id} className="flex justify-between gap-3">
                         {/* ODOC G.4: each delivery jumps into the
                             doc for reconciliation context. */}
                         <Link
                           href={withSlug(staffOrderHref(d.order_id, "admin"))}
                           className="font-mono text-blue-700 hover:underline"
                         >
-                          {d.order_id.slice(0, 8)}...
+                          {d.order_id.slice(0, 8)}...{d.sitting_sequence ? ` · Sitting ${d.sitting_sequence}` : ""}
                         </Link>
-                        <span>{d.distance_km.toFixed(1)} km · {formatR(d.total)}</span>
+                        <span className="text-right">
+                          {d.distance_km.toFixed(1)} km · {formatR(d.total)}
+                          {d.distance_source === "booking_route_split" && <span className="block text-[10px] text-amber-700" title="The saved booking route total is allocated across sitting stops using their locations.">Allocated route share</span>}
+                        </span>
                       </li>
                     ))}
                   </ul>
