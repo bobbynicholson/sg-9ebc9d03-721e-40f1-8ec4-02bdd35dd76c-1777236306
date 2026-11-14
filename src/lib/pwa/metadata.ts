@@ -10,6 +10,7 @@ export type PwaBranding = {
 // primary colours remain available to the app UI, but should not tint the
 // phone's status/address bar.
 export const PWA_THEME_COLOR = "#ffffff";
+export const PWA_BACKGROUND_COLOR = "#ffffff";
 
 export const isCompanySlug = (value: unknown): value is string =>
   typeof value === "string" && /^[a-z0-9][a-z0-9-]{0,99}$/.test(value);
@@ -62,8 +63,6 @@ export function shouldOpenCompanyInstallPage(inline: boolean, companySlug?: stri
 export function buildPwaManifest(branding: PwaBranding | null) {
   const slug = branding?.slug && isCompanySlug(branding.slug) ? branding.slug : null;
   const name = branding?.companyName?.trim() || "CateringMS";
-  const color = branding?.primaryColor || "";
-  const backgroundColor = /^#[a-f\d]{6}$/i.test(color) ? color : "#f8fafc";
   return {
     name,
     // Keep the stored company name intact. The home screen may visually
@@ -82,7 +81,7 @@ export function buildPwaManifest(branding: PwaBranding | null) {
     launch_handler: { client_mode: "navigate-existing" },
     orientation: "any",
     // Browsers use this for the OS-generated launch splash background.
-    background_color: backgroundColor,
+    background_color: PWA_BACKGROUND_COLOR,
     theme_color: PWA_THEME_COLOR,
     categories: ["business", "productivity"],
     icons: ([192, 512] as const).map(size => ({

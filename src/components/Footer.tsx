@@ -72,13 +72,13 @@ export function SlimInternalFooter({
   const currentYear = new Date().getFullYear();
   return (
     <footer
-      className="internal-footer-shell border-t border-slate-200 bg-white/95 backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/95 lg:ml-72 xl:ml-80"
+      className="internal-footer-shell border-t border-slate-200 bg-white/95 text-slate-500 backdrop-blur-sm dark:border-slate-200 dark:bg-white/95 dark:text-slate-500 lg:ml-72 xl:ml-80"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       {/* Right padding keeps the links clear of the floating assistant
           button, which docks in the bottom-right corner. */}
       <div className="py-3 pl-4 pr-24 sm:px-6 sm:pr-28">
-        <div className="flex flex-col gap-1.5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between dark:text-slate-400">
+        <div className="flex flex-col gap-1.5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
             <span>© {currentYear} {displayName}.</span>
             {isWhiteLabeled && (
@@ -86,7 +86,7 @@ export function SlimInternalFooter({
                 href="https://cateringms.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+                className="inline-flex items-center gap-1 hover:text-slate-700 transition-colors"
               >
                 <Sparkles className="w-3 h-3" />
                 <span>Powered by CateringMS</span>
@@ -95,10 +95,10 @@ export function SlimInternalFooter({
           </div>
           {/* New tab, so reading the legal text never loses unsaved work. */}
           <div className="flex flex-wrap gap-x-4 gap-y-1">
-            <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="underline-offset-2 transition-colors hover:text-slate-700 hover:underline dark:hover:text-slate-300">
+            <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="underline-offset-2 transition-colors hover:text-slate-700 hover:underline">
               Privacy policy
             </Link>
-            <Link href={termsHref} target="_blank" rel="noopener noreferrer" className="underline-offset-2 transition-colors hover:text-slate-700 hover:underline dark:hover:text-slate-300">
+            <Link href={termsHref} target="_blank" rel="noopener noreferrer" className="underline-offset-2 transition-colors hover:text-slate-700 hover:underline">
               Terms and conditions
             </Link>
           </div>

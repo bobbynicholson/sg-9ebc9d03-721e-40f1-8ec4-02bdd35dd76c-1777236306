@@ -123,6 +123,7 @@ export interface DriverPaySummary {
     hours_total: number;
     hourly_pay: number;
     distance_total_km: number;
+    distance_unrecorded_deliveries?: number;
     distance_pay: number;
     callout_pay: number;
     grand_total: number;
@@ -330,6 +331,33 @@ export function calculateDeliveryPay(
     callout_fee: callout,
     total: +(distancePay + callout).toFixed(2),
   };
+}
+
+type DeliveryDistanceSource = {
+  delivery_distance_km?: number | null;
+  quote?: { delivery_distance_km?: number | null } | Array<{ delivery_distance_km?: number | null }> | null;
+};
+
+/** Prefer the order snapshot, then recover legacy orders from their quote. */
+function resolveDeliveryDistanceKm(order: DeliveryDistanceSource): number {
+  const positiveKm = (value: unknown) => {
+    const km = Number(value);
+    return Number.isFinite(km) && km > 0 ? km : 0;
+  };
+  const orderKm = positiveKm(order.delivery_distance_km);
+  if (orderKm > 0) return orderKm;
+  const quote = Array.isArray(order.quote) ? order.quote[0] : order.quote;
+  return positiveKm(quote?.delivery_distance_km);
+}
+
+function resolveRoundTripDistanceKm(
+  storedDistanceKm: number | null | undefined,
+  oneWayDistanceKm: number,
+): number {
+  const storedKm = Number(storedDistanceKm);
+  return Number.isFinite(storedKm) && storedKm > 0
+    ? +storedKm.toFixed(2)
+    : +(oneWayDistanceKm * 2).toFixed(2);
 }
 
 export interface DateRange {
@@ -689,22 +717,34 @@ export const driverPayService = {
     // calc for legacy orders that closed before snapshotting shipped.
     const deliveryLines: DeliveryPayLine[] = orders.map((o) => {
       const label = { order_number: o.order_number ?? null, event_name: o.event_name ?? null };
+      const oneWayKm = resolveDeliveryDistanceKm(o);
       if (o.locked_total != null) {
+        const distanceKm = resolveRoundTripDistanceKm(o.locked_calculated_distance, oneWayKm);
+        // Older snapshots can have a zero distance because the quote value
+        // was never copied onto the order. Repair that missing component
+        // from the quote while keeping complete snapshots rate-locked.
+        const incompleteDistanceSnapshot = Number(o.locked_calculated_distance || 0) <= 0 && oneWayKm > 0;
+        const distancePay = incompleteDistanceSnapshot
+          ? +(distanceKm * rates.distance_rate_per_km).toFixed(2)
+          : +Number(o.locked_distance_fee || 0).toFixed(2);
+        const calloutFee = +Number(o.locked_base_fee || 0).toFixed(2);
         return {
           order_id: o.id,
           ...label,
-          distance_km: Number(o.delivery_distance_km || 0),
+          distance_km: distanceKm,
           // Snapshot doesn't keep the per-km rate; synthesise it
           // from the stored values so the UI can still show /km.
-          distance_rate: o.delivery_distance_km && o.locked_distance_fee != null && Number(o.delivery_distance_km) > 0
-            ? +(Number(o.locked_distance_fee) / Number(o.delivery_distance_km)).toFixed(2)
+          distance_rate: !incompleteDistanceSnapshot && distanceKm > 0 && o.locked_distance_fee != null
+            ? +(Number(o.locked_distance_fee) / distanceKm).toFixed(2)
             : rates.distance_rate_per_km,
-          distance_pay: +Number(o.locked_distance_fee || 0).toFixed(2),
-          callout_fee: +Number(o.locked_base_fee || 0).toFixed(2),
-          total: +Number(o.locked_total || 0).toFixed(2),
+          distance_pay: distancePay,
+          callout_fee: calloutFee,
+          total: incompleteDistanceSnapshot
+            ? +(distancePay + calloutFee).toFixed(2)
+            : +Number(o.locked_total || 0).toFixed(2),
         };
       }
-      return { ...calculateDeliveryPay(o, rates), ...label };
+      return { ...calculateDeliveryPay({ id: o.id, delivery_distance_km: oneWayKm }, rates), ...label };
     });
 
     const hoursTotal = +shiftLines.reduce((sum, s) => sum + s.hours, 0).toFixed(2);
@@ -721,6 +761,7 @@ export const driverPayService = {
         hours_total: hoursTotal,
         hourly_pay: hourlyPay,
         distance_total_km: distanceTotalKm,
+        distance_unrecorded_deliveries: deliveryLines.filter((delivery) => delivery.distance_km <= 0).length,
         distance_pay: distancePay,
         callout_pay: calloutPay,
         grand_total: +(hourlyPay + distancePay + calloutPay).toFixed(2),
@@ -749,6 +790,7 @@ export const driverPayService = {
     hours_total: number;
     hourly_pay: number;
     distance_total_km: number;
+    distance_unrecorded_deliveries: number;
     distance_pay: number;
     callout_pay: number;
     grand_total: number;
@@ -758,6 +800,7 @@ export const driverPayService = {
       hours_total: number;
       hourly_pay: number;
       distance_total_km: number;
+      distance_unrecorded_deliveries: number;
       distance_pay: number;
       callout_pay: number;
       grand_total: number;
@@ -788,7 +831,7 @@ export const driverPayService = {
         .then((r: any) => (r.data || []) as DriverShift[]),
       (client as any)
         .from("orders")
-        .select("id, assigned_driver_id, delivery_distance_km")
+        .select("id, assigned_driver_id, delivery_distance_km, quote:quotes!orders_quote_id_fkey(delivery_distance_km)")
         .eq("company_id", opts.companyId)
         .in("assigned_driver_id", opts.driverIds)
         .is("deleted_at", null)
@@ -802,6 +845,7 @@ export const driverPayService = {
           id: string;
           assigned_driver_id: string;
           delivery_distance_km: number | null;
+          quote?: { delivery_distance_km: number | null } | Array<{ delivery_distance_km: number | null }> | null;
         }>),
       (client as any)
         .from("public_holidays")
@@ -825,12 +869,12 @@ export const driverPayService = {
     // order the batch hit. Without this we'd otherwise pay per-
     // driver again to resolve assignments.
     const orderIds = orderRows.map((o) => o.id);
-    type AssignmentRow = { order_id: string; driver_id: string; base_fee: number | null; distance_fee: number | null; total_earnings: number | null };
+    type AssignmentRow = { order_id: string; driver_id: string; base_fee: number | null; distance_fee: number | null; total_earnings: number | null; calculated_distance: number | null };
     let assignmentRows: AssignmentRow[] = [];
     if (orderIds.length > 0) {
       const { data } = await (client as any)
         .from("driver_assignments")
-        .select("order_id, driver_id, base_fee, distance_fee, total_earnings")
+        .select("order_id, driver_id, base_fee, distance_fee, total_earnings, calculated_distance")
         .in("driver_id", opts.driverIds)
         .in("order_id", orderIds)
         .eq("assignment_type", "delivery");
@@ -849,10 +893,10 @@ export const driverPayService = {
       list.push(s);
       shiftsByDriver.set(s.driver_id, list);
     }
-    const ordersByDriver = new Map<string, Array<{ id: string; delivery_distance_km: number | null }>>();
+    const ordersByDriver = new Map<string, Array<{ id: string; delivery_distance_km: number | null; quote?: { delivery_distance_km: number | null } | Array<{ delivery_distance_km: number | null }> | null }>>();
     for (const o of orderRows) {
       const list = ordersByDriver.get(o.assigned_driver_id) || [];
-      list.push({ id: o.id, delivery_distance_km: o.delivery_distance_km });
+      list.push({ id: o.id, delivery_distance_km: o.delivery_distance_km, quote: o.quote });
       ordersByDriver.set(o.assigned_driver_id, list);
     }
 
@@ -877,18 +921,27 @@ export const driverPayService = {
       const deliveryLines = deliveries.map((o) => {
         const snap = assignmentByKey.get(`${driverId}::${o.id}`);
         if (snap && snap.total_earnings != null) {
+          const oneWayKm = resolveDeliveryDistanceKm(o);
+          const distanceKm = resolveRoundTripDistanceKm(snap.calculated_distance, oneWayKm);
+          const incompleteDistanceSnapshot = Number(snap.calculated_distance || 0) <= 0 && oneWayKm > 0;
+          const distancePay = incompleteDistanceSnapshot
+            ? +(distanceKm * rates.distance_rate_per_km).toFixed(2)
+            : +Number(snap.distance_fee || 0).toFixed(2);
+          const calloutFee = +Number(snap.base_fee || 0).toFixed(2);
           return {
             order_id: o.id,
-            distance_km: Number(o.delivery_distance_km || 0),
-            distance_rate: o.delivery_distance_km && snap.distance_fee != null && Number(o.delivery_distance_km) > 0
-              ? +(Number(snap.distance_fee) / Number(o.delivery_distance_km)).toFixed(2)
+            distance_km: distanceKm,
+            distance_rate: !incompleteDistanceSnapshot && distanceKm > 0 && snap.distance_fee != null
+              ? +(Number(snap.distance_fee) / distanceKm).toFixed(2)
               : rates.distance_rate_per_km,
-            distance_pay: +Number(snap.distance_fee || 0).toFixed(2),
-            callout_fee: +Number(snap.base_fee || 0).toFixed(2),
-            total: +Number(snap.total_earnings || 0).toFixed(2),
+            distance_pay: distancePay,
+            callout_fee: calloutFee,
+            total: incompleteDistanceSnapshot
+              ? +(distancePay + calloutFee).toFixed(2)
+              : +Number(snap.total_earnings || 0).toFixed(2),
           };
         }
-        return calculateDeliveryPay(o, rates);
+        return calculateDeliveryPay({ id: o.id, delivery_distance_km: resolveDeliveryDistanceKm(o) }, rates);
       });
 
       const hoursTotal = +shiftLines.reduce((sum, s) => sum + s.hours, 0).toFixed(2);
@@ -902,6 +955,7 @@ export const driverPayService = {
         hours_total: hoursTotal,
         hourly_pay: hourlyPay,
         distance_total_km: distanceTotalKm,
+        distance_unrecorded_deliveries: deliveryLines.filter((delivery) => delivery.distance_km <= 0).length,
         distance_pay: distancePay,
         callout_pay: calloutPay,
         grand_total: +(hourlyPay + distancePay + calloutPay).toFixed(2),
@@ -1176,6 +1230,7 @@ export const driverPayService = {
     locked_distance_fee?: number | null;
     locked_base_fee?: number | null;
     locked_total?: number | null;
+    locked_calculated_distance?: number | null;
   }>> {
     // Pull orders + assignment snapshot in parallel. The join goes
     // through driver_assignments by (order_id, driver_id) so each
@@ -1183,7 +1238,7 @@ export const driverPayService = {
     // re-assigned to another driver later.
     const { data: orderRows, error: orderErr } = await (client as any)
       .from("orders")
-      .select("id, order_number, event_name, delivery_distance_km")
+      .select("id, order_number, event_name, delivery_distance_km, quote:quotes!orders_quote_id_fkey(delivery_distance_km)")
       .eq("company_id", opts.companyId)
       .eq("assigned_driver_id", opts.driverId)
       .is("deleted_at", null)
@@ -1195,7 +1250,7 @@ export const driverPayService = {
       console.warn("[driverPayService._listCompletedDeliveries]", orderErr);
       return [];
     }
-    const orders = (orderRows || []) as Array<{ id: string; order_number: string | null; event_name: string | null; delivery_distance_km: number | null }>;
+    const orders = (orderRows || []) as Array<{ id: string; order_number: string | null; event_name: string | null; delivery_distance_km: number | null; quote?: { delivery_distance_km: number | null } | Array<{ delivery_distance_km: number | null }> | null }>;
     if (orders.length === 0) return [];
 
     const orderIds = orders.map((o) => o.id);
@@ -1205,24 +1260,26 @@ export const driverPayService = {
     // pay locked total. Now each leg owns its own row.
     const { data: assignmentRows, error: assignmentRowsErr } = await (client as any)
       .from("driver_assignments")
-      .select("order_id, base_fee, distance_fee, total_earnings")
+      .select("order_id, base_fee, distance_fee, total_earnings, calculated_distance")
       .eq("driver_id", opts.driverId)
       .eq("assignment_type", "delivery")
       .in("order_id", orderIds);
     if (assignmentRowsErr) {
       console.error("[driverPayService] driver_assignments fetch failed:", assignmentRowsErr);
     }
-    const lockedByOrder = new Map<string, { base: number | null; distance: number | null; total: number | null }>();
+    const lockedByOrder = new Map<string, { base: number | null; distance: number | null; total: number | null; calculated: number | null }>();
     for (const a of (assignmentRows || []) as Array<{
       order_id: string;
       base_fee: number | null;
       distance_fee: number | null;
       total_earnings: number | null;
+      calculated_distance: number | null;
     }>) {
       lockedByOrder.set(a.order_id, {
         base: a.base_fee,
         distance: a.distance_fee,
         total: a.total_earnings,
+        calculated: a.calculated_distance,
       });
     }
 
@@ -1232,10 +1289,11 @@ export const driverPayService = {
         id: o.id,
         order_number: o.order_number ?? null,
         event_name: o.event_name ?? null,
-        delivery_distance_km: o.delivery_distance_km,
+        delivery_distance_km: resolveDeliveryDistanceKm(o),
         locked_distance_fee: locked?.distance ?? null,
         locked_base_fee: locked?.base ?? null,
         locked_total: locked?.total ?? null,
+        locked_calculated_distance: locked?.calculated ?? null,
       };
     });
   },
@@ -1275,7 +1333,7 @@ async function snapshotDriverAssignmentForOrder(
   // Pull the order's distance + the driver's effective rates.
   const { data: orderRow, error: orderRowErr } = await (client as any)
     .from("orders")
-    .select("id, delivery_distance_km")
+    .select("id, delivery_distance_km, quote:quotes!orders_quote_id_fkey(delivery_distance_km)")
     .eq("id", opts.orderId)
     .maybeSingle();
   if (orderRowErr) {
@@ -1289,7 +1347,7 @@ async function snapshotDriverAssignmentForOrder(
   ]);
   const rates = resolveEffectiveRates(profile, defaults);
   const line = calculateDeliveryPay(
-    { id: opts.orderId, delivery_distance_km: (orderRow as any).delivery_distance_km },
+    { id: opts.orderId, delivery_distance_km: resolveDeliveryDistanceKm(orderRow as DeliveryDistanceSource) },
     rates,
   );
 

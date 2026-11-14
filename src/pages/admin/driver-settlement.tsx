@@ -368,6 +368,7 @@ function DriverSettlementPage() {
               hours_total: t.hours_total,
               hourly_pay: t.hourly_pay,
               distance_total_km: t.distance_total_km,
+              distance_unrecorded_deliveries: t.distance_unrecorded_deliveries,
               distance_pay: t.distance_pay,
               callout_pay: t.callout_pay,
               grand_total: t.grand_total,
@@ -2013,6 +2014,14 @@ function DriverSettlementCard({
           <div>
             <div className="text-slate-400 uppercase tracking-wide text-[9px]">Distance</div>
             <div className="tabular-nums">{formatR(t.distance_pay)}</div>
+            <div className="text-xs text-slate-400 tabular-nums">
+              {t.distance_total_km.toFixed(1)} km round trip
+            </div>
+            {(t.distance_unrecorded_deliveries || 0) > 0 && (
+              <div className="text-xs font-medium text-rose-600">
+                {t.distance_unrecorded_deliveries} {t.distance_unrecorded_deliveries === 1 ? "delivery" : "deliveries"} missing distance
+              </div>
+            )}
           </div>
           <div>
             <div className="text-slate-400 uppercase tracking-wide text-[9px]">Callouts</div>

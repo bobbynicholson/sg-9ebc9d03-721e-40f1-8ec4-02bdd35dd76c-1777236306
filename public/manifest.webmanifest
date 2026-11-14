@@ -8,7 +8,7 @@
   "display": "standalone",
   "launch_handler": { "client_mode": "navigate-existing" },
   "orientation": "any",
-  "background_color": "#f8fafc",
+  "background_color": "#ffffff",
   "theme_color": "#ffffff",
   "categories": ["business", "productivity"],
   "icons": [

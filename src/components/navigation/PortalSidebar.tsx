@@ -602,15 +602,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
       {/* Mobile header */}
       <div
         className={cn(
-          "lg:hidden fixed top-0 left-0 right-0 z-50 border-b",
-          // The `dark` class only affects DESCENDANTS (class strategy uses a
-          // descendant selector), so the bar's own surface must be set
-          // explicitly when the rail is forced dark.
-          forceDark
-            ? "dark bg-slate-950 border-slate-800"
-            : forceBrand
-              ? cn("dark border-black/10", BRAND_SURFACE)
-              : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700",
+          "lg:hidden fixed top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white text-slate-900 dark:border-slate-200 dark:bg-white dark:text-slate-900",
         )}
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
@@ -623,8 +615,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                   size="icon"
                   aria-label="Open navigation menu"
                   className={cn(
-                    "h-11 w-11 shrink-0",
-                    forceBrand && "text-white hover:bg-white/10 hover:text-white",
+                    "h-11 w-11 shrink-0 text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-700 dark:hover:bg-slate-100 dark:hover:text-slate-950",
                   )}
                 >
                   <Menu className="h-6 w-6" />
@@ -705,14 +696,14 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             </Sheet>
             <Link href={withSlug(config.dashboardHref)} className="flex min-w-0 shrink-0 items-center gap-2" aria-label={`${config.title} home`}>
               <PortalLogoTile config={config} logoUrl={logoUrl} size="lg" />
-              <span className={cn("truncate text-sm font-bold", forceBrand ? "text-white" : "text-slate-900 dark:text-white")}>{config.title}</span>
+              <span className="truncate text-sm font-bold text-slate-900">{config.title}</span>
             </Link>
           </div>
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             <RoleSwitcher
               variant="compact"
               showLabel={false}
-              className={forceBrand ? "rounded-lg border border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white focus-visible:ring-white" : undefined}
+              className="text-slate-700 hover:bg-slate-100 hover:text-slate-950 focus-visible:ring-slate-400 dark:text-slate-700 dark:hover:bg-slate-100 dark:hover:text-slate-950"
             />
             <NotificationBell />
             <ThemeSwitch />

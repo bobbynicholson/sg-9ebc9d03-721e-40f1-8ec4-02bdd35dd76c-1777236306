@@ -7,6 +7,7 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <link rel="icon" type="image/png" sizes="192x192" href="/icons/cateringms-192.png?v=20261109" />
         <link rel="shortcut icon" href="/favicon.ico?v=20261109" />
         <meta name="robots" content="noindex, nofollow" />
