@@ -532,7 +532,7 @@ function WhatsAppPage() {
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">2</span>
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-slate-900 dark:text-white">Set up replies and delivery updates</p>
-                        <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">A webhook carries customer replies and sent, delivered, read, or failed message updates from Meta into CateringMS. {state.webhookVerifiedAt ? "The callback is verified. In Meta, subscribe to the messages field, then use the button below to register this WhatsApp account with the app." : "Copy the callback URL and verify token into Meta, verify and save them, and subscribe to the messages field. Then use the button below to register this WhatsApp account with the app."}</p>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">A webhook carries customer replies and sent, delivered, read, or failed message updates from Meta into CateringMS. Verify the callback and subscribe to the messages field in Meta, then confirm this WhatsApp account in the webhook status panel.</p>
                         <a href="#wa-account-setup" className="mt-2 inline-block text-xs font-medium text-brand-primary underline underline-offset-2">View webhook steps</a>
                       </div>
                     </li>
@@ -564,11 +564,94 @@ function WhatsAppPage() {
                 </CardContent>
               </Card>
 
+              {state.connected && (
+                <Card aria-labelledby="wa-webhook-status-title" className="w-full">
+                  <CardContent className="space-y-4 p-4 sm:p-5">
+                    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <h2 id="wa-webhook-status-title" className="text-base font-semibold text-slate-900 dark:text-slate-100">Webhook connection</h2>
+                        <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">Meta needs a verified callback, the right event fields, and this WhatsApp account registered to your app. These are separate settings.</p>
+                      </div>
+                      <Button
+                        type="button"
+                        className="min-h-11 w-full shrink-0 whitespace-normal sm:w-auto"
+                        disabled={!state.webhookVerifiedAt || !state.canConnect || localWhatsAppHost || busy === "subscribe_webhook_account"}
+                        onClick={() => void subscribeWebhookAccount()}
+                        title={!state.webhookVerifiedAt ? "Verify the webhook callback in Meta first" : localWhatsAppHost ? "Use the live CateringMS site" : undefined}
+                      >
+                        <ShieldCheck className="mr-2 h-4 w-4" aria-hidden="true" />
+                        {busy === "subscribe_webhook_account"
+                          ? "Confirming with Meta..."
+                          : state.webhookAccountSubscribedAt
+                            ? "Confirm account with Meta"
+                            : "Register account with Meta"}
+                      </Button>
+                    </div>
+
+                    <div className="grid min-w-0 gap-x-6 sm:grid-cols-2 xl:grid-cols-3">
+                      <div className="min-w-0 border-t border-slate-200 py-3 dark:border-slate-700">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {state.webhookVerifiedAt
+                            ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
+                            : <ShieldCheck className="h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />}
+                          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Callback URL</h3>
+                          <Badge variant="outline" className={state.webhookVerifiedAt ? "border-emerald-200 text-emerald-700 dark:border-emerald-900 dark:text-emerald-300" : "border-amber-200 text-amber-800 dark:border-amber-900 dark:text-amber-200"}>
+                            {state.webhookVerifiedAt ? "Verified" : "Needs verification"}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 break-words text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                          {state.webhookVerifiedAt
+                            ? `Meta verified this callback on ${new Date(state.webhookVerifiedAt).toLocaleString()}.`
+                            : "Open setup details to copy the callback URL and verify token into Meta."}
+                        </p>
+                      </div>
+
+                      <div className="min-w-0 border-t border-slate-200 py-3 dark:border-slate-700">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <ExternalLink className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
+                          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Meta event fields</h3>
+                          <Badge variant="outline">Check in Meta</Badge>
+                        </div>
+                        <p className="mt-1 break-words text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                          Keep <code>messages</code> subscribed for customer replies. Phone-app messages also need this number onboarded through Meta Coexistence; the manual connection here does not enable it. After eligible Coexistence onboarding, subscribe to <code>smb_message_echoes</code>. Meta manages these fields, so CateringMS cannot read their current switches.
+                        </p>
+                      </div>
+
+                      <div className="min-w-0 border-t border-slate-200 py-3 dark:border-slate-700 sm:col-span-2 xl:col-span-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {state.webhookAccountSubscribedAt
+                            ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
+                            : <RefreshCw className="h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />}
+                          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">WhatsApp account registration</h3>
+                          <Badge variant="outline" className={state.webhookAccountSubscribedAt ? "border-emerald-200 text-emerald-700 dark:border-emerald-900 dark:text-emerald-300" : "border-amber-200 text-amber-800 dark:border-amber-900 dark:text-amber-200"}>
+                            {state.webhookAccountSubscribedAt ? "Confirmed" : "Not confirmed"}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 break-words text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                          {state.webhookAccountSubscribedAt
+                            ? `Meta confirmed this account registration on ${new Date(state.webhookAccountSubscribedAt).toLocaleString()}. Confirm again to refresh it.`
+                            : "The messages field switch in Meta is separate. Use the button above to register this connected account with Meta."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2 border-t border-slate-200 pt-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between dark:border-slate-700">
+                      <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-brand-primary underline underline-offset-2">
+                        Open Meta webhook settings <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                      </a>
+                      <a href="#wa-account-setup" className="inline-flex min-h-11 items-center text-sm font-medium text-slate-700 underline underline-offset-2 dark:text-slate-200">
+                        View callback URL and token
+                      </a>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               <Card className="border-brand-primary/20 bg-brand-primary/[0.03]">
                 <CardContent className="space-y-2 py-4">
                   <p className="text-sm font-semibold text-slate-900 dark:text-white">Also use WhatsApp Business on your phone?</p>
                   <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-                    To show messages sent from the WhatsApp Business app here, Meta must connect this number through Business app and Cloud API coexistence. Subscribe the Meta app to <code>smb_message_echoes</code> for new phone-app messages and <code>history</code> to import chats after the business approves sharing. This inbox now saves and displays those events when Meta sends them; a standard Cloud API connection does not import the phone app’s chats by itself.
+                    Messages sent from the WhatsApp Business app appear here only after Meta Coexistence onboarding. This direct credential setup does not enable Coexistence; Meta requires its Embedded Signup flow and eligible partner setup. After onboarding, subscribe to <code>smb_message_echoes</code> for new phone-app messages and <code>history</code> to import chats if the business approves sharing. This inbox saves and displays those events when Meta sends them.
                   </p>
                   {state.connected && (
                     <div className="space-y-2 border-t border-slate-200 pt-3 dark:border-slate-700">
@@ -650,7 +733,7 @@ function WhatsAppPage() {
                           </p>
                         </div>
                         <Button type="button" variant="outline" size="sm" className="shrink-0 bg-white/80 dark:bg-transparent" onClick={() => void load()}>
-                          <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" /> Refresh status
+                          <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" /> Reload saved status
                         </Button>
                       </div>
 
@@ -699,13 +782,13 @@ function WhatsAppPage() {
 
                         <div className="min-w-0 border-t border-slate-200 pt-5 dark:border-slate-700 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
                           <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Finish setup in Meta</h3>
-                          <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">A webhook is Meta’s secure route for sending WhatsApp events to CateringMS. Finish all three parts: verify the callback, subscribe to the event field, and register this business account.</p>
+                          <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">A webhook is Meta’s secure route for sending WhatsApp events to CateringMS. Verify the callback and subscribe to the event fields in Meta; use the visible status panel above to register this business account.</p>
                           <ol className="mt-4 space-y-4">
                             {[
                               ["Open the webhook settings", "In Meta for Developers, open your app, then WhatsApp → Configuration. Find the webhook section on that screen. If you created the app with the Connect with customers through WhatsApp use case, go to Use cases → Customize → Configuration."],
                               ["Add and verify the callback", "Copy the Callback URL from this page. Use Show or Copy beside Verify token, paste both into Meta’s webhook form, and choose Verify and save. The verify token is not your App secret."],
                               ["Subscribe to the messages field", "In the WhatsApp webhook fields list, find messages and switch its subscription on. This field carries customer replies and delivery/read/failure updates. With Business app coexistence, also subscribe to smb_message_echoes; old chat history needs history and approved sharing."],
-                              ["Register this WhatsApp account", "After the callback is verified and messages is subscribed, use the button below. CateringMS will call Meta with the saved access token; you do not need to paste it again."],
+                              ["Register this WhatsApp account", "After the callback is verified and messages is subscribed, use the register button in the webhook status panel above. CateringMS calls Meta with the saved access token; you do not need to paste it again."],
                               ["Test both directions", "Put the Meta app in Live mode for real customer events, then send a message from another phone and check WhatsApp Replies and Activity."],
                             ].map(([title, description], index) => (
                               <li key={title} className="flex gap-3">
@@ -726,67 +809,8 @@ function WhatsAppPage() {
                             </Button>
                           </div>
                           <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                              <div className="min-w-0 flex-1">
-                                <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Register this WhatsApp account</h4>
-                                <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-                                  Meta has two separate settings: select <code>messages</code> to choose which events the app receives, then subscribe this WhatsApp Business account to the app. Do this once after verifying the callback. CateringMS uses your saved Meta access token privately.
-                                </p>
-                                {state.webhookAccountSubscribedAt ? (
-                                  <p className="mt-2 text-xs font-medium text-emerald-700 dark:text-emerald-300" role="status">
-                                    Account subscription is set. Last confirmed {new Date(state.webhookAccountSubscribedAt).toLocaleString()}.
-                                  </p>
-                                ) : null}
-                              </div>
-                              {state.webhookAccountSubscribedAt ? (
-                                <details className="w-full shrink-0 sm:w-auto">
-                                  <summary className="cursor-pointer rounded-md px-3 py-2 text-sm font-medium text-slate-600 underline-offset-4 hover:underline dark:text-slate-300">
-                                    Need to register again?
-                                  </summary>
-                                  <div className="mt-2 rounded-md border border-slate-200 bg-white p-3 sm:max-w-sm dark:border-slate-700 dark:bg-slate-900">
-                                    <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-                                      This is normally a one-time step. Retry only if Meta removed the account subscription or you changed the connected Meta app or WhatsApp account.
-                                    </p>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      className="mt-3 min-h-10 gap-1.5"
-                                      disabled={!state.webhookVerifiedAt || !state.canConnect || localWhatsAppHost || busy === "subscribe_webhook_account"}
-                                      onClick={() => void subscribeWebhookAccount()}
-                                      title={!state.webhookVerifiedAt ? "Verify the webhook callback in Meta first" : localWhatsAppHost ? "Use the live CateringMS site" : undefined}
-                                    >
-                                      <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                                      {busy === "subscribe_webhook_account" ? "Registering..." : "Subscribe again"}
-                                    </Button>
-                                  </div>
-                                </details>
-                              ) : (
-                                <Button
-                                  type="button"
-                                  className="min-h-11 shrink-0 gap-1.5 whitespace-normal"
-                                  disabled={!state.webhookVerifiedAt || !state.canConnect || localWhatsAppHost || busy === "subscribe_webhook_account"}
-                                  onClick={() => void subscribeWebhookAccount()}
-                                  title={!state.webhookVerifiedAt ? "Verify the webhook callback in Meta first" : localWhatsAppHost ? "Use the live CateringMS site" : undefined}
-                                >
-                                  <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                                  {busy === "subscribe_webhook_account" ? "Registering..." : "Subscribe account"}
-                                </Button>
-                              )}
-                            </div>
-                            <a
-                              href="https://www.postman.com/meta/whatsapp-business-platform/request/26gui66/subscribe-to-a-waba"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="mt-2 inline-flex min-h-11 items-center gap-1 text-xs font-medium text-brand-primary underline underline-offset-2"
-                            >
-                              Meta’s WABA subscription API details <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                            </a>
-                            {!state.webhookVerifiedAt && (
-                              <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">Verify the callback above first. The button will become available after Meta confirms it.</p>
-                            )}
-                            {localWhatsAppHost && (
-                              <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">Open WhatsApp setup on the live CateringMS site to register the production callback.</p>
-                            )}
+                            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Account registration is in the webhook status panel above</p>
+                            <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">Use that panel to check or register this account with Meta. It stays visible when these setup details are collapsed.</p>
                           </div>
                           <p className="mt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">Meta sends real customer events only after the callback, field subscription, WABA subscription, and app mode are configured.</p>
                         </div>
