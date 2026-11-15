@@ -82,6 +82,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       webhookVerifyToken: revealVerifyToken ? verifyToken : null,
       verifyTokenAvailable,
       webhookVerifiedAt: row?.is_active ? row?.settings?.webhookVerifiedAt || null : null,
+      webhookAccountSubscribedAt: row?.is_active &&
+        row.settings?.webhookAccountSubscribedBusinessAccountId === row.credentials?.businessAccountId
+        ? row.settings?.webhookAccountSubscribedAt || null : null,
       businessAppHistorySync: row?.is_active ? {
         status: row.settings?.whatsappBusinessAppHistoryStatus || null,
         requestedAt: row.settings?.whatsappBusinessAppHistoryRequestedAt || null,
@@ -94,6 +97,41 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   const body = (req.body || {}) as any;
+
+  if (body.action === "subscribe_webhook_account") {
+    if (!canStoreWhatsAppToken()) {
+      return res.status(503).json({ error: "WhatsApp's saved access token can't be used on this server. Check the existing credential encryption key." });
+    }
+    const row = await loadRow(sb, companyId);
+    if (!row?.is_active) return res.status(400).json({ error: "Connect WhatsApp before subscribing this account." });
+    const credentials = await loadWhatsAppCredentials(sb, companyId);
+    if (!credentials?.businessAccountId || !/^\d+$/.test(credentials.businessAccountId)) {
+      return res.status(400).json({ error: "Reconnect WhatsApp with its Business account ID before subscribing it." });
+    }
+    const result = await callMeta(credentials, `${encodeURIComponent(credentials.businessAccountId)}/subscribed_apps`, { method: "POST" });
+    if (!result.ok) {
+      const metaMessage = result.json?.error?.error_user_msg || result.json?.error?.message;
+      return res.status(400).json({
+        error: metaMessage
+          ? `Meta couldn't subscribe this WhatsApp account: ${metaMessage}`
+          : "Meta couldn't subscribe this WhatsApp account. Confirm the saved token has whatsapp_business_management permission and the webhook is configured in your Meta app.",
+      });
+    }
+    const subscribedAt = new Date().toISOString();
+    const { error } = await sb.from("integrations").update({
+      settings: {
+        ...(row.settings || {}),
+        webhookAccountSubscribedAt: subscribedAt,
+        webhookAccountSubscribedBusinessAccountId: credentials.businessAccountId,
+      },
+    }).eq("id", row.id).eq("company_id", companyId);
+    if (error) throw error;
+    return res.status(200).json({
+      success: true,
+      subscribedAt,
+      message: "Meta confirmed this WhatsApp Business account is subscribed to the app's webhook events.",
+    });
+  }
 
   if (body.action === "rotate_verify_token") {
     if (!canStoreWhatsAppToken()) return res.status(503).json({ error: "Set a strong ENCRYPTION_KEY before changing the verify token." });
@@ -146,6 +184,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         displayNumber: check.displayNumber || null,
         attention: null,
         webhookVerifiedAt: existing?.settings?.webhookVerifiedAt || null,
+        webhookAccountSubscribedAt: null,
+        webhookAccountSubscribedBusinessAccountId: null,
       },
       is_active: true,
       status: "connected",

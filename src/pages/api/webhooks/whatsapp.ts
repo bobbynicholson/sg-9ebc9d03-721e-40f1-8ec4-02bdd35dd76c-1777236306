@@ -136,10 +136,13 @@ async function saveExternalMessages(sb: any, rows: ExternalMessageRow[]) {
       throw new Error("WhatsApp app history could not be saved");
     }
   }
-  if (!messages.length) return;
+  // Keep reactions in the transcript data, but don't let them become the
+  // conversation's latest-message preview or move it ahead of real messages.
+  const conversationMessages = messages.filter((row) => row.message_type !== "reaction");
+  if (!conversationMessages.length) return;
 
   const latestByPhone = new Map<string, ExternalMessageRow>();
-  for (const row of messages) {
+  for (const row of conversationMessages) {
     const previous = latestByPhone.get(row.contact_phone);
     if (!previous || row.message_at > previous.message_at) latestByPhone.set(row.contact_phone, row);
   }
@@ -334,6 +337,7 @@ async function applyMessage(sb: any, companyId: string, message: any, contacts: 
       ? { related_message_id: message.reaction.message_id } : {}),
     ...(message.type === "reaction" && typeof message.reaction?.emoji === "string"
       ? { reaction_emoji: message.reaction.emoji } : {}),
+    ...(messageType === "reaction" ? { read_at: receivedAt } : {}),
     received_at: receivedAt,
   };
   let { error } = await sb.from("whatsapp_inbound_messages").insert(row);
@@ -345,9 +349,13 @@ async function applyMessage(sb: any, companyId: string, message: any, contacts: 
     if (String(error.code) !== "23505") console.error("[webhooks/whatsapp] reply not saved:", error.message);
     return; // Meta resends webhooks, so a duplicate is expected.
   }
+  // Reactions are transcript activity attached to an existing message, not
+  // new client messages: retain the event for rendering, but don't alert,
+  // change the inbox preview, reset the service window, or mark it unread.
+  if (messageType === "reaction") return;
   // Counted from the messages, so a retried webhook can't inflate it.
   const { count: unread } = await sb.from("whatsapp_inbound_messages").select("id", { count: "exact", head: true })
-    .eq("company_id", companyId).eq("from_phone", phone).is("read_at", null);
+    .eq("company_id", companyId).eq("from_phone", phone).neq("message_type", "reaction").is("read_at", null);
   await sb.from("whatsapp_conversations").upsert({
     company_id: companyId,
     phone,

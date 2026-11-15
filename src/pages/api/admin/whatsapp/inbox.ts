@@ -30,6 +30,14 @@ const REPLY_WINDOW_MS = 24 * 60 * 60 * 1000;
 const EXTERNAL_HISTORY_TABLE_MISSING = new Set(["42P01", "PGRST204", "PGRST205"]);
 const REACTION_COLUMNS_MISSING = new Set(["42703", "PGRST204"]);
 
+function reactionTargetFromBody(body: unknown): string | null {
+  return String(body || "").match(/(?:to|from) message (wamid\.[^\s]+)/i)?.[1] || null;
+}
+
+function reactionEmojiFromBody(body: unknown): string | null {
+  return String(body || "").match(/^Reacted\s+(.+?)\s+to (?:a )?message/i)?.[1] || null;
+}
+
 async function listConversations(sb: any, companyId: string, req: NextApiRequest, res: NextApiResponse) {
   if (req.query.countOnly === "1") {
     const { count } = await sb.from("whatsapp_conversations").select("id", { count: "exact", head: true })
@@ -69,12 +77,12 @@ async function loadThread(sb: any, companyId: string, phone: string, req: NextAp
   const phoneValues = whatsappRecipientPhoneLookupValues(phone);
 
   let received = sb.from("whatsapp_inbound_messages").select("id, wa_message_id, contact_name, body, message_type, received_at, related_message_id, reaction_emoji")
-    .eq("company_id", companyId).in("from_phone", phoneValues).order("received_at", { ascending: false }).order("id", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
+    .eq("company_id", companyId).in("from_phone", phoneValues).neq("message_type", "reaction").order("received_at", { ascending: false }).order("id", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
   let sent = sb.from("whatsapp_messages").select("id, gateway_message_id, enqueued_by, recipient_name, message_content, message_type, template_name, status, failure_reason, created_at")
     .eq("company_id", companyId).in("recipient_phone", phoneValues).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
   let external = sb.from("whatsapp_external_messages")
     .select("id, wa_message_id, direction, contact_name, body, message_type, status, source, message_at, related_message_id, reaction_emoji")
-    .eq("company_id", companyId).in("contact_phone", phoneValues)
+    .eq("company_id", companyId).in("contact_phone", phoneValues).neq("message_type", "reaction")
     .order("message_at", { ascending: false }).order("id", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
   const constrainBefore = (query: any, column: string) => before
     ? before.id
@@ -98,10 +106,10 @@ async function loadThread(sb: any, companyId: string, phone: string, req: NextAp
     sent,
     external,
     sb.from("whatsapp_inbound_messages").select("received_at, contact_name")
-      .eq("company_id", companyId).in("from_phone", phoneValues).order("received_at", { ascending: false }).limit(1),
+      .eq("company_id", companyId).in("from_phone", phoneValues).neq("message_type", "reaction").order("received_at", { ascending: false }).limit(1),
     sb.from("whatsapp_external_messages").select("message_at, contact_name")
       .eq("company_id", companyId).in("contact_phone", phoneValues).eq("direction", "in")
-      .order("message_at", { ascending: false }).limit(1),
+      .neq("message_type", "reaction").order("message_at", { ascending: false }).limit(1),
     sb.from("integrations").select("settings").eq("company_id", companyId).eq("integration_type", "whatsapp").maybeSingle(),
   ]);
   let inbound = inboundResult.data;
@@ -110,7 +118,7 @@ async function loadThread(sb: any, companyId: string, phone: string, req: NextAp
   let externalError = externalResult.error;
   if (inboundError && REACTION_COLUMNS_MISSING.has(String(inboundError.code))) {
     let fallback = sb.from("whatsapp_inbound_messages").select("id, wa_message_id, contact_name, body, message_type, received_at")
-      .eq("company_id", companyId).in("from_phone", phoneValues)
+      .eq("company_id", companyId).in("from_phone", phoneValues).neq("message_type", "reaction")
       .order("received_at", { ascending: false }).order("id", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
     fallback = constrainBefore(fallback, "received_at");
     const result = await fallback;
@@ -120,7 +128,7 @@ async function loadThread(sb: any, companyId: string, phone: string, req: NextAp
   if (externalError && REACTION_COLUMNS_MISSING.has(String(externalError.code))) {
     let fallback = sb.from("whatsapp_external_messages")
       .select("id, wa_message_id, direction, contact_name, body, message_type, status, source, message_at")
-      .eq("company_id", companyId).in("contact_phone", phoneValues)
+      .eq("company_id", companyId).in("contact_phone", phoneValues).neq("message_type", "reaction")
       .order("message_at", { ascending: false }).order("id", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
     fallback = constrainBefore(fallback, "message_at");
     const result = await fallback;
@@ -184,6 +192,80 @@ async function loadThread(sb: any, companyId: string, phone: string, req: NextAp
       reactionEmoji: row.reaction_emoji || null,
     })),
   );
+
+  // Reactions are fetched for the actual messages on this page, so a burst of
+  // emoji reactions cannot consume message slots or push their target bubble
+  // out of the visible history.
+  const targetIds = [...new Set(page.messages.flatMap((message) => [message.dedupeId, message.id].filter((id): id is string => !!id)))];
+  let inboundReactionResult: any = { data: [], error: null };
+  let externalReactionResult: any = { data: [], error: null };
+  if (targetIds.length) {
+    [inboundReactionResult, externalReactionResult] = await Promise.all([
+      sb.from("whatsapp_inbound_messages")
+        .select("id, wa_message_id, contact_name, body, message_type, received_at, related_message_id, reaction_emoji")
+        .eq("company_id", companyId).in("from_phone", phoneValues).eq("message_type", "reaction")
+        .in("related_message_id", targetIds).order("received_at", { ascending: true }),
+      sb.from("whatsapp_external_messages")
+        .select("id, wa_message_id, direction, contact_name, body, message_type, source, message_at, related_message_id, reaction_emoji")
+        .eq("company_id", companyId).in("contact_phone", phoneValues).eq("message_type", "reaction")
+        .in("related_message_id", targetIds).order("message_at", { ascending: true }),
+    ]);
+    if (inboundReactionResult.error && REACTION_COLUMNS_MISSING.has(String(inboundReactionResult.error.code))) {
+      const fallback = await sb.from("whatsapp_inbound_messages")
+        .select("id, wa_message_id, contact_name, body, message_type, received_at")
+        .eq("company_id", companyId).in("from_phone", phoneValues).eq("message_type", "reaction");
+      inboundReactionResult = {
+        ...fallback,
+        data: (fallback.data || []).filter((row: any) => targetIds.includes(reactionTargetFromBody(row.body) || "")),
+      };
+    }
+    if (externalReactionResult.error && REACTION_COLUMNS_MISSING.has(String(externalReactionResult.error.code))) {
+      const fallback = await sb.from("whatsapp_external_messages")
+        .select("id, wa_message_id, direction, contact_name, body, message_type, source, message_at")
+        .eq("company_id", companyId).in("contact_phone", phoneValues).eq("message_type", "reaction");
+      externalReactionResult = {
+        ...fallback,
+        data: (fallback.data || []).filter((row: any) => targetIds.includes(reactionTargetFromBody(row.body) || "")),
+      };
+    }
+    if (externalReactionResult.error && EXTERNAL_HISTORY_TABLE_MISSING.has(String(externalReactionResult.error.code))) {
+      externalReactionResult = { data: [], error: null };
+    }
+  }
+  if (inboundReactionResult.error || externalReactionResult.error) {
+    return res.status(500).json({ error: "Could not load message reactions. Try refreshing this conversation." });
+  }
+  const reactionMessages = [
+    ...(inboundReactionResult.data || []).map((row: any) => ({
+      id: row.id,
+      dedupeId: row.wa_message_id || undefined,
+      direction: "in" as const,
+      senderName: row.contact_name || null,
+      text: row.body || "",
+      kind: "reaction",
+      at: row.received_at,
+      relatedMessageId: row.related_message_id || reactionTargetFromBody(row.body),
+      reactionEmoji: row.reaction_emoji || reactionEmojiFromBody(row.body),
+    })),
+    ...(externalReactionResult.data || []).map((row: any) => ({
+      id: row.id,
+      dedupeId: row.wa_message_id || undefined,
+      direction: row.direction as "in" | "out",
+      senderName: row.direction === "in" ? row.contact_name || null : null,
+      text: row.body || "",
+      kind: "reaction",
+      at: row.message_at,
+      source: row.source,
+      relatedMessageId: row.related_message_id || reactionTargetFromBody(row.body),
+      reactionEmoji: row.reaction_emoji || reactionEmojiFromBody(row.body),
+    })),
+  ];
+  const uniqueMessages = new Map<string, any>();
+  for (const message of [...page.messages, ...reactionMessages]) {
+    const key = message.dedupeId || message.id;
+    if (!uniqueMessages.has(key)) uniqueMessages.set(key, message);
+  }
+  const messages = [...uniqueMessages.values()].sort((left, right) => left.at.localeCompare(right.at) || left.id.localeCompare(right.id));
   const externalContactName = (externalMessages || []).find((row: any) => row.contact_name)?.contact_name;
   const lastReceived = [latest?.[0]?.received_at, latestExternal?.[0]?.message_at]
     .filter((value): value is string => !!value)
@@ -194,6 +276,7 @@ async function loadThread(sb: any, companyId: string, phone: string, req: NextAp
     name: latest?.[0]?.contact_name || latestExternal?.[0]?.contact_name || externalContactName || outbound?.find((row: any) => row.recipient_name)?.recipient_name || null,
     canReply: !!lastReceived && Date.now() - new Date(lastReceived).getTime() < REPLY_WINDOW_MS,
     ...page,
+    messages,
   });
 }
 
@@ -232,7 +315,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (text.length > 4096) return res.status(400).json({ error: "Keep your reply under 4,096 characters." });
 
     const { data: last } = await sb.from("whatsapp_inbound_messages").select("received_at")
-      .eq("company_id", companyId).in("from_phone", whatsappRecipientPhoneLookupValues(phone)).order("received_at", { ascending: false }).limit(1);
+      .eq("company_id", companyId).in("from_phone", whatsappRecipientPhoneLookupValues(phone)).neq("message_type", "reaction").order("received_at", { ascending: false }).limit(1);
     if (!last?.[0] || Date.now() - new Date(last[0].received_at).getTime() >= REPLY_WINDOW_MS) {
       return res.status(400).json({ error: "WhatsApp only allows a reply within 24 hours of the client's last message." });
     }

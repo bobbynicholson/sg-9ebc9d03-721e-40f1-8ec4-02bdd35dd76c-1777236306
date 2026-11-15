@@ -46,7 +46,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       logPage,
       integrationRow,
       sb.rpc("whatsapp_template_report", { p_company_id: companyId, p_since: since }),
-      sb.from("whatsapp_inbound_messages").select("id", { count: "exact", head: true }).eq("company_id", companyId).gte("received_at", since),
+      sb.from("whatsapp_inbound_messages").select("id", { count: "exact", head: true }).eq("company_id", companyId).neq("message_type", "reaction").gte("received_at", since),
       ...Object.values(ACTIVITY_STATUSES).map(statusCount),
     ]);
     if (logResult.error) return res.status(500).json({ error: "Could not load WhatsApp activity." });

@@ -485,7 +485,7 @@ async function loadSendGuards(sb: any, companyId: string, now: Date) {
   const [blockedRows, clientRows, replyRows, sentRows] = await Promise.all([
     allRows(() => sb.from("blocked_contacts").select("phone").eq("company_id", companyId)),
     allRows(() => sb.from("clients").select("phone, mobile_number, whatsapp_opt_in").eq("company_id", companyId).not("whatsapp_opt_in", "is", null)),
-    allRows(() => sb.from("whatsapp_inbound_messages").select("from_phone").eq("company_id", companyId).gte("received_at", replyCutoff)),
+    allRows(() => sb.from("whatsapp_inbound_messages").select("from_phone").eq("company_id", companyId).neq("message_type", "reaction").gte("received_at", replyCutoff)),
     allRows(() => sb.from("whatsapp_messages").select("recipient_phone, dedup_key").eq("company_id", companyId).gte("created_at", weekAgo)),
   ]);
   // Without the block list we can't tell who must not be messaged.

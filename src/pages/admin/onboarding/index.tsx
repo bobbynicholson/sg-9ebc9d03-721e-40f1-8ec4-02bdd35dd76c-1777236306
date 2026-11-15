@@ -36,7 +36,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowRight, ArrowLeft, Bell, Check, Loader2, Building2, MapPin, Palette, Landmark, Receipt, CreditCard, Sparkles, FileSpreadsheet, ShieldCheck, Users, Upload, PlayCircle, MessageCircle } from "lucide-react";
+import { ArrowRight, ArrowLeft, Bell, Check, Loader2, Building2, MapPin, Palette, Landmark, Receipt, CreditCard, Sparkles, FileSpreadsheet, ShieldCheck, Users, Upload, PlayCircle, MessageCircle, ExternalLink } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -888,7 +888,7 @@ function WelcomeStep({
           <div>
             <p className="text-sm font-semibold text-slate-900 dark:text-white">Optional: WhatsApp automation</p>
             <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-              Connect your business number, configure Meta delivery and replies, then choose approved templates. You can set this up now or come back after onboarding.
+              Connect the business number, verify the webhook callback in Meta, subscribe to messages, and register the WhatsApp account. The final onboarding step links to the full checklist; you can also return to WhatsApp setup later.
             </p>
           </div>
         </div>
@@ -2045,24 +2045,35 @@ function DoneStep({
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">Can do later</span>
             </div>
             <p className="mt-1 text-sm leading-relaxed text-slate-600">
-              Send approved templates automatically and manage client replies in CateringMS. You can finish onboarding without enabling WhatsApp.
+              Send approved templates automatically and manage client replies in CateringMS. A webhook is Meta’s secure connection that sends replies and message delivery updates into CateringMS. WhatsApp setup is optional and can be completed later.
             </p>
           </div>
         </div>
-        <ol className="mt-4 grid gap-2 text-xs leading-relaxed text-slate-600 sm:grid-cols-2">
-          <li><strong className="text-slate-800">1. Connect:</strong> enter the WhatsApp Business phone number ID, WABA ID, permanent access token and app secret from Meta.</li>
-          <li><strong className="text-slate-800">2. Receive updates:</strong> verify the callback URL in Meta, subscribe to messages, and subscribe this phone number to webhooks.</li>
-          <li><strong className="text-slate-800">3. Prepare sending:</strong> finish Meta billing, choose a Meta-approved template and set which messages are Automatic.</li>
-          <li><strong className="text-slate-800">4. Confirm delivery:</strong> send a test, then check WhatsApp Activity. Sent means Meta accepted it; Delivered means it reached the phone.</li>
+        <ol className="mt-4 grid gap-3 text-xs leading-relaxed text-slate-600 sm:grid-cols-2">
+          <li><strong className="text-slate-800">1. Connect:</strong> in WhatsApp setup, enter the phone number ID, WhatsApp Business account ID, permanent access token and App secret from Meta.</li>
+          <li><strong className="text-slate-800">2. Register the callback:</strong> on WhatsApp setup, copy the Callback URL and Show or Copy the Verify token. In Meta for Developers, open your app → WhatsApp → Configuration and find the webhook section. Paste both values, then choose Verify and save. For apps created with the Connect with customers through WhatsApp use case, use Use cases → Customize → Configuration. The verify token is not the App secret.</li>
+          <li><strong className="text-slate-800">3. Subscribe to fields:</strong> in Meta’s WhatsApp webhook fields, subscribe to <code>messages</code> for replies and delivery updates. With Business app coexistence, also subscribe to <code>smb_message_echoes</code>; old chat history needs <code>history</code> and approved sharing.</li>
+          <li><strong className="text-slate-800">4. Register the account:</strong> return to WhatsApp setup and click <strong>Subscribe account</strong>. CateringMS uses the saved access token to subscribe this WABA to the app.</li>
+          <li><strong className="text-slate-800">5. Send and confirm:</strong> switch the Meta app to Live for real customer events, complete Meta billing, select an approved template and send a test. Check WhatsApp Activity: Sent means Meta accepted it; Delivered means it reached the phone.</li>
         </ol>
         <p className="mt-3 text-xs leading-relaxed text-slate-500">
           Meta may require a payment method before it delivers messages. The WhatsApp setup page explains each field, shows provider errors, and guides you through recovery.
         </p>
-        <Button asChild variant="outline" size="sm" className="mt-4 gap-1.5">
-          <Link href={`${slug ? `/${slug}` : ""}/admin/whatsapp`}>
-            <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" /> Open WhatsApp setup <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </Link>
-        </Button>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Button asChild variant="outline" size="sm" className="gap-1.5">
+            <Link href={`${slug ? `/${slug}` : ""}/admin/whatsapp`}>
+              <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" /> Open WhatsApp setup <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </Link>
+          </Button>
+          <a
+            href="https://developers.facebook.com/documentation/business-messaging/whatsapp/webhooks/overview"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-brand-primary underline underline-offset-2"
+          >
+            Meta WhatsApp webhook guide <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+          </a>
+        </div>
       </section>
 
       <div className="flex flex-col sm:flex-row gap-2 pt-2">

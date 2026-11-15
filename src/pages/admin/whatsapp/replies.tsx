@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { ArrowLeft, MessageCircle, Phone, RefreshCw, Search, Send } from "lucide-react";
+import { ArrowLeft, MessageCircle, Minus, Phone, RefreshCw, Search, Send } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { WhatsAppTabs } from "@/components/admin/whatsapp/WhatsAppTabs";
@@ -103,11 +103,38 @@ function reactionWasRemoved(message: ThreadMessage): boolean {
   return /^Removed a reaction/i.test(message.text);
 }
 
+function reactionEventLabel(message: ThreadMessage, hasOlderMessages: boolean): string {
+  const participant = message.direction === "in" ? "Client" : "Business";
+  if (reactionWasRemoved(message)) return `${participant} removed a reaction`;
+  if (!reactionTargetId(message)) return `${participant} reacted in this chat`;
+  return `${participant} reacted to ${hasOlderMessages ? "an earlier message" : "a message in this chat"}`;
+}
+
 function conversationPreview(value: string | null): string {
   if (!value) return "No message preview";
+  if (/^Reacted\s+.+\s+to message\b/i.test(value)) return "Reaction on a message";
+  if (/^Removed a reaction\b/i.test(value)) return "Reaction updated";
   const media = value.match(/^\((.+) message\)$/i);
   if (media) return `${messageKindLabel(media[1].toLowerCase())} received`;
   return value;
+}
+
+function summarizeReactions(reactions: ThreadMessage[]) {
+  const byEmoji = new Map<string, ThreadMessage[]>();
+  for (const reaction of reactions) {
+    const emoji = reactionEmoji(reaction);
+    if (emoji) byEmoji.set(emoji, [...(byEmoji.get(emoji) || []), reaction]);
+  }
+  return [...byEmoji.entries()].map(([emoji, items]) => {
+    const participants = items.map((item) => item.direction === "in" ? "Client" : "Business");
+    const count = items.length;
+    return {
+      emoji,
+      count,
+      title: items.map((item) => `${item.direction === "in" ? "Client" : "Business"} - ${shortTime(item.at)}`).join("; "),
+      label: `${count} ${emoji} reaction${count === 1 ? "" : "s"} from ${participants.join(" and ")}`,
+    };
+  });
 }
 
 function RepliesPage() {
@@ -354,15 +381,24 @@ function RepliesPage() {
       messageByWhatsappId.set(message.id, message.id);
       if (message.dedupeId) messageByWhatsappId.set(message.dedupeId, message.id);
     }
-    const byMessage = new Map<string, ThreadMessage[]>();
+    const latestByMessage = new Map<string, Map<ThreadMessage["direction"], ThreadMessage>>();
     const attachedIds = new Set<string>();
     for (const reaction of messages) {
       const targetMessageId = reactionTargetId(reaction);
       if (reaction.kind !== "reaction" || !targetMessageId) continue;
       const targetId = messageByWhatsappId.get(targetMessageId);
       if (!targetId) continue;
-      byMessage.set(targetId, [...(byMessage.get(targetId) || []), reaction]);
+      const byDirection = latestByMessage.get(targetId) || new Map<ThreadMessage["direction"], ThreadMessage>();
+      // The latest reaction from each side is the current state. An empty
+      // emoji is Meta's removal event and replaces that side's prior emoji.
+      byDirection.set(reaction.direction, reaction);
+      latestByMessage.set(targetId, byDirection);
       attachedIds.add(reaction.id);
+    }
+    const byMessage = new Map<string, ThreadMessage[]>();
+    for (const [targetId, byDirection] of latestByMessage) {
+      const active = [...byDirection.values()].filter((reaction) => !reactionWasRemoved(reaction) && !!reactionEmoji(reaction));
+      if (active.length) byMessage.set(targetId, active);
     }
     return { byMessage, attachedIds };
   }, [thread?.messages]);
@@ -452,7 +488,7 @@ function RepliesPage() {
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-medium text-slate-900 dark:text-white">{item.contact_name || item.phone}</span>
                           <span className="block truncate text-xs text-slate-500">{conversationPreview(item.last_preview)}</span>
-                          <span className="block text-[10px] text-slate-400">{shortTime(item.last_message_at)}</span>
+                          <span className="block text-xs text-slate-400">{shortTime(item.last_message_at)}</span>
                         </span>
                         {item.unread_count > 0 && <Badge className="bg-brand-primary text-white hover:bg-brand-primary">{item.unread_count}</Badge>}
                       </button>
@@ -540,83 +576,96 @@ function RepliesPage() {
                           </div>
                         )}
                         {thread?.messages.length === 0 && <p className="py-8 text-center text-sm text-slate-500">No WhatsApp messages with this number yet.</p>}
-                        {thread?.messages.filter((message) => !reactionGroups.attachedIds.has(message.id)).map((message) => (
-                          <div key={message.id} className="space-y-1.5">
-                            <div className={cn("flex w-full", message.direction === "out" ? "justify-end" : "justify-start")}>
-                              <div className={cn(
-                                "w-fit min-w-0 max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm md:max-w-[78%]",
-                                message.direction === "out"
-                                  ? "rounded-tr-md bg-brand-primary text-white"
-                                  : "rounded-tl-md border border-slate-200 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
-                              )}>
-                                <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide">
-                                  <span
-                                    title={message.senderName || (message.direction === "out" ? "Business" : thread?.name || "Client")}
-                                    className="inline-flex max-w-[min(18rem,65vw)] truncate rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10"
-                                  >
-                                    {message.senderName || (message.direction === "out" ? "Business" : thread?.name || "Client")}
+                        {thread?.messages.filter((message) => !reactionGroups.attachedIds.has(message.id)).map((message) => {
+                          const messageReactions = summarizeReactions(reactionGroups.byMessage.get(message.id) || []);
+                          return (
+                            <div key={message.id} className="space-y-1.5">
+                              {message.kind === "reaction" ? (
+                                <div className="flex justify-center px-2 py-0.5">
+                                  <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-1.5 text-xs text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900/90 dark:text-slate-300">
+                                    {reactionEmoji(message) ? (
+                                      <span className="text-base leading-none" aria-hidden="true">{reactionEmoji(message)}</span>
+                                    ) : reactionWasRemoved(message) ? (
+                                      <Minus className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                    ) : (
+                                      <MessageCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                    )}
+                                    <span className="truncate">{reactionEventLabel(message, !!thread?.hasOlder)}</span>
+                                    <time className="shrink-0 text-xs text-slate-400">{shortTime(message.at)}</time>
                                   </span>
-                                  {message.source === "whatsapp_business_app" && <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">WhatsApp app</span>}
-                                  {message.source === "synced_history" && <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">Synced history</span>}
-                                  {message.kind !== "text" && <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">{message.kind === "template" ? "Template" : messageKindLabel(message.kind)}</span>}
                                 </div>
-                                {message.direction === "out" && message.kind === "template" ? (
-                                  <div>
-                                    <p className="font-medium">{message.templateLabel || messageKindLabel(message.templateName || "template")}</p>
-                                    <p className="mt-1 text-xs leading-relaxed opacity-80">The approved message content is managed in Meta and is not stored in this history.</p>
-                                  </div>
-                                ) : message.kind === "reaction" ? (
-                                  <div className="flex items-start gap-2">
-                                    <span className="text-2xl leading-none" aria-hidden="true">{reactionEmoji(message) || (reactionWasRemoved(message) ? "−" : "💬")}</span>
-                                    <div>
-                                      <p className="font-medium">{reactionEmoji(message) ? `Reacted ${reactionEmoji(message)}` : reactionWasRemoved(message) ? "Reaction removed" : "Reaction received"}</p>
-                                      <p className="mt-1 text-xs leading-relaxed opacity-80">
-                                        {reactionTargetId(message)
-                                          ? thread?.hasOlder ? "Load older messages to see which message this reaction refers to." : "The original message is not included in the loaded history."
-                                          : reactionWasRemoved(message)
-                                            ? "WhatsApp did not include a reference to the original message."
-                                            : "Emoji and original message details were not saved with this older event."}
-                                      </p>
+                              ) : (
+                                <>
+                                  <div className={cn("flex w-full", message.direction === "out" ? "justify-end" : "justify-start")}>
+                                    <div className={cn(
+                                      "w-fit min-w-0 max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm md:max-w-[78%]",
+                                      message.direction === "out"
+                                        ? "rounded-tr-md bg-brand-primary text-white"
+                                        : "rounded-tl-md border border-slate-200 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
+                                    )}>
+                                      <div className="mb-1 flex flex-wrap items-center gap-1.5 text-xs font-semibold uppercase tracking-wide">
+                                        <span
+                                          title={message.senderName || (message.direction === "out" ? "Business" : thread?.name || "Client")}
+                                          className="inline-flex max-w-[min(18rem,65vw)] truncate rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10"
+                                        >
+                                          {message.senderName || (message.direction === "out" ? "Business" : thread?.name || "Client")}
+                                        </span>
+                                        {message.source === "whatsapp_business_app" && <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">WhatsApp app</span>}
+                                        {message.source === "synced_history" && <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">Synced history</span>}
+                                        {message.kind !== "text" && <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">{message.kind === "template" ? "Template" : messageKindLabel(message.kind)}</span>}
+                                      </div>
+                                      {message.direction === "out" && message.kind === "template" ? (
+                                        <div>
+                                          <p className="font-medium">{message.templateLabel || messageKindLabel(message.templateName || "template")}</p>
+                                          <p className="mt-1 text-xs leading-relaxed opacity-80">The approved message content is managed in Meta and is not stored in this history.</p>
+                                        </div>
+                                      ) : message.text.trim() ? (
+                                        <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.text}</p>
+                                      ) : (
+                                        <div>
+                                          <p>{mediaFallback(message.kind, message.direction)}</p>
+                                          {message.direction === "in" && <p className="mt-1 text-xs opacity-75">{message.kind === "text" ? "The message text is not available in this conversation history." : "This inbox stores the message type, but not its media preview."}</p>}
+                                        </div>
+                                      )}
+                                      <div className="flex items-center justify-end gap-1.5 pt-1 text-xs opacity-80">
+                                        <span>{shortTime(message.at)}</span>
+                                        {message.status && <span aria-label={`Delivery status: ${statusLabel(message.status)}`}>· {statusLabel(message.status)}</span>}
+                                      </div>
                                     </div>
                                   </div>
-                                ) : message.text.trim() ? (
-                                  <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.text}</p>
-                                ) : (
-                                  <div>
-                                    <p>{mediaFallback(message.kind, message.direction)}</p>
-                                    {message.direction === "in" && <p className="mt-1 text-xs opacity-75">{message.kind === "text" ? "The message text is not available in this conversation history." : "This inbox stores the message type, but not its media preview."}</p>}
-                                  </div>
-                                )}
-                                {reactionGroups.byMessage.get(message.id)?.length ? (
-                                  <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Reactions to this message">
-                                    {reactionGroups.byMessage.get(message.id)!.map((reaction) => (
-                                      <span
-                                        key={reaction.id}
-                                        title={`${reaction.direction === "in" ? "Client" : "You"} reacted at ${shortTime(reaction.at)}`}
-                                        aria-label={`${reaction.direction === "in" ? "Client" : "You"} reacted ${reactionEmoji(reaction) || "removed a reaction"} at ${shortTime(reaction.at)}`}
-                                        className="inline-flex min-h-7 items-center gap-1 rounded-full border border-slate-300/70 bg-white/70 px-2 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900/50 dark:text-slate-100"
-                                      >
-                                        <span className="text-base leading-none">{reactionEmoji(reaction) || "−"}</span>
-                                        <span className="text-[9px] opacity-75">{shortTime(reaction.at)}</span>
-                                      </span>
-                                    ))}
-                                  </div>
-                                ) : null}
-                                <div className="flex items-center justify-end gap-1.5 pt-1 text-[10px] opacity-80">
-                                  <span>{shortTime(message.at)}</span>
-                                  {message.status && <span aria-label={`Delivery status: ${statusLabel(message.status)}`}>· {statusLabel(message.status)}</span>}
-                                </div>
-                              </div>
+                                  {messageReactions.length > 0 && (
+                                    <div
+                                      className={cn(
+                                        "relative z-10 -mt-1 flex w-fit max-w-[85%] items-center gap-1 rounded-full border border-slate-200 bg-white px-1.5 py-1 shadow-sm dark:border-slate-700 dark:bg-slate-900",
+                                        message.direction === "out" ? "ml-auto mr-3" : "ml-3",
+                                      )}
+                                      aria-label="Reactions to this message"
+                                    >
+                                      {messageReactions.map((reaction) => (
+                                        <span
+                                          key={reaction.emoji}
+                                          title={reaction.title}
+                                          aria-label={reaction.label}
+                                          className="inline-flex min-h-6 items-center gap-0.5 rounded-full px-1 text-xs text-slate-700 dark:text-slate-100"
+                                        >
+                                          <span className="text-base leading-none">{reaction.emoji}</span>
+                                          {reaction.count > 1 && <span className="text-xs font-medium tabular-nums">{reaction.count}</span>}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                              {message.failureReason && (message.status === "failed" || message.status === "pending" || message.status === "sending") && (
+                                <WhatsAppFailureNotice
+                                  reason={message.failureReason}
+                                  state={message.status === "failed" ? "failed" : "retrying"}
+                                  className="ml-auto max-w-[85%]"
+                                />
+                              )}
                             </div>
-                            {message.failureReason && (message.status === "failed" || message.status === "pending" || message.status === "sending") && (
-                              <WhatsAppFailureNotice
-                                reason={message.failureReason}
-                                state={message.status === "failed" ? "failed" : "retrying"}
-                                className="ml-auto max-w-[85%]"
-                              />
-                            )}
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
 
                       {thread && threadError && (
