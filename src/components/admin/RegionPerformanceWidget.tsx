@@ -146,8 +146,8 @@ export function RegionPerformanceWidget({ companyId }: { companyId: string | nul
   return (
     <Card className="mb-6 border-slate-200 bg-slate-50/30">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
             <CardTitle className="flex items-center gap-2 text-base">
               <MapPin className="w-4 h-4 text-slate-600" />
               Branches, last 30 days
@@ -156,7 +156,7 @@ export function RegionPerformanceWidget({ companyId }: { companyId: string | nul
               Booked-and-onwards revenue + order count per region. Sorted by revenue.
             </CardDescription>
           </div>
-          <Link href={withSlug("/admin/regions")}>
+          <Link href={withSlug("/admin/regions")} className="shrink-0 self-start">
             <Button variant="ghost" size="sm" className="text-slate-700">
               Manage regions <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -172,9 +172,9 @@ export function RegionPerformanceWidget({ companyId }: { companyId: string | nul
               const share = Math.max(6, Math.round((e.revenue / topRevenue) * 100));
               return (
                 <li key={e.id}>
-                  <div className="flex items-baseline justify-between gap-2 mb-1">
-                    <span className="text-sm font-medium text-slate-900 truncate">{e.label}</span>
-                    <span className="text-xs text-slate-700 tabular-nums shrink-0">
+                  <div className="mb-1 flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
+                    <span className="min-w-0 flex-1 basis-28 break-words text-sm font-medium text-slate-900">{e.label}</span>
+                    <span className="max-w-full text-right text-xs text-slate-700 tabular-nums">
                       <span className="font-semibold">{tenantCurrency.format(e.revenue, 0)}</span>
                       <span className="ml-2 text-slate-500">{e.count} order{e.count === 1 ? "" : "s"}</span>
                     </span>

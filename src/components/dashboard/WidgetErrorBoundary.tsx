@@ -109,7 +109,7 @@ class WidgetErrorBoundaryInner extends React.Component<Props & { setAsyncError: 
       return (
         <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 flex flex-wrap items-center gap-2">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-          <span>
+          <span className="min-w-0 break-words">
             {this.props.label || "A widget"} couldn't load.
             {message ? ` (${message})` : null}
           </span>

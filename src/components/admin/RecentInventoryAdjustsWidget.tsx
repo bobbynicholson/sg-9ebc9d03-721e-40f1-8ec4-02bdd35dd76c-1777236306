@@ -89,8 +89,8 @@ export function RecentInventoryAdjustsWidget({ companyId }: { companyId: string 
   return (
     <Card className="mb-6 border-slate-200 bg-slate-50/30">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
             <CardTitle className="flex items-center gap-2 text-base">
               <Package className="w-4 h-4 text-slate-600" />
               Recent stock movements
@@ -99,7 +99,7 @@ export function RecentInventoryAdjustsWidget({ companyId }: { companyId: string 
               inventory_transactions in the last 7 days. Newest first.
             </CardDescription>
           </div>
-          <Link href={withSlug("/team-portal/shopping/inventory")}>
+          <Link href={withSlug("/team-portal/shopping/inventory")} className="shrink-0 self-start">
             <Button variant="ghost" size="sm" className="text-slate-700">
               Inventory <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -133,14 +133,14 @@ export function RecentInventoryAdjustsWidget({ companyId }: { companyId: string 
                       <Icon className="w-3.5 h-3.5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">
+                      <p className="break-words text-sm font-medium text-slate-900">
                         {r.inventory_items?.item_name || "Unknown item"}
                       </p>
-                      <div className="flex items-center gap-2 text-[11px] text-slate-500 tabular-nums">
-                        <Badge variant="outline" className="text-[10px] capitalize">
+                      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500 tabular-nums">
+                        <Badge variant="outline" className="max-w-full whitespace-normal break-words text-[10px] capitalize">
                           {(r.transaction_type || "movement").replace(/_/g, " ")}
                         </Badge>
-                        <span className={`font-semibold ${positive ? "text-brand-primary" : "text-rose-700"}`}>
+                        <span className={`max-w-full break-words font-semibold ${positive ? "text-brand-primary" : "text-rose-700"}`}>
                           {positive ? "+" : ""}{qty} {r.inventory_items?.unit_of_measure || ""}
                         </span>
                         <span className="text-slate-400">{fmtRelative(r.created_at)}</span>

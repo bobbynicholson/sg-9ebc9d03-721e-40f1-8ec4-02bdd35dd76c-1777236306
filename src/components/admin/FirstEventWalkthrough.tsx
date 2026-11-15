@@ -155,26 +155,28 @@ export function FirstEventWalkthrough({ companyId, slug }: Props) {
   };
 
   return (
-    <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-brand-primary/10 via-brand-secondary/10 to-blue-50">
-      <CardHeader className="pb-3 flex flex-row items-start justify-between gap-3">
-        <div>
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
-            Land your first event
-          </CardTitle>
-          <p className="text-xs sm:text-sm text-slate-600 mt-1">
-            You're set up. Here's the three-step path from a blank dashboard to a paying client.
-          </p>
+    <Card className="mb-6 min-w-0 max-w-full border-0 bg-gradient-to-br from-brand-primary/10 via-brand-secondary/10 to-blue-50 shadow-lg">
+      <CardHeader className="pb-3">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_2rem] items-start gap-x-2 gap-y-1">
+          <div className="min-w-0">
+            <CardTitle className="flex min-w-0 flex-wrap items-center gap-2 text-base sm:text-lg">
+              <Sparkles className="h-4 w-4 shrink-0 text-brand-primary sm:h-5 sm:w-5" />
+              Land your first event
+            </CardTitle>
+            <p className="mt-1 break-words text-xs text-slate-600 sm:text-sm">
+              You're set up. Here's the three-step path from a blank dashboard to a paying client.
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 text-slate-500 hover:text-slate-900"
+            aria-label="Dismiss walkthrough"
+            onClick={handleDismiss}
+          >
+            <X className="w-4 h-4" />
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 -mr-1 -mt-1 text-slate-500 hover:text-slate-900"
-          aria-label="Dismiss walkthrough"
-          onClick={handleDismiss}
-        >
-          <X className="w-4 h-4" />
-        </Button>
       </CardHeader>
       <CardContent>
         <div className="space-y-2 sm:space-y-3">
@@ -182,7 +184,7 @@ export function FirstEventWalkthrough({ companyId, slug }: Props) {
             <Link
               key={step.id}
               href={step.href}
-              className={`flex items-center gap-3 p-3 rounded-lg border transition-all group ${
+              className={`grid min-w-0 grid-cols-[2rem_minmax(0,1fr)_1rem] items-start gap-x-3 gap-y-1 rounded-lg border p-3 transition-all group ${
                 step.done
                   ? "bg-brand-primary/10 border-brand-primary/20"
                   : "bg-white border-slate-200 hover:border-brand-primary/30 hover:shadow-sm"
@@ -197,18 +199,18 @@ export function FirstEventWalkthrough({ companyId, slug }: Props) {
               >
                 {step.done ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium truncate ${step.done ? "text-brand-primary line-through decoration-brand-primary/40" : "text-slate-900"}`}>
+              <div className="min-w-0">
+                <p className={`break-words text-sm font-medium ${step.done ? "text-brand-primary line-through decoration-brand-primary/40" : "text-slate-900"}`}>
                   {step.label}
                 </p>
-                <p className="text-xs text-slate-500 truncate">{step.description}</p>
+                <p className="break-words text-xs leading-5 text-slate-500">{step.description}</p>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-brand-primary flex-shrink-0" />
+              <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-slate-400 group-hover:text-brand-primary" />
             </Link>
           ))}
         </div>
-        <div className="flex items-center justify-between mt-3 text-xs">
-          <span className="text-slate-500 flex items-center gap-1">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="flex min-w-0 flex-wrap items-center gap-1 text-slate-500">
             {doneCount > 0 ? (
               <><CheckCircle2 className="w-3 h-3 text-brand-primary" /> {doneCount} of 3 done</>
             ) : (
@@ -217,7 +219,7 @@ export function FirstEventWalkthrough({ companyId, slug }: Props) {
           </span>
           <button
             onClick={handleDismiss}
-            className="text-slate-500 hover:text-slate-800 underline"
+            className="shrink-0 text-slate-500 underline hover:text-slate-800"
           >
             Hide this guide
           </button>

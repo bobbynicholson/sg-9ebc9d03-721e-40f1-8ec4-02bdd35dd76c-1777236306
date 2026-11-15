@@ -131,7 +131,7 @@ export function DashboardTodoList({ companyId, slug }: Props) {
 
   if (complete && celebrationVisible) {
     return (
-      <Card className="relative mb-6 overflow-hidden border-0 bg-gradient-to-br from-brand-primary via-brand-secondary to-brand-accent text-white shadow-lg">
+      <Card className="relative mb-6 min-w-0 max-w-full overflow-hidden border-0 bg-gradient-to-br from-brand-primary via-brand-secondary to-brand-accent text-white shadow-lg">
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-30">
           <span className="absolute left-[8%] top-5 text-2xl">✦</span>
           <span className="absolute left-[28%] top-14 text-xl">•</span>
@@ -139,12 +139,12 @@ export function DashboardTodoList({ companyId, slug }: Props) {
           <span className="absolute right-[8%] bottom-8 text-xl">•</span>
           <span className="absolute left-[55%] bottom-5 text-2xl">✦</span>
         </div>
-        <CardContent className="relative flex flex-col items-center gap-3 px-6 py-8 text-center sm:py-10">
+        <CardContent className="relative flex min-w-0 flex-col items-center gap-3 px-4 py-8 text-center sm:px-6 sm:py-10">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 ring-4 ring-white/10">
             <PartyPopper className="h-7 w-7" />
           </div>
-          <h2 className="text-xl font-bold sm:text-2xl">Congratulations — you’re ready to go!</h2>
-          <p className="max-w-xl text-sm leading-6 text-white/90">
+          <h2 className="min-w-0 break-words text-xl font-bold sm:text-2xl">Congratulations — you’re ready to go!</h2>
+          <p className="max-w-xl break-words text-sm leading-6 text-white/90">
             You’ve completed the essential setup. Your team, brand, communications, clients, menu, and payments are ready for everyday work.
           </p>
           <div className="mt-1 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold">
@@ -157,31 +157,31 @@ export function DashboardTodoList({ companyId, slug }: Props) {
 
   return (
     // Once every task is ticked the list folds to its title row.
-    <Card collapsible defaultOpen={!complete} collapseLabel="Dashboard to-do list" className="mb-6 border-brand-primary/20 bg-gradient-to-br from-brand-primary/10 via-white to-brand-secondary/10 shadow-sm">
+    <Card collapsible defaultOpen={!complete} collapseLabel="Dashboard to-do list" className="mb-6 min-w-0 max-w-full border-brand-primary/20 bg-gradient-to-br from-brand-primary/10 via-white to-brand-secondary/10 shadow-sm">
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <CheckCircle2 className="h-5 w-5 text-brand-primary" />
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="flex min-w-0 flex-wrap items-center gap-2 text-base sm:text-lg">
+              <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-primary" />
               Your dashboard to-do list
             </CardTitle>
-            <p className="mt-1 text-xs leading-5 text-slate-600 sm:text-sm">
+            <p className="mt-1 break-words text-xs leading-5 text-slate-600 sm:text-sm">
               A few simple things will help you get the most from CateringMS. Open each task, finish it, then tick it off here.
             </p>
           </div>
-          <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+          <span className="max-w-full shrink-0 self-start rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 shadow-sm">
             {completedCount}/{todos.length} done
           </span>
         </div>
       </CardHeader>
-      <CardContent className="grid gap-2 sm:grid-cols-2">
+      <CardContent className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
         {todos.map((todo) => {
           const Icon = todo.icon;
           const isChecked = Boolean(checked[todo.id]);
           return (
             <div
               key={todo.id}
-              className={`flex items-start gap-3 rounded-lg border bg-white p-3 transition-colors ${
+              className={`flex min-w-0 items-start gap-3 rounded-lg border bg-white p-3 transition-colors ${
                 isChecked ? "border-emerald-200 bg-emerald-50/60" : "border-slate-200 hover:border-brand-primary/40"
               }`}
             >
@@ -195,9 +195,9 @@ export function DashboardTodoList({ companyId, slug }: Props) {
               />
               <div className="min-w-0 flex-1">
                 <Link href={todo.href} className="group block" aria-label={`Open task: ${todo.title}`}>
-                  <p className={`flex items-center gap-1.5 text-sm font-semibold ${isChecked ? "text-emerald-800 line-through" : "text-slate-900"}`}>
+                  <p className={`flex min-w-0 items-start gap-1.5 text-sm font-semibold ${isChecked ? "text-emerald-800 line-through" : "text-slate-900"}`}>
                     <Icon className="h-4 w-4 shrink-0 text-brand-primary" />
-                    <span className="truncate">{todo.title}</span>
+                    <span className="min-w-0 flex-1 break-words">{todo.title}</span>
                     <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5" />
                   </p>
                   <p className="mt-1 text-xs leading-5 text-slate-500">{todo.description}</p>

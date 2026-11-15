@@ -111,8 +111,8 @@ export function RecentActivityWidget({ companyId }: { companyId: string | null }
   return (
     <Card className="mb-6 border-slate-200">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
             <CardTitle className="flex items-center gap-2 text-base">
               <ScrollText className="w-4 h-4 text-slate-600" />
               Recent activity
@@ -121,7 +121,7 @@ export function RecentActivityWidget({ companyId }: { companyId: string | null }
               Last 8 audit_logs entries across the tenant. Newest first.
             </CardDescription>
           </div>
-          <Link href={withSlug("/admin/audit-logs")}>
+          <Link href={withSlug("/admin/audit-logs")} className="shrink-0 self-start">
             <Button variant="ghost" size="sm" className="text-slate-700">
               All audit logs <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -141,11 +141,11 @@ export function RecentActivityWidget({ companyId }: { companyId: string | null }
               const action = r.action.replace(/_/g, " ");
               return (
                 <li key={r.id} className="py-2 flex items-center gap-3">
-                  <Badge variant="outline" className="shrink-0 text-[10px] capitalize">
+                  <Badge variant="outline" className="max-w-28 shrink-0 whitespace-normal break-words text-[10px] capitalize">
                     {r.entity_type.replace(/_/g, " ")}
                   </Badge>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-900 truncate">
+                    <p className="break-words text-sm leading-5 text-slate-900">
                       <span className="font-medium">{actor}</span>{" "}
                       <span className="text-slate-600">{action}</span>
                       {href && (

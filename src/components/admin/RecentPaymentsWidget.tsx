@@ -97,8 +97,8 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
   return (
     <Card className="mb-6 border-brand-primary/20 bg-brand-primary/5">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
             <CardTitle className="flex items-center gap-2 text-base">
               <Wallet className="w-4 h-4 text-brand-primary" />
               Recent payments, last 7 days
@@ -107,7 +107,7 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
               Completed payments (deposits + balances) excluding refunds. Newest first.
             </CardDescription>
           </div>
-          <Link href={withSlug("/admin/invoices")}>
+          <Link href={withSlug("/admin/invoices")} className="shrink-0 self-start">
             <Button variant="ghost" size="sm" className="text-brand-primary">
               All invoices <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -127,21 +127,21 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
                 // when the payment isn't tied to an order.
                 const Row = (
                   <>
-                    <Badge variant="outline" className="shrink-0 text-[10px] capitalize">
+                    <Badge variant="outline" className="max-w-full whitespace-normal break-words text-[10px] capitalize sm:shrink-0">
                       {r.payment_type || "payment"}
                     </Badge>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">
+                    <div className="row-start-2 min-w-0 sm:row-auto sm:flex-1">
+                      <p className="break-words text-sm font-medium text-slate-900">
                         {r.order?.client_name || "Unknown client"}
                         {r.order?.order_number && (
                           <span className="ml-2 text-[11px] font-normal text-slate-500 tabular-nums">{r.order.order_number}</span>
                         )}
                       </p>
-                      <p className="text-[11px] text-slate-500 tabular-nums capitalize">
+                      <p className="min-w-0 break-words text-[11px] text-slate-500 tabular-nums capitalize">
                         {r.payment_method || "method tbc"} · {fmtRelative(r.created_at)}
                       </p>
                     </div>
-                    <span className="shrink-0 text-sm font-bold tabular-nums text-brand-primary">
+                    <span className="col-start-2 row-start-1 row-span-2 max-w-full text-right text-sm font-bold tabular-nums text-brand-primary sm:row-auto sm:shrink-0 sm:whitespace-nowrap">
                       {tenantCurrency.format(Number(r.amount || 0), 0)}
                     </span>
                   </>
@@ -151,20 +151,20 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
                     {r.order_id ? (
                       <Link
                         href={withSlug(staffOrderHref(r.order_id, "admin"))}
-                        className="py-2 flex items-center gap-3 hover:bg-brand-primary/10 rounded transition"
+                        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-2 hover:bg-brand-primary/10 rounded transition sm:flex sm:gap-3"
                       >
                         {Row}
                       </Link>
                     ) : (
-                      <div className="py-2 flex items-center gap-3">{Row}</div>
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-2 sm:flex sm:gap-3">{Row}</div>
                     )}
                   </li>
                 );
               })}
             </ul>
-            <div className="mt-3 pt-2 border-t border-brand-primary/15 text-[11px] text-slate-500 flex items-center justify-between">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-brand-primary/15 pt-2 text-[11px] text-slate-500">
               <span>{rows.length} payment{rows.length === 1 ? "" : "s"}</span>
-              <span className="tabular-nums font-medium text-slate-700">
+              <span className="min-w-0 break-words text-right tabular-nums font-medium text-slate-700">
                 {tenantCurrency.format(total, 0)} total
               </span>
             </div>

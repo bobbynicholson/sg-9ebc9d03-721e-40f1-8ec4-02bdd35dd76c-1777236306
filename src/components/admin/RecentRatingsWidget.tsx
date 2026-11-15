@@ -115,13 +115,13 @@ export function RecentRatingsWidget({ companyId }: { companyId: string | null })
   return (
     <Card className="mb-6 border-yellow-200 bg-yellow-50/30">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-base">
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="flex min-w-0 flex-wrap items-center gap-2 text-base">
               <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
               Recent event ratings
               {avg != null && (
-                <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-yellow-100 border border-yellow-300 text-yellow-800 text-xs px-2 py-0.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 border border-yellow-300 text-yellow-800 text-xs px-2 py-0.5">
                   <span className="font-semibold">{avg.toFixed(1)}</span>
                   <span className="opacity-70">avg / 5</span>
                 </span>
@@ -159,7 +159,7 @@ export function RecentRatingsWidget({ companyId }: { companyId: string | null })
                     ))}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">
+                    <p className="break-words text-sm font-medium text-slate-900">
                       {r.order_number || "Order"}
                       {r.author_name && (
                         <span className="ml-2 text-[11px] font-normal text-slate-500">

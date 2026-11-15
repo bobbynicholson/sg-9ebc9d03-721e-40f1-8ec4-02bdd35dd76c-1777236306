@@ -100,10 +100,10 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
   return (
     <Card className="mb-6 border-slate-200 bg-slate-50/30">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <XCircle className="w-4 h-4 text-slate-500" />
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="flex min-w-0 flex-wrap items-center gap-2 text-base">
+              <XCircle className="w-4 h-4 shrink-0 text-slate-500" />
               Cancellations (last 30 days)
               {totalLost > 0 && (
                 <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-300 text-slate-700 text-xs px-2 py-0.5">
@@ -116,7 +116,7 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
               Orders cancelled in the last 30 days, newest first. Watch for repeat reasons.
             </CardDescription>
           </div>
-          <Link href={withSlug("/admin/orders")}>
+          <Link href={withSlug("/admin/orders")} className="shrink-0 self-start">
             <Button variant="ghost" size="sm" className="text-slate-700">
               All orders <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -135,13 +135,13 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
               <li key={r.id}>
                 <Link
                   href={withSlug(staffOrderHref(r.id, "admin"))}
-                  className="py-2 flex items-center gap-3 hover:bg-slate-100/60 rounded transition"
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-2 hover:bg-slate-100/60 rounded transition sm:flex sm:gap-3"
                 >
-                  <Badge className="shrink-0 text-[10px] uppercase tracking-wide font-semibold bg-slate-100 text-slate-700 border-slate-200">
+                  <Badge className="row-start-1 max-w-full whitespace-normal break-words text-[10px] uppercase tracking-wide font-semibold bg-slate-100 text-slate-700 border-slate-200 sm:shrink-0">
                     {fmtAge(r.cancelled_at)}
                   </Badge>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">
+                  <div className="row-start-2 min-w-0 sm:row-auto sm:flex-1">
+                    <p className="break-words text-sm font-medium text-slate-900">
                       {r.client_name || "Unknown client"}
                       {r.order_number && (
                         <span className="ml-2 text-[11px] font-normal text-slate-500 tabular-nums">
@@ -149,11 +149,11 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
                         </span>
                       )}
                     </p>
-                    <p className="text-[11px] text-slate-500 truncate">
+                    <p className="break-words text-[11px] text-slate-500">
                       {r.cancellation_reason || "No reason recorded"}
                     </p>
                   </div>
-                  <span className="shrink-0 text-sm font-bold tabular-nums text-slate-700">
+                  <span className="col-start-2 row-start-1 row-span-2 max-w-full text-right text-sm font-bold tabular-nums text-slate-700 sm:row-auto sm:shrink-0 sm:whitespace-nowrap">
                     {tenantCurrency.format(Number(r.total_amount || 0), 0)}
                   </span>
                 </Link>

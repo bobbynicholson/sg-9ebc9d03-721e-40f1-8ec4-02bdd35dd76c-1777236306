@@ -147,25 +147,25 @@ export function DeliverySlaWidget({ companyId }: { companyId: string | null }) {
         {loading ? (
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="rounded-lg bg-white border border-slate-200 p-3">
+          <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="min-w-0 rounded-lg bg-white border border-slate-200 p-3">
               <p className="text-xs text-slate-500">On time</p>
               <p className="text-2xl font-bold tabular-nums text-brand-primary">{onTimePct}%</p>
               <p className="text-[11px] text-slate-500 tabular-nums">{stats.onTime} of {stats.total}</p>
             </div>
-            <div className="rounded-lg bg-white border border-slate-200 p-3">
+            <div className="min-w-0 rounded-lg bg-white border border-slate-200 p-3">
               <p className="text-xs text-slate-500">Late</p>
               <p className="text-2xl font-bold tabular-nums text-amber-700">{stats.late}</p>
               <p className="text-[11px] text-slate-500 inline-flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" /> &gt; {GRACE_MIN}m past
               </p>
             </div>
-            <div className="rounded-lg bg-white border border-slate-200 p-3">
+            <div className="min-w-0 rounded-lg bg-white border border-slate-200 p-3">
               <p className="text-xs text-slate-500">No record</p>
               <p className="text-2xl font-bold tabular-nums text-slate-700">{stats.missing}</p>
               <p className="text-[11px] text-slate-500">delivered_at empty</p>
             </div>
-            <div className="rounded-lg bg-white border border-slate-200 p-3">
+            <div className="min-w-0 rounded-lg bg-white border border-slate-200 p-3">
               <p className="text-xs text-slate-500">Avg early arrival</p>
               <p className="text-2xl font-bold tabular-nums text-blue-700">
                 {stats.medianMinutesEarly > 0 ? `${stats.medianMinutesEarly.toFixed(0)}m` : "-"}

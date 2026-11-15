@@ -115,14 +115,14 @@ export function YearOverYearCard({
         {loading ? (
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg border border-slate-200 p-3">
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="min-w-0 rounded-lg border border-slate-200 p-3">
               <p className="text-xs text-slate-500 mb-1">Booked revenue</p>
-              <p className="text-xl font-bold tabular-nums text-slate-900">
+              <p className="break-words text-xl font-bold tabular-nums text-slate-900">
                 {tenantCurrency.format(thisYearRevenue, 0)}
               </p>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-[11px] text-slate-500 tabular-nums">
+              <div className="mt-1 flex flex-wrap items-center justify-between gap-1">
+                <span className="min-w-0 break-words text-[11px] text-slate-500 tabular-nums">
                   was {tenantCurrency.format(prior?.revenue || 0, 0)}
                 </span>
                 <span className={`inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2 py-0.5 ${tone(revenueDelta.delta)}`}>
@@ -131,13 +131,13 @@ export function YearOverYearCard({
                 </span>
               </div>
             </div>
-            <div className="rounded-lg border border-slate-200 p-3">
+            <div className="min-w-0 rounded-lg border border-slate-200 p-3">
               <p className="text-xs text-slate-500 mb-1">Booked orders</p>
-              <p className="text-xl font-bold tabular-nums text-slate-900">
+              <p className="break-words text-xl font-bold tabular-nums text-slate-900">
                 {thisYearOrders}
               </p>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-[11px] text-slate-500 tabular-nums">
+              <div className="mt-1 flex flex-wrap items-center justify-between gap-1">
+                <span className="min-w-0 break-words text-[11px] text-slate-500 tabular-nums">
                   was {prior?.count ?? 0}
                 </span>
                 <span className={`inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2 py-0.5 ${tone(orderDelta.delta)}`}>

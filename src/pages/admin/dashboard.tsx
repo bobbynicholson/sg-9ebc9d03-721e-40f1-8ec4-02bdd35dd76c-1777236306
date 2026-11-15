@@ -788,15 +788,15 @@ function AdminDashboardPage() {
               Detection: no orders / quotes / inventory / team
               members in the current range AND no rows. */}
           {(isFreshTenant && companyId && hasCoreMetrics) ? (
-            <Card className="mb-6 bg-gradient-to-br from-brand-primary/10 via-brand-primary/10 to-brand-secondary/10">
-              <CardHeader>
-                <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
-                  <LayoutDashboard className="w-6 h-6 text-brand-primary" />
+            <Card className="mb-6 min-w-0 max-w-full bg-gradient-to-br from-brand-primary/10 via-brand-primary/10 to-brand-secondary/10">
+              <CardHeader className="min-w-0">
+                <CardTitle className="flex min-w-0 flex-wrap items-center gap-2 break-words text-xl sm:text-2xl">
+                  <LayoutDashboard className="h-6 w-6 shrink-0 text-brand-primary" />
                   Welcome to CateringMS
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-slate-700 mb-4">
+              <CardContent className="min-w-0">
+                <p className="mb-4 break-words text-sm text-slate-700">
                   This is your day-zero dashboard. The widgets below populate as you start using
                   the system. Take the next steps to get your tenant set up:
                 </p>
@@ -1157,18 +1157,18 @@ function AdminDashboardPage() {
 <WidgetErrorBoundary label="Active staff now"><ActiveStaffNowWidget companyId={companyId} /></WidgetErrorBoundary></div></CardContent>
 </Card>
 
-<Card collapsible lazyContent defaultOpen={false} collapseLabel="Recent activity and payments" className="mb-6" id="dashboard-recent-activity-and-payments">
-  <CardHeader><CardTitle className="text-base">Recent activity and payments</CardTitle><CardDescription>Recorded payments, inventory changes, cancellations, feedback and the activity log.</CardDescription></CardHeader>
-  <CardContent><div className="grid items-start gap-4 xl:grid-cols-2 [&>div]:mb-0"><WidgetErrorBoundary label="Recent inventory adjusts"><RecentInventoryAdjustsWidget companyId={companyId} /></WidgetErrorBoundary>
+<Card collapsible lazyContent defaultOpen={false} collapseLabel="Recent activity and payments" className="mb-6 min-w-0 max-w-full" id="dashboard-recent-activity-and-payments">
+  <CardHeader className="min-w-0"><CardTitle className="text-base">Recent activity and payments</CardTitle><CardDescription className="min-w-0 break-words">Recorded payments, inventory changes, cancellations, feedback and the activity log.</CardDescription></CardHeader>
+  <CardContent className="min-w-0 max-w-full"><div className="grid min-w-0 w-full items-start gap-4 xl:grid-cols-2 [&>div]:mb-0 [&>div]:min-w-0 [&>div]:max-w-full"><WidgetErrorBoundary label="Recent inventory adjusts"><RecentInventoryAdjustsWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Recent ratings"><RecentRatingsWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Cancelled orders"><CancelledOrdersWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Recent payments"><RecentPaymentsWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Recent activity"><RecentActivityWidget companyId={companyId} /></WidgetErrorBoundary></div></CardContent>
 </Card>
 
-<Card collapsible lazyContent defaultOpen={false} collapseLabel="Performance and trends" className="mb-6" id="dashboard-performance-and-trends">
-  <CardHeader><CardTitle className="text-base">Performance and trends</CardTitle><CardDescription>Delivery performance, weekly bookings, quote response times and comparisons.</CardDescription></CardHeader>
-  <CardContent><div className="grid items-start gap-4 xl:grid-cols-2 [&>div]:mb-0"><WidgetErrorBoundary label="Delivery SLA"><DeliverySlaWidget companyId={companyId} /></WidgetErrorBoundary>
+<Card collapsible lazyContent defaultOpen={false} collapseLabel="Performance and trends" className="mb-6 min-w-0 max-w-full" id="dashboard-performance-and-trends">
+  <CardHeader className="min-w-0"><CardTitle className="text-base">Performance and trends</CardTitle><CardDescription className="min-w-0 break-words">Delivery performance, weekly bookings, quote response times and comparisons.</CardDescription></CardHeader>
+  <CardContent className="min-w-0 max-w-full"><div className="grid min-w-0 w-full items-start gap-4 xl:grid-cols-2 [&>div]:mb-0 [&>div]:min-w-0 [&>div]:max-w-full"><WidgetErrorBoundary label="Delivery SLA"><DeliverySlaWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Weekly orders chart"><WeeklyOrdersChart companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Quote response time"><QuoteResponseTimeWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Region performance"><RegionPerformanceWidget companyId={companyId} /></WidgetErrorBoundary>

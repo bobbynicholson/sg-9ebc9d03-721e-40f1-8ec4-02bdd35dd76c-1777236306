@@ -59,27 +59,29 @@ export function FirstStepsCard({ companyId, slug }: Props) {
   };
 
   return (
-    <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-brand-primary/10 via-brand-secondary/10 to-brand-accent/10">
-      <CardHeader className="pb-3 flex flex-row items-start justify-between gap-3">
-        <div>
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <Rocket className="w-4 h-4 sm:w-5 sm:h-5 text-brand-primary" />
-            First steps
-          </CardTitle>
-          <p className="text-xs sm:text-sm text-slate-600 mt-1">
-            {state.completedRequiredSteps} of {state.requiredSteps} required complete. Tackle these next:
-          </p>
+    <Card className="mb-6 min-w-0 max-w-full border-0 bg-gradient-to-br from-brand-primary/10 via-brand-secondary/10 to-brand-accent/10 shadow-lg">
+      <CardHeader className="pb-3">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_2rem] items-start gap-x-2 gap-y-1">
+          <div className="min-w-0">
+            <CardTitle className="flex min-w-0 flex-wrap items-center gap-2 text-base sm:text-lg">
+              <Rocket className="h-4 w-4 shrink-0 text-brand-primary sm:h-5 sm:w-5" />
+              First steps
+            </CardTitle>
+            <p className="mt-1 break-words text-xs text-slate-600 sm:text-sm">
+              {state.completedRequiredSteps} of {state.requiredSteps} required complete. Tackle these next:
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 text-slate-500 hover:text-slate-900"
+            aria-label="Dismiss"
+            disabled={dismissing}
+            onClick={() => void handleDismiss()}
+          >
+            <X className="w-4 h-4" />
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 -mr-1 -mt-1 text-slate-500 hover:text-slate-900"
-          aria-label="Dismiss"
-          disabled={dismissing}
-          onClick={() => void handleDismiss()}
-        >
-          <X className="w-4 h-4" />
-        </Button>
       </CardHeader>
       <CardContent>
         <div className="space-y-2 sm:space-y-3">
@@ -87,27 +89,27 @@ export function FirstStepsCard({ companyId, slug }: Props) {
             <Link
               key={step.id}
               href={step.href}
-              className="flex items-center gap-3 p-3 bg-white rounded-lg border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all group"
+              className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)_1rem] items-start gap-x-3 gap-y-1 rounded-lg border border-slate-200 bg-white p-3 transition-all group hover:border-slate-300 hover:shadow-sm"
             >
               <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 text-sm font-bold text-slate-700">
                 {i + 1}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900 truncate">{step.label}</p>
-                <p className="text-xs text-slate-500 truncate">{step.description}</p>
+              <div className="min-w-0">
+                <p className="break-words text-sm font-medium text-slate-900">{step.label}</p>
+                <p className="break-words text-xs leading-5 text-slate-500">{step.description}</p>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 flex-shrink-0" />
+              <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-slate-400 group-hover:text-slate-600" />
             </Link>
           ))}
         </div>
-        <div className="flex items-center justify-between mt-3">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <Link
             href={`${tenantPath}/admin/onboarding`}
             className="text-xs text-slate-700 hover:text-slate-900 underline"
           >
             See full checklist
           </Link>
-          <span className="text-xs text-slate-500 flex items-center gap-1">
+          <span className="flex min-w-0 flex-wrap items-center gap-1 text-xs text-slate-500">
             {state.completedSteps > 0 ? (
               <><CheckCircle2 className="w-3 h-3 text-brand-primary" /> {state.completedSteps} done</>
             ) : (

@@ -115,14 +115,14 @@ export function QuoteResponseTimeWidget({ companyId }: { companyId: string | nul
   return (
     <Card className="mb-6 border-blue-200 bg-blue-50/30">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
             <CardTitle className="text-base">Quote response time, last 90 days</CardTitle>
             <CardDescription className="text-xs">
               Median elapsed time from quote sent to first view and acceptance. Automated E2E quotes are excluded.
             </CardDescription>
           </div>
-          <Link href={withSlug("/admin/quotes")}>
+          <Link href={withSlug("/admin/quotes")} className="shrink-0 self-start">
             <Button variant="ghost" size="sm" className="text-blue-700">
               All quotes <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -134,8 +134,8 @@ export function QuoteResponseTimeWidget({ companyId }: { companyId: string | nul
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg border border-blue-200 bg-white p-3">
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="min-w-0 rounded-lg border border-blue-200 bg-white p-3">
                 <div className="flex items-center gap-2 mb-1">
                   <Eye className="w-4 h-4 text-blue-600" />
                   <span className="text-xs text-slate-600 font-medium">Sent -&gt; first view</span>
@@ -152,7 +152,7 @@ export function QuoteResponseTimeWidget({ companyId }: { companyId: string | nul
                   </p>
                 )}
               </div>
-              <div className="rounded-lg border border-brand-primary/20 bg-white p-3">
+              <div className="min-w-0 rounded-lg border border-brand-primary/20 bg-white p-3">
                 <div className="flex items-center gap-2 mb-1">
                   <CheckCircle className="w-4 h-4 text-brand-primary" />
                   <span className="text-xs text-slate-600 font-medium">Sent -&gt; accepted</span>
