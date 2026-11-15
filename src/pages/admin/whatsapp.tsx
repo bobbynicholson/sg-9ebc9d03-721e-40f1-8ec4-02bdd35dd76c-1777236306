@@ -736,7 +736,7 @@ function WhatsAppPage() {
                                   <p className="mt-2 text-xs font-medium text-emerald-700 dark:text-emerald-300" role="status">
                                     Account subscription is set. Last confirmed {new Date(state.webhookAccountSubscribedAt).toLocaleString()}.
                                   </p>
-                                )}
+                                ) : null}
                               </div>
                               {state.webhookAccountSubscribedAt ? (
                                 <details className="w-full shrink-0 sm:w-auto">
