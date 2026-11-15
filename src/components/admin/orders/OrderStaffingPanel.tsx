@@ -283,7 +283,7 @@ export function OrderStaffingPanel({ orderId, companyId, order }: OrderStaffingP
             <CardTitle className="flex items-center gap-2 text-base"><Users className="h-4 w-4 text-slate-600" />Order staffing &amp; time</CardTitle>
             <p className="mt-1 text-xs text-slate-500">Every person attached to this order, with their assignment role and order-specific clock time.</p>
           </div>
-          <div className="flex items-center gap-2 text-xs text-slate-600">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
             <Badge variant="outline">{new Set(rows.map((row) => row.personId)).size} people</Badge>
             <Badge variant="outline">{rows.length} role assignment{rows.length === 1 ? "" : "s"}</Badge>
             {rows.some((row) => row.activityStart) && <Badge variant="outline"><Clock3 className="mr-1 h-3 w-3" />{totalHours.toFixed(1)}h tracked</Badge>}
@@ -323,7 +323,58 @@ export function OrderStaffingPanel({ orderId, companyId, order }: OrderStaffingP
         {rows.length === 0 ? (
           <p className="rounded-md border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-600">No team members have been attached to this order yet. Assign the driver, kitchen shift, waiter, or cleaning work from the relevant operational section.</p>
         ) : (
-          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
+          <>
+          <div className="space-y-2 xl:hidden">
+            {rows.map((row) => {
+              const profile = profiles.get(row.personId);
+              return (
+                <article key={row.id} className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
+                  <div className="flex min-w-0 items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="break-words text-sm font-semibold text-slate-900">{profile?.full_name || profile?.email || "Unknown user"}</p>
+                      <p className="break-all text-[11px] text-slate-500">{profile?.email || "No email recorded"}</p>
+                    </div>
+                    <Badge variant="outline" className={`shrink-0 capitalize ${ROLE_TONES[row.role] || ""}`}>{roleLabel(row.role)}</Badge>
+                  </div>
+                  <p className="mt-2 break-words text-xs font-medium text-slate-800">{row.assignment}</p>
+                  <p className="text-[11px] text-slate-500">Source: {row.source}</p>
+                  <div className="mt-3 grid grid-cols-2 gap-3 border-t border-slate-100 pt-2 text-[11px]">
+                    <div className="min-w-0">
+                      <p className="font-medium uppercase tracking-wide text-slate-400">Planned</p>
+                      <p className="break-words text-slate-600">{row.plannedStart ? `${formatClock(row.plannedStart)}${row.plannedEnd ? ` – ${formatClock(row.plannedEnd)}` : ""}` : "Not scheduled"}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium uppercase tracking-wide text-slate-400">Actual time</p>
+                      <p className="break-words text-slate-600">{row.actualStart ? `${formatStamp(row.actualStart)}${row.actualEnd ? ` – ${formatStamp(row.actualEnd)}` : " · active"}` : "Not clocked"}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium uppercase tracking-wide text-slate-400">Duration</p>
+                      <p className="font-semibold tabular-nums text-slate-700">{durationLabel(row.activityStart, row.activityEnd)}</p>
+                    </div>
+                    {row.status && (
+                      <div>
+                        <p className="font-medium uppercase tracking-wide text-slate-400">Status</p>
+                        <p className="capitalize text-slate-700">{row.status.replace(/_/g, " ")}</p>
+                      </div>
+                    )}
+                  </div>
+                  {row.role === "driver" && profile && (
+                    <div className="mt-3 border-t border-slate-100 pt-3">
+                      <WhatsAppTemplateSend
+                        entityType="staff_order"
+                        entityId={orderId}
+                        recipientId={row.personId}
+                        companyId={companyId}
+                        recipientName={profile.full_name || profile.email}
+                        buttonLabel="Notify driver"
+                      />
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+          <div className="hidden overflow-x-auto rounded-md border border-slate-200 bg-white xl:block">
             <table className="w-full min-w-[900px] text-left text-xs">
               <thead className="bg-slate-100 text-[10px] uppercase tracking-wide text-slate-500">
                 <tr><th className="px-3 py-2">Person</th><th className="px-3 py-2">Role for this order</th><th className="px-3 py-2">Assignment</th><th className="px-3 py-2">Planned / assigned</th><th className="px-3 py-2">Actual time</th><th className="px-3 py-2">Time</th><th className="px-3 py-2">Staff message</th></tr>
@@ -356,6 +407,7 @@ export function OrderStaffingPanel({ orderId, companyId, order }: OrderStaffingP
               </tbody>
             </table>
           </div>
+          </>
         )}
         <p className="mt-3 flex items-start gap-1.5 text-[11px] text-slate-500"><CalendarClock className="mt-0.5 h-3.5 w-3.5 shrink-0" />Role time is calculated from the order-linked record for that role. A person with kitchen and cleaning assignments appears on separate rows, so their hours are not mixed.</p>
       </CardContent>

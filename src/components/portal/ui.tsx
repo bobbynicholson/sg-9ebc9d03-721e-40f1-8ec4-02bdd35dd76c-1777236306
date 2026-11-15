@@ -101,6 +101,15 @@ export function PortalHeader({
   meta?: React.ReactNode;
 }) {
   const router = useRouter();
+  const actionsRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const labelledActions = actionsRef.current?.querySelectorAll<HTMLElement>("[aria-label]");
+    labelledActions?.forEach((action) => {
+      if (!action.title) action.title = action.getAttribute("aria-label") || "";
+    });
+  }, [actions]);
+
   if (variant === "hero") {
     const pathname = router.pathname || "";
     const resolvedAppearance =
@@ -169,7 +178,13 @@ export function PortalHeader({
             </div>
           </div>
           {actions && (
-            <div className="dark flex max-w-full shrink-0 flex-wrap items-center justify-start gap-2 xl:max-w-[60%] xl:justify-end [&_button]:h-9 [&_button]:px-3 [&_button]:text-sm">
+            <div
+              ref={actionsRef}
+              className={cn(
+                "portal-header-actions flex max-w-full shrink-0 flex-wrap items-center justify-start gap-2 xl:max-w-[60%] xl:justify-end [&_button]:min-h-10 [&_button]:text-sm sm:[&_button]:min-h-9",
+                !isBrand && "dark",
+              )}
+            >
               {actions}
             </div>
           )}
@@ -202,7 +217,7 @@ export function PortalHeader({
         </div>
       </div>
       {actions && (
-        <div className="flex w-full max-w-full flex-wrap items-center justify-start gap-2 xl:w-auto xl:justify-end">
+        <div ref={actionsRef} className="portal-header-actions flex w-full max-w-full flex-wrap items-center justify-start gap-2 xl:w-auto xl:justify-end">
           {actions}
         </div>
       )}

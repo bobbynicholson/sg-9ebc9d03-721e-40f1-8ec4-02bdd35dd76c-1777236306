@@ -809,7 +809,29 @@ const persistSave = async () => {
   }
 };
 
-return (
+const orderDetailTabs = [
+  { value: "details", label: "Details" },
+  { value: "sittings", label: "Sittings & trips" },
+  { value: "menu", label: "Menu Items" },
+  { value: "equipment", label: "Equipment" },
+  { value: "messages", label: "Messages" },
+  { value: "amendments", label: "Amendments" },
+  { value: "cancellations", label: "Cancellations" },
+  { value: "history", label: "History" },
+] as const;
+
+const activeOrderDetailTab = (() => {
+  const tab = typeof router.query.tab === "string" ? router.query.tab : "";
+  return orderDetailTabs.some((item) => item.value === tab) ? tab : "details";
+})();
+
+const changeOrderDetailTab = (value: string) => {
+  const next = { ...router.query, tab: value };
+  if (value === "details") delete (next as any).tab;
+  router.replace({ pathname: router.pathname, query: next }, undefined, { shallow: true, scroll: false });
+};
+
+ return (
   <>
   <Dialog
     open={isModalOpen}
@@ -846,7 +868,7 @@ return (
       }
     }}
   >
-    <DialogContent className="order-details-dialog flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-6xl flex-col gap-3 overflow-x-hidden overflow-y-auto overscroll-contain portal-scrollbar p-3 sm:max-h-[90dvh] sm:w-[calc(100vw-2rem)] sm:gap-4 sm:p-6">
+    <DialogContent className="order-details-dialog flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-slate-50 p-0 [&>button:last-child]:right-[max(0.75rem,env(safe-area-inset-right))] [&>button:last-child]:top-[max(0.75rem,env(safe-area-inset-top))] sm:h-[92dvh] sm:max-h-[92dvh] sm:w-[calc(100vw-2rem)] sm:max-w-7xl sm:rounded-2xl sm:border sm:p-0 sm:[&>button:last-child]:right-4 sm:[&>button:last-child]:top-4">
       {/* Wave 64.3 - header redesign. Audit (full UI team) found
           the old layout fought itself: a 4xl dialog was split
           flex-justify-between, leaving the left side ~250px to
@@ -865,8 +887,7 @@ return (
           when client_phone / client_email present. RATE hides
           unless status is completed (post-event quality lives
           with the closure, not the navigation strip). */}
-      <ImportReadinessBanner orderId={selectedOrder.id} />
-      <DialogHeader className="space-y-3 pr-10 sm:pr-12">
+      <DialogHeader className="shrink-0 space-y-0 border-b border-slate-200 bg-white px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] pr-14 sm:px-6 sm:pb-4 sm:pt-5 sm:pr-16">
         <DialogTitle className="sr-only">
           {(selectedOrder as any)?.order_number
             ? `Order ${(selectedOrder as any).order_number}`
@@ -877,9 +898,9 @@ return (
         </DialogDescription>
 
         {/* Row 1: identity + primary action */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               {(selectedOrder as any)?.order_number && (
                 <button
                   type="button"
@@ -892,7 +913,7 @@ return (
                       toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
                     }
                   }}
-                  className="inline-flex items-center gap-1.5 font-mono text-base font-semibold text-slate-900 bg-slate-100 border border-slate-200 rounded-md px-2.5 py-1 hover:bg-slate-200 transition"
+                  className="inline-flex min-w-0 max-w-full items-center gap-1.5 break-all rounded-md border border-slate-200 bg-slate-100 px-2.5 py-1 font-mono text-sm font-semibold text-slate-900 transition hover:bg-slate-200 sm:text-base"
                   title="Copy order number"
                 >
                   <Copy className="w-3.5 h-3.5 text-slate-500" />
@@ -950,7 +971,7 @@ return (
               )}
             </div>
             {selectedOrder && (
-              <p className="text-sm text-slate-600 mt-1.5 truncate">
+              <p className="mt-1 truncate text-xs text-slate-600 sm:text-sm">
                 {(selectedOrder as any).client_name || "Client"}
                 {(selectedOrder as any).event_date && (
                   <> &middot; {formatDate((selectedOrder as any).event_date)}</>
@@ -960,14 +981,14 @@ return (
           </div>
 
           {!editMode ? (
-            <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:shrink-0">
-              <Button onClick={() => setEditMode(true)} size="sm">
+            <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
+              <Button onClick={() => setEditMode(true)} size="sm" className="h-10 sm:h-9">
                 <Edit className="w-4 h-4 mr-2" />
                 Edit
               </Button>
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="px-2" aria-label="More actions">
+                  <Button variant="outline" size="sm" className="h-10 w-10 p-0 sm:h-9 sm:w-9" aria-label="More actions" title="More order actions">
                     <MoreHorizontal className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -1062,7 +1083,7 @@ return (
               </DropdownMenu>
             </div>
           ) : (
-            <div className="flex w-full flex-wrap justify-end gap-2 sm:w-auto sm:shrink-0">
+            <div className="flex w-full shrink-0 flex-wrap justify-end gap-2 sm:w-auto">
               {selectedOrder && (selectedOrder as any).status !== "cancelled" && (
                 <Button
                   onClick={() => {
@@ -1107,11 +1128,16 @@ return (
           )}
         </div>
 
+      </DialogHeader>
+
+      <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain portal-scrollbar px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-5">
+      <ImportReadinessBanner orderId={selectedOrder.id} />
+
         {/* Row 2: navigation toolbar - uniform slate chips so the
             operator scans them as "go look at this" rather than
             six competing CTAs. */}
         {selectedOrder && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
             {(selectedOrder as any).quote_id && (() => {
               const tok = (selectedOrder as any).quote?.public_token;
               const href = tok
@@ -1123,7 +1149,7 @@ return (
                   target={tok ? "_blank" : undefined}
                   rel={tok ? "noopener noreferrer" : undefined}
                   onClick={() => setIsModalOpen(false)}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50 hover:text-slate-900 transition"
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:min-h-9"
                   title={tok ? "Open the polished client view of this quote" : "Open the source quote"}
                 >
                   <FileText className="w-3.5 h-3.5" />
@@ -1150,7 +1176,7 @@ return (
                   });
                 }
               }}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50 hover:text-slate-900 transition"
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:min-h-9"
               title="Open the page the client sees in a new tab"
             >
               <Eye className="w-3.5 h-3.5" />
@@ -1176,7 +1202,7 @@ return (
                   });
                 }
               }}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50 hover:text-slate-900 transition"
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:min-h-9"
               title="Copy a tokenised client-view link"
             >
               <Copy className="w-3.5 h-3.5" />
@@ -1185,39 +1211,38 @@ return (
             <Link
               href={withSlug(`/admin/invoices?orderId=${selectedOrder.id}`)}
               onClick={() => setIsModalOpen(false)}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50 hover:text-slate-900 transition"
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:min-h-9"
               title="Open the invoice list filtered to this order"
             >
               <Receipt className="w-3.5 h-3.5" />
               Invoice
             </Link>
-            <Link
-              href={withSlug(`${staffOrderHref(selectedOrder.id, "admin")}#section-waiter`)}
-              onClick={() => setIsModalOpen(false)}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 hover:bg-amber-100 transition"
-              title="Open the order Service team section to assign or remove waiters"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              Assign waiter
-            </Link>
-            <Link
-              href={withSlug(`/admin/order-assignments?orderId=${selectedOrder.id}`)}
-              onClick={() => setIsModalOpen(false)}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-900 bg-blue-50 border border-blue-200 rounded-md px-2 py-1 hover:bg-blue-100 transition"
-              title="Choose the driver for this order"
-            >
-              <Truck className="w-3.5 h-3.5" />
-              {(selectedOrder as any).assigned_driver_id ? "Change driver" : "Assign driver"}
-            </Link>
-            <Link
-              href={withSlug(`/admin/orders/${selectedOrder.id}/ticket`)}
-              onClick={() => setIsModalOpen(false)}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-orange-900 bg-orange-50 border border-orange-200 rounded-md px-2 py-1 hover:bg-orange-100 transition"
-              title="Open the kitchen working screen to start, complete and hand over this order"
-            >
-              <ChefHat className="w-3.5 h-3.5" />
-              Open kitchen
-            </Link>
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-10 gap-2 border-slate-200 bg-white text-slate-700 sm:h-9">
+                  <Users className="h-4 w-4" />
+                  Operations
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuItem asChild>
+                  <Link href={withSlug(`${staffOrderHref(selectedOrder.id, "admin")}#section-waiter`)} onClick={() => setIsModalOpen(false)}>
+                    <UserPlus className="mr-2 h-4 w-4" />Assign waiter
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href={withSlug(`/admin/order-assignments?orderId=${selectedOrder.id}`)} onClick={() => setIsModalOpen(false)}>
+                    <Truck className="mr-2 h-4 w-4" />{(selectedOrder as any).assigned_driver_id ? "Change driver" : "Assign driver"}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href={withSlug(`/admin/orders/${selectedOrder.id}/ticket`)} onClick={() => setIsModalOpen(false)}>
+                    <ChefHat className="mr-2 h-4 w-4" />Open kitchen
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
 
@@ -1225,12 +1250,12 @@ return (
             accent because operators scan for it specifically;
             Call + Email stay slate so the row reads cleanly. */}
         {selectedOrder && ((selectedOrder as any).client_phone || (selectedOrder as any).client_email || (selectedOrder as any).client_id) && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             {(selectedOrder as any).client_phone && (
               <>
                 <a
                   href={`tel:${String((selectedOrder as any).client_phone).replace(/[^+\d]/g, "")}`}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50 hover:text-slate-900 transition"
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:min-h-9"
                   title={`Call ${(selectedOrder as any).client_phone}`}
                 >
                   <Phone className="w-3.5 h-3.5" />
@@ -1245,13 +1270,13 @@ return (
                 entityId={selectedOrder.id}
                 companyId={(selectedOrder as any).company_id || companyId}
                 recipientName={(selectedOrder as any).client_name}
-                className="h-8"
+                className="h-10 sm:h-8"
               />
             )}
             {(selectedOrder as any).client_email && (
               <a
                 href={`mailto:${(selectedOrder as any).client_email}?subject=${encodeURIComponent(`Booking ${(selectedOrder as any).order_number || "your order"}`)}`}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50 hover:text-slate-900 transition"
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:min-h-9"
                 title={`Email ${(selectedOrder as any).client_email}`}
               >
                 <Mail className="w-3.5 h-3.5" />
@@ -1260,8 +1285,6 @@ return (
             )}
           </div>
         )}
-      </DialogHeader>
-
       {/* Wave 70.42 - conductor view. Bobby's brief: the owner
           is NOT just a bookkeeper. They need kitchen / driver /
           staff / cleaning / shopping status at a glance, not
@@ -1294,7 +1317,7 @@ return (
           for quick reference; the source of truth is the doc at
           /order/[id]. */}
       {selectedOrder && (selectedOrder as any).quote_id && (
-        <div className="mb-4 flex items-start gap-3 p-3 rounded-lg border-2 border-blue-300 bg-blue-50">
+        <div className="mb-4 flex min-w-0 flex-col items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3 sm:flex-row">
           <div className="text-blue-700 flex-shrink-0 mt-0.5">
             <FileText className="w-5 h-5" />
           </div>
@@ -1307,7 +1330,7 @@ return (
           <Link
             href={withSlug(`/admin/quotes/${(selectedOrder as any).quote_id}`)}
             onClick={() => setIsModalOpen(false)}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold flex-shrink-0"
+            className="inline-flex min-h-10 items-center gap-1 self-start rounded-md bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800 sm:shrink-0 sm:self-auto"
           >
             <FileText className="w-3.5 h-3.5" />
             Edit quote
@@ -1323,23 +1346,24 @@ return (
           menu and landed on Details. _activeTab below pulls from
           router and falls back to "details". */}
       <Tabs
-        value={(() => {
-          const t = typeof router.query.tab === "string" ? router.query.tab : "";
-          return ["details","sittings","menu","equipment","messages","amendments","cancellations","history"].includes(t)
-            ? t
-            : "details";
-        })()}
-        onValueChange={(v) => {
-          const next = { ...router.query, tab: v };
-          if (v === "details") delete (next as any).tab;
-          router.replace({ pathname: router.pathname, query: next }, undefined, { shallow: true, scroll: false });
-        }}
-        className="mt-6"
+        value={activeOrderDetailTab}
+        onValueChange={changeOrderDetailTab}
+        className="mt-5 min-w-0 sm:mt-6"
       >
-        {/* 7 tabs in grid-cols-7 clipped + overlapped the labels ("Menu
-            Items", "Cancellations") at phone width. Scroll horizontally on
-            mobile (tabs keep full labels, shrink-0), grid from sm up. */}
-        <TabsList className="no-scrollbar flex w-full justify-start overflow-x-auto [&>*]:shrink-0">
+        <div className="mb-3 sm:hidden">
+          <Label className="sr-only" htmlFor="order-detail-section">Order section</Label>
+          <Select value={activeOrderDetailTab} onValueChange={changeOrderDetailTab}>
+            <SelectTrigger id="order-detail-section" className="h-11 w-full bg-white">
+              <SelectValue placeholder="Choose a section" />
+            </SelectTrigger>
+            <SelectContent>
+              {orderDetailTabs.map((tab) => (
+                <SelectItem key={tab.value} value={tab.value}>{tab.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <TabsList className="no-scrollbar hidden w-full min-w-0 justify-start overflow-x-auto sm:flex [&>*]:shrink-0">
           <TabsTrigger id="order-details" data-chat-section="admin.order-details.details" data-chat-section-label="Order details" value="details">Details</TabsTrigger>
           <TabsTrigger id="order-sittings" data-chat-section="admin.order-details.sittings" data-chat-section-label="Service sittings and trips" value="sittings">Sittings &amp; trips</TabsTrigger>
           <TabsTrigger id="order-menu" data-chat-section="admin.order-details.menu" data-chat-section-label="Order menu items" value="menu">Menu Items</TabsTrigger>
@@ -1350,8 +1374,8 @@ return (
           <TabsTrigger id="order-history" data-chat-section="admin.order-details.history" data-chat-section-label="Order history" value="history">History</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="details" className="space-y-4 mt-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <TabsContent value="details" className="mt-4 min-w-0 space-y-4">
+          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
             <CustomerIdentityFields contactName={editedOrder.client_name || ""} companyName={editedOrder.client_company_name || ""} onContactNameChange={(client_name) => setEditedOrder({ ...editedOrder, client_name })} onCompanyNameChange={(client_company_name) => setEditedOrder({ ...editedOrder, client_company_name })} disabled={!editMode} idPrefix="order-customer" />
 
             <div className="space-y-2">
@@ -1390,7 +1414,7 @@ return (
               )}
             </div>
 
-            <div className="space-y-2 col-span-2">
+            <div className="col-span-1 min-w-0 space-y-2 sm:col-span-2">
               <Label>Venue Address</Label>
               <Input
                 value={editedOrder.venue_address || ""}
@@ -1431,7 +1455,7 @@ return (
                 clear header so the operator can set start-of-day
                 pickup, on-site setup, and event start in one
                 place. handleSave below now persists all three. */}
-            <div id="op-times" className="space-y-2 col-span-2 pt-2 border-t border-slate-200">
+            <div id="op-times" className="col-span-1 min-w-0 space-y-2 border-t border-slate-200 pt-2 sm:col-span-2">
               <Label className="text-xs uppercase tracking-wide text-slate-500">Operational times</Label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
@@ -1486,7 +1510,7 @@ return (
             )}
 
             {(selectedOrder as any).special_instructions && (
-              <div className="space-y-2 col-span-2">
+              <div className="col-span-1 min-w-0 space-y-2 sm:col-span-2">
                 <Label>Client special instructions</Label>
                 <p className="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 whitespace-pre-wrap">
                   {(selectedOrder as any).special_instructions}
@@ -1495,7 +1519,7 @@ return (
             )}
 
             {/* Money summary - read-only at-a-glance for the team. */}
-            <div className="col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 pt-3 border-t border-slate-200">
+            <div className="col-span-1 mt-2 grid min-w-0 grid-cols-2 gap-3 border-t border-slate-200 pt-3 sm:col-span-2 sm:grid-cols-4">
               <div>
                 <Label className="text-xs">Subtotal</Label>
                 <p className="text-sm font-semibold text-slate-900 mt-1 tabular-nums">
@@ -1566,7 +1590,7 @@ return (
               const netMargin = orderTotal - outsourceTotal;
               const marginPct = orderTotal > 0 ? (netMargin / orderTotal) * 100 : 0;
               return (
-                <div className="col-span-2 grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2 pt-3 border-t border-slate-200">
+                <div className="col-span-1 mt-2 grid min-w-0 grid-cols-2 gap-3 border-t border-slate-200 pt-3 sm:col-span-2 sm:grid-cols-3">
                   <div>
                     <Label className="text-xs flex items-center gap-1.5">
                       Outsource fees
@@ -1599,7 +1623,7 @@ return (
                 only, never goes near the client portal. The vehicle
                 is auto-booked when a driver is assigned and can be
                 overridden from the Dispatch Queue. */}
-            <div className="col-span-2 mt-2 pt-3 border-t border-slate-200">
+            <div className="col-span-1 mt-2 min-w-0 border-t border-slate-200 pt-3 sm:col-span-2">
               <Label className="text-xs flex items-center gap-1.5">
                 Dispatch
                 <span className="text-[10px] text-slate-400 uppercase tracking-wide">internal</span>
@@ -1653,7 +1677,7 @@ return (
           </div>
         </TabsContent>
 
-        <TabsContent value="sittings" className="space-y-4 mt-4">
+        <TabsContent value="sittings" className="mt-4 min-w-0 space-y-4">
           {editMode ? <p className="text-sm text-slate-700">Save or discard your order edits before changing the sitting schedule.</p> : <ServiceSittingsOperations
             orderId={selectedOrder.id} companyId={companyId || ""}
             canEdit={["super_admin","owner","company_admin","admin","region_admin","sales_admin"].includes(user?.active_role || user?.role)}
@@ -1665,7 +1689,7 @@ return (
           />}
         </TabsContent>
 
-        <TabsContent value="menu" className="space-y-4 mt-4">
+        <TabsContent value="menu" className="mt-4 min-w-0 space-y-4">
           {/* Menu lines come from the order_items joined table.
               Inline add / remove in edit mode mirrors the Equipment
               tab. Heads up: the order's total_amount column is set
@@ -1826,7 +1850,7 @@ return (
           </div>
         </TabsContent>
 
-        <TabsContent value="equipment" className="space-y-4 mt-4">
+        <TabsContent value="equipment" className="mt-4 min-w-0 space-y-4">
           {/* Equipment is tracked as bookings against the order_id, not
               as JSON on the order row. We fetch on modal open and let
               the operator add / remove inline when the modal is in
@@ -1995,7 +2019,7 @@ return (
             order with sender_role="admin". OrderMessagesTab resolves
             the client's auth.users id so the outbound notification
             on staff sends targets the owning client directly. */}
-        <TabsContent value="messages" className="space-y-4 mt-4">
+        <TabsContent value="messages" className="mt-4 min-w-0 space-y-4">
           <OrderMessagesTab
             orderId={editedOrder.id}
             companyId={companyId}
@@ -2005,7 +2029,7 @@ return (
           />
         </TabsContent>
 
-        <TabsContent value="amendments" className="space-y-4 mt-4">
+        <TabsContent value="amendments" className="mt-4 min-w-0 space-y-4">
           <AmendmentsTab
             orderId={editedOrder.id}
             currentOrder={editedOrder as any}
@@ -2017,7 +2041,7 @@ return (
           />
         </TabsContent>
 
-        <TabsContent value="cancellations" className="space-y-4 mt-4">
+        <TabsContent value="cancellations" className="mt-4 min-w-0 space-y-4">
           <CancellationRequestsTab
             orderId={editedOrder.id}
             companyId={(editedOrder as any).company_id ?? null}
@@ -2028,10 +2052,11 @@ return (
           />
         </TabsContent>
 
-        <TabsContent value="history" className="space-y-4 mt-4">
+        <TabsContent value="history" className="mt-4 min-w-0 space-y-4">
           <OrderHistoryTimeline orderId={editedOrder.id} orders={orders} />
         </TabsContent>
       </Tabs>
+      </div>
     </DialogContent>
 
     {/* Price-doesn't-scale confirmation. Pops when guest_count

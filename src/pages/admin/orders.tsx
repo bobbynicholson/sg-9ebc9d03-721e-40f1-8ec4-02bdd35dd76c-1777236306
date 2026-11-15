@@ -45,6 +45,8 @@ import {
   Save,
   X,
   FileText,
+  FileUp,
+  FilePlus,
   Receipt,
   Pause,
   Play,
@@ -2356,27 +2358,31 @@ function OrderProcessDashboard() {
                       type="button"
                       onClick={() => setViewMode("kanban")}
                       aria-pressed={viewMode === "kanban"}
-                      className={`inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-medium transition-all ${
+                      aria-label="Kanban view"
+                      title="Kanban view"
+                      className={`inline-flex h-11 w-11 items-center justify-center gap-1.5 rounded-md px-0 text-xs font-medium transition-all sm:h-8 sm:w-auto sm:justify-start sm:px-3 ${
                         viewMode === "kanban"
                           ? "bg-white text-slate-900 shadow-sm"
                           : "text-slate-300 hover:text-white"
                       }`}
                     >
                       <LayoutGrid className="w-3.5 h-3.5" />
-                      Kanban
+                      <span className="hidden sm:inline">Kanban</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setViewMode("timeline")}
                       aria-pressed={viewMode === "timeline"}
-                      className={`inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-medium transition-all ${
+                      aria-label="Timeline view"
+                      title="Timeline view"
+                      className={`inline-flex h-11 w-11 items-center justify-center gap-1.5 rounded-md px-0 text-xs font-medium transition-all sm:h-8 sm:w-auto sm:justify-start sm:px-3 ${
                         viewMode === "timeline"
                           ? "bg-white text-slate-900 shadow-sm"
                           : "text-slate-300 hover:text-white"
                       }`}
                     >
                       <List className="w-3.5 h-3.5" />
-                      Timeline
+                      <span className="hidden sm:inline">Timeline</span>
                     </button>
                   </div>
                   {/* Keep secondary order actions grouped beside the view toggle. */}
@@ -2423,14 +2429,23 @@ function OrderProcessDashboard() {
                     and label align consistently with the other
                     icon-and-label patterns on the page. Bumped
                     shadow + active scale for tactile feedback. */}
-                  {["owner", "super_admin", "company_admin", "admin"].includes(String(user?.active_role || user?.role || "")) && <Button asChild variant="outline" size="sm"><Link href={withSlug("/admin/document-imports?target=orders")}><FileText className="mr-2 h-4 w-4" />Import PDFs</Link></Button>}
+                  {["owner", "super_admin", "company_admin", "admin"].includes(String(user?.active_role || user?.role || "")) && (
+                    <Button asChild variant="outline" size="sm" className="h-11 w-11 p-0 sm:h-9 sm:w-auto sm:px-3" title="Import order PDFs" aria-label="Import PDFs">
+                      <Link href={withSlug("/admin/document-imports?target=orders")}>
+                        <FileUp className="h-4 w-4 sm:mr-2" />
+                        <span className="hidden sm:inline">Import PDFs</span>
+                      </Link>
+                    </Button>
+                  )}
                   <Link href={withSlug("/admin/quotes/new")}>
                     <Button
                       size="sm"
-                      className="h-9 gap-2 bg-brand-primary hover:opacity-90 shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
+                      className="h-11 w-11 gap-0 bg-brand-primary p-0 shadow-md transition-all hover:opacity-90 hover:shadow-lg active:scale-[0.98] sm:h-9 sm:w-auto sm:gap-2 sm:px-3"
+                      title="Create a new quote"
+                      aria-label="New quote"
                     >
-                      <FileText className="w-4 h-4" />
-                      New Quote
+                      <FilePlus className="h-4 w-4" />
+                      <span className="hidden sm:inline">New Quote</span>
                     </Button>
                   </Link>
                 </>

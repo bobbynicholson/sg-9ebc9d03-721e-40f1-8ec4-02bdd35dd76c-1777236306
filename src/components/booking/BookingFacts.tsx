@@ -66,7 +66,7 @@ function AdminFacts({ facts }: { facts: BookingFactsAdmin }) {
     <Card className="border-0 shadow-sm bg-gradient-to-br from-slate-50 to-white print:bg-white print:shadow-none print:border print:border-slate-300">
       <CardContent className="p-4">
         <p className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold mb-2">Money</p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 min-[500px]:grid-cols-3">
           <div>
             <p className="text-[10px] uppercase tracking-wider text-slate-500">Total</p>
             <p className="text-lg font-bold tabular-nums text-slate-900">
@@ -79,7 +79,7 @@ function AdminFacts({ facts }: { facts: BookingFactsAdmin }) {
               {facts.subtotal != null ? tenantCurrency.format(Number(facts.subtotal)) : "--"}
             </p>
           </div>
-          <div>
+          <div className="col-span-2 min-[500px]:col-span-1">
             <p className="text-[10px] uppercase tracking-wider text-slate-500">Balance due</p>
             <p className={`text-sm tabular-nums font-semibold ${Number(facts.balance_due || 0) > 0 ? "text-rose-700" : "text-brand-primary"}`}>
               {facts.balance_due != null ? tenantCurrency.format(Number(facts.balance_due)) : "--"}
@@ -140,7 +140,7 @@ function AdminFacts({ facts }: { facts: BookingFactsAdmin }) {
           NOT just a bookkeeper. They need to see kitchen / driver /
           staff / cleaning / shopping status at a glance, not click
           through five tabs. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2">
+      <div className="grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-3 xl:grid-cols-5">
         {panels.map((p) => {
           const tone = TONE[p.status.tone];
           const StatusIcon = p.status.icon;
@@ -149,7 +149,7 @@ function AdminFacts({ facts }: { facts: BookingFactsAdmin }) {
             <Link
               key={p.key}
               href={withSlug(p.href)}
-              className={`block rounded-lg border ${tone.card} p-3 hover:brightness-105 transition-all print:bg-white print:border-slate-300 print:hover:brightness-100`}
+              className={`block min-w-0 rounded-lg border ${tone.card} p-2.5 transition-all hover:brightness-105 print:border-slate-300 print:bg-white print:hover:brightness-100 sm:p-3`}
               title={`${p.title}: ${p.status.label}`}
             >
               <div className="flex items-start gap-2 mb-1.5">
@@ -158,9 +158,9 @@ function AdminFacts({ facts }: { facts: BookingFactsAdmin }) {
                 </span>
                 <p className="text-[10px] uppercase tracking-wider font-bold text-slate-700">{p.title}</p>
               </div>
-              <div className={`text-xs ${tone.text} flex items-start gap-1`}>
+              <div className={`flex min-w-0 items-start gap-1 break-words text-xs ${tone.text}`}>
                 <StatusIcon className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                <span>{p.status.label}</span>
+                <span className="min-w-0 break-words">{p.status.label}</span>
               </div>
             </Link>
           );
