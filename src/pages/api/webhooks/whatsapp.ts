@@ -177,8 +177,18 @@ async function saveExternalMessages(sb: any, rows: ExternalMessageRow[]) {
 
 async function applyMessageEchoes(sb: any, companyId: string, value: any) {
   const contacts = value.contacts || [];
-  const rows = (value.message_echoes || []).map((message: any) => {
-    const contact = contacts.find((item: any) => item.user_id === message.to_user_id);
+  // Coexistence echoes messages sent from the WhatsApp Business phone app in
+  // `smb_message_echoes`; keep accepting `message_echoes` for existing API
+  // echo payloads as well.
+  const echoes = [
+    ...(Array.isArray(value.message_echoes) ? value.message_echoes : []),
+    ...(Array.isArray(value.smb_message_echoes) ? value.smb_message_echoes : []),
+  ];
+  const rows = echoes.map((message: any) => {
+    const contact = contacts.find((item: any) =>
+      (message.to_user_id && item.user_id === message.to_user_id) ||
+      (message.to && item.wa_id === message.to),
+    );
     const phone = normalizedContactPhone(message.to) || normalizedContactPhone(contact?.wa_id);
     return buildExternalMessageRow(companyId, phone, "out", message, contacts, "whatsapp_business_app");
   }).filter(Boolean) as ExternalMessageRow[];
