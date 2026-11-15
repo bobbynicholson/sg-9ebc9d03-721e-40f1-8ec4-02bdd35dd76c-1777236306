@@ -156,9 +156,13 @@ function GlobalPWAInstallPrompt({ initialBranding }: { initialBranding: InitialB
 
 /** Remove the pre-hydration cover as soon as the app shell is interactive. */
 function PwaStartupGate() {
+  const { loading } = useAuth();
+
   useEffect(() => {
-    if (isInstalledApp()) document.documentElement.classList.remove("cms-pwa-starting");
-  }, []);
+    if (isInstalledApp() && !loading) {
+      document.documentElement.classList.remove("cms-pwa-starting");
+    }
+  }, [loading]);
   return null;
 }
 

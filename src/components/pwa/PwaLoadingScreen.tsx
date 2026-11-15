@@ -1,14 +1,57 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { Building2, LoaderCircle } from "lucide-react";
 import { useAuth } from "@/contexts/authContextCore";
 import { useBrandingRow } from "@/lib/branding/useBranding";
-import { readBrandingCacheForSlug } from "@/lib/branding/store";
+import { readBrandingCache, readBrandingCacheForSlug } from "@/lib/branding/store";
 import type { InitialBranding } from "@/lib/branding/serverBrandingForSlug";
 import { useRouter } from "next/router";
 import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
 
 const isHexColor = (value?: string | null): value is string =>
   Boolean(value && /^#[\da-f]{6}$/i.test(value));
+
+// Keep server output deterministic, but resolve local branding before the
+// browser paints the first loading frame.
+const useClientLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+function readStartupBranding(slug: string, isPlatformRoute: boolean) {
+  if (typeof window === "undefined" || isPlatformRoute) return null;
+  if (slug) {
+    const bySlug = readBrandingCacheForSlug(slug);
+    if (bySlug) return bySlug;
+  }
+
+  try {
+    const snapshot = JSON.parse(window.localStorage.getItem("cms-auth-snapshot-v1") || "null") as {
+      savedAt?: number;
+      company?: Record<string, string | null | undefined> | null;
+      user?: { company_slug?: string | null } | null;
+    } | null;
+    if (!snapshot?.company || !snapshot.savedAt || Date.now() - snapshot.savedAt > 24 * 60 * 60 * 1000) return null;
+
+    const company = snapshot.company;
+    const companySlug = company.slug || snapshot.user?.company_slug || null;
+    if (slug && companySlug !== slug) return null;
+
+    const cached = company.id ? readBrandingCache(company.id) : null;
+    if (cached && (!slug || cached.slug === slug)) return cached;
+
+    if (!company.id) return null;
+    return {
+      id: company.id,
+      slug: companySlug,
+      companyName: company.company_name || null,
+      logoUrl: company.logo_url || null,
+      primaryColor: company.primary_color || null,
+      secondaryColor: company.secondary_color || null,
+      accentColor: company.accent_color || null,
+      fontBody: null,
+      fontDisplay: null,
+    };
+  } catch {
+    return null;
+  }
+}
 
 function initials(value: string): string {
   return value.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase() || "C";
@@ -31,9 +74,9 @@ export function PwaLoadingScreen({
   const [cachedBrand, setCachedBrand] = useState<ReturnType<typeof readBrandingCacheForSlug>>(null);
   const [logoLoaded, setLogoLoaded] = useState(false);
 
-  useEffect(() => {
-    setCachedBrand(slug ? readBrandingCacheForSlug(slug) : null);
-  }, [slug]);
+  useClientLayoutEffect(() => {
+    setCachedBrand(readStartupBranding(slug, router.pathname.startsWith("/admin/platform")));
+  }, [slug, router.pathname]);
 
   const matchesSlug = (candidate?: { slug?: string | null } | null) =>
     Boolean(candidate && (!slug || candidate.slug === slug));

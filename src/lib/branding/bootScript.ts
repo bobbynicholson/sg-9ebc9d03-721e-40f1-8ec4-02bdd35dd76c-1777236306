@@ -61,7 +61,9 @@ html.cms-pwa-starting #cms-pwa-launch-screen,
 html[${BRAND_PENDING_ATTR}] #cms-pwa-launch-screen{display:grid}
 #cms-pwa-launch-screen{position:fixed;inset:0;z-index:2147483647;place-items:center;background:#ffffff;color:#0f172a;padding:24px}
 #cms-pwa-launch-screen .cms-pwa-launch-content{display:flex;flex-direction:column;align-items:center;text-align:center}
+#cms-pwa-launch-screen .cms-pwa-launch-mark{position:relative;width:76px;height:76px}
 #cms-pwa-launch-screen img{width:76px;height:76px;object-fit:contain;border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:8px}
+#cms-pwa-launch-screen .cms-pwa-launch-mark span{display:none;width:76px;height:76px;margin:0;align-items:center;justify-content:center;border:1px solid #e2e8f0;border-radius:10px;background:#fff;color:var(--brand-primary,#d97706);font:600 22px/1 ui-sans-serif,system-ui,sans-serif}
 #cms-pwa-launch-screen p{margin:18px 0 0;font:600 17px/1.3 ui-sans-serif,system-ui,sans-serif;letter-spacing:-.02em}
 #cms-pwa-launch-screen span{margin-top:6px;color:#64748b;font:400 14px/1.4 ui-sans-serif,system-ui,sans-serif}
 #cms-pwa-launch-screen i{width:22px;height:22px;margin-top:24px;border:2px solid #e2e8f0;border-top-color:var(--brand-primary,var(--primary));border-radius:50%;animation:cms-pwa-spin .75s linear infinite}
