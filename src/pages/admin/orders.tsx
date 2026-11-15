@@ -123,6 +123,7 @@ import { OrdersBulkActionsBar } from "@/components/admin/orders/OrdersBulkAction
 import { OrdersListEmptyState } from "@/components/admin/orders/OrdersListEmptyState";
 import { OrderHistoryTimeline } from "@/components/admin/orders/OrderHistoryTimeline";
 import { OrderDetailsModal } from "@/components/admin/orders/OrderDetailsModal";
+import { PwaLoadingScreen } from "@/components/pwa/PwaLoadingScreen";
 import { TimelineRow } from "@/components/admin/orders/TimelineRow";
 import { Virtuoso } from "react-virtuoso";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
@@ -2268,13 +2269,7 @@ function OrderProcessDashboard() {
       <AdminNav />
 
       {isDeeplinkPending && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-          <div className="flex flex-col items-center gap-3 text-slate-600">
-            {/* Chrome spinner carries the tenant brand, not a fixed blue. */}
-            <RefreshCw className="w-8 h-8 animate-spin text-brand-primary" />
-            <p className="text-sm">Opening order...</p>
-          </div>
-        </div>
+        <PwaLoadingScreen message="Opening order" />
       )}
 
       <div className="admin-page-shell">
@@ -2581,14 +2576,7 @@ function OrderProcessDashboard() {
               aria-hidden="true"
             />
             {loading ? (
-              <Card>
-                <CardContent className="py-24">
-                  <div className="text-center">
-                    <div className="animate-spin w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full mx-auto mb-4" />
-                    <p className="text-slate-600">Loading orders...</p>
-                  </div>
-                </CardContent>
-              </Card>
+              <PwaLoadingScreen message="Loading orders" variant="inline" />
             ) : loadError ? (
               <Card className="border-rose-200">
                 <CardContent className="py-12">

@@ -846,7 +846,7 @@ return (
       }
     }}
   >
-    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+    <DialogContent className="order-details-dialog flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-6xl flex-col gap-3 overflow-x-hidden overflow-y-auto overscroll-contain portal-scrollbar p-3 sm:max-h-[90dvh] sm:w-[calc(100vw-2rem)] sm:gap-4 sm:p-6">
       {/* Wave 64.3 - header redesign. Audit (full UI team) found
           the old layout fought itself: a 4xl dialog was split
           flex-justify-between, leaving the left side ~250px to
@@ -866,7 +866,7 @@ return (
           unless status is completed (post-event quality lives
           with the closure, not the navigation strip). */}
       <ImportReadinessBanner orderId={selectedOrder.id} />
-      <DialogHeader className="space-y-3">
+      <DialogHeader className="space-y-3 pr-10 sm:pr-12">
         <DialogTitle className="sr-only">
           {(selectedOrder as any)?.order_number
             ? `Order ${(selectedOrder as any).order_number}`
@@ -877,7 +877,7 @@ return (
         </DialogDescription>
 
         {/* Row 1: identity + primary action */}
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               {(selectedOrder as any)?.order_number && (
@@ -960,7 +960,7 @@ return (
           </div>
 
           {!editMode ? (
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:shrink-0">
               <Button onClick={() => setEditMode(true)} size="sm">
                 <Edit className="w-4 h-4 mr-2" />
                 Edit
@@ -1062,7 +1062,7 @@ return (
               </DropdownMenu>
             </div>
           ) : (
-            <div className="flex gap-2 shrink-0">
+            <div className="flex w-full flex-wrap justify-end gap-2 sm:w-auto sm:shrink-0">
               {selectedOrder && (selectedOrder as any).status !== "cancelled" && (
                 <Button
                   onClick={() => {
@@ -1339,7 +1339,7 @@ return (
         {/* 7 tabs in grid-cols-7 clipped + overlapped the labels ("Menu
             Items", "Cancellations") at phone width. Scroll horizontally on
             mobile (tabs keep full labels, shrink-0), grid from sm up. */}
-        <TabsList className="flex w-full justify-start overflow-x-auto [&>*]:shrink-0">
+        <TabsList className="no-scrollbar flex w-full justify-start overflow-x-auto [&>*]:shrink-0">
           <TabsTrigger id="order-details" data-chat-section="admin.order-details.details" data-chat-section-label="Order details" value="details">Details</TabsTrigger>
           <TabsTrigger id="order-sittings" data-chat-section="admin.order-details.sittings" data-chat-section-label="Service sittings and trips" value="sittings">Sittings &amp; trips</TabsTrigger>
           <TabsTrigger id="order-menu" data-chat-section="admin.order-details.menu" data-chat-section-label="Order menu items" value="menu">Menu Items</TabsTrigger>

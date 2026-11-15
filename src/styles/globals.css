@@ -366,6 +366,40 @@
     background-clip: padding-box;
   }
 
+  /* The order detail surface is a long, touch-scrollable workspace. Keep
+     its desktop scroll cue slim and tenant-neutral; touch browsers already
+     provide an overlay scroll indicator while the operator swipes. */
+  .order-details-dialog {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(100 116 139 / 0.55) transparent;
+  }
+
+  .order-details-dialog::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .order-details-dialog::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .order-details-dialog::-webkit-scrollbar-thumb {
+    border: 1px solid transparent;
+    border-radius: 9999px;
+    background: rgb(100 116 139 / 0.55);
+    background-clip: padding-box;
+  }
+
+  @media (pointer: coarse) {
+    .order-details-dialog {
+      scrollbar-width: none;
+    }
+
+    .order-details-dialog::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
   .portal-scrollbar-brand {
     scrollbar-color: rgb(255 255 255 / 0.62) rgb(255 255 255 / 0.12);
   }

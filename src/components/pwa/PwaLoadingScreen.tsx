@@ -15,7 +15,15 @@ function initials(value: string): string {
 }
 
 /** One lightweight, tenant-aware launch screen for auth checks and app navigation. */
-export function PwaLoadingScreen({ initialBranding }: { initialBranding?: InitialBranding | null }) {
+export function PwaLoadingScreen({
+  initialBranding,
+  message = "Getting your workspace ready",
+  variant = "screen",
+}: {
+  initialBranding?: InitialBranding | null;
+  message?: string;
+  variant?: "screen" | "inline";
+}) {
   const router = useRouter();
   const { company } = useAuth();
   const liveBrand = useBrandingRow();
@@ -45,6 +53,7 @@ export function PwaLoadingScreen({ initialBranding }: { initialBranding?: Initia
     : (matchesSlug(initialBranding) ? initialBranding?.primaryColor : null) || cached?.primaryColor ||
       (companyMatches ? company?.primary_color : null);
   const accent = isHexColor(accentValue) ? accentValue : "#d97706";
+  const isInline = variant === "inline";
 
   useEffect(() => setLogoLoaded(false), [logo]);
 
@@ -52,9 +61,11 @@ export function PwaLoadingScreen({ initialBranding }: { initialBranding?: Initia
     <main
       role="status"
       aria-live="polite"
-      aria-label={`Opening ${name}`}
-      className="fixed inset-0 z-[120] flex min-h-[100svh] items-center justify-center overflow-hidden bg-slate-50 px-6 text-slate-950"
-      style={{
+      aria-label={`${message} for ${name}`}
+      className={isInline
+        ? "relative isolate flex min-h-[17rem] w-full items-center justify-center overflow-hidden rounded-xl bg-slate-50 px-6 py-10 text-slate-950"
+        : "fixed inset-0 z-[120] flex min-h-[100svh] items-center justify-center overflow-hidden bg-slate-50 px-6 text-slate-950"}
+      style={isInline ? undefined : {
         paddingTop: "max(1.5rem, env(safe-area-inset-top))",
         paddingRight: "max(1.5rem, env(safe-area-inset-right))",
         paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))",
@@ -88,7 +99,7 @@ export function PwaLoadingScreen({ initialBranding }: { initialBranding?: Initia
           )}
         </div>
         <h1 className="mt-5 max-w-full truncate text-xl font-semibold tracking-tight text-slate-900">{name}</h1>
-        <p className="mt-1 text-sm text-slate-500">Getting your workspace ready</p>
+        <p className="mt-1 text-sm text-slate-600">{message}</p>
         <LoaderCircle className="mt-6 h-5 w-5 animate-spin motion-reduce:animate-none" style={{ color: accent }} aria-hidden="true" />
       </div>
     </main>
