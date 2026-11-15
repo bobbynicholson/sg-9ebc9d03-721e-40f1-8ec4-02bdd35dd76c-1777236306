@@ -181,7 +181,7 @@ export function PortalHeader({
             <div
               ref={actionsRef}
               className={cn(
-                "portal-header-actions flex max-w-full shrink-0 flex-wrap items-center justify-start gap-2 xl:max-w-[60%] xl:justify-end [&_button]:min-h-10 [&_button]:text-sm sm:[&_button]:min-h-9",
+                "portal-header-actions grid w-full min-w-0 max-w-full shrink-0 grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] items-center gap-2 xl:flex xl:w-auto xl:flex-wrap xl:justify-end xl:max-w-[60%] [&_button]:min-h-10 [&_button]:min-w-0 [&_button]:max-w-full [&_button]:text-sm [&_input]:min-w-0 [&_input]:max-w-full [&_select]:min-w-0 [&_select]:max-w-full [&_[role=combobox]]:min-w-0 [&_[role=combobox]]:max-w-full sm:[&_button]:min-h-9",
                 !isBrand && "dark",
               )}
             >
@@ -217,7 +217,7 @@ export function PortalHeader({
         </div>
       </div>
       {actions && (
-        <div ref={actionsRef} className="portal-header-actions flex w-full max-w-full flex-wrap items-center justify-start gap-2 xl:w-auto xl:justify-end">
+        <div ref={actionsRef} className="portal-header-actions grid w-full min-w-0 max-w-full grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] items-center gap-2 sm:flex sm:flex-wrap sm:justify-start xl:w-auto xl:justify-end [&_button]:min-h-10 [&_button]:min-w-0 [&_button]:max-w-full [&_button]:text-sm [&_input]:min-w-0 [&_input]:max-w-full [&_select]:min-w-0 [&_select]:max-w-full [&_[role=combobox]]:min-w-0 [&_[role=combobox]]:max-w-full">
           {actions}
         </div>
       )}

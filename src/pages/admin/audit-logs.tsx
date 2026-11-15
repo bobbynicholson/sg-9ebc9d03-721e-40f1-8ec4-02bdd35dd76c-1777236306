@@ -651,7 +651,7 @@ function CompanyAuditLogsViewer() {
                     PII access only
                   </button>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                <div className="mt-3 hidden flex-wrap items-center gap-1.5 sm:flex">
                   <span className="text-xs text-slate-500 mr-1">Quick filter:</span>
                   {([
                     { v: "all", label: "All" },

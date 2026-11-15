@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { AlertCircle, Ban, Clock, RefreshCw, Send, Mail } from "lucide-react";
+import { AdminControlGroup } from "@/components/admin/AdminControlSurface";
 
 interface FailureRow {
   id: string;
@@ -130,18 +131,31 @@ export function EmailFailuresTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <FilterChip label="All" count={totalNonSent} active={filter === "all"} onClick={() => setFilter("all")} tone="primary" />
-        <FilterChip label="Failed" count={counts.failed} active={filter === "failed"} onClick={() => setFilter("failed")} tone="rose" />
-        <FilterChip label="Blocked" count={counts.blocked} active={filter === "blocked"} onClick={() => setFilter("blocked")} tone="slate" />
-        <FilterChip label="Quarantined" count={counts.quarantined} active={filter === "quarantined"} onClick={() => setFilter("quarantined")} tone="amber" />
-        <FilterChip label="Simulated" count={counts.simulated} active={filter === "simulated"} onClick={() => setFilter("simulated")} tone="blue" />
-        <div className="ml-auto">
-          <Button variant="outline" size="sm" onClick={() => load({ cancelled: false })}>
-            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-            Reload
-          </Button>
-        </div>
+      <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+        <AdminControlGroup
+          label="Email status"
+          helpText="Choose which delivery outcomes to review. Failed emails can be retried; blocked, quarantined, and simulated messages need their setup issue addressed first."
+          compactLabel="Filter email delivery status"
+          compactValue={filter}
+          onCompactValueChange={(value) => setFilter(value as "all" | FailureRow["status"])}
+          compactOptions={[
+            { value: "all", label: "All", count: totalNonSent },
+            { value: "failed", label: "Failed", count: counts.failed },
+            { value: "blocked", label: "Blocked", count: counts.blocked },
+            { value: "quarantined", label: "Quarantined", count: counts.quarantined },
+            { value: "simulated", label: "Simulated", count: counts.simulated },
+          ]}
+        >
+          <FilterChip label="All" count={totalNonSent} active={filter === "all"} onClick={() => setFilter("all")} tone="primary" />
+          <FilterChip label="Failed" count={counts.failed} active={filter === "failed"} onClick={() => setFilter("failed")} tone="rose" />
+          <FilterChip label="Blocked" count={counts.blocked} active={filter === "blocked"} onClick={() => setFilter("blocked")} tone="slate" />
+          <FilterChip label="Quarantined" count={counts.quarantined} active={filter === "quarantined"} onClick={() => setFilter("quarantined")} tone="amber" />
+          <FilterChip label="Simulated" count={counts.simulated} active={filter === "simulated"} onClick={() => setFilter("simulated")} tone="blue" />
+        </AdminControlGroup>
+        <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={() => load({ cancelled: false })}>
+          <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+          Reload
+        </Button>
       </div>
 
       {loading ? (

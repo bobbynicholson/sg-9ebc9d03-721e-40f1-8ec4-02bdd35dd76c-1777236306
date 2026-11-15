@@ -90,8 +90,17 @@ export function DashboardDateRange({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [compactCalendar, setCompactCalendar] = useState(false);
   const [customFrom, setCustomFrom] = useState<Date | undefined>(range.from);
   const [customTo, setCustomTo] = useState<Date | undefined>(range.to);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 639px)");
+    const update = () => setCompactCalendar(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     setCustomFrom(range.from);
@@ -114,10 +123,10 @@ export function DashboardDateRange({
           <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[640px] p-0" sideOffset={4}>
-        <div className="flex">
-          <div className="w-44 border-r p-2 space-y-0.5">
-            <p className="text-[11px] uppercase tracking-wide font-semibold text-slate-500 px-2 py-1">
+      <PopoverContent align="end" className="max-h-[calc(100dvh-1rem)] w-[min(640px,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-y-auto p-0" sideOffset={4}>
+        <div className="flex min-w-0 flex-col sm:flex-row">
+          <div className="grid shrink-0 grid-cols-2 gap-1 border-b p-2 sm:w-44 sm:grid-cols-1 sm:space-y-0.5 sm:border-b-0 sm:border-r">
+            <p className="col-span-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500 sm:col-span-1">
               Quick ranges
             </p>
             {PRESETS.map((p) => (
@@ -131,7 +140,7 @@ export function DashboardDateRange({
                   setOpen(false);
                 }}
                 className={cn(
-                  "w-full text-left px-2 py-1.5 text-sm rounded-md hover:bg-slate-100 dark:hover:bg-slate-800",
+                  "min-h-10 min-w-0 rounded-md px-2 py-1.5 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800",
                   range.presetId === p.id && "bg-slate-100 dark:bg-slate-800 font-semibold",
                 )}
               >
@@ -139,7 +148,7 @@ export function DashboardDateRange({
               </button>
             ))}
           </div>
-          <div className="p-3">
+          <div className="min-w-0 p-2 sm:flex-1 sm:p-3">
             <p className="text-[11px] uppercase tracking-wide font-semibold text-slate-500 mb-2">
               Custom range
             </p>
@@ -150,10 +159,10 @@ export function DashboardDateRange({
                 setCustomFrom(r?.from);
                 setCustomTo(r?.to);
               }}
-              numberOfMonths={2}
+              numberOfMonths={compactCalendar ? 1 : 2}
               defaultMonth={customFrom}
             />
-            <div className="flex items-center justify-end gap-2 mt-3">
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
               <Button
                 size="sm"
                 variant="ghost"

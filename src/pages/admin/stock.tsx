@@ -34,6 +34,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { AdminControlGroup } from "@/components/admin/AdminControlSurface";
 import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
 import { PortalShell, PortalHeader,
   PageWorkbench,
@@ -56,7 +57,7 @@ import { staffOrderHref } from "@/lib/orderUrls";
 import { captureException } from "@/lib/observability";
 import {
   Package, Truck, ShoppingBag, AlertTriangle, Loader2, TrendingUp,
-  Boxes, ClipboardList, ArrowRight, Filter, MapPin, Download,
+  Boxes, ClipboardList, ArrowRight, MapPin, Download,
   ZapOff, Phone, Clock, Trash2, Sparkles, ListChecks,
 } from "lucide-react";
 
@@ -1428,19 +1429,33 @@ function StockPage() {
                   <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
                   Needs attention
                 </CardTitle>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <Filter className="w-3.5 h-3.5 text-slate-400" />
-                  {(["all", "ingredient", "equipment", "hire-in"] as const).map((c) => (
-                    <Button
-                      key={c}
-                      size="sm"
-                      variant={filterChip === c ? "default" : "outline"}
-                      onClick={() => setFilterChipPersisted(c)}
-                      className="h-7 px-2.5 text-xs capitalize"
-                    >
-                      {c === "all" ? "All" : c === "hire-in" ? "Hire-in" : c[0].toUpperCase() + c.slice(1) + "s"}
-                    </Button>
-                  ))}
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                  <AdminControlGroup
+                    label="Alert type"
+                    helpText="Choose which inventory or equipment issues appear in this list. The active filter is also remembered for your next visit."
+                    className="min-w-0 flex-1 border-0 bg-transparent p-0"
+                    compactLabel="Filter stock alerts by type"
+                    compactValue={filterChip}
+                    onCompactValueChange={(value) => setFilterChipPersisted(value as FilterChip)}
+                    compactOptions={[
+                      { value: "all", label: "All alerts" },
+                      { value: "ingredient", label: "Ingredients" },
+                      { value: "equipment", label: "Equipment" },
+                      { value: "hire-in", label: "Hire-in" },
+                    ]}
+                  >
+                    {(["all", "ingredient", "equipment", "hire-in"] as const).map((c) => (
+                      <Button
+                        key={c}
+                        size="sm"
+                        variant={filterChip === c ? "default" : "outline"}
+                        onClick={() => setFilterChipPersisted(c)}
+                        className="h-7 px-2.5 text-xs capitalize"
+                      >
+                        {c === "all" ? "All" : c === "hire-in" ? "Hire-in" : c[0].toUpperCase() + c.slice(1) + "s"}
+                      </Button>
+                    ))}
+                  </AdminControlGroup>
                   {/* STK-B: BOM-prefixed CSV. Excel-ZA renders ZAR + diacritics
                       correctly. Same fix every other admin export needed. */}
                   <Button

@@ -2070,7 +2070,24 @@ function AdminQuotesInner() {
             pill shows a live count so the team sees at a glance how
             many quotes need their attention. Click to narrow the list.
           */}
-          <AdminControlGroup label="Quote buckets">
+          <AdminControlGroup
+            label="Quote buckets"
+            helpText="Group quotes by the next sales action: waiting to be sent, awaiting a client, stale, won, or closed. Counts are shown beside each filter."
+            compactLabel="Filter quotes by bucket"
+            compactValue={bucket}
+            onCompactValueChange={(value) => setBucket(value as QuoteBucket)}
+            compactOptions={[
+              { value: "all", label: "Open", count: openCount },
+              { value: "action_needed", label: "Action needed", count: counts.action_needed },
+              { value: "in_play", label: "In play", count: counts.in_play },
+              { value: "stale", label: "Stale", count: counts.stale },
+              { value: "accepted_awaiting_deposit", label: "Awaiting deposit", count: counts.accepted_awaiting_deposit },
+              { value: "won", label: "Won", count: counts.won },
+              { value: "won_then_cancelled", label: "Won, order cancelled", count: counts.won_then_cancelled },
+              { value: "expired", label: "Expired", count: counts.expired },
+              { value: "lost", label: "Lost", count: counts.lost },
+            ]}
+          >
             {([
               { id: "all",            label: "Open",          icon: Inbox,          tone: "bg-slate-100 text-slate-700 border-slate-200" },
               { id: "action_needed",  label: "Action needed", icon: Flame,          tone: "bg-rose-100 text-rose-700 border-rose-200" },

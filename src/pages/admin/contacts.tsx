@@ -1527,7 +1527,13 @@ function ClientsCRM() {
               to toggle it into the active filter set; multiple
               selected = OR (contact must have at least one). */}
           {allTags.length > 0 && (
-            <AdminControlGroup label="Tags">
+            <AdminControlGroup
+              label="Tags"
+              helpText="Select one or more tags to show contacts with any selected tag. Clear the active tags to see every contact."
+              collapsible
+              defaultOpen={false}
+              summary={tagFilter.size ? `${tagFilter.size} selected` : `${allTags.length} available`}
+            >
               {allTags.map((t) => {
                 const active = tagFilter.has(t);
                 return (
@@ -1558,7 +1564,14 @@ function ClientsCRM() {
           )}
 
           {/* Smart filter chips with live counts */}
-          <AdminControlGroup label="Lifecycle">
+          <AdminControlGroup
+            label="Lifecycle"
+            helpText="Show contacts by relationship stage, including clients and leads who need follow-up. Counts use the contacts currently loaded for this company."
+            compactLabel="Filter contacts by lifecycle"
+            compactValue={filter}
+            onCompactValueChange={(value) => setFilter(value as ContactFilter)}
+            compactOptions={FILTERS.map((f) => ({ value: f.id, label: f.label, count: counts[f.id] ?? 0 }))}
+          >
             {FILTERS.map((f) => {
               const c = counts[f.id] ?? 0;
               // "all" and "clients" are scope chips, not lifecycle

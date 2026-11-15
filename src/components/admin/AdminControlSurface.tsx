@@ -1,6 +1,8 @@
 import * as React from "react";
 import { ChevronDown, Filter, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { cn } from "@/lib/utils";
 
 export function AdminSearchField({
@@ -52,6 +54,11 @@ export function AdminControlGroup({
   collapsible = false,
   defaultOpen = false,
   summary,
+  compactOptions,
+  compactValue,
+  onCompactValueChange,
+  compactLabel,
+  helpText,
   ...rest
 }: {
   label?: React.ReactNode;
@@ -64,6 +71,13 @@ export function AdminControlGroup({
   defaultOpen?: boolean;
   /** Short text shown beside the label while collapsed, e.g. "2 active". */
   summary?: React.ReactNode;
+  /** Replace large single-select chip rows with a compact control below md. */
+  compactOptions?: Array<{ value: string; label: string; count?: React.ReactNode }>;
+  compactValue?: string;
+  onCompactValueChange?: (value: string) => void;
+  compactLabel?: string;
+  /** Short explanation of what the filter changes; available by hover or tap. */
+  helpText?: string;
 } & React.HTMLAttributes<HTMLElement>) {
   const [open, setOpen] = React.useState(defaultOpen);
   const bodyId = React.useId();
@@ -71,28 +85,60 @@ export function AdminControlGroup({
   return (
     <section className={cn("rounded-lg border border-slate-200/80 bg-slate-50/70 p-3", className)} {...rest}>
       {label && (collapsible ? (
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-controls={bodyId}
-          onClick={() => setOpen((value) => !value)}
-          className={cn("flex min-h-8 w-full items-center gap-1.5 rounded text-left text-xs font-semibold uppercase tracking-wide text-slate-500 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary", open && "mb-2")}
-        >
-          <Icon className="h-3.5 w-3.5" />
-          <span>{label}</span>
-          {!open && summary ? <span className="ml-1 font-medium normal-case tracking-normal text-slate-400">{summary}</span> : null}
-          <ChevronDown aria-hidden="true" className={cn("ml-auto h-4 w-4 transition-transform motion-reduce:transition-none", open && "rotate-180")} />
-        </button>
+        <div className={cn("mb-1 flex min-w-0 items-center gap-1.5", open && "mb-2")}>
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={bodyId}
+            onClick={() => setOpen((value) => !value)}
+            className="flex min-h-8 min-w-0 flex-1 items-center gap-1.5 rounded text-left text-xs font-semibold uppercase tracking-wide text-slate-500 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+          >
+            <Icon className="h-3.5 w-3.5 shrink-0" />
+            <span>{label}</span>
+            {!open && summary ? <span className="ml-1 truncate font-medium normal-case tracking-normal text-slate-400">{summary}</span> : null}
+            <ChevronDown aria-hidden="true" className={cn("ml-auto h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none", open && "rotate-180")} />
+          </button>
+          {helpText ? <InfoTooltip content={helpText} ariaLabel={`About ${typeof label === "string" ? label : "these filters"}`} className="h-8 w-8 shrink-0 rounded-full border border-slate-200 bg-white" /> : null}
+        </div>
       ) : (
-        <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <Icon className="h-3.5 w-3.5" />
+        <div className="mb-2 flex min-w-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <Icon className="h-3.5 w-3.5 shrink-0" />
           <span>{label}</span>
+          {helpText ? <InfoTooltip content={helpText} ariaLabel={`About ${typeof label === "string" ? label : "these filters"}`} className="h-8 w-8 shrink-0 rounded-full border border-slate-200 bg-white" /> : null}
         </div>
       ))}
+      {compactOptions && onCompactValueChange && compactValue !== undefined ? (
+        <div className="mb-2 min-w-0 lg:hidden">
+          <Select value={compactValue} onValueChange={onCompactValueChange}>
+            <SelectTrigger
+              aria-label={compactLabel || (typeof label === "string" ? label : "Filter")}
+              className="h-11 w-full min-w-0 bg-white"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {compactOptions.map((option) => (
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  textValue={`${option.label}${option.count !== undefined ? ` - ${option.count}` : ""}`}
+                >
+                  <span className="flex min-w-0 items-center justify-between gap-4">
+                    <span className="truncate">{option.label}</span>
+                    {option.count !== undefined ? (
+                      <span className="shrink-0 text-xs tabular-nums text-slate-500">{option.count}</span>
+                    ) : null}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : null}
       <div
         id={bodyId}
         hidden={!expanded}
-        className={cn("flex min-w-0 flex-wrap items-center gap-2", contentClassName, !expanded && "hidden")}
+        className={cn("flex min-w-0 flex-wrap items-center gap-2", compactOptions && onCompactValueChange && "hidden lg:flex", contentClassName, !expanded && "hidden")}
         onInvalidCapture={() => { if (!expanded) setOpen(true); }}
       >
         {children}

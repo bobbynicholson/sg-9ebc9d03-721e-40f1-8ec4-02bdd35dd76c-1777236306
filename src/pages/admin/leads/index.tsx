@@ -1118,6 +1118,16 @@ function AdminLeadsInner() {
     return colors[status as keyof typeof colors] || colors.new;
   };
 
+  const leadStatusOptions = [
+    { key: "active", label: "Active", count: statusCounts.active, tone: "primary" as const },
+    { key: "new", label: "New", count: statusCounts.new, tone: "default" as const },
+    { key: "qualified", label: "Qualified", count: statusCounts.qualified, tone: "default" as const },
+    { key: "quoted", label: "Quoted", count: statusCounts.quoted, tone: "default" as const },
+    { key: "won", label: "Won (archive)", count: statusCounts.won, tone: "muted" as const },
+    { key: "lost", label: "Lost (archive)", count: statusCounts.lost, tone: "muted" as const },
+    { key: "all", label: "All", count: statusCounts.all, tone: "muted" as const },
+  ];
+
   return (
     <>
       <NoIndexMeta />
@@ -1333,16 +1343,15 @@ function AdminLeadsInner() {
                   the archive chips (Won, Lost) are kept one click away
                   for win-back work and audits without polluting the
                   main pipeline view. */}
-              <AdminControlGroup label="Lead status">
-                {([
-                  { key: "active",    label: "Active",    count: statusCounts.active,    tone: "primary" as const },
-                  { key: "new",       label: "New",       count: statusCounts.new,       tone: "default" as const },
-                  { key: "qualified", label: "Qualified", count: statusCounts.qualified, tone: "default" as const },
-                  { key: "quoted",    label: "Quoted",    count: statusCounts.quoted,    tone: "default" as const },
-                  { key: "won",       label: "Won (archive)",  count: statusCounts.won,  tone: "muted" as const },
-                  { key: "lost",      label: "Lost (archive)", count: statusCounts.lost, tone: "muted" as const },
-                  { key: "all",       label: "All",       count: statusCounts.all,       tone: "muted" as const },
-                ]).map((chip) => {
+              <AdminControlGroup
+                label="Lead status"
+                helpText="Choose which leads appear in the pipeline. Active excludes won, lost, and leads linked to cancelled orders; archive filters remain available here."
+                compactLabel="Filter leads by status"
+                compactValue={statusFilter}
+                onCompactValueChange={setStatusFilter}
+                compactOptions={leadStatusOptions.map(({ key, label, count }) => ({ value: key, label, count }))}
+              >
+                {leadStatusOptions.map((chip) => {
                   const active = statusFilter === chip.key;
                   const tone = chip.tone === "primary" ? "brand" : "slate";
                   return (
@@ -1428,14 +1437,14 @@ function AdminLeadsInner() {
                     <div
                       key={lead.id}
                       id={`lead-row-${lead.id}`}
-                      className={`p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors ${
+                      className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50/70 ${
                         suggestion.tone === "urgent" ? "ring-2 ring-rose-200" : ""
                       } ${
                         focusedLeadId === lead.id ? "ring-2 ring-amber-400 ring-inset bg-amber-50 animate-pulse" : ""
                       }`}
                     >
-                      <div className="flex items-center justify-between flex-wrap gap-3">
-                        <div className="flex-1 min-w-0">
+                      <div className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(21rem,31rem)] lg:gap-6">
+                        <div className="min-w-0">
                           <div className="flex items-center gap-3 mb-2 flex-wrap">
                             <h3 className="font-semibold text-slate-900">
                               <button
@@ -1607,14 +1616,14 @@ function AdminLeadsInner() {
                               · {suggestion.reason}
                             </span>
                           </button>
-                          <div className="flex items-center gap-4 text-sm text-slate-600 flex-wrap">
+                          <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600">
                             {lead.company_name && (
-                              <span className="flex items-center gap-1">
+                              <span className="flex min-w-0 items-center gap-1">
                                 {lead.company_name}
                               </span>
                             )}
                             {lead.client_email && (
-                              <span className="flex items-center gap-1">
+                              <span className="flex min-w-0 items-center gap-1 break-all sm:break-normal">
                                 <Mail className="w-3 h-3" />
                                 {lead.client_email}
                               </span>
@@ -1631,16 +1640,10 @@ function AdminLeadsInner() {
                             )}
                           </div>
                         </div>
-                        {/* Wave 70.87: action column min-width is now
-                            responsive. Pre-fix the fixed min-w-[180px]
-                            forced a vertical split with long client
-                            names on phones (~360px width = 180px
-                            action col + 180px detail col, but a name
-                            like "Khanyi Mbatha + family" wraps). At
-                            < sm the column drops the min-width and
-                            stretches full width below the detail
-                            block. */}
-                        <div className="flex flex-col items-stretch gap-2 flex-shrink-0 w-full sm:w-auto sm:min-w-[180px]">
+                        {/* Keep actions in a compact, wrapping toolbar. A
+                            full-width vertical stack made the lead cards
+                            unnecessarily tall and unbalanced on desktop. */}
+                        <div className="flex min-w-0 w-full flex-wrap items-center gap-2 lg:justify-end">
                           {/* Primary CTA, always the suggested next step.
                               Uses the shared RowPrimaryAction so the colour
                               scheme matches Contacts and Quotes. */}
@@ -1657,7 +1660,7 @@ function AdminLeadsInner() {
                             companyId={profile?.company_id ?? user?.company_id}
                             recipientName={lead.client_name || lead.contact_name}
                             buttonLabel="Enquiry templates (3)"
-                            className="w-full justify-center border-emerald-200 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
+                            className="max-w-full justify-center border-emerald-200 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
                           />
                           {lead.source === "embed" && <WhatsAppTemplateSend
                             entityType="lead_admin"
@@ -1667,8 +1670,8 @@ function AdminLeadsInner() {
                             buttonLabel="Notify admins"
                             className="w-full justify-center"
                           />}
-                          <LeadWhatsAppButton lead={lead} label="Custom WhatsApp message" className="w-full justify-center" />
-                          <div className="flex items-center gap-1.5 justify-end flex-wrap">
+                          <LeadWhatsAppButton lead={lead} label="Custom WhatsApp message" className="max-w-full justify-center" />
+                          <div className="flex min-w-0 flex-wrap items-center gap-1.5 lg:justify-end">
                             <Button
                               variant="outline"
                               size="sm"

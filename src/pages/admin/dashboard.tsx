@@ -158,6 +158,8 @@ function AdminDashboardPage() {
   );
   const [stats, setStats] = useState<Stats>(EMPTY);
   const [loading, setLoading] = useState(true);
+  const [supportLoading, setSupportLoading] = useState(true);
+  const [hasCoreMetrics, setHasCoreMetrics] = useState(false);
   const metricsRequestRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
   // Keep the page usable on partial failures while marking affected
@@ -168,7 +170,7 @@ function AdminDashboardPage() {
   // has no data yet". Used both for the hero render at the top
   // of the page and to suppress the duplicate FirstStepsCard
   // render at the bottom.
-  const isFreshTenant = !loading
+  const isFreshTenant = !loading && !supportLoading
     && !unavailableMetrics.some((metric) => ["quotePipeline", "lowStockItems", "activeUsers"].includes(metric))
     && stats.totalOrdersInRange === 0
     && stats.bookedOrders === 0
@@ -232,36 +234,35 @@ function AdminDashboardPage() {
   const loadMetrics = async (showSpinner = true) => {
     if (!companyId) {
       setLoading(false);
+      setSupportLoading(false);
       setError("This admin account is not linked to a company yet.");
       return;
     }
     const requestId = ++metricsRequestRef.current;
     try {
+      setSupportLoading(true);
       if (showSpinner) {
         setLoading(true);
         setError(null);
         setTileWarning(null);
+        setUnavailableMetrics([]);
       }
 
       const fromISO = toLocalISO(range.from);
       const toISO   = toLocalISO(range.to);
       const todayISO = toLocalISO(tenantToday(tenantTimezone));
 
-      // Pull every order whose event falls in the range, plus the always-on
-      // counters (low stock, pending quotes, team size) which don't bind to range.
-      // Phase 12 #6: quote conversion rate. Pull every quote that
-      // closed (accepted / rejected / expired) in the range so we
-      // can compute accepted / (accepted + rejected + expired).
-      // Drafts are excluded - they were never sent so their
-      // outcome is undecided, not a 'loss'.
-      const [ordersRes, quotesRes, usersRes, invRes, conversionRes, shortfallRes, refundsRes] = await Promise.all([
-        supabase
-          .from("orders")
-          .select("id, order_number, event_name, status, payment_status, total_amount, tax_amount, deposit_paid, deposit_amount, balance_paid, balance_amount, amount_paid, event_date, confirmed_at, cancelled_at, cancellation_reason_category")
-          .eq("company_id", companyId)
-          .is("deleted_at", null)
-          .gte("event_date", fromISO)
-          .lte("event_date", toISO),
+      // The primary order query powers the headline cards. Start the
+      // supporting reads at the same time, but don't make revenue and order
+      // totals wait for inventory, quote, refund, or team queries to finish.
+      const ordersQuery = supabase
+        .from("orders")
+        .select("id, order_number, event_name, status, payment_status, total_amount, tax_amount, deposit_paid, deposit_amount, balance_paid, balance_amount, amount_paid, event_date, confirmed_at, cancelled_at, cancellation_reason_category")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .gte("event_date", fromISO)
+        .lte("event_date", toISO);
+      const supportingMetricsPromise = Promise.allSettled([
         supabase
           .from("quotes")
           .select("id, status, total_amount, quote_number, quote_name, client_name, notes")
@@ -326,27 +327,8 @@ function AdminDashboardPage() {
           .in("payment_status", OPEN_REFUND_STATUSES),
       ]);
 
+      const ordersRes = await ordersQuery;
       if (ordersRes.error) throw ordersRes.error;
-
-      // Keep secondary query failures visible without taking down the
-      // entire dashboard. Each affected metric will render as unavailable.
-      const failedTiles: string[] = [];
-      const failedMetrics: string[] = [];
-      [
-        ["quotes", quotesRes, ["quotePipeline"]],
-        ["team members", usersRes, ["activeUsers"]],
-        ["inventory", invRes, ["lowStockItems"]],
-        ["quote conversion", conversionRes, ["quoteConversion"]],
-        ["stock shortfalls", shortfallRes, ["shortfallItems"]],
-        ["refunds", refundsRes, ["refunds"]],
-      ].forEach(([label, res, metrics]: any) => {
-        if (res?.error) {
-          console.warn(`[admin/dashboard] ${label} query failed:`, res.error);
-          failedTiles.push(label);
-          failedMetrics.push(...metrics);
-        }
-      });
-
       const orders = ordersRes.data || [];
       const testOrders = orders.filter((o: any) => isAutomatedTestOrder(o));
       const metricOrders = orders.filter((o: any) => !isAutomatedTestOrder(o));
@@ -462,6 +444,59 @@ function AdminDashboardPage() {
         ? (completedOrdersInRange / totalOrdersInRange) * 100
         : 0;
 
+      const cancelledOrdersInRange = metricOrders.filter((o: any) =>
+        String(o.status || "").toLowerCase() === "cancelled" || !!o.cancelled_at,
+      ).length;
+      const reasonCounts: Record<string, number> = {};
+      for (const o of metricOrders) {
+        if (String(o.status || "").toLowerCase() !== "cancelled" && !o.cancelled_at) continue;
+        const cat = (o as any).cancellation_reason_category || "other";
+        reasonCounts[cat] = (reasonCounts[cat] || 0) + 1;
+      }
+      const topCancelReason = Object.entries(reasonCounts)
+        .sort((a, b) => b[1] - a[1])[0]?.[0]
+        ?.replace(/_/g, " ") || "-";
+
+      if (requestId !== metricsRequestRef.current) return;
+      setStats((current) => ({
+        ...current,
+        bookedRevenue, collectedRevenue, outstandingRevenue,
+        bookedOrders, collectedOrders, activeOrders, upcomingEvents,
+        totalOrdersInRange, completedOrdersInRange,
+        averageOrderValue, completionRate, nextEventDate,
+        cancelledOrdersInRange, topCancelReason, vatCollected,
+        testOrdersInRange, testRevenueInRange,
+      }));
+      setHasCoreMetrics(true);
+      setLoading(false);
+
+      const supportResults = await supportingMetricsPromise;
+      if (requestId !== metricsRequestRef.current) return;
+      const [quotesRes, usersRes, invRes, conversionRes, shortfallRes, refundsRes] = supportResults.map(
+        (result: any) => result.status === "fulfilled"
+          ? result.value
+          : { data: null, count: null, error: result.reason },
+      ) as any[];
+
+      // Keep secondary query failures visible without taking down the
+      // primary order metrics. Each affected supporting tile says Unavailable.
+      const failedTiles: string[] = [];
+      const failedMetrics: string[] = [];
+      [
+        ["quotes", quotesRes, ["quotePipeline"]],
+        ["team members", usersRes, ["activeUsers"]],
+        ["inventory", invRes, ["lowStockItems"]],
+        ["quote conversion", conversionRes, ["quoteConversion"]],
+        ["stock shortfalls", shortfallRes, ["shortfallItems"]],
+        ["refunds", refundsRes, ["refunds"]],
+      ].forEach(([label, result, metrics]: any) => {
+        if (result?.error) {
+          console.warn(`[admin/dashboard] ${label} query failed:`, result.error);
+          failedTiles.push(label);
+          failedMetrics.push(...metrics);
+        }
+      });
+
       // Wave 70.56: low-stock count now matches the smart widget's
       // definition - an item only counts as "low" if a minimum_stock
       // threshold has actually been configured (> 0) AND current is at
@@ -493,24 +528,6 @@ function AdminDashboardPage() {
       const closedTotal = liveClosedQuotes.length;
       const quoteConversionRate = closedTotal > 0 ? (liveCleanWins / closedTotal) * 100 : 0;
       const quoteConversionSample = closedTotal;
-
-      // Cancellations + refunds tile data. Pulls cancelled orders in
-      // the date window plus all pending refunds for this tenant
-      // (refunds are queue-style - pending refunds are about
-      // "what's outstanding right now", not bound to the date filter).
-      const cancelledOrdersInRange = metricOrders.filter((o: any) =>
-        String(o.status || "").toLowerCase() === "cancelled" || !!o.cancelled_at,
-      ).length;
-
-      const reasonCounts: Record<string, number> = {};
-      for (const o of metricOrders) {
-        if (String(o.status || "").toLowerCase() !== "cancelled" && !o.cancelled_at) continue;
-        const cat = (o as any).cancellation_reason_category || "other";
-        reasonCounts[cat] = (reasonCounts[cat] || 0) + 1;
-      }
-      const topCancelReason = Object.entries(reasonCounts)
-        .sort((a, b) => b[1] - a[1])[0]?.[0]
-        ?.replace(/_/g, " ") || "-";
 
       // Phase 4B: read payment_status (enum) instead of legacy status text mirror.
       const { data: refundRows, error: refundRowsError } = refundsRes;
@@ -572,12 +589,15 @@ function AdminDashboardPage() {
       setError(err?.message || "Failed to load dashboard metrics");
     } finally {
       if (requestId === metricsRequestRef.current) setLoading(false);
+      if (requestId === metricsRequestRef.current) setSupportLoading(false);
     }
   };
 
   useEffect(() => {
     if (!companyId) {
       setLoading(false);
+      setSupportLoading(false);
+      setHasCoreMetrics(false);
       setError("This admin account is not linked to a company yet.");
       return;
     }
@@ -684,7 +704,7 @@ function AdminDashboardPage() {
               every send silently fails. Show the banner directly under
               the header so it cannot be missed. Self-hides once
               email_settings is configured. */}
-          {companyId ? (
+          {companyId && hasCoreMetrics ? (
             <WidgetErrorBoundary label="Email provider banner">
               <EmailProviderBanner companyId={companyId} />
             </WidgetErrorBoundary>
@@ -693,7 +713,7 @@ function AdminDashboardPage() {
           {/* Post-onboarding practical setup checklist. This sits directly
               under the dashboard header so the owner sees the few actions
               that turn a configured tenant into a usable business. */}
-          {companyId ? <DashboardTodoList companyId={companyId} slug={companySlug || ""} /> : null}
+          {companyId && hasCoreMetrics ? <DashboardTodoList companyId={companyId} slug={companySlug || ""} /> : null}
 
           {/* Admin persona follow-up (admin.md section 5): promote
               the metrics-load failure to a prominent rose-tinted
@@ -767,7 +787,7 @@ function AdminDashboardPage() {
               clear "here's how to start" instead.
               Detection: no orders / quotes / inventory / team
               members in the current range AND no rows. */}
-          {(isFreshTenant && companyId) ? (
+          {(isFreshTenant && companyId && hasCoreMetrics) ? (
             <Card className="mb-6 bg-gradient-to-br from-brand-primary/10 via-brand-primary/10 to-brand-secondary/10">
               <CardHeader>
                 <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
@@ -790,7 +810,9 @@ function AdminDashboardPage() {
               today's confirmed events, in-transit deliveries, drivers
               on shift, kitchen prep load, money landed today. Refreshes
               every 60 seconds so the tab stays current. */}
-          <WidgetErrorBoundary label="Today's pulse"><TodaysPulse companyId={companyId} timezone={tenantTimezone} /></WidgetErrorBoundary>
+          {hasCoreMetrics ? (
+            <WidgetErrorBoundary label="Today's pulse"><TodaysPulse companyId={companyId} timezone={tenantTimezone} /></WidgetErrorBoundary>
+          ) : null}
 
           {/* === KPI HEADLINES (Wave 70.53) ====================================
               Moved here from below Quick Actions. Owner brief 2026-05-22:
@@ -894,7 +916,7 @@ function AdminDashboardPage() {
                   badge={stats.quoteConversionSample < 5
                     ? { text: "Low n", tone: "amber" }
                     : { text: "Closed", tone: "green" }}
-                  loading={loading}
+                  loading={loading || supportLoading}
                   unavailable={unavailableMetrics.includes("quoteConversion")}
                   href={withSlug("/admin/quotes")}
                 />
@@ -914,7 +936,7 @@ function AdminDashboardPage() {
               icon={FileText}
               iconColor="text-amber-600"
               badge={stats.quotesInCirculationCount > 0 ? { text: "In play", tone: "amber" } : undefined}
-              loading={loading}
+              loading={loading || supportLoading}
               unavailable={unavailableMetrics.includes("quotePipeline")}
               href={withSlug("/admin/quotes")}
             />
@@ -959,7 +981,7 @@ function AdminDashboardPage() {
               tooltip={"Everyone currently on your team. Excludes deleted or deactivated accounts, so offboarded staff no longer inflate the headline. Not affected by the date filter."}
               icon={Users}
               iconColor="text-brand-primary"
-              loading={loading}
+              loading={loading || supportLoading}
               unavailable={unavailableMetrics.includes("activeUsers")}
               href={withSlug("/admin/users")}
             />
@@ -992,7 +1014,7 @@ function AdminDashboardPage() {
               question owners ask first ("can I make payroll Friday?")
               lives here, immediately under TodaysPulse. Role-gated;
               drills to /admin/financial-dashboard for the full chart. */}
-          {canSeeFinance && companyId ? (
+          {canSeeFinance && companyId && hasCoreMetrics ? (
             <WidgetErrorBoundary label="Cashflow snapshot">
               <CashflowSnapshotWidget companyId={companyId} currency={tenantCurrency.code} />
             </WidgetErrorBoundary>
@@ -1010,7 +1032,7 @@ function AdminDashboardPage() {
               be re-mounted elsewhere if needed. */}
 
           
-          {(stats.shortfallItems > 0
+          {!supportLoading && (stats.shortfallItems > 0
             || stats.pendingQuoteSent > 0
             || stats.pendingQuoteDrafts > 0
             || stats.lowStockItems > 0
@@ -1254,7 +1276,7 @@ function AdminDashboardPage() {
               are in or the owner dismisses / completes onboarding.
               AD-7: suppress when the fresh-tenant hero at the top of
               the page is already rendering the same card. */}
-          {companyId && !isFreshTenant ? (
+          {companyId && hasCoreMetrics && !isFreshTenant ? (
             <WidgetErrorBoundary label="First steps">
               <FirstStepsCard companyId={companyId} slug={companySlug || ""} />
             </WidgetErrorBoundary>
@@ -1264,7 +1286,7 @@ function AdminDashboardPage() {
               gets out of the way (onboarding_completed_at set) and
               guides the owner through their first quote -> first
               event flow. Self-hides once any order exists. */}
-          {companyId ? (
+          {companyId && hasCoreMetrics ? (
             <WidgetErrorBoundary label="First event walkthrough">
               <FirstEventWalkthrough companyId={companyId} slug={companySlug || ""} />
             </WidgetErrorBoundary>

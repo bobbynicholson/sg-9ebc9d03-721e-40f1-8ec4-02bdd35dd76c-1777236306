@@ -83,16 +83,16 @@ export function OrderFiltersBar({
 }: Props) {
   return (
     <Card className="border-0 shadow-lg">
-      <CardContent className="pt-6">
-        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-          <div className="relative min-w-0 sm:col-span-2">
+      <CardContent className="px-3 pt-4 sm:px-6 sm:pt-6">
+        <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-4">
+          <div className="relative col-span-2 min-w-0 sm:col-span-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <Input
               ref={searchRef}
               placeholder="Search all orders by client, number, ID, venue or event... (press /)"
               value={searchTerm}
               onChange={(e) => onSearchTermChange(e.target.value)}
-              className="pl-10 pr-10"
+              className="h-11 min-w-0 pl-10 pr-10"
             />
             {/* Phase 24 #7: clear-search affordance. Common across
                 SaaS search inputs but missing here - operators kept
@@ -111,7 +111,11 @@ export function OrderFiltersBar({
             )}
           </div>
           <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-            <SelectTrigger className="w-full min-w-0">
+            <SelectTrigger
+              aria-label="Filter orders by status"
+              title="Show orders in a specific workflow status"
+              className="h-11 w-full min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
+            >
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
@@ -133,7 +137,11 @@ export function OrderFiltersBar({
             </SelectContent>
           </Select>
           <Select value={dateFilter} onValueChange={onDateFilterChange}>
-            <SelectTrigger className="w-full min-w-0">
+            <SelectTrigger
+              aria-label="Filter orders by event date"
+              title="Show orders by when their event is happening"
+              className="h-11 w-full min-w-0 px-2 text-xs sm:px-3 sm:text-sm"
+            >
               <SelectValue placeholder="All Dates" />
             </SelectTrigger>
             <SelectContent>
@@ -147,7 +155,7 @@ export function OrderFiltersBar({
             </SelectContent>
           </Select>
           {dateFilter === "custom" && (
-            <div className="flex w-full min-w-0 items-center gap-1.5 sm:col-span-2">
+            <div className="col-span-2 flex w-full min-w-0 items-center gap-1.5 sm:col-span-2">
               <Input
                 type="date"
                 value={dateFrom}
@@ -180,7 +188,7 @@ export function OrderFiltersBar({
             </div>
           )}
           {onExport && (
-            <Button variant="outline" className="w-full gap-2 sm:col-span-2 sm:w-auto sm:justify-self-end" onClick={onExport}>
+            <Button variant="outline" className="col-span-2 w-full gap-2 sm:col-span-2 sm:w-auto sm:justify-self-end" onClick={onExport}>
               <Download className="w-4 h-4" />
               Export
             </Button>
@@ -190,7 +198,7 @@ export function OrderFiltersBar({
             only' toggle. Saved views snap back to named filter
             snapshots; mine-only restricts the list to orders where
             I'm the chef or driver. */}
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <div aria-label="Quick order filters and saved views" className="mt-2 flex max-w-full min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible">
           {/* Phase 16 #5: quick-filter chips. One-tap shortcuts to
               common date scopes - sets dateFilter without opening
               the dropdown. Highlights when active so it doubles as
@@ -200,7 +208,7 @@ export function OrderFiltersBar({
               key={q.key}
               type="button"
               onClick={() => onDateFilterChange(dateFilter === q.key ? "all" : q.key)}
-              className={`inline-flex items-center rounded-full text-xs px-2.5 py-0.5 border ${
+              className={`hidden shrink-0 items-center rounded-full border px-2.5 py-0.5 text-xs sm:inline-flex ${
                 dateFilter === q.key
                   ? "border-brand-primary bg-brand-primary/15 text-brand-primary"
                   : "border-slate-200 bg-white text-slate-600 hover:border-brand-primary/30 hover:text-brand-primary"
@@ -213,7 +221,7 @@ export function OrderFiltersBar({
           <button
             type="button"
             onClick={() => onMyOrdersOnlyChange(!myOrdersOnly)}
-            className={`inline-flex items-center gap-1 rounded-full text-xs px-2.5 py-0.5 border ${
+            className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs ${
               myOrdersOnly
                 ? "border-blue-500 bg-blue-100 text-blue-800"
                 : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700"
@@ -225,7 +233,7 @@ export function OrderFiltersBar({
           {savedViews.map((v) => (
             <span
               key={v.id}
-              className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 text-slate-700 text-xs"
+              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-slate-50 text-xs text-slate-700"
             >
               <button
                 type="button"
@@ -248,7 +256,7 @@ export function OrderFiltersBar({
           <button
             type="button"
             onClick={onSaveCurrentView}
-            className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-slate-300 hover:text-slate-700"
+            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-dashed border-slate-300 px-2.5 py-0.5 text-xs text-slate-500 hover:border-slate-300 hover:text-slate-700"
             title="Save the current filter combination as a named view"
           >
             + Save view

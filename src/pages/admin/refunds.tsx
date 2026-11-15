@@ -1033,7 +1033,22 @@ function RefundsPage() {
           {/* Compact filter surface: the controls carry their own subtle
               grouping, so an extra outer card only added visual weight. */}
           <div className="mb-6 space-y-2">
-          <AdminControlGroup label="Refund status" contentClassName="gap-2" role="tablist" aria-label="Refund filters">
+          <AdminControlGroup
+            label="Refund status"
+            helpText="Filter refunds and store-credit movements by processing state. Use the count on each option to see how many records it contains."
+            contentClassName="gap-2"
+            aria-label="Refund filters"
+            compactLabel="Filter refunds by status"
+            compactValue={filter}
+            onCompactValueChange={(value) => setFilter(value as FilterKey)}
+            compactOptions={[
+              { value: "all", label: "All", count: counts.all },
+              { value: "auto", label: "Auto-processed", count: counts.auto },
+              { value: "credits", label: "Store credits", count: counts.credits },
+              { value: "pending", label: "Pending refunds", count: counts.pending },
+              { value: "rejected", label: "Rejected", count: counts.rejected },
+            ]}
+          >
             <FilterChip k="all" label="All" count={counts.all} total={totals.all} />
             <FilterChip k="auto" label="Auto-processed (PayFast)" count={counts.auto} total={totals.auto} />
             <FilterChip k="credits" label="Store credits" count={counts.credits} total={totals.credits} />

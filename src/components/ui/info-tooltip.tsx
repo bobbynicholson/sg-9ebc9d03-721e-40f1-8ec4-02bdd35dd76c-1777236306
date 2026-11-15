@@ -15,6 +15,7 @@ interface InfoTooltipProps {
   content: string;
   side?: "top" | "right" | "bottom" | "left";
   className?: string;
+  ariaLabel?: string;
 }
 
 /**
@@ -27,7 +28,7 @@ interface InfoTooltipProps {
  *   viewport, and caps at 22rem on bigger screens so a long explanation
  *   stays readable instead of running across the whole window.
  */
-export function InfoTooltip({ content, side = "top", className = "" }: InfoTooltipProps) {
+export function InfoTooltip({ content, side = "top", className = "", ariaLabel = "More info" }: InfoTooltipProps) {
   const [open, setOpen] = useState(false);
   const paragraphs = content.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
 
@@ -37,7 +38,7 @@ export function InfoTooltip({ content, side = "top", className = "" }: InfoToolt
         <TooltipTrigger asChild>
           <button
             type="button"
-            aria-label="More info"
+            aria-label={ariaLabel}
             className={`inline-flex items-center justify-center text-slate-400 hover:text-slate-600 focus-visible:text-slate-700 focus-visible:outline-none transition-colors ${className}`}
             onClick={(e) => {
               // Toggle on click so the tooltip works on touch devices where

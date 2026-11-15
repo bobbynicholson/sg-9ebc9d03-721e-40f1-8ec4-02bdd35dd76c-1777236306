@@ -2063,7 +2063,22 @@ function InvoicesPageInner() {
                   dropdown for the everyday chase view and surfaces the
                   overdue count up front. The dropdown stays for draft /
                   written-off edge cases. */}
-              <AdminControlGroup label="Payment status" data-print-hidden="true">
+              <AdminControlGroup
+                label="Payment status"
+                helpText="Quickly show invoices by payment state. The full status selector above includes draft, voided, and written-off invoices."
+                data-print-hidden="true"
+                compactLabel="Filter invoices by payment status"
+                compactValue={statusFilter}
+                onCompactValueChange={setStatusFilter}
+                compactOptions={[
+                  { value: "all", label: "All", count: statusCounts.all },
+                  { value: "unpaid", label: "Unpaid", count: statusCounts.unpaid },
+                  { value: "sent", label: "Sent", count: statusCounts.sent },
+                  { value: "partially_paid", label: "Part paid", count: statusCounts.partially_paid },
+                  { value: "overdue", label: "Overdue", count: statusCounts.overdue },
+                  { value: "paid", label: "Paid", count: statusCounts.paid },
+                ]}
+              >
                 {([
                   { key: "all", label: "All", count: statusCounts.all, tone: "slate" },
                   { key: "unpaid", label: "Unpaid", count: statusCounts.unpaid, tone: "amber" },
