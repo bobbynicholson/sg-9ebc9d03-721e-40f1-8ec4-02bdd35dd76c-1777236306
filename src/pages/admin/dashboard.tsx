@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useMemo, useRef } from "react";
+import dynamic from "next/dynamic";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
@@ -19,43 +20,50 @@ import { canAccessFinance } from "@/lib/authGuards";
 import { isBookedRevenue } from "@/lib/orderRevenueClassification";
 import { DashboardDateRange, resolvePreset, DateRange } from "@/components/dashboard/DashboardDateRange";
 import { MetricCard } from "@/components/dashboard/MetricCard";
-import { BusinessIntelligence } from "@/components/dashboard/BusinessIntelligence";
-import { FirstStepsCard } from "@/components/admin/FirstStepsCard";
-import { FirstEventWalkthrough } from "@/components/admin/FirstEventWalkthrough";
-import { DashboardTodoList } from "@/components/admin/DashboardTodoList";
-import { EmailProviderBanner } from "@/components/admin/EmailProviderBanner";
-import { TodaysPulse } from "@/components/admin/TodaysPulse";
-import { QuoteFollowupWidget } from "@/components/admin/QuoteFollowupWidget";
-import { InventoryLowStockWidget } from "@/components/admin/InventoryLowStockWidget";
-import { InventoryExpiryWidget } from "@/components/admin/InventoryExpiryWidget";
-import { VehicleServiceDueWidget } from "@/components/admin/VehicleServiceDueWidget";
-import { DeliverySlaWidget } from "@/components/admin/DeliverySlaWidget";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
-import { LeadAgingWidget } from "@/components/admin/LeadAgingWidget";
-import { TomorrowsEventsWidget } from "@/components/admin/TomorrowsEventsWidget";
-import { PendingRefundsWidget } from "@/components/admin/PendingRefundsWidget";
-import { OverdueInvoicesWidget } from "@/components/admin/OverdueInvoicesWidget";
-import { RecentRatingsWidget } from "@/components/admin/RecentRatingsWidget";
-import { ActiveStaffNowWidget } from "@/components/admin/ActiveStaffNowWidget";
-import { CancelledOrdersWidget } from "@/components/admin/CancelledOrdersWidget";
-import { NewLeadsTodayWidget } from "@/components/admin/NewLeadsTodayWidget";
-import { RecentActivityWidget } from "@/components/admin/RecentActivityWidget";
-import { DispatchGapWidget } from "@/components/admin/DispatchGapWidget";
-import { WeeklyOrdersChart } from "@/components/admin/WeeklyOrdersChart";
-import { EquipmentDamagesWidget } from "@/components/admin/EquipmentDamagesWidget";
-import { RecentPaymentsWidget } from "@/components/admin/RecentPaymentsWidget";
-import { RecentInventoryAdjustsWidget } from "@/components/admin/RecentInventoryAdjustsWidget";
-import { EmailFailuresWidget } from "@/components/admin/EmailFailuresWidget";
-import { QuoteResponseTimeWidget } from "@/components/admin/QuoteResponseTimeWidget";
-import { RegionPerformanceWidget } from "@/components/admin/RegionPerformanceWidget";
-import { YearOverYearCard } from "@/components/admin/YearOverYearCard";
-import { CashflowSnapshotWidget } from "@/components/admin/CashflowSnapshotWidget";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { DEFAULT_TENANT_TIMEZONE, tenantToday, toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { isAutomatedTestOrder, isAutomatedTestQuote } from "@/lib/testDataDetection";
 import { OPEN_REFUND_STATUSES } from "@/lib/refundStatus";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+
+// Keep secondary dashboard features out of the first route bundle. These
+// sections either sit below the fold or are behind a disclosure, so their
+// code should arrive when it is useful instead of delaying the headline KPIs.
+const DashboardWidgetLoading = () => (
+  <div aria-hidden="true" className="mb-4 min-h-24 animate-pulse rounded-xl border border-slate-200 bg-white/70 dark:border-slate-800 dark:bg-slate-900/40" />
+);
+const BusinessIntelligence = dynamic(() => import("@/components/dashboard/BusinessIntelligence").then((m) => m.BusinessIntelligence), { loading: DashboardWidgetLoading });
+const FirstStepsCard = dynamic(() => import("@/components/admin/FirstStepsCard").then((m) => m.FirstStepsCard), { loading: DashboardWidgetLoading });
+const FirstEventWalkthrough = dynamic(() => import("@/components/admin/FirstEventWalkthrough").then((m) => m.FirstEventWalkthrough), { loading: DashboardWidgetLoading });
+const DashboardTodoList = dynamic(() => import("@/components/admin/DashboardTodoList").then((m) => m.DashboardTodoList), { loading: DashboardWidgetLoading });
+const EmailProviderBanner = dynamic(() => import("@/components/admin/EmailProviderBanner").then((m) => m.EmailProviderBanner), { loading: DashboardWidgetLoading });
+const TodaysPulse = dynamic(() => import("@/components/admin/TodaysPulse").then((m) => m.TodaysPulse), { loading: DashboardWidgetLoading });
+const QuoteFollowupWidget = dynamic(() => import("@/components/admin/QuoteFollowupWidget").then((m) => m.QuoteFollowupWidget), { loading: DashboardWidgetLoading });
+const InventoryLowStockWidget = dynamic(() => import("@/components/admin/InventoryLowStockWidget").then((m) => m.InventoryLowStockWidget), { loading: DashboardWidgetLoading });
+const InventoryExpiryWidget = dynamic(() => import("@/components/admin/InventoryExpiryWidget").then((m) => m.InventoryExpiryWidget), { loading: DashboardWidgetLoading });
+const VehicleServiceDueWidget = dynamic(() => import("@/components/admin/VehicleServiceDueWidget").then((m) => m.VehicleServiceDueWidget), { loading: DashboardWidgetLoading });
+const DeliverySlaWidget = dynamic(() => import("@/components/admin/DeliverySlaWidget").then((m) => m.DeliverySlaWidget), { loading: DashboardWidgetLoading });
+const LeadAgingWidget = dynamic(() => import("@/components/admin/LeadAgingWidget").then((m) => m.LeadAgingWidget), { loading: DashboardWidgetLoading });
+const TomorrowsEventsWidget = dynamic(() => import("@/components/admin/TomorrowsEventsWidget").then((m) => m.TomorrowsEventsWidget), { loading: DashboardWidgetLoading });
+const PendingRefundsWidget = dynamic(() => import("@/components/admin/PendingRefundsWidget").then((m) => m.PendingRefundsWidget), { loading: DashboardWidgetLoading });
+const OverdueInvoicesWidget = dynamic(() => import("@/components/admin/OverdueInvoicesWidget").then((m) => m.OverdueInvoicesWidget), { loading: DashboardWidgetLoading });
+const RecentRatingsWidget = dynamic(() => import("@/components/admin/RecentRatingsWidget").then((m) => m.RecentRatingsWidget), { loading: DashboardWidgetLoading });
+const ActiveStaffNowWidget = dynamic(() => import("@/components/admin/ActiveStaffNowWidget").then((m) => m.ActiveStaffNowWidget), { loading: DashboardWidgetLoading });
+const CancelledOrdersWidget = dynamic(() => import("@/components/admin/CancelledOrdersWidget").then((m) => m.CancelledOrdersWidget), { loading: DashboardWidgetLoading });
+const NewLeadsTodayWidget = dynamic(() => import("@/components/admin/NewLeadsTodayWidget").then((m) => m.NewLeadsTodayWidget), { loading: DashboardWidgetLoading });
+const RecentActivityWidget = dynamic(() => import("@/components/admin/RecentActivityWidget").then((m) => m.RecentActivityWidget), { loading: DashboardWidgetLoading });
+const DispatchGapWidget = dynamic(() => import("@/components/admin/DispatchGapWidget").then((m) => m.DispatchGapWidget), { loading: DashboardWidgetLoading });
+const WeeklyOrdersChart = dynamic(() => import("@/components/admin/WeeklyOrdersChart").then((m) => m.WeeklyOrdersChart), { loading: DashboardWidgetLoading });
+const EquipmentDamagesWidget = dynamic(() => import("@/components/admin/EquipmentDamagesWidget").then((m) => m.EquipmentDamagesWidget), { loading: DashboardWidgetLoading });
+const RecentPaymentsWidget = dynamic(() => import("@/components/admin/RecentPaymentsWidget").then((m) => m.RecentPaymentsWidget), { loading: DashboardWidgetLoading });
+const RecentInventoryAdjustsWidget = dynamic(() => import("@/components/admin/RecentInventoryAdjustsWidget").then((m) => m.RecentInventoryAdjustsWidget), { loading: DashboardWidgetLoading });
+const EmailFailuresWidget = dynamic(() => import("@/components/admin/EmailFailuresWidget").then((m) => m.EmailFailuresWidget), { loading: DashboardWidgetLoading });
+const QuoteResponseTimeWidget = dynamic(() => import("@/components/admin/QuoteResponseTimeWidget").then((m) => m.QuoteResponseTimeWidget), { loading: DashboardWidgetLoading });
+const RegionPerformanceWidget = dynamic(() => import("@/components/admin/RegionPerformanceWidget").then((m) => m.RegionPerformanceWidget), { loading: DashboardWidgetLoading });
+const YearOverYearCard = dynamic(() => import("@/components/admin/YearOverYearCard").then((m) => m.YearOverYearCard), { loading: DashboardWidgetLoading });
+const CashflowSnapshotWidget = dynamic(() => import("@/components/admin/CashflowSnapshotWidget").then((m) => m.CashflowSnapshotWidget), { loading: DashboardWidgetLoading });
 
 interface Stats {
   bookedRevenue: number;
@@ -1106,7 +1114,7 @@ function AdminDashboardPage() {
             </Card>
           )}
 
-<Card collapsible defaultOpen={true} collapseLabel="Needs attention" className="mb-6 min-w-0 max-w-full" id="dashboard-needs-attention">
+<Card collapsible lazyContent defaultOpen={false} collapseLabel="Needs attention" className="mb-6 min-w-0 max-w-full" id="dashboard-needs-attention">
   <CardHeader className="min-w-0"><CardTitle className="text-base">Needs attention</CardTitle><CardDescription className="min-w-0 break-words">Follow-ups, shortages, dispatch gaps and unresolved financial or delivery issues.</CardDescription></CardHeader>
   <CardContent className="min-w-0 max-w-full"><div className="grid min-w-0 grid-cols-1 items-start gap-3 [&>div]:mb-0 [&>div]:min-w-0 [&>div]:max-w-full"><WidgetErrorBoundary label="Quote follow-up"><QuoteFollowupWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Low stock"><InventoryLowStockWidget companyId={companyId} /></WidgetErrorBoundary>
@@ -1387,14 +1395,59 @@ function AdminDashboardPage() {
               the bottom of the dashboard, collapsible, persists state per
               tenant. Owns its own data fetch (24-month window of orders +
               quotes + leads, narrowed by the global region filter). */}
-          <WidgetErrorBoundary label="Business intelligence">
-            <BusinessIntelligence companyId={companyId} dateRange={{ from: range.from, to: range.to }} />
-          </WidgetErrorBoundary>
+          <DeferredBusinessIntelligence companyId={companyId} dateRange={{ from: range.from, to: range.to }} />
         </PortalShell>
       </div>
 
       <ChatBot userRole="admin" companyId={companyId} />
     </>
+  );
+}
+
+function DeferredBusinessIntelligence({
+  companyId,
+  dateRange,
+}: {
+  companyId: string | null | undefined;
+  dateRange: { from: Date; to: Date };
+}) {
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const [nearViewport, setNearViewport] = useState(false);
+
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section || typeof IntersectionObserver === "undefined") {
+      setNearViewport(true);
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setNearViewport(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: "600px 0px" });
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={sectionRef}>
+      {nearViewport ? (
+        <WidgetErrorBoundary label="Business intelligence">
+          <BusinessIntelligence companyId={companyId} dateRange={dateRange} />
+        </WidgetErrorBoundary>
+      ) : (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <LayoutDashboard className="h-4 w-4 text-brand-primary" />
+              Business intelligence
+            </CardTitle>
+            <CardDescription>Insights load as you reach this section.</CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+    </div>
   );
 }
 
