@@ -1,3 +1,5 @@
+import { normaliseToE164 } from "@/lib/whatsapp";
+
 /** Paging helpers for the Replies page. Pure, so they can be tested directly. */
 export interface ThreadMessage {
   id: string;
@@ -18,6 +20,16 @@ export interface ThreadMessage {
 
 export const CONVERSATION_PAGE_SIZE = 25;
 export const MESSAGE_PAGE_SIZE = 30;
+
+/** Phone values that may already exist in whatsapp_messages for this contact. */
+export function whatsappRecipientPhoneLookupValues(phone: string): string[] {
+  const normalized = normaliseToE164(phone);
+  if (!normalized) return [];
+  const values = [normalized, `+${normalized}`];
+  // Legacy South African rows were sometimes stored in local 0-prefixed form.
+  if (/^27\d{9}$/.test(normalized)) values.push(`0${normalized.slice(2)}`);
+  return [...new Set(values)];
+}
 
 export function encodeCursor(row: { last_message_at: string; id: string }): string {
   return Buffer.from(JSON.stringify([row.last_message_at, row.id])).toString("base64url");

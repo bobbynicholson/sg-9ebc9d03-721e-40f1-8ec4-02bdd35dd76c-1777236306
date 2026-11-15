@@ -47,8 +47,8 @@ export default function Document() {
         <div id="cms-pwa-launch-screen" role="status" aria-live="polite">
           <div className="cms-pwa-launch-content">
             <div className="cms-pwa-launch-mark">
-              <img id="cms-pwa-launch-logo" src="/icons/cateringms-192.png" width="76" height="76" alt="" />
-              <span id="cms-pwa-launch-monogram" aria-hidden="true">C</span>
+              <img id="cms-pwa-launch-logo" src="/icons/cateringms-192.png" width="76" height="76" alt="" style={{ display: "none" }} />
+              <span id="cms-pwa-launch-monogram" aria-hidden="true" style={{ display: "flex" }}>C</span>
             </div>
             <p id="cms-pwa-launch-name">Opening your workspace</p>
             <span>Getting things ready</span>

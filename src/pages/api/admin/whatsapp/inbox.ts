@@ -21,6 +21,7 @@ import {
   decodeThreadCursor,
   encodeCursor,
   mergeThreadPage,
+  whatsappRecipientPhoneLookupValues,
 } from "@/lib/whatsapp/conversations";
 import { loadWhatsAppCredentials, postWhatsAppMessage } from "@/lib/whatsapp/credentials";
 import { WHATSAPP_AUTOMATIONS, readAutomationSettings } from "@/lib/whatsapp/automations";
@@ -65,14 +66,15 @@ async function listConversations(sb: any, companyId: string, req: NextApiRequest
 
 async function loadThread(sb: any, companyId: string, phone: string, req: NextApiRequest, res: NextApiResponse) {
   const before = decodeThreadCursor(String(req.query.before || ""));
+  const phoneValues = whatsappRecipientPhoneLookupValues(phone);
 
   let received = sb.from("whatsapp_inbound_messages").select("id, wa_message_id, contact_name, body, message_type, received_at, related_message_id, reaction_emoji")
-    .eq("company_id", companyId).eq("from_phone", phone).order("received_at", { ascending: false }).order("id", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
+    .eq("company_id", companyId).in("from_phone", phoneValues).order("received_at", { ascending: false }).order("id", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
   let sent = sb.from("whatsapp_messages").select("id, gateway_message_id, enqueued_by, recipient_name, message_content, message_type, template_name, status, failure_reason, created_at")
-    .eq("company_id", companyId).eq("recipient_phone", phone).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
+    .eq("company_id", companyId).in("recipient_phone", phoneValues).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
   let external = sb.from("whatsapp_external_messages")
     .select("id, wa_message_id, direction, contact_name, body, message_type, status, source, message_at, related_message_id, reaction_emoji")
-    .eq("company_id", companyId).eq("contact_phone", phone)
+    .eq("company_id", companyId).in("contact_phone", phoneValues)
     .order("message_at", { ascending: false }).order("id", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
   const constrainBefore = (query: any, column: string) => before
     ? before.id
@@ -96,9 +98,9 @@ async function loadThread(sb: any, companyId: string, phone: string, req: NextAp
     sent,
     external,
     sb.from("whatsapp_inbound_messages").select("received_at, contact_name")
-      .eq("company_id", companyId).eq("from_phone", phone).order("received_at", { ascending: false }).limit(1),
+      .eq("company_id", companyId).in("from_phone", phoneValues).order("received_at", { ascending: false }).limit(1),
     sb.from("whatsapp_external_messages").select("message_at, contact_name")
-      .eq("company_id", companyId).eq("contact_phone", phone).eq("direction", "in")
+      .eq("company_id", companyId).in("contact_phone", phoneValues).eq("direction", "in")
       .order("message_at", { ascending: false }).limit(1),
     sb.from("integrations").select("settings").eq("company_id", companyId).eq("integration_type", "whatsapp").maybeSingle(),
   ]);
@@ -108,7 +110,7 @@ async function loadThread(sb: any, companyId: string, phone: string, req: NextAp
   let externalError = externalResult.error;
   if (inboundError && REACTION_COLUMNS_MISSING.has(String(inboundError.code))) {
     let fallback = sb.from("whatsapp_inbound_messages").select("id, wa_message_id, contact_name, body, message_type, received_at")
-      .eq("company_id", companyId).eq("from_phone", phone)
+      .eq("company_id", companyId).in("from_phone", phoneValues)
       .order("received_at", { ascending: false }).order("id", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
     fallback = constrainBefore(fallback, "received_at");
     const result = await fallback;
@@ -118,7 +120,7 @@ async function loadThread(sb: any, companyId: string, phone: string, req: NextAp
   if (externalError && REACTION_COLUMNS_MISSING.has(String(externalError.code))) {
     let fallback = sb.from("whatsapp_external_messages")
       .select("id, wa_message_id, direction, contact_name, body, message_type, status, source, message_at")
-      .eq("company_id", companyId).eq("contact_phone", phone)
+      .eq("company_id", companyId).in("contact_phone", phoneValues)
       .order("message_at", { ascending: false }).order("id", { ascending: false }).limit(MESSAGE_PAGE_SIZE + 1);
     fallback = constrainBefore(fallback, "message_at");
     const result = await fallback;
@@ -211,10 +213,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!phone) return res.status(400).json({ error: "Choose a conversation first." });
 
   const markRead = async () => {
+    const phoneValues = whatsappRecipientPhoneLookupValues(phone);
     await Promise.all([
       sb.from("whatsapp_inbound_messages").update({ read_at: new Date().toISOString() })
-        .eq("company_id", companyId).eq("from_phone", phone).is("read_at", null),
-      sb.from("whatsapp_conversations").update({ unread_count: 0 }).eq("company_id", companyId).eq("phone", phone),
+        .eq("company_id", companyId).in("from_phone", phoneValues).is("read_at", null),
+      sb.from("whatsapp_conversations").update({ unread_count: 0 }).eq("company_id", companyId).in("phone", phoneValues),
     ]);
   };
 
@@ -229,7 +232,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (text.length > 4096) return res.status(400).json({ error: "Keep your reply under 4,096 characters." });
 
     const { data: last } = await sb.from("whatsapp_inbound_messages").select("received_at")
-      .eq("company_id", companyId).eq("from_phone", phone).order("received_at", { ascending: false }).limit(1);
+      .eq("company_id", companyId).in("from_phone", whatsappRecipientPhoneLookupValues(phone)).order("received_at", { ascending: false }).limit(1);
     if (!last?.[0] || Date.now() - new Date(last[0].received_at).getTime() >= REPLY_WINDOW_MS) {
       return res.status(400).json({ error: "WhatsApp only allows a reply within 24 hours of the client's last message." });
     }

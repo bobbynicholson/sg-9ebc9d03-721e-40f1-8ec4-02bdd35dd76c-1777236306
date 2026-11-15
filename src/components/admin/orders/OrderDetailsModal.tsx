@@ -1350,7 +1350,7 @@ const changeOrderDetailTab = (value: string) => {
         onValueChange={changeOrderDetailTab}
         className="mt-5 min-w-0 sm:mt-6"
       >
-        <div className="mb-3 sm:hidden">
+        <div className="mb-3 md:hidden">
           <Label className="sr-only" htmlFor="order-detail-section">Order section</Label>
           <Select value={activeOrderDetailTab} onValueChange={changeOrderDetailTab}>
             <SelectTrigger id="order-detail-section" className="h-11 w-full bg-white">
@@ -1363,19 +1363,19 @@ const changeOrderDetailTab = (value: string) => {
             </SelectContent>
           </Select>
         </div>
-        <TabsList className="no-scrollbar hidden w-full min-w-0 justify-start overflow-x-auto sm:flex [&>*]:shrink-0">
-          <TabsTrigger id="order-details" data-chat-section="admin.order-details.details" data-chat-section-label="Order details" value="details">Details</TabsTrigger>
-          <TabsTrigger id="order-sittings" data-chat-section="admin.order-details.sittings" data-chat-section-label="Service sittings and trips" value="sittings">Sittings &amp; trips</TabsTrigger>
-          <TabsTrigger id="order-menu" data-chat-section="admin.order-details.menu" data-chat-section-label="Order menu items" value="menu">Menu Items</TabsTrigger>
-          <TabsTrigger id="order-equipment" data-chat-section="admin.order-details.equipment" data-chat-section-label="Order equipment" value="equipment">Equipment</TabsTrigger>
-          <TabsTrigger id="order-messages" data-chat-section="admin.order-details.messages" data-chat-section-label="Order messages" value="messages">Messages</TabsTrigger>
-          <TabsTrigger id="order-amendments" data-chat-section="admin.order-details.amendments" data-chat-section-label="Order amendments" value="amendments">Amendments</TabsTrigger>
-          <TabsTrigger id="order-cancellations" data-chat-section="admin.order-details.cancellations" data-chat-section-label="Order cancellations" value="cancellations">Cancellations</TabsTrigger>
-          <TabsTrigger id="order-history" data-chat-section="admin.order-details.history" data-chat-section-label="Order history" value="history">History</TabsTrigger>
+        <TabsList className="hidden h-auto w-full min-w-0 grid-cols-2 gap-1 rounded-lg p-1 md:grid md:grid-cols-4 2xl:grid-cols-8">
+          <TabsTrigger className="min-h-10 min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" id="order-details" data-chat-section="admin.order-details.details" data-chat-section-label="Order details" value="details">Details</TabsTrigger>
+          <TabsTrigger className="min-h-10 min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" id="order-sittings" data-chat-section="admin.order-details.sittings" data-chat-section-label="Service sittings and trips" value="sittings">Sittings &amp; trips</TabsTrigger>
+          <TabsTrigger className="min-h-10 min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" id="order-menu" data-chat-section="admin.order-details.menu" data-chat-section-label="Order menu items" value="menu">Menu Items</TabsTrigger>
+          <TabsTrigger className="min-h-10 min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" id="order-equipment" data-chat-section="admin.order-details.equipment" data-chat-section-label="Order equipment" value="equipment">Equipment</TabsTrigger>
+          <TabsTrigger className="min-h-10 min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" id="order-messages" data-chat-section="admin.order-details.messages" data-chat-section-label="Order messages" value="messages">Messages</TabsTrigger>
+          <TabsTrigger className="min-h-10 min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" id="order-amendments" data-chat-section="admin.order-details.amendments" data-chat-section-label="Order amendments" value="amendments">Amendments</TabsTrigger>
+          <TabsTrigger className="min-h-10 min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" id="order-cancellations" data-chat-section="admin.order-details.cancellations" data-chat-section-label="Order cancellations" value="cancellations">Cancellations</TabsTrigger>
+          <TabsTrigger className="min-h-10 min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" id="order-history" data-chat-section="admin.order-details.history" data-chat-section-label="Order history" value="history">History</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details" className="mt-4 min-w-0 space-y-4">
-          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
             <CustomerIdentityFields contactName={editedOrder.client_name || ""} companyName={editedOrder.client_company_name || ""} onContactNameChange={(client_name) => setEditedOrder({ ...editedOrder, client_name })} onCompanyNameChange={(client_company_name) => setEditedOrder({ ...editedOrder, client_company_name })} disabled={!editMode} idPrefix="order-customer" />
 
             <div className="space-y-2">
@@ -1414,7 +1414,7 @@ const changeOrderDetailTab = (value: string) => {
               )}
             </div>
 
-            <div className="col-span-1 min-w-0 space-y-2 sm:col-span-2">
+            <div className="col-span-1 min-w-0 space-y-2 md:col-span-2">
               <Label>Venue Address</Label>
               <Input
                 value={editedOrder.venue_address || ""}
@@ -1455,9 +1455,9 @@ const changeOrderDetailTab = (value: string) => {
                 clear header so the operator can set start-of-day
                 pickup, on-site setup, and event start in one
                 place. handleSave below now persists all three. */}
-            <div id="op-times" className="col-span-1 min-w-0 space-y-2 border-t border-slate-200 pt-2 sm:col-span-2">
+            <div id="op-times" className="col-span-1 min-w-0 space-y-2 border-t border-slate-200 pt-2 md:col-span-2">
               <Label className="text-xs uppercase tracking-wide text-slate-500">Operational times</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
                 <div className="space-y-1">
                   <Label className="text-xs text-slate-600">Event start</Label>
                   <Input
@@ -1497,6 +1497,7 @@ const changeOrderDetailTab = (value: string) => {
                 mailto/wa.me, copy magic-link, mark accepted on
                 their behalf, advance status, cancel. */}
             {selectedOrder?.id && (
+              <div className="min-w-0 md:col-span-2">
               <OutsourcedFulfilmentPanel
                 orderId={selectedOrder.id}
                 orderNumber={(selectedOrder as any).order_number || null}
@@ -1507,10 +1508,11 @@ const changeOrderDetailTab = (value: string) => {
                 venueAddress={(selectedOrder as any).venue_address || null}
                 guestCount={(selectedOrder as any).guest_count ?? null}
               />
+              </div>
             )}
 
             {(selectedOrder as any).special_instructions && (
-              <div className="col-span-1 min-w-0 space-y-2 sm:col-span-2">
+              <div className="col-span-1 min-w-0 space-y-2 md:col-span-2">
                 <Label>Client special instructions</Label>
                 <p className="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 whitespace-pre-wrap">
                   {(selectedOrder as any).special_instructions}
@@ -1519,7 +1521,7 @@ const changeOrderDetailTab = (value: string) => {
             )}
 
             {/* Money summary - read-only at-a-glance for the team. */}
-            <div className="col-span-1 mt-2 grid min-w-0 grid-cols-2 gap-3 border-t border-slate-200 pt-3 sm:col-span-2 sm:grid-cols-4">
+            <div className="col-span-1 mt-2 grid min-w-0 grid-cols-2 gap-3 border-t border-slate-200 pt-3 md:col-span-2 lg:grid-cols-4">
               <div>
                 <Label className="text-xs">Subtotal</Label>
                 <p className="text-sm font-semibold text-slate-900 mt-1 tabular-nums">
@@ -1590,7 +1592,7 @@ const changeOrderDetailTab = (value: string) => {
               const netMargin = orderTotal - outsourceTotal;
               const marginPct = orderTotal > 0 ? (netMargin / orderTotal) * 100 : 0;
               return (
-                <div className="col-span-1 mt-2 grid min-w-0 grid-cols-2 gap-3 border-t border-slate-200 pt-3 sm:col-span-2 sm:grid-cols-3">
+                <div className="col-span-1 mt-2 grid min-w-0 grid-cols-2 gap-3 border-t border-slate-200 pt-3 md:col-span-2 lg:grid-cols-3">
                   <div>
                     <Label className="text-xs flex items-center gap-1.5">
                       Outsource fees
@@ -1623,12 +1625,12 @@ const changeOrderDetailTab = (value: string) => {
                 only, never goes near the client portal. The vehicle
                 is auto-booked when a driver is assigned and can be
                 overridden from the Dispatch Queue. */}
-            <div className="col-span-1 mt-2 min-w-0 border-t border-slate-200 pt-3 sm:col-span-2">
+            <div className="col-span-1 mt-2 min-w-0 border-t border-slate-200 pt-3 md:col-span-2">
               <Label className="text-xs flex items-center gap-1.5">
                 Dispatch
                 <span className="text-[10px] text-slate-400 uppercase tracking-wide">internal</span>
               </Label>
-              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs">
                   <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
                     Vehicle
@@ -1702,7 +1704,7 @@ const changeOrderDetailTab = (value: string) => {
             {editMode && (
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
                 <Label className="text-xs font-semibold text-blue-900">Add menu item to this order</Label>
-                <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-2 items-end">
+                <div className="grid min-w-0 grid-cols-1 items-end gap-2 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
                   <MenuItemTypeahead
                     companyId={(selectedOrder as any)?.company_id}
                     value={miSearch}
@@ -1862,7 +1864,7 @@ const changeOrderDetailTab = (value: string) => {
             {editMode && (
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
                 <Label className="text-xs font-semibold text-blue-900">Add equipment to this order</Label>
-                <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-end">
+                <div className="grid min-w-0 grid-cols-1 items-end gap-2 lg:grid-cols-[minmax(0,1fr)_auto_auto]">
                   <EquipmentTypeahead
                     companyId={(selectedOrder as any)?.company_id}
                     value={eqSearch}

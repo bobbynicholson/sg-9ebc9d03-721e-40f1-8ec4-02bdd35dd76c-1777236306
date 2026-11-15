@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { isCommsAllowed } from "@/services/commsGuardService";
 import { buildPayInvoiceUrlServer, mintOrderCustomerLink } from "@/lib/customerLinksServer";
+import { normaliseToE164 } from "@/lib/whatsapp";
 
 export interface WhatsAppConfig {
   phoneNumberId: string;
@@ -156,10 +157,12 @@ export const whatsappIntegrationService = {
       // Automatic messages are chosen on the WhatsApp page and queued by
       // lib/whatsapp/runAutomations. Nothing else may queue one by itself.
       if (!args.manual) return null;
+      const recipientPhone = normaliseToE164(args.recipientPhone);
+      if (!recipientPhone) return null;
       const guard = await isCommsAllowed({
         companyId: args.companyId,
         channel: "whatsapp",
-        phone: args.recipientPhone,
+        phone: recipientPhone,
       });
       if (!guard.allowed) {
         console.log(`[whatsapp/enqueue] refused: ${guard.detail || guard.reason}`);
@@ -168,7 +171,7 @@ export const whatsappIntegrationService = {
 
       const row = {
         company_id: args.companyId,
-        recipient_phone: args.recipientPhone,
+        recipient_phone: recipientPhone,
         recipient_name: args.recipientName ?? null,
         message_type: "text" as const,
         message_content: args.body,

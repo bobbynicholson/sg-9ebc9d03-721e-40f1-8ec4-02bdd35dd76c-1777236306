@@ -283,7 +283,7 @@ export function KanbanColumn({
   );
 
   return (
-    <div className="flex w-full min-w-0 flex-col sm:w-[320px] sm:min-w-[320px] sm:max-w-[320px] sm:flex-shrink-0">
+    <div className="flex w-full min-w-0 flex-col">
       <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-slate-200">
         <div className="flex items-center gap-2 min-w-0">
           <div className={`w-3 h-3 rounded-full shrink-0 ${config.dotColor}`} />
@@ -300,7 +300,7 @@ export function KanbanColumn({
           </Badge>
         </div>
       </div>
-      <div className="flex-1 space-y-3 pr-2 sm:max-h-[600px] sm:overflow-y-auto">
+      <div className="min-w-0 flex-1 space-y-3 pr-1 lg:max-h-[min(70vh,780px)] lg:overflow-y-auto lg:pr-2">
         {ordersInStatus.length === 0 ? (
           <div className="text-center py-8 text-slate-400">
             <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-30" />

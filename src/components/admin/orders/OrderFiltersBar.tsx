@@ -84,8 +84,8 @@ export function OrderFiltersBar({
   return (
     <Card className="border-0 shadow-lg">
       <CardContent className="pt-6">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+          <div className="relative min-w-0 sm:col-span-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <Input
               ref={searchRef}
@@ -111,7 +111,7 @@ export function OrderFiltersBar({
             )}
           </div>
           <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-            <SelectTrigger className="w-full md:w-[200px]">
+            <SelectTrigger className="w-full min-w-0">
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
@@ -133,7 +133,7 @@ export function OrderFiltersBar({
             </SelectContent>
           </Select>
           <Select value={dateFilter} onValueChange={onDateFilterChange}>
-            <SelectTrigger className="w-full md:w-[200px]">
+            <SelectTrigger className="w-full min-w-0">
               <SelectValue placeholder="All Dates" />
             </SelectTrigger>
             <SelectContent>
@@ -147,12 +147,12 @@ export function OrderFiltersBar({
             </SelectContent>
           </Select>
           {dateFilter === "custom" && (
-            <div className="flex w-full min-w-0 items-center gap-1.5 md:w-auto">
+            <div className="flex w-full min-w-0 items-center gap-1.5 sm:col-span-2">
               <Input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => onDateFromChange(e.target.value)}
-                className="min-w-0 flex-1 md:w-[150px] md:flex-none"
+                className="min-w-0 flex-1"
                 title="From"
               />
               <span className="text-slate-400 text-xs">to</span>
@@ -160,7 +160,7 @@ export function OrderFiltersBar({
                 type="date"
                 value={dateTo}
                 onChange={(e) => onDateToChange(e.target.value)}
-                className="min-w-0 flex-1 md:w-[150px] md:flex-none"
+                className="min-w-0 flex-1"
                 title="To"
               />
               {(dateFrom || dateTo) && (
@@ -180,7 +180,7 @@ export function OrderFiltersBar({
             </div>
           )}
           {onExport && (
-            <Button variant="outline" className="gap-2" onClick={onExport}>
+            <Button variant="outline" className="w-full gap-2 sm:col-span-2 sm:w-auto sm:justify-self-end" onClick={onExport}>
               <Download className="w-4 h-4" />
               Export
             </Button>

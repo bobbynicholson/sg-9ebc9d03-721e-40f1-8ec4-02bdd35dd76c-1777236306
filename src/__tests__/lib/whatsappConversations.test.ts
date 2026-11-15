@@ -7,6 +7,7 @@ import {
   encodeCursor,
   mergeConversations,
   mergeThreadPage,
+  whatsappRecipientPhoneLookupValues,
   type ThreadMessage,
 } from "@/lib/whatsapp/conversations";
 import { WHATSAPP_AUTOMATIONS, WHATSAPP_MANUAL_ONLY, WHATSAPP_SEND_FROM } from "@/lib/whatsapp/automations";
@@ -17,6 +18,15 @@ const message = (n: number, direction: "in" | "out"): ThreadMessage => ({
 });
 
 describe("conversation paging", () => {
+  it("matches sent history saved in current and legacy South African phone formats", () => {
+    expect(whatsappRecipientPhoneLookupValues("+27 82 555 0001")).toEqual([
+      "27825550001",
+      "+27825550001",
+      "0825550001",
+    ]);
+    expect(whatsappRecipientPhoneLookupValues("invalid")).toEqual([]);
+  });
+
   it("round-trips a cursor", () => {
     expect(decodeCursor(encodeCursor({ last_message_at: "2026-11-05T09:00:00.000Z", id }))).toEqual({ at: "2026-11-05T09:00:00.000Z", id });
   });

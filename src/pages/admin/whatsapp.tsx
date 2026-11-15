@@ -694,8 +694,8 @@ function WhatsAppPage() {
                             {[
                               ["Open your Meta app", "Go to WhatsApp → Configuration → Configure Webhooks."],
                               ["Verify the callback", "Paste the Callback URL and Verify token, then choose Verify and save."],
-                              ["Subscribe to messages", "Subscribe the messages field, then use Subscribe webhooks for this WhatsApp account."],
-                              ["Test a reply", "Publish the Meta app for live events, then message the business number from another phone."],
+                              ["Subscribe the required fields", "Subscribe to messages for customer replies. For chats sent from the WhatsApp Business app, also subscribe to smb_message_echoes; phone-app history needs the history field and approved sharing."],
+                              ["Test both directions", "Publish the Meta app for live events, then send a message from another phone and from the WhatsApp Business app. Standard Cloud API setup does not include phone-app messages."],
                             ].map(([title, description], index) => (
                               <li key={title} className="flex gap-3">
                                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold tabular-nums text-slate-700 dark:bg-slate-800 dark:text-slate-200">{index + 1}</span>

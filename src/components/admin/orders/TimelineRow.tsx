@@ -116,10 +116,10 @@ export function TimelineRow({
         router.push(withSlug(`/order/${(order as any).id}?role=admin`));
       }}
     >
-      <CardContent className="p-6">
+      <CardContent className="min-w-0 p-4 sm:p-5 lg:p-6">
         <div className="space-y-4">
           {/* Order Header */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-3 lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,auto)] lg:gap-x-4">
             {/* Phase 7 #6: bulk-select checkbox. Click stops
                 propagation so we don't open the details modal. */}
             <div
@@ -132,7 +132,7 @@ export function TimelineRow({
                 aria-label={`Select order ${(order as any).order_number || order.client_name}`}
               />
             </div>
-            <div className="min-w-0 flex-1">
+            <div className="col-start-2 min-w-0 lg:col-start-auto">
               <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <h4 className="font-semibold text-slate-900 text-lg">
                   <Link
@@ -269,7 +269,7 @@ export function TimelineRow({
                 />
               </div>
             </div>
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 self-end pt-0.5 sm:max-w-sm sm:self-start">
+            <div className="col-span-2 flex min-w-0 flex-wrap items-center justify-start gap-2 pt-1 lg:col-span-1 lg:max-w-sm lg:justify-end lg:pt-0.5">
               <OrderWhatsAppButton order={order} />
               {onEmail && (
                 <Button

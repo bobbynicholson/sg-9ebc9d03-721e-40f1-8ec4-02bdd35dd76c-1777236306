@@ -2532,8 +2532,8 @@ function OrderProcessDashboard() {
               />
             </div>
 
-            <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs leading-5 text-slate-600" aria-live="polite">
+            <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 lg:flex-row lg:items-center lg:justify-between">
+              <p className="min-w-0 text-xs leading-5 text-slate-600" aria-live="polite">
                 {orderHistoryStatus === "more" || orderHistoryStatus === "complete" ? (
                   <>
                     Showing {orders.length} matching {orders.length === 1 ? "order" : "orders"}.{" "}
@@ -2545,7 +2545,7 @@ function OrderProcessDashboard() {
                   "Order history is loading or could not be confirmed as complete."
                 )}
               </p>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2 lg:shrink-0 lg:flex-nowrap">
                 <Button
                   type="button"
                   variant="outline"
@@ -2631,8 +2631,11 @@ function OrderProcessDashboard() {
                   }}
                 />
               ) : (
-                <div className="pb-4 sm:overflow-x-auto">
-                  <div className="flex flex-col gap-6 px-1 sm:flex-row sm:min-w-max">
+                <div className="min-w-0 pb-4">
+                  <div
+                    className="grid min-w-0 items-start gap-4 px-1"
+                    style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 19rem), 1fr))" }}
+                  >
                     <KanbanColumn
                       status="pending"
                       title="Pending"
