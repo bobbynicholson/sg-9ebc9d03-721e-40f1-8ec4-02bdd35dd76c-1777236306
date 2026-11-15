@@ -3,7 +3,6 @@ import Head from "next/head";
 import Link from "next/link";
 import {
   ArrowRight,
-  Bell,
   Building2,
   CheckCircle,
   Code2,
@@ -166,13 +165,6 @@ const SETTINGS_SHORTCUTS: SettingsShortcut[] = [
     href: "/admin/email-templates",
     icon: MessageSquare,
     source: "email_templates",
-  },
-  {
-    title: "Notifications",
-    description: "Which alerts your company gets, and by email, push, SMS or WhatsApp.",
-    href: "/admin/notification-settings",
-    icon: Bell,
-    source: "email_notification_preferences",
   },
   {
     title: "Audit logs",

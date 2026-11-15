@@ -40,7 +40,6 @@ import {
   Banknote,
   Clock,
   TrendingUp,
-  Bell,
   Briefcase,
   MessageSquare,
   Truck,
@@ -366,7 +365,6 @@ export function AdminNav(_: AdminNavProps = {}) {
         { title: "WhatsApp replies",      href: "/admin/whatsapp/replies",      icon: MessageCircle, description: "Read and answer client replies" },
         { title: "WhatsApp activity",     href: "/admin/whatsapp/activity",     icon: MessageCircle, description: "What was sent, read and failed" },
         { title: "Messages",              href: "/admin/email-templates",       icon: MessageSquare, description: "Email and WhatsApp templates" },
-        { title: "Notifications",         href: "/admin/notification-settings", icon: Bell,          description: "Routing and opt-ins" },
         { title: "Scheduled tasks",       href: "/admin/cron-tasks",           icon: Activity,      description: "Run status and next schedule" },
         { title: "Audit log",             href: "/admin/audit-logs",            icon: Shield,        description: "Compliance trail - who did what" },
         ...((profile && [UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN].includes(effectiveRole)) ? [

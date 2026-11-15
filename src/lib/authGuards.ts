@@ -498,8 +498,8 @@ export function hasRole(profile: Profile | null, ...requiredRoles: UserRole[]): 
 /**
  * Get unauthorized message based on role
  */
-export function getUnauthorizedMessage(userRole: UserRole, attemptedRoute: string): string {
-  return `Access Denied: Your ${getRoleName(userRole)} account does not have permission to access ${attemptedRoute}. Please contact your administrator if you believe this is an error.`;
+export function getUnauthorizedMessage(_userRole: UserRole, _attemptedRoute: string): string {
+  return "This page isn’t available with the access active on this device. Go to your dashboard or ask your administrator to review your account.";
 }
 
 /**

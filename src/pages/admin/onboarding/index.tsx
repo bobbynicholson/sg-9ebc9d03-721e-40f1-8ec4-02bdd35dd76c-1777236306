@@ -1856,7 +1856,7 @@ function NotificationsStep({
   onBack: () => void;
   onNext: () => void;
 }) {
-  const settingsHref = `${companySlug ? `/${companySlug}` : ""}/admin/notification-settings`;
+  const settingsHref = "/account/settings#notifications";
 
   return (
     <StepShell

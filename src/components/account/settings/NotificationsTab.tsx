@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -13,6 +13,7 @@ import {
   ClipboardList,
   CreditCard,
   Loader2,
+  MessageSquare,
   Package,
   RefreshCcw,
   Save,
@@ -96,6 +97,36 @@ const GROUPS: Group[] = [
 
 const PREF_FIELDS = Object.keys(EMAIL_PREF_DEFAULTS) as Array<keyof EmailNotificationPrefs>;
 
+type CategoryKey = "urgentAlerts" | "newOrders" | "staffUpdates" | "inventoryAlerts";
+type ChannelKey = "push" | "whatsapp";
+type ChannelValues = Record<ChannelKey, Record<CategoryKey, boolean>>;
+
+const CHANNEL_DEFAULTS: ChannelValues = {
+  push: { urgentAlerts: true, newOrders: true, staffUpdates: false, inventoryAlerts: true },
+  whatsapp: { urgentAlerts: true, newOrders: true, staffUpdates: true, inventoryAlerts: true },
+};
+
+const CATEGORIES: Array<{ key: CategoryKey; title: string; description: string }> = [
+  { key: "urgentAlerts", title: "Urgent alerts", description: "Critical issues that need prompt attention" },
+  { key: "newOrders", title: "New orders", description: "New orders and delivery updates" },
+  { key: "staffUpdates", title: "Staff updates", description: "Assignments and staff activity" },
+  { key: "inventoryAlerts", title: "Inventory alerts", description: "Low stock and equipment shortages" },
+];
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function readChannel(value: unknown, fallback: Record<CategoryKey, boolean>) {
+  const source = asRecord(value);
+  return Object.fromEntries(CATEGORIES.map(({ key }) => [
+    key,
+    typeof source[key] === "boolean" ? source[key] : fallback[key],
+  ])) as Record<CategoryKey, boolean>;
+}
+
 /**
  * Notifications tab for /account/settings. Self-contained: loads the
  * caller's email_notification_preferences row on mount and upserts it
@@ -105,9 +136,8 @@ const PREF_FIELDS = Object.keys(EMAIL_PREF_DEFAULTS) as Array<keyof EmailNotific
  * silently differed per device and no sender ever read them. Now they
  * drive the same row the DB email triggers consult.
  *
- * Only the boolean event columns are written; the `preferences` jsonb
- * column on the same row (owned by /admin/notification-settings and
- * the broadcast fan-out) is left untouched.
+ * Email event columns and push/WhatsApp categories share one load/save
+ * flow on this tab. The legacy admin URL redirects here.
  */
 export function NotificationsTab({ userId, companyId, activeRole, companyName, companySlug }: Props) {
   const { toast } = useToast();
@@ -115,6 +145,8 @@ export function NotificationsTab({ userId, companyId, activeRole, companyName, c
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [channels, setChannels] = useState<ChannelValues>(CHANNEL_DEFAULTS);
+  const storedPreferences = useRef<Record<string, unknown>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -127,17 +159,26 @@ export function NotificationsTab({ userId, companyId, activeRole, companyName, c
         .maybeSingle();
       if (error) throw error;
 
-      if (data) {
+      const row = data as unknown as Record<string, unknown> | null;
+      const stored = asRecord(row?.preferences);
+      storedPreferences.current = stored;
+      setChannels({
+        push: readChannel(stored.push, CHANNEL_DEFAULTS.push),
+        whatsapp: readChannel(stored.whatsapp, CHANNEL_DEFAULTS.whatsapp),
+      });
+
+      if (row) {
         // Column-level NULLs on legacy rows fall back to the migration
         // defaults rather than reading as "off".
         const next = { ...EMAIL_PREF_DEFAULTS };
         for (const field of PREF_FIELDS) {
-          const value = (data as Record<string, unknown>)[field];
+          const value = row[field];
           if (typeof value === "boolean") next[field] = value;
         }
         setPrefs(next);
       } else {
         setPrefs(EMAIL_PREF_DEFAULTS);
+        storedPreferences.current = {};
       }
     } catch (err: unknown) {
       console.error("[NotificationsTab] load failed:", err);
@@ -154,9 +195,19 @@ export function NotificationsTab({ userId, companyId, activeRole, companyName, c
   const handleSave = async () => {
     setSaving(true);
     try {
+      const preferences: Record<string, unknown> = {
+        ...storedPreferences.current,
+        push: channels.push,
+        whatsapp: channels.whatsapp,
+      };
+      // Email uses the table's boolean columns; SMS has no delivery
+      // provider. Drop the obsolete JSON copies as users save here.
+      delete preferences.email;
+      delete preferences.sms;
       const payload: Record<string, unknown> = {
         user_id: userId,
         ...prefs,
+        preferences,
         updated_at: new Date().toISOString(),
       };
       // Only stamp company_id when we actually know it - never clobber
@@ -168,9 +219,11 @@ export function NotificationsTab({ userId, companyId, activeRole, companyName, c
         .upsert(payload as never, { onConflict: "user_id" });
       if (error) throw error;
 
+      storedPreferences.current = payload.preferences as Record<string, unknown>;
+
       toast({
-        title: "Notification preferences saved",
-        description: "Emails will follow these settings from now on.",
+        title: "Notification settings saved",
+        description: "Email, push and WhatsApp preferences have been updated.",
       });
     } catch (err: unknown) {
       console.error("[NotificationsTab] save failed:", err);
@@ -184,38 +237,47 @@ export function NotificationsTab({ userId, companyId, activeRole, companyName, c
     }
   };
 
+  const devicePushPanel = (
+    <DevicePushSettings userId={userId} activeRole={activeRole} companyName={companyName} companySlug={companySlug} />
+  );
   if (loading) {
     return (
-      <PortalCard className="flex items-center justify-center py-12">
-        <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading your notification preferences...
-        </div>
-      </PortalCard>
+      <div className="space-y-6">
+        {devicePushPanel}
+        <PortalCard className="flex items-center justify-center py-12">
+          <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading your notification preferences...
+          </div>
+        </PortalCard>
+      </div>
     );
   }
 
   if (loadError) {
     return (
-      <div className="rounded-xl border border-rose-200 bg-rose-50 p-5 dark:border-rose-900/60 dark:bg-rose-950/40">
-        <div className="flex items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-600 dark:bg-rose-900/60 dark:text-rose-300">
-            <AlertTriangle className="h-4 w-4" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-rose-900 dark:text-rose-200">
-              Could not load your notification preferences
-            </p>
-            <p className="mt-1 text-sm text-rose-700 dark:text-rose-300/90">{loadError}</p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-3 border-rose-300 text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-900/40"
-              onClick={() => load()}
-            >
-              <RefreshCcw className="mr-2 h-3.5 w-3.5" />
-              Retry
-            </Button>
+      <div className="space-y-6">
+        {devicePushPanel}
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-5 dark:border-rose-900/60 dark:bg-rose-950/40">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-600 dark:bg-rose-900/60 dark:text-rose-300">
+              <AlertTriangle className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-rose-900 dark:text-rose-200">
+                Could not load your notification preferences
+              </p>
+              <p className="mt-1 text-sm text-rose-700 dark:text-rose-300/90">{loadError}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 border-rose-300 text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-900/40"
+                onClick={() => load()}
+              >
+                <RefreshCcw className="mr-2 h-3.5 w-3.5" />
+                Retry
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -224,7 +286,53 @@ export function NotificationsTab({ userId, companyId, activeRole, companyName, c
 
   return (
     <div className="space-y-6">
-      <DevicePushSettings userId={userId} activeRole={activeRole} companyName={companyName} companySlug={companySlug} />
+      {devicePushPanel}
+      <PortalCard>
+        <PortalCardHeader
+          title={
+            <span className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-brand-primary" />
+              Alert types
+            </span>
+          }
+        />
+        <p className="-mt-2 mb-5 text-sm text-slate-500 dark:text-slate-400">
+          Choose which event types can send push and WhatsApp alerts. Enable push on each device above, then save once below to apply all changes.
+        </p>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {(["push", "whatsapp"] as const).map((channel) => (
+            <section key={channel} aria-labelledby={`notification-${channel}-title`}>
+              <div className="mb-2 flex items-center gap-2">
+                {channel === "push" ? <Bell className="h-3.5 w-3.5 text-slate-400" /> : <MessageSquare className="h-3.5 w-3.5 text-slate-400" />}
+                <h3 id={`notification-${channel}-title`} className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  {channel === "push" ? "Push alerts" : "WhatsApp alerts"}
+                </h3>
+              </div>
+              <div className="divide-y divide-slate-100 rounded-lg border border-slate-200/90 dark:divide-slate-800 dark:border-slate-800">
+                {CATEGORIES.map(({ key, title, description }) => {
+                  const id = `${channel}-${key}`;
+                  return (
+                    <div key={key} className="flex min-h-[56px] items-center justify-between gap-4 px-4 py-3">
+                      <div className="min-w-0 space-y-0.5">
+                        <Label htmlFor={id} className="cursor-pointer text-sm font-medium">{title}</Label>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{description}</p>
+                      </div>
+                      <Switch
+                        id={id}
+                        checked={channels[channel][key]}
+                        onCheckedChange={(checked) => setChannels((current) => ({
+                          ...current,
+                          [channel]: { ...current[channel], [key]: checked },
+                        }))}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
+      </PortalCard>
       <PortalCard>
         <PortalCardHeader
           title={
@@ -235,7 +343,7 @@ export function NotificationsTab({ userId, companyId, activeRole, companyName, c
           }
         />
       <p className="-mt-2 mb-5 text-sm text-slate-500 dark:text-slate-400">
-        Choose which events email you. These apply across all your devices.
+        Choose which events email you. These settings apply to your account.
       </p>
 
         <div className="space-y-6">
@@ -285,7 +393,7 @@ export function NotificationsTab({ userId, companyId, activeRole, companyName, c
           ) : (
             <>
               <Save className="mr-2 h-4 w-4" />
-              Save notification preferences
+              Save notification settings
             </>
           )}
         </Button>

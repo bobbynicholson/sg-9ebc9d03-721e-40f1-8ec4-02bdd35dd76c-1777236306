@@ -413,7 +413,7 @@ function ProfileSettingsPage() {
                 {([
                   { value: "profile", label: "Profile", hint: "Name and contact", icon: User },
                   { value: "security", label: "Security", hint: "Password", icon: Lock },
-                  { value: "notifications", label: "Notifications", hint: "Emails you get", icon: Bell },
+                  { value: "notifications", label: "Notifications", hint: "Email, push and WhatsApp alerts", icon: Bell },
                   { value: "privacy", label: "Privacy", hint: "Data and visibility", icon: Shield },
                 ] as const).map((t) => (
                   <TabsTrigger
@@ -459,8 +459,7 @@ function ProfileSettingsPage() {
               />
             </TabsContent>
 
-            {/* Notifications Tab - self-contained, persists to the
-                email_notification_preferences row the DB mailers read */}
+            {/* All personal email, push and WhatsApp alert preferences live here. */}
             <TabsContent id="account-notifications" data-chat-section="account.settings.notifications" data-chat-section-label="Account notifications" value="notifications" className="mt-0 space-y-6">
               <NotificationsTab
                 userId={user.id}

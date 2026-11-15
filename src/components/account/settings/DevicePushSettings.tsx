@@ -50,10 +50,10 @@ export function DevicePushSettings({ userId, activeRole, companyName, companySlu
   const [installed, setInstalled] = useState(false);
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [testBusy, setTestBusy] = useState(false);
+  const [testResult, setTestResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
-  const canManageCompanyPreferences = ["super_admin", "owner", "company_admin", "admin"].includes(activeRole.toLowerCase());
-  const preferenceSettingsHref = `${companySlug ? `/${companySlug}` : ""}/admin/notification-settings`;
 
   const refresh = useCallback(async () => {
     const onIos = isIosDevice();
@@ -213,6 +213,38 @@ export function DevicePushSettings({ userId, activeRole, companyName, companySlu
     }
   };
 
+  const sendTestNotification = async () => {
+    setTestBusy(true);
+    setTestResult(null);
+    try {
+      const registration = registrationRef.current || await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        setStatus("ready");
+        throw new Error("This device needs to be connected again. Tap Enable alerts to reconnect it.");
+      }
+
+      const response = await fetch("/api/pwa/push-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ endpoint: subscription.endpoint }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.error || "The test alert could not be sent. Try again.");
+
+      const message = "Test alert sent to this device. Check the notification tray.";
+      setTestResult({ type: "success", message });
+      toast({ title: "Test alert sent", description: "Check this device's notification tray." });
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "The test alert could not be sent. Try again.";
+      setTestResult({ type: "error", message });
+      toast({ title: "Test alert could not be sent", description: message, variant: "destructive" });
+    } finally {
+      setTestBusy(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -229,7 +261,7 @@ export function DevicePushSettings({ userId, activeRole, companyName, companySlu
           </div>
         )}
 
-        {status === "not-configured" && <p role="status" className="text-sm leading-6 text-amber-800">Push alerts are not configured on the server yet. An administrator must add the VAPID public and private keys in Vercel and redeploy.</p>}
+        {status === "not-configured" && <p role="status" className="text-sm leading-6 text-amber-800">Alerts are not ready for this app yet. Please contact support to finish setup.</p>}
 
         {status === "unsupported" && (
           <div role="status" className="flex items-start gap-2 text-sm leading-6 text-amber-800">
@@ -255,9 +287,12 @@ export function DevicePushSettings({ userId, activeRole, companyName, companySlu
         )}
 
         {status === "subscribed" && (
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <p className="flex items-center gap-2 text-sm font-medium text-emerald-800"><CheckCircle className="h-4 w-4 shrink-0" />Alerts are enabled on this device.</p>
-            <Button type="button" variant="outline" onClick={() => void disable()} disabled={busy} className="min-h-11 shrink-0">
+            <Button type="button" variant="outline" onClick={() => void sendTestNotification()} disabled={busy || testBusy} className="min-h-11 shrink-0">
+              {testBusy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending…</> : "Send test alert"}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => void disable()} disabled={busy || testBusy} className="min-h-11 shrink-0">
               {busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</> : "Turn off alerts"}
             </Button>
           </div>
@@ -271,15 +306,11 @@ export function DevicePushSettings({ userId, activeRole, companyName, companySlu
         )}
 
         {status !== "checking" && status !== "error" && error && <p role="alert" className="mt-3 text-sm text-rose-700">{error}</p>}
+        {testResult && <p role={testResult.type === "error" ? "alert" : "status"} className={`mt-3 text-sm leading-6 ${testResult.type === "error" ? "text-rose-700" : "text-emerald-800"}`}>{testResult.message}</p>}
 
-        {canManageCompanyPreferences && (
-          <div className="mt-4 border-t border-slate-200 pt-3 dark:border-slate-700">
-            <p className="text-xs leading-relaxed text-slate-500">Choose which event types can send alerts from Notification settings. That choice is separate from allowing push on this device.</p>
-            <Button asChild variant="outline" size="sm" className="mt-2 min-h-10">
-              <Link href={preferenceSettingsHref}>Choose alert types</Link>
-            </Button>
-          </div>
-        )}
+        <div className="mt-4 border-t border-slate-200 pt-3 dark:border-slate-700">
+          <p className="text-xs leading-relaxed text-slate-500">Choose alert types and email preferences below. Device permission applies only to this device.</p>
+        </div>
       </CardContent>
     </Card>
   );

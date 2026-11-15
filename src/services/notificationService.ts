@@ -160,16 +160,9 @@ interface NotificationFilters {
  * error when a new type ships before its enum migration.
  */
 /**
- * Phase 4/6 follow-up: per-user notification preferences are now
- * persisted on `email_notification_preferences.preferences` (jsonb).
- * The /admin/notification-settings UI shape lives there:
- *
- *   {
- *     email: { orderConfirmation, orderUpdates, paymentReceived, dailySummary },
- *     push:  { urgentAlerts, newOrders, staffUpdates, inventoryAlerts },
- *     sms:   { criticalAlerts, paymentReminders },
- *     whatsapp: { urgentAlerts, newOrders, staffUpdates, inventoryAlerts },
- *   }
+ * Per-user email preferences use the table's boolean event columns.
+ * The shared Account → Notifications tab stores push and WhatsApp
+ * category filters on the same row's preferences JSON.
  *
  * broadcastNotification fan-out reads each candidate recipient's
  * preferences and skips those whose `push.<category>` is explicitly
@@ -865,7 +858,7 @@ export const notificationService = {
       // the category once for this broadcast; then look up each
       // candidate's preferences.push.<category> and skip recipients
       // whose toggle is explicitly false. Missing rows = allow (so
-      // legacy users who never visited /admin/notification-settings
+      // legacy users who have not saved notification preferences
       // keep getting everything).
       const pushCategory = resolvePushCategory(
         String(params.type || ""),

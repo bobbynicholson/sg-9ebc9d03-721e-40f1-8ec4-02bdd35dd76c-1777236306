@@ -334,7 +334,6 @@ export function CommandPalette({ initialOpen = false }: { initialOpen?: boolean 
     { id: "go-onboarding",  label: "Onboarding",          icon: Sparkles,     href: "/admin/onboarding",          group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["import","setup"] },
     { id: "go-email-life",  label: "Lifecycle Emails",    icon: Sparkles,     href: "/admin/email-templates",     group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["after-sales","automation","template"] },
     { id: "go-templates",   label: "Messaging Templates", icon: Sparkles,     href: "/admin/email-templates?tab=templates", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["whatsapp","email","template"] },
-    { id: "go-notifs",      label: "Notification Settings", icon: Settings,   href: "/admin/notification-settings", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["alert","push"] },
     // Stage-2 hubs and team indexes.
     { id: "go-offering",    label: "Offering Hub",        icon: Sparkles,     href: "/admin/offering",            group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["menu","equipment","catalog","what we sell"] },
     { id: "go-stock",       label: "Stock Overview",      icon: Package,      href: "/admin/stock",               group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["stock","low","pressure","ingredients"] },
@@ -379,6 +378,7 @@ export function CommandPalette({ initialOpen = false }: { initialOpen?: boolean 
 
     // ---- Account (everyone) ----
     { id: "acc-profile", label: "My profile / settings", icon: Settings, href: "/account/settings", group: "Account" },
+    { id: "acc-notifications", label: "My notification settings", icon: Settings, href: "/account/settings#notifications", group: "Account", keywords: ["alerts", "push", "email", "whatsapp"] },
     { id: "acc-help", label: "Contact support", icon: HelpCircle, href: "/support", group: "Account" },
     { id: "acc-signout", label: "Sign out", icon: LogOut, action: handleSignOut, group: "Account", keywords: ["logout","log out","exit"] },
   ], [adminBase, handleSignOut]);

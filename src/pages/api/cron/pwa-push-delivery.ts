@@ -4,6 +4,7 @@ import * as webPush from "web-push";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { notificationDestination } from "@/lib/notificationLinks";
+import { deriveUserRoles } from "@/lib/roleDerivation";
 import { pwaIconUrl } from "@/lib/pwa/metadata";
 import { getVapidConfig } from "@/lib/pwa/vapidConfig";
 import { withApiLogging } from "@/lib/withApiLogging";
@@ -135,6 +136,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .select("id, company_id, role, active_role")
       .in("id", recipientIds);
     if (profileError) throw profileError;
+    const { data: assignments, error: assignmentError } = recipientIds.length
+      ? await sb.from("user_departments")
+        .select("user_id, department, is_primary")
+        .in("user_id", recipientIds)
+      : { data: [], error: null };
+    if (assignmentError) throw assignmentError;
     const companyIds = Array.from(new Set([
       ...(profiles || []).map((profile: any) => profile.company_id),
       ...(notifications || []).map((notification: any) => notification.company_id),
@@ -152,6 +159,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const notificationById = new Map((notifications || []).map((row: any) => [row.id, row]));
     const profileById = new Map<string, any>((profiles || []).map((row: any) => [row.id, row]));
     const companyById = new Map<string, any>((companies || []).map((row: any) => [row.id, row]));
+    const assignmentsByUser = new Map<string, any[]>();
+    for (const assignment of assignments || []) {
+      const list = assignmentsByUser.get(assignment.user_id) || [];
+      list.push(assignment);
+      assignmentsByUser.set(assignment.user_id, list);
+    }
+    const resolvedRole = (userId: string, requestedRole?: string | null) => {
+      const profile: any = profileById.get(userId);
+      return deriveUserRoles({
+        profileRole: profile?.role,
+        activeRole: requestedRole || profile?.active_role,
+        departments: assignmentsByUser.get(userId) || [],
+      }).activeRole;
+    };
     const subscriptionsByUser = new Map<string, any[]>();
     for (const subscription of subscriptions || []) {
       const list = subscriptionsByUser.get(subscription.user_id) || [];
@@ -160,8 +181,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const userRolePairs = Array.from(new Map((subscriptions || []).map((device: any) => {
-      const profile = profileById.get(device.user_id);
-      const role = String(device.active_role || profile?.active_role || profile?.role || "client");
+      const role = resolvedRole(device.user_id, device.active_role);
       const key = `${device.user_id}:${role}`;
       return [key, { key, userId: device.user_id, role }];
     })).values());
@@ -187,7 +207,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       const targetRole = String(notification?.target_role || "").trim();
       const devices = recipientDevices.filter((device: any) => {
         if (!targetRole) return true;
-        const deviceRole = String(device.active_role || profile?.active_role || profile?.role || "client");
+        const deviceRole = resolvedRole(job.recipient_id, device.active_role);
         return deviceRole === targetRole;
       });
 
@@ -216,7 +236,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // system alert concise; the linked in-app page retains the full text.
       const results = await Promise.all(devices.map(async (device: any) => {
         try {
-          const deviceRole = String(device.active_role || profile.active_role || profile.role || "client");
+          const deviceRole = resolvedRole(job.recipient_id, device.active_role);
           const target = notificationDestination(
             notification,
             deviceRole,

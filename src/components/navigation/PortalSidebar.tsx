@@ -15,6 +15,7 @@ import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
+  Bell,
   Menu,
   ChevronRight,
   ChevronLeft,
@@ -134,6 +135,13 @@ export interface PortalSidebarConfig {
    *  Default: follow theme. */
   appearance?: "light" | "dark" | "brand";
 }
+
+const ALERT_PREFERENCES_ITEM: PortalSidebarNavItem = {
+  title: "Alert preferences",
+  href: "/account/settings#notifications",
+  icon: Bell,
+  description: "Your email, push and WhatsApp alerts",
+};
 
 interface PortalSidebarProps {
   config: PortalSidebarConfig;
@@ -267,7 +275,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     try { localStorage.setItem(collapseKey, JSON.stringify(newState)); } catch { /* Storage may be unavailable. */ }
   };
 
-  const allHrefs = config.sections.flatMap((s) => s.items.map((i) => i.href));
+  const allHrefs = [...config.sections.flatMap((s) => s.items.map((i) => i.href)), ALERT_PREFERENCES_ITEM.href];
   const isActive = buildIsActive(allHrefs, { router, withSlug });
 
   // Route-specific platform handling, tenant scoping, and local-dev query
@@ -333,6 +341,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   };
 
   const desktopScrollRef = useNavScrollRestore<HTMLDivElement>(`${config.role}-nav`);
+  const mobileScrollRef = useNavScrollRestore<HTMLDivElement>(`${config.role}-nav-mobile`, open);
   // Tenant logo. When the company has uploaded a white-label logo we
   // show it in the brand tile instead of the generic role glyph, so the
   // admin + team portals carry the tenant's identity (not just colour).
@@ -505,9 +514,9 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     // generated content wrapper stayed at the pre-scrollbar width, clipping
     // roughly 25px of the admin drawer at tablet / split-screen widths.
     <div className={cn(
-      "portal-scrollbar h-full min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-4",
+      "portal-scrollbar h-full min-w-0 overflow-x-hidden overflow-y-auto overscroll-none px-3 py-4",
       forceBrand && "portal-scrollbar-brand",
-    )}>
+    )} ref={mobile ? mobileScrollRef : undefined}>
       <div className="space-y-4">
         {mobile && (
           <div className="space-y-3">
@@ -548,6 +557,11 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                 "pt-3 mt-2 border-t space-y-0.5",
                 forceBrand ? "border-white/15" : "border-slate-200/80 dark:border-slate-700/60",
               )}>
+                {renderNavRow(ALERT_PREFERENCES_ITEM, {
+                  active: isActive(ALERT_PREFERENCES_ITEM.href),
+                  footer: true,
+                  onClickAfterNav: () => setOpen(false),
+                })}
                 {section.items.map((item) => renderNavRow(item, {
                   active: isActive(item.href),
                   footer: true,
@@ -811,7 +825,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           <div
             ref={desktopScrollRef}
             className={cn(
-              "portal-scrollbar flex-1 min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-4",
+              "portal-scrollbar flex-1 min-w-0 overflow-x-hidden overflow-y-auto overscroll-none px-3 py-4",
               forceBrand && "portal-scrollbar-brand",
             )}
           >
@@ -838,6 +852,11 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                         isCollapsed ? "" : "",
                       )}
                     >
+                      {renderNavRow(ALERT_PREFERENCES_ITEM, {
+                        active: isActive(ALERT_PREFERENCES_ITEM.href),
+                        collapsed: isCollapsed,
+                        footer: true,
+                      })}
                       {linkRows}
                     </div>
                   );

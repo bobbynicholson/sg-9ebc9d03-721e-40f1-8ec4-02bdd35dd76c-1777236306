@@ -253,7 +253,7 @@ export const WORKFLOW_DEFINITIONS: WorkflowDefinition[] = [
     steps: [
       { id: "open-device-notification-settings", title: "Open Notifications in Account settings", description: "Open Account settings, then choose Notifications. The Push alerts on this device card shows whether alerts are on, off, blocked, unsupported, or waiting for installation.", ref: "account.settings.notifications" },
       { id: "enable-device-notifications", title: "Tap Enable alerts and allow the prompt", description: "On Android, use the latest Chrome; installation is optional. On iPhone or iPad, install CateringMS on the Home Screen, open the new icon, then tap Enable alerts. iOS/iPadOS 16.4 or later is required. Repeat on each device; permission belongs to that device. If permission is blocked, change it in browser/site settings or iPhone/iPad Settings, then return to the device card and check again.", ref: "account.settings.notifications" },
-      { id: "choose-notification-types", title: "Choose which events send alerts", description: "Admins can open Notification settings to turn event categories on or off. These account preferences are separate from enabling push permission on a device.", ref: "admin.notification-settings" },
+      { id: "choose-notification-types", title: "Choose which events send alerts", description: "In Account settings → Notifications, choose your email, push and WhatsApp alert types. Push permission is enabled separately for each device on the same page.", ref: "account.settings.notifications" },
     ],
   },
 ];

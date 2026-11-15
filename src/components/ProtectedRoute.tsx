@@ -152,7 +152,7 @@ export function ProtectedRoute({
             <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-rose-100 flex items-center justify-center">
               <ShieldAlert className="w-10 h-10 bg-rose-100" />
             </div>
-            <h2 className="text-3xl font-bold text-slate-900 mb-4">Access Denied</h2>
+            <h2 className="text-3xl font-bold text-slate-900 mb-4">This page isn’t available</h2>
             <div className="bg-rose-50 border border-rose-200 rounded-lg p-4 mb-6">
               <div className="flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-rose-600 mt-0.5 flex-shrink-0" />
@@ -178,9 +178,7 @@ export function ProtectedRoute({
                 Go Back
               </Button>
             </div>
-            <p className="mt-6 text-sm text-slate-500">
-              If you believe this is an error, please contact your system administrator.
-            </p>
+            <p className="mt-6 text-sm text-slate-500">If you think you should have access, ask your administrator to review your account.</p>
           </CardContent>
         </Card>
       </div>

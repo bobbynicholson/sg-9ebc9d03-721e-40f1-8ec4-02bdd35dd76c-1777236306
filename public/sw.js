@@ -114,7 +114,7 @@ self.addEventListener("push", (event) => {
         renotify: false,
         // The foreground app plays its own chime. Let the operating system
         // sound only when the app is not visible, avoiding a doubled alert.
-        silent: appIsVisible,
+        silent: typeof payload.silent === "boolean" ? payload.silent : appIsVisible,
         data: {
           url: String(payload.url || "/notifications"),
           notificationId,

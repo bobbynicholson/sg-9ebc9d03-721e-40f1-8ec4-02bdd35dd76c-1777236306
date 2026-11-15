@@ -63,11 +63,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     res.setHeader("Allow", "GET, POST, DELETE");
     return res.status(405).json({ error: "Method not allowed" });
   }
-  if (!sameOriginRequest(req)) return res.status(403).json({ error: "Request origin could not be verified" });
+  if (!sameOriginRequest(req)) return res.status(403).json({ error: "This request could not be verified. Reload the app and try again." });
   const subscriptionBody = req.body as PushSubscriptionPayload;
   const endpoint = req.method === "DELETE" ? subscriptionBody?.endpoint : subscriptionBody?.endpoint;
   if (req.method === "POST" && !validSubscription(subscriptionBody)) {
-    return res.status(400).json({ error: "Invalid push subscription" });
+    return res.status(400).json({ error: "This device could not be connected. Refresh the app and try again." });
   }
   if (req.method === "DELETE" && !validEndpoint(endpoint)) {
     return res.status(400).json({ error: "Invalid push endpoint" });
@@ -76,7 +76,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const sessionDb = createPagesServerClient({ req, res });
     const { data: { user }, error: authError } = await sessionDb.auth.getUser();
-    if (authError || !user) return res.status(401).json({ error: "Sign in to manage device notifications" });
+    if (authError || !user) return res.status(401).json({ error: "Please sign in again to manage alerts." });
 
     const { data: profile, error: profileError } = await sessionDb
       .from("profiles")
@@ -84,7 +84,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .eq("id", user.id)
       .maybeSingle();
     if (profileError || !profile || profile.is_active === false || profile.deleted_at) {
-      return res.status(403).json({ error: "This account cannot receive notifications" });
+      return res.status(403).json({ error: "This account is not able to receive alerts. Ask your administrator for help." });
     }
 
     const service = getServiceSupabase() as any;
@@ -104,7 +104,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         ? subscriptionBody.activeRole
         : assignedRoles.activeRole;
       if (!assignedRoles.roles.includes(activeRole as UserRole)) {
-        return res.status(403).json({ error: "This portal is not assigned to your account" });
+        return res.status(403).json({ error: "This role is not assigned to your account. Switch to one of your available roles and try again." });
       }
 
       const { error } = await service.from("web_push_subscriptions").upsert({
@@ -131,7 +131,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ ok: true });
   } catch (error) {
     console.error("[pwa/push-subscription] request failed:", error);
-    return res.status(500).json({ error: "Device notification settings could not be saved" });
+    return res.status(500).json({ error: "Your alert settings could not be saved. Try again shortly." });
   }
 }
 

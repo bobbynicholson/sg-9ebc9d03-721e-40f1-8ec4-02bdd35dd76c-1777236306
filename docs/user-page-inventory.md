@@ -133,7 +133,7 @@ This is a route-module inventory, not one row per account. Protected pages rende
 - /admin/messaging-templates — src/pages/admin/messaging-templates.tsx
 - /admin/money-health — src/pages/admin/money-health.tsx
 - /admin/notifications — src/pages/admin/notifications.tsx
-- /admin/notification-settings — src/pages/admin/notification-settings.tsx
+- /admin/notification-settings — legacy redirect to /account/settings#notifications
 - /admin/offering — src/pages/admin/offering.tsx
 - /admin/onboarding — src/pages/admin/onboarding/index.tsx
 - /admin/onboarding/clients — src/pages/admin/onboarding/clients.tsx

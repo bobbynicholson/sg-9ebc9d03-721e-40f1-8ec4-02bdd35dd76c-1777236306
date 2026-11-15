@@ -5,9 +5,9 @@
  * The Pages Router remounts the layout on every route change, so the
  * sidebar's scroll container snaps to top by default. Without this
  * hook, a menu item the operator clicked near the bottom effectively
- * teleports off-screen the moment the new page loads. Pure restore --
- * we never auto-scroll the active link into view, because that fights
- * the operator's intent.
+ * teleports off-screen the moment the new page loads. Restore the saved
+ * position only; scrolling to the active link can pull users away from
+ * the section they were using.
  *
  * Strategy:
  *   1. Save on every scroll AND on every click within the nav
@@ -45,11 +45,12 @@ const STORAGE_PREFIX = "nav-scroll:";
 // so this is purely a typecheck convenience.
 const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
-export function useNavScrollRestore<T extends HTMLElement = HTMLDivElement>(key: string) {
+export function useNavScrollRestore<T extends HTMLElement = HTMLDivElement>(key: string, active = true) {
   const ref = useRef<T | null>(null);
   const router = useRouter();
 
   useIsoLayoutEffect(() => {
+    if (!active) return;
     const root = ref.current;
     if (!root) return;
 
@@ -94,27 +95,6 @@ export function useNavScrollRestore<T extends HTMLElement = HTMLDivElement>(key:
       listenerArmed = true;
     }, 200);
 
-    // ---- 1b. Keep the current page visible --------------------------
-    // After the restore settles, if the active link (aria-current) sits
-    // outside the rail's visible area - first visit, a jump from search,
-    // or a page inside a section further down - scroll the rail (never
-    // the page) just enough to show it.
-    const revealTimer = window.setTimeout(() => {
-      const active = viewport.querySelector<HTMLElement>('[aria-current="page"]');
-      if (!active) return;
-      const v = viewport.getBoundingClientRect();
-      const a = active.getBoundingClientRect();
-      const pad = 16;
-      if (a.top < v.top + pad) {
-        viewport.scrollTop -= v.top + pad - a.top;
-      } else if (a.bottom > v.bottom - pad) {
-        viewport.scrollTop += a.bottom - (v.bottom - pad);
-      } else {
-        return;
-      }
-      sessionStorage.setItem(storageKey, String(viewport.scrollTop));
-    }, 250);
-
     const persist = () => {
       sessionStorage.setItem(storageKey, String(viewport.scrollTop));
     };
@@ -138,12 +118,11 @@ export function useNavScrollRestore<T extends HTMLElement = HTMLDivElement>(key:
     return () => {
       cancelAnimationFrame(raf);
       window.clearTimeout(armTimer);
-      window.clearTimeout(revealTimer);
       viewport.removeEventListener("scroll", onScroll);
       viewport.removeEventListener("click", onClickCapture, { capture: true } as EventListenerOptions);
     };
     // Re-run on path change so the restore fires after every navigation.
-  }, [key, router.asPath]);
+  }, [active, key, router.asPath]);
 
   return ref;
 }

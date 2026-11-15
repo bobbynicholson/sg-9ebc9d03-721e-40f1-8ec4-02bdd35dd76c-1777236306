@@ -1,4 +1,7 @@
 import { isCompanySlug } from "@/lib/pwa/metadata";
+import { canAccessRoute } from "@/lib/authGuards";
+import { normalizeRoleValue } from "@/lib/roleDerivation";
+import { UserRole } from "@/types/app";
 import { shoppingNotificationLink } from "@/lib/shoppingNotificationLink";
 
 type NotificationTarget = {
@@ -35,6 +38,16 @@ export function notificationDestination(
   const fallback = notificationInboxPathForRole(role);
   const source = notification.link || notification.action_url || fallback;
   const roleAdjusted = shoppingNotificationLink(source, role);
+  const tenantQualify = (path: string) => {
+    if (!companySlug || !isCompanySlug(companySlug)) return path;
+    if (path === `/${companySlug}` || path.startsWith(`/${companySlug}/`)) return path;
+
+    const tenantPaths = ["/admin", "/team-portal", "/client-portal", "/order", "/account", "/subscription"];
+    if (tenantPaths.some(item => path === item || path.startsWith(`${item}/`) || path.startsWith(`${item}?`))) {
+      return `/${companySlug}${path}`;
+    }
+    return path;
+  };
 
   // Notification rows can contain URLs written by integrations. Only allow
   // normal web URLs through; never pass a javascript: or other active scheme.
@@ -43,24 +56,34 @@ export function notificationDestination(
       const url = new URL(roleAdjusted);
       return url.protocol === "https:" || url.hostname === "localhost"
         ? url.href
-        : fallback;
+        : tenantQualify(fallback);
     } catch {
-      return fallback;
+      return tenantQualify(fallback);
     }
   }
 
-  if (!roleAdjusted.startsWith("/")) return fallback;
-  if (!companySlug || !isCompanySlug(companySlug)) return roleAdjusted;
-  if (roleAdjusted === `/${companySlug}` || roleAdjusted.startsWith(`/${companySlug}/`)) {
-    return roleAdjusted;
-  }
-  if (roleAdjusted === "/admin/platform" || roleAdjusted.startsWith("/admin/platform/")) {
-    return roleAdjusted;
-  }
+  if (!roleAdjusted.startsWith("/") || roleAdjusted.startsWith("//")) return tenantQualify(fallback);
 
-  const tenantPaths = ["/admin", "/team-portal", "/client-portal", "/order", "/account", "/subscription"];
-  if (tenantPaths.some(path => roleAdjusted === path || roleAdjusted.startsWith(`${path}/`) || roleAdjusted.startsWith(`${path}?`))) {
-    return `/${companySlug}${roleAdjusted}`;
+  const pathOnly = roleAdjusted.split(/[?#]/, 1)[0] || "/";
+  const tenantPrefix = companySlug && isCompanySlug(companySlug) ? `/${companySlug}` : "";
+  const appPath = tenantPrefix && (pathOnly === tenantPrefix || pathOnly.startsWith(`${tenantPrefix}/`))
+    ? pathOnly.slice(tenantPrefix.length) || "/"
+    : pathOnly;
+  const effectiveRole = normalizeRoleValue(role);
+  const isPlatformRoute = appPath === "/admin/platform" || appPath.startsWith("/admin/platform/");
+  const isPayrollRoute = [
+    "/admin/wages",
+    "/admin/staff-hours",
+    "/admin/kitchen-settlement",
+    "/admin/driver-settlement",
+  ].some(path => appPath === path || appPath.startsWith(`${path}/`));
+  const roleCanOpenRoute = !!effectiveRole
+    && !(isPlatformRoute && effectiveRole !== UserRole.SUPER_ADMIN)
+    && !(isPayrollRoute && effectiveRole === UserRole.SUPER_ADMIN)
+    && canAccessRoute(effectiveRole, appPath);
+
+  if (!roleCanOpenRoute) {
+    return tenantQualify(fallback);
   }
-  return roleAdjusted;
+  return tenantQualify(roleAdjusted);
 }
