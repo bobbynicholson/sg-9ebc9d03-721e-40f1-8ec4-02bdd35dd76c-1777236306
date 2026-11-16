@@ -82,27 +82,28 @@ export function EquipmentDamagesWidget({ companyId }: { companyId: string | null
   const totalCost = rows.reduce((acc, r) => acc + Number(r.repair_cost || 0), 0);
 
   return (
-    <Card collapsible defaultOpen={false} collapseLabel="Equipment damages" className="mb-6 border-rose-200 bg-rose-50/30">
-      <CardHeader className="pb-3 min-w-0 flex-wrap">
+    <Card collapsible defaultOpen={false} collapseLabel="Equipment damages" className="mb-6 min-w-0 max-w-full overflow-hidden border-rose-200 bg-rose-50/30">
+      <CardHeader className="min-w-0 flex-wrap px-3 py-3 sm:p-5">
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <CardTitle className="flex min-w-0 flex-wrap items-center gap-2 text-base">
-              <Wrench className="w-4 h-4 text-rose-600" />
-              Equipment damages - unresolved
+            <CardTitle className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm leading-5 sm:gap-2 sm:text-base">
+              <Wrench className="h-4 w-4 shrink-0 text-rose-600" />
+              <span className="sm:hidden">Equipment damage</span>
+              <span className="hidden sm:inline">Equipment damages - unresolved</span>
               {!loading && <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700" aria-label={`${rows.length} items`}>{rows.length}</span>}
             </CardTitle>
-            <CardDescription className="line-clamp-1 text-xs">
+            <CardDescription className="line-clamp-1 text-[10px] leading-4 sm:text-xs">
               Damage reports without a resolution stamp. Newest first.
             </CardDescription>
           </div>
-          <Link href={withSlug("/admin/equipment?tab=shortages")}>
-            <Button variant="ghost" size="sm" className="text-rose-700">
-              Equipment hub <ArrowRight className="w-3.5 h-3.5 ml-1" />
+          <Link href={withSlug("/admin/equipment?tab=shortages")} aria-label="Open equipment hub" title="Equipment hub" className="shrink-0">
+            <Button variant="ghost" size="sm" className="h-9 w-9 shrink-0 px-0 text-rose-700 sm:h-8 sm:w-auto sm:px-2">
+              <span className="sr-only sm:not-sr-only">Equipment hub</span><ArrowRight className="ml-0 h-3.5 w-3.5 sm:ml-1" />
             </Button>
           </Link>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0 px-3 py-3 sm:p-5">
         {loading ? (
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
@@ -127,7 +128,7 @@ export function EquipmentDamagesWidget({ companyId }: { companyId: string | null
                     </div>
                     <div className="shrink-0 text-right">
                       {Number(r.repair_cost || 0) > 0 && (
-                        <p className="text-sm font-bold tabular-nums text-rose-800">
+                        <p className="text-xs font-bold tabular-nums text-rose-800 sm:text-sm">
                           {tenantCurrency.format(Number(r.repair_cost), 0)}
                         </p>
                       )}

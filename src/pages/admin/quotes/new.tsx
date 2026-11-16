@@ -2994,9 +2994,9 @@ function NewQuotePage() {
             actions={
               <>
                 <Link href={withSlug("/admin/quotes")}>
-                  <Button variant="ghost" className="text-sm">
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back to Quotes
+                  <Button variant="ghost" className="h-11 w-11 px-0 text-sm sm:h-9 sm:w-auto sm:px-3" aria-label="Back to quotes" title="Back to quotes">
+                    <ArrowLeft className="h-4 w-4 sm:mr-2" />
+                    <span className="sr-only sm:not-sr-only">Back to Quotes</span>
                   </Button>
                 </Link>
                 {/* Client preview hidden for now (Raj, 2026-06-25): no
@@ -3012,20 +3012,22 @@ function NewQuotePage() {
                 {isConvertedQuote ? (
                   <>
                     <div className="flex items-center gap-1">
-                      <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !clientName || !!setupTimeError}>
-                        <Save className="w-4 h-4 mr-2" />
-                        Save
+                      <Button variant="outline" className="h-11 w-11 px-0 sm:h-9 sm:w-auto sm:px-3" aria-label="Save quote" title="Save quote" onClick={handleSaveDraft} disabled={saving || !clientName || !!setupTimeError}>
+                        <Save className="h-4 w-4 sm:mr-2" />
+                        <span className="sr-only sm:not-sr-only">Save</span>
                       </Button>
                       <InfoTooltip content={"Save your changes to the quote and mirror them straight to the linked order. Re-plans kitchen prep, re-syncs equipment bookings, recalculates balance due. No email goes out - use Save & Notify for that."} />
                     </div>
                     <div className="flex items-center gap-1">
                       <Button
                         onClick={() => handleSend()}
+                        aria-label="Save and notify client"
+                        title="Save and notify client"
+                        className="h-11 w-11 px-0 sm:h-9 sm:w-auto sm:px-3 sm:bg-brand-primary"
                         disabled={sending || saving || computed.total <= 0 || !email || !!setupTimeError}
-                        className="bg-brand-primary"
                       >
-                        {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                        Save &amp; Notify
+                        {sending ? <Loader2 className="h-4 w-4 animate-spin sm:mr-2" /> : <Send className="h-4 w-4 sm:mr-2" />}
+                        <span className="sr-only sm:not-sr-only">Save &amp; Notify</span>
                       </Button>
                       <InfoTooltip content={"Save + mirror to the order AND email the client a 'your booking has been updated' message with a link to the live order page.\n\nThe client doesn't need to re-accept - the booking is already confirmed."} />
                     </div>
@@ -3033,9 +3035,9 @@ function NewQuotePage() {
                 ) : (
                   <>
                     <div className="flex items-center gap-1">
-                      <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !clientName || !!setupTimeError}>
-                        <Save className="w-4 h-4 mr-2" />
-                        {status === "accepted" ? "Save" : "Save draft"}
+                      <Button variant="outline" className="h-11 w-11 px-0 sm:h-9 sm:w-auto sm:px-3" aria-label={status === "accepted" ? "Save quote" : "Save quote draft"} title={status === "accepted" ? "Save quote" : "Save quote draft"} onClick={handleSaveDraft} disabled={saving || !clientName || !!setupTimeError}>
+                        <Save className="h-4 w-4 sm:mr-2" />
+                        <span className="sr-only sm:not-sr-only">{status === "accepted" ? "Save" : "Save draft"}</span>
                       </Button>
                       {/* Accepted-but-unconverted: Save keeps the
                           acceptance (the operator is usually here to fix
@@ -3049,11 +3051,13 @@ function NewQuotePage() {
                     <div className="flex items-center gap-1">
                       <Button
                         onClick={() => handleSend()}
+                        aria-label="Save and send quote"
+                        title="Save and send quote"
+                        className="h-11 w-11 px-0 sm:h-9 sm:w-auto sm:px-3 sm:bg-brand-primary"
                         disabled={sending || saving || computed.total <= 0 || !email || !!setupTimeError}
-                        className="bg-brand-primary"
                       >
-                        {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                        Save &amp; Send
+                        {sending ? <Loader2 className="h-4 w-4 animate-spin sm:mr-2" /> : <Send className="h-4 w-4 sm:mr-2" />}
+                        <span className="sr-only sm:not-sr-only">Save &amp; Send</span>
                       </Button>
                       <InfoTooltip content={"Save the quote with status = 'sent', generate a public link, and email the client a branded message with a 'View Quote' button.\n\nThe quote shows up on their portal too. Disabled until the client has an email + the total is greater than zero.\n\nResending an already-sent quote sends a fresh email. The client gets a 'we've updated your quote' message."} />
                     </div>

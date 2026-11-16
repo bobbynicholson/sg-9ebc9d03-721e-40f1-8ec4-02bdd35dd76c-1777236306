@@ -113,34 +113,34 @@ export function RecentRatingsWidget({ companyId }: { companyId: string | null })
   if (!loading && rows.length === 0) return null;
 
   return (
-    <Card className="mb-6 border-yellow-200 bg-yellow-50/30">
-      <CardHeader className="pb-3">
-        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+    <Card className="mb-6 min-w-0 max-w-full overflow-hidden border-yellow-200 bg-yellow-50/30">
+      <CardHeader className="min-w-0 px-3 py-3 sm:p-5">
+        <div className="flex min-w-0 items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <CardTitle className="flex min-w-0 flex-wrap items-center gap-2 text-base">
-              <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-              Recent event ratings
+            <CardTitle className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm leading-5 sm:gap-2 sm:text-base">
+              <Star className="h-4 w-4 shrink-0 fill-yellow-500 text-yellow-500" />
+              <span>Recent event ratings</span>
               {avg != null && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 border border-yellow-300 text-yellow-800 text-xs px-2 py-0.5">
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-yellow-300 bg-yellow-100 px-1.5 py-0.5 text-[10px] text-yellow-800 sm:px-2 sm:text-xs">
                   <span className="font-semibold">{avg.toFixed(1)}</span>
                   <span className="opacity-70">avg / 5</span>
                 </span>
               )}
             </CardTitle>
-            <CardDescription className="text-xs">
+            <CardDescription className="mt-1 text-[10px] leading-4 sm:text-xs">
               Star ratings captured in the order drawer over the last 30 days. Latest per order.
             </CardDescription>
           </div>
-          <Link href={withSlug("/admin/orders")} className="text-xs text-yellow-700 hover:underline inline-flex items-center">
-            Open orders <ArrowRight className="w-3.5 h-3.5 ml-1" />
+          <Link href={withSlug("/admin/orders")} aria-label="Open orders" title="Open orders" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-yellow-700 hover:bg-yellow-100 sm:h-8 sm:w-auto sm:gap-1 sm:px-2">
+            <span className="sr-only sm:not-sr-only">Open orders</span><ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0 px-3 py-3 sm:p-5">
         {loading ? (
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
-          <ul className="divide-y divide-yellow-100">
+          <ul className="min-w-0 divide-y divide-yellow-100">
             {rows.map((r) => (
               // Phase 23 #2: full-row link to /admin/orders so a
               // single click off any rated order opens it for re-
@@ -148,26 +148,26 @@ export function RecentRatingsWidget({ companyId }: { companyId: string | null })
               <li key={r.entity_id}>
                 <Link
                   href={withSlug(staffOrderHref(r.entity_id, "admin"))}
-                  className="py-2 flex items-center gap-3 hover:bg-yellow-50/60 rounded transition"
+                  className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded px-1 py-2 hover:bg-yellow-50/60 sm:gap-3 sm:px-2"
                 >
-                  <div className="shrink-0 flex items-center">
+                  <div className="flex shrink-0 items-center">
                     {[1, 2, 3, 4, 5].map((n) => (
                       <Star
                         key={n}
-                        className={`w-3.5 h-3.5 ${n <= r.rating ? "fill-yellow-500 text-yellow-500" : "text-yellow-300"}`}
+                        className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${n <= r.rating ? "fill-yellow-500 text-yellow-500" : "text-yellow-300"}`}
                       />
                     ))}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="break-words text-sm font-medium text-slate-900">
+                  <div className="min-w-0">
+                    <p className="break-words text-xs font-medium leading-4 text-slate-900 sm:text-sm">
                       {r.order_number || "Order"}
                       {r.author_name && (
-                        <span className="ml-2 text-[11px] font-normal text-slate-500">
-                          by {r.author_name}
+                        <span className="text-[10px] font-normal text-slate-500 sm:ml-1 sm:text-[11px]">
+                          {" · by "}{r.author_name}
                         </span>
                       )}
                     </p>
-                    <p className="text-[11px] text-slate-500">{fmtAgo(r.created_at)}</p>
+                    <p className="mt-0.5 text-[10px] text-slate-500 sm:text-[11px]">{fmtAgo(r.created_at)}</p>
                   </div>
                 </Link>
               </li>

@@ -55,6 +55,7 @@ export function AdminControlGroup({
   defaultOpen = false,
   summary,
   compactOptions,
+  compactSelectClassName,
   compactValue,
   onCompactValueChange,
   compactLabel,
@@ -73,6 +74,8 @@ export function AdminControlGroup({
   summary?: React.ReactNode;
   /** Replace large single-select chip rows with a compact control below md. */
   compactOptions?: Array<{ value: string; label: string; count?: React.ReactNode }>;
+  /** Optional sizing for the narrow-screen select control. */
+  compactSelectClassName?: string;
   compactValue?: string;
   onCompactValueChange?: (value: string) => void;
   compactLabel?: string;
@@ -112,7 +115,7 @@ export function AdminControlGroup({
           <Select value={compactValue} onValueChange={onCompactValueChange}>
             <SelectTrigger
               aria-label={compactLabel || (typeof label === "string" ? label : "Filter")}
-              className="h-11 w-full min-w-0 bg-white"
+              className={cn("h-11 w-full min-w-0 bg-white", compactSelectClassName)}
             >
               <SelectValue />
             </SelectTrigger>
@@ -240,6 +243,7 @@ export function AdminSavedViewChips<T extends { id: string; name: string }>({
   onSave,
   getTitle,
   saveLabel = "Save view",
+  defaultOpen = views.length > 0,
   className,
 }: {
   views: T[];
@@ -248,6 +252,7 @@ export function AdminSavedViewChips<T extends { id: string; name: string }>({
   onSave: () => void;
   getTitle?: (view: T) => string;
   saveLabel?: string;
+  defaultOpen?: boolean;
   className?: string;
 }) {
   return (
@@ -255,7 +260,7 @@ export function AdminSavedViewChips<T extends { id: string; name: string }>({
       label="Saved views"
       icon={Filter}
       collapsible
-      defaultOpen={views.length > 0}
+      defaultOpen={defaultOpen}
       summary={views.length ? `${views.length} saved` : "None saved yet"}
       className={className}
       contentClassName="gap-1.5"

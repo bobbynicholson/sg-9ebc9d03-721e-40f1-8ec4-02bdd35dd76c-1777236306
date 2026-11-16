@@ -80,27 +80,27 @@ export function PendingRefundsWidget({ companyId }: { companyId: string | null }
   if (!loading && rows.length === 0) return null;
 
   return (
-    <Card collapsible defaultOpen={false} collapseLabel="Refunds awaiting payout" className="mb-6 border-amber-200 bg-amber-50/30">
-      <CardHeader className="pb-3 min-w-0 flex-wrap">
+    <Card collapsible defaultOpen={false} collapseLabel="Refunds awaiting payout" className="mb-6 min-w-0 max-w-full overflow-hidden border-amber-200 bg-amber-50/30">
+      <CardHeader className="min-w-0 flex-wrap px-3 py-3 sm:p-5">
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <CardTitle className="flex min-w-0 flex-wrap items-center gap-2 text-base">
-              <CircleDollarSign className="w-4 h-4 text-amber-600" />
+            <CardTitle className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm leading-5 sm:gap-2 sm:text-base">
+              <CircleDollarSign className="h-4 w-4 shrink-0 text-amber-600" />
               Refunds awaiting payout
               {!loading && <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700" aria-label={`${rows.length} items`}>{rows.length}</span>}
             </CardTitle>
-            <CardDescription className="line-clamp-1 text-xs">
+            <CardDescription className="line-clamp-1 text-[10px] leading-4 sm:text-xs">
               Refund payment rows still pending, processing, or failed. Refunded/completed rows are already settled.
             </CardDescription>
           </div>
-          <Link href={withSlug("/admin/refunds")}>
-            <Button variant="ghost" size="sm" className="text-amber-700">
-              All refunds <ArrowRight className="w-3.5 h-3.5 ml-1" />
+          <Link href={withSlug("/admin/refunds")} aria-label="View all refunds" title="All refunds" className="shrink-0">
+            <Button variant="ghost" size="sm" className="h-9 w-9 shrink-0 px-0 text-amber-700 sm:h-8 sm:w-auto sm:px-2">
+              <span className="sr-only sm:not-sr-only">All refunds</span><ArrowRight className="ml-0 h-3.5 w-3.5 sm:ml-1" />
             </Button>
           </Link>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0 px-3 py-3 sm:p-5">
         {loading ? (
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
@@ -134,7 +134,7 @@ export function PendingRefundsWidget({ companyId }: { companyId: string | null }
                         {r.payment_method || "method tbc"} - {r.payment_status || "pending"}
                       </p>
                     </div>
-                    <span className="shrink-0 text-sm font-bold tabular-nums text-amber-800">
+                    <span className="shrink-0 text-xs font-bold tabular-nums text-amber-800 sm:text-sm">
                       {tenantCurrency.format(Math.abs(Number(r.amount || 0)), 0)}
                     </span>
                   </Link>

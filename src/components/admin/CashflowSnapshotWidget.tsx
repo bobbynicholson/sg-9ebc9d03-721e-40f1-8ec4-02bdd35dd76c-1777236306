@@ -266,7 +266,7 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <div className="text-xs text-slate-500">Cash on hand</div>
-            <div className="text-2xl font-bold tabular-nums text-slate-900">
+            <div className="text-sm font-bold tabular-nums text-slate-900 sm:text-xl">
               {fmt(cashOnHand, currency)}
             </div>
             <div className="mt-1 flex items-center gap-1.5 text-xs">
@@ -286,7 +286,7 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
           </div>
           <div className="sm:border-l sm:border-slate-100 sm:pl-4">
             <div className="text-xs text-slate-500">30-day forecast</div>
-            <div className={`text-2xl font-bold tabular-nums ${tone}`}>
+            <div className={`text-sm font-bold tabular-nums sm:text-xl ${tone}`}>
               {fmt(forecast, currency)}
             </div>
             <div className="mt-1 text-xs text-slate-500 space-y-0.5">

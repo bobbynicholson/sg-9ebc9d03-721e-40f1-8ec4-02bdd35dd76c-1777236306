@@ -207,19 +207,20 @@ export function InvoiceActivityDrawer({ open, onOpenChange, invoice, onPaymentRe
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
+      <SheetContent className="h-[100dvh] w-screen max-w-none overflow-y-auto rounded-none border-0 p-3 sm:p-6 lg:p-8">
+        <SheetHeader className="mx-auto w-full max-w-5xl pr-12 text-left">
+          <SheetTitle className="flex min-w-0 flex-wrap items-center gap-2 text-base sm:text-lg">
             <Clock className="h-5 w-5" />
             Activity log
+            {invoice?.invoice_number && <span className="break-all font-mono text-sm text-slate-500">{invoice.invoice_number}</span>}
           </SheetTitle>
-          <SheetDescription>
+          <SheetDescription className="text-xs sm:text-sm">
             Every event on {invoice?.invoice_number || "this invoice"}: generated, sent, opened, paid, synced. Newest first.
           </SheetDescription>
         </SheetHeader>
-        <div className="mt-4 space-y-2">
+        <div className="mx-auto mt-5 w-full max-w-5xl space-y-2">
           {loading && (
-            <p className="text-sm text-slate-500">Loading...</p>
+            <p role="status" className="text-sm text-slate-500">Loading activity…</p>
           )}
           {!loading && entries.length === 0 && (
             <p className="text-sm text-slate-500">No activity recorded yet.</p>
@@ -228,21 +229,21 @@ export function InvoiceActivityDrawer({ open, onOpenChange, invoice, onPaymentRe
             const Icon = e.icon;
             const reversiblePayment = e.reversiblePayment;
             return (
-              <div key={i} className={`rounded-md border ${TONE_CLASS[e.tone]} px-3 py-2 flex items-start gap-3`}>
+              <div key={i} className={`flex min-w-0 items-start gap-3 rounded-md border ${TONE_CLASS[e.tone]} px-3 py-2.5 sm:px-4`}>
                 <Icon className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold leading-tight">{e.label}</p>
+                  <p className="break-words text-xs font-semibold leading-tight sm:text-sm">{e.label}</p>
                   {e.detail && (
-                    <p className="text-xs opacity-75 mt-0.5 break-words">{e.detail}</p>
+                    <p className="mt-0.5 break-words text-[11px] opacity-75 sm:text-xs">{e.detail}</p>
                   )}
-                  <p className="text-[11px] opacity-60 mt-0.5 tabular-nums">
+                  <p className="mt-0.5 text-[10px] opacity-60 tabular-nums sm:text-[11px]">
                     {(() => {
                       try {
                         return format(new Date(e.ts), "dd MMM yyyy 'at' HH:mm");
                       } catch { return e.ts; }
                     })()}
                   </p>
-                  {reversiblePayment && <Button type="button" variant="ghost" size="sm" className="mt-1 h-7 px-2 text-xs text-rose-700 hover:bg-rose-100 hover:text-rose-800" onClick={() => setPaymentToReverse(reversiblePayment)}>Reverse manual payment</Button>}
+                  {reversiblePayment && <Button type="button" variant="ghost" size="sm" className="mt-1 h-10 px-3 text-xs text-rose-700 hover:bg-rose-100 hover:text-rose-800 sm:h-8" onClick={() => setPaymentToReverse(reversiblePayment)}>Reverse manual payment</Button>}
                 </div>
               </div>
             );

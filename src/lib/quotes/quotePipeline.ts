@@ -8,7 +8,7 @@ import { opportunityGroup, type Opportunity } from "@/lib/quotes/quoteOptimizati
 
 export type PlanningLead = Database["public"]["Tables"]["leads"]["Row"];
 export type PlanningOrder = Pick<Database["public"]["Tables"]["orders"]["Row"],
-  "id" | "quote_id" | "client_id" | "client_name" | "client_email" | "region_id" | "event_date" | "event_time" | "event_name" | "guest_count" | "status" | "total_amount" | "currency" | "deleted_at" | "order_number" | "updated_at" | "venue_name" | "venue_address" | "venue_lat" | "venue_lng">;
+  "id" | "quote_id" | "client_id" | "client_name" | "client_email" | "region_id" | "event_date" | "event_end_date" | "event_time" | "event_name" | "guest_count" | "status" | "total_amount" | "currency" | "deleted_at" | "order_number" | "updated_at" | "venue_name" | "venue_address" | "venue_lat" | "venue_lng" | "assigned_driver_id" | "assigned_vehicle_id" | "assigned_chef_id">;
 export type PipelineState = "accepted" | "pending" | "review" | "closed";
 export interface PipelineEntry {
   key: string;

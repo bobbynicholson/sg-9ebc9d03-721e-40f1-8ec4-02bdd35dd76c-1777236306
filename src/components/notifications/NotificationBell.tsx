@@ -783,13 +783,13 @@ export function NotificationBell() {
       <DropdownMenuContent
         side="bottom"
         align="end"
-        collisionPadding={12}
+        collisionPadding={16}
         avoidCollisions
         className={cn(
           // Opens BELOW the bell. The old side="right" placement was built
           // for the sidebar bell, but the portal headers put the bell in
           // the top-right corner - on a phone Radix flipped it to the left
-          // where a 420px panel can't fit and hung it half off-screen
+          // where a fixed-width panel can't fit and hung it half off-screen
           // (driver feedback 2026-07-04, Pic 79). With side="bottom" the
           // horizontal overflow sits on the ALIGN axis, which
           // avoidCollisions can correct in both header and sidebar slots.
@@ -797,7 +797,7 @@ export function NotificationBell() {
           // floating panel hovering above the dashboard, not something laid
           // flat over the content. overflow-hidden keeps the rounded corners
           // clean against the header / footer fills.
-          "z-[1200] flex max-h-[min(calc(100dvh-1.5rem),var(--radix-dropdown-menu-content-available-height))] w-[calc(100vw-1.5rem)] max-w-[420px] flex-col overflow-hidden border-slate-200 bg-white p-0 text-slate-900 shadow-2xl sm:w-[420px] dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100",
+          "z-[1200] box-border flex min-w-0 max-h-[min(calc(100dvh-1.5rem),var(--radix-dropdown-menu-content-available-height))] w-[calc(100vw-2rem)] max-w-[400px] flex-col overflow-hidden border-slate-200 bg-white p-0 text-slate-900 shadow-2xl sm:w-[400px] dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100",
           "rounded-2xl border border-slate-200/80 dark:border-slate-700/70",
           "shadow-2xl ring-1 ring-black/5 dark:ring-white/10",
         )}
@@ -1015,7 +1015,7 @@ export function NotificationBell() {
                         })}
                       </span>
                       {notification.notification_type && (
-                        <span className="ml-1 inline-flex items-center rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400 capitalize truncate">
+                        <span className="ml-1 inline-flex max-w-[9rem] items-center truncate rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium capitalize text-slate-500 dark:bg-slate-800 dark:text-slate-400 sm:max-w-[13rem]">
                           {notification.notification_type.replace(/_/g, " ")}
                         </span>
                       )}

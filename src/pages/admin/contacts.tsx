@@ -43,8 +43,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
-import { Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle, Snowflake, Crown, Send, Inbox, ShoppingCart, CheckCircle2, RefreshCw, Plus, Pencil, Trash2, Ban, FileText, Upload, Download, Package, Receipt, Banknote, MoreHorizontal } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle, Snowflake, Crown, Send, Inbox, ShoppingCart, CheckCircle2, RefreshCw, Plus, Pencil, Trash2, Ban, FileText, Upload, Download, Package, Receipt, Banknote, MoreHorizontal, Filter } from "lucide-react";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { usePromptDialog } from "@/components/ui/confirm-dialog";
 import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -57,7 +57,8 @@ import { PortalShell, PortalHeader,
 } from "@/components/portal/ui";
 import { TopClientsWidget } from "@/components/admin/TopClientsWidget";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
-import { AdminControlGroup, AdminFilterChip, AdminSavedViewChips, AdminSearchField } from "@/components/admin/AdminControlSurface";
+import { AdminSavedViewChips, AdminSearchField } from "@/components/admin/AdminControlSurface";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
@@ -1254,10 +1255,11 @@ function ClientsCRM() {
       <AdminNav />
 
       <div className="admin-page-shell">
-        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent [&_button]:!text-xs [&_input]:!text-xs [&_textarea]:!text-xs [&_[role=combobox]]:!text-xs [&_[role=menuitem]]:!text-xs [&_[role=menuitemcheckbox]]:!text-xs">
 
           <PortalHeader
             variant="hero"
+            className="!mb-3 p-3 sm:px-4 sm:py-3 [&_h1]:text-lg sm:[&_h1]:text-xl [&_p]:!text-xs"
             title="Contacts"
             icon={Users}
             subtitle="Find leads and clients, review their history and choose the next follow-up."
@@ -1284,7 +1286,7 @@ function ClientsCRM() {
               </>
             }
             actions={
-            <>
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
               {/* Search moved into the toolbar card below so every
                   filter control lives in ONE place (command-centre
                   standard). Hero keeps the primary actions only. */}
@@ -1350,37 +1352,41 @@ function ClientsCRM() {
                     reason: "operator-initiated contacts CSV export",
                   });
                 }}
-                className="gap-1.5"
+                className="h-11 w-11 shrink-0 justify-center px-0 xl:h-10 xl:w-auto xl:gap-1.5 xl:px-3"
+                aria-label="Export filtered contacts as CSV"
                 title="Export the currently filtered contact list as CSV"
               >
-                <Download className="w-4 h-4" /> Export CSV
+                <Download className="w-4 h-4" aria-hidden="true" /><span className="hidden xl:inline">Export CSV</span>
               </Button>
               <Button
                 variant="outline"
                 onClick={() => setImportOpen(true)}
-                className="gap-1.5"
+                className="h-11 w-11 shrink-0 justify-center px-0 xl:h-10 xl:w-auto xl:gap-1.5 xl:px-3"
+                aria-label="Import clients"
                 title="Bulk upload clients from an Excel or CSV file"
               >
-                <Upload className="w-4 h-4" /> Import clients
+                <Upload className="w-4 h-4" aria-hidden="true" /><span className="hidden xl:inline">Import clients</span>
               </Button>
               <Button
                 onClick={() => { setEditing(null); setFormOpen(true); }}
-                className="gap-1.5 bg-brand-primary text-white hover:opacity-90"
+                className="h-11 w-11 shrink-0 justify-center px-0 bg-brand-primary text-white hover:opacity-90 xl:h-10 xl:w-auto xl:gap-1.5 xl:px-3"
+                aria-label="Add a contact"
+                title="Add a contact"
               >
-                <Plus className="w-4 h-4" /> Add contact
+                <Plus className="w-4 h-4" aria-hidden="true" /><span className="hidden xl:inline">Add contact</span>
               </Button>
-            </>
+            </div>
             }
           />
-          <PageWorkbench />
+          <PageWorkbench className="!mb-3" />
 
           {/* Persistent fetch-failure banner. Partial data may still
               be rendered below; the counts and totals can't be
               trusted until a retry succeeds. */}
           {loadError && !loading && (
             <div className="mb-4 rounded-lg border border-rose-200 bg-white p-4 shadow-sm">
-              <p className="text-sm font-bold text-rose-900">Couldn't load all contacts</p>
-              <p className="mt-0.5 text-xs text-slate-600">{loadError}</p>
+              <p className="text-xs font-bold text-rose-900">Couldn't load all contacts</p>
+              <p className="mt-0.5 text-[11px] text-slate-600">{loadError}</p>
               <Button
                 size="sm"
                 variant="outline"
@@ -1393,7 +1399,7 @@ function ClientsCRM() {
           )}
 
           {hiddenAutomatedTestRows > 0 && (
-            <p className="mb-3 flex items-center gap-1.5 text-xs text-slate-500">
+            <p className="mb-3 flex items-center gap-1.5 text-[11px] text-slate-500">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
               {hiddenAutomatedTestRows} automated test record{hiddenAutomatedTestRows === 1 ? " is" : "s are"} hidden from this list and its totals.
             </p>
@@ -1403,11 +1409,12 @@ function ClientsCRM() {
               book. Outstanding stays semantically rose when money is
               owed; the rest are neutral counts. */}
           {!loading && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 mb-4">
               <StatTile
                 label="Contacts"
                 value={contacts.length}
                 icon={Users}
+                compact
                 hint={`${counts.clients} registered client${counts.clients === 1 ? "" : "s"}`}
               />
               <StatTile
@@ -1418,12 +1425,14 @@ function ClientsCRM() {
                   </span>
                 }
                 icon={Flame}
+                compact
                 hint="New enquiries waiting on a reply"
               />
               <StatTile
                 label="Lifetime spend"
                 value={fmtMoney.format(bookTotals.lifetime)}
                 icon={Banknote}
+                compact
                 hint="In-system orders plus imported history"
               />
               <StatTile
@@ -1434,6 +1443,7 @@ function ClientsCRM() {
                   </span>
                 }
                 icon={Receipt}
+                compact
                 hint="Unpaid balances across the book"
               />
             </div>
@@ -1449,7 +1459,7 @@ function ClientsCRM() {
               contact list stays near the top. */}
           <Card collapsible defaultOpen={false} collapseLabel="Client insights" className="mb-4">
             <CardHeader className="py-3">
-              <CardTitle className="text-base">Client insights</CardTitle>
+              <CardTitle className="text-sm">Client insights</CardTitle>
               <CardDescription>Top clients this month and where your contacts come from.</CardDescription>
             </CardHeader>
             <CardContent className="pt-4 [&>*:last-child]:mb-0">
@@ -1467,7 +1477,7 @@ function ClientsCRM() {
           {sourceBreakdown.withSource > 0 && (
             <div className="mb-4 rounded-lg border border-slate-200 bg-white p-3">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs uppercase tracking-wider text-slate-500 font-semibold">
+                <span className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
                   Lead source breakdown
                 </span>
                 <span className="text-[11px] text-slate-500 tabular-nums">
@@ -1480,11 +1490,11 @@ function ClientsCRM() {
                   return (
                     <div
                       key={source}
-                      className="inline-flex items-center gap-2 rounded-full bg-slate-50 border border-slate-200 px-2.5 py-1 text-xs"
+                      className="inline-flex items-center gap-2 rounded-full bg-slate-50 border border-slate-200 px-2.5 py-1 text-[11px]"
                     >
                       <span className="font-medium text-slate-700 capitalize">{source.replace(/_/g, " ")}</span>
                       <span className="text-slate-500 tabular-nums">{count}</span>
-                      <span className="text-[10px] text-slate-400 tabular-nums">{share}%</span>
+                      <span className="text-[11px] text-slate-400 tabular-nums">{share}%</span>
                     </div>
                   );
                 })}
@@ -1494,112 +1504,74 @@ function ClientsCRM() {
             </CardContent>
           </Card>
 
-          {/* Command-centre toolbar: search + saved views + tag
-              filter + status chips grouped into ONE card instead of
-              loose strips scattered above the table. */}
-          <PortalCard id="contact-filters" data-chat-section="admin.contacts.filters" data-chat-section-label="Contact filters" className="mb-6 space-y-3">
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,520px)_1fr] lg:items-start">
-            <AdminSearchField
-              inputRef={searchRef}
-              placeholder="Search name, email, phone... (press /)"
-              value={search}
-              onChange={setSearch}
-            />
-            <p className="text-xs leading-5 text-slate-500 lg:pt-2">
-              Showing {fuzzyVisible.length} of {contacts.length} contacts after filters.
-            </p>
-          </div>
-
-          {/* Phase 16 #8: saved-view chips. Snapshot status + tag
-              + search under a named chip so a sales rep can snap
-              back to 'VIPs', 'Active in JHB', 'Hot leads unread'
-              with one click. */}
           <AdminSavedViewChips
             views={savedContactViews}
             onApply={applySavedContactView}
             onRemove={removeSavedContactView}
             onSave={saveCurrentContactView}
+            defaultOpen={false}
+            className="mb-3 p-2"
             getTitle={(v) => `Apply: ${v.filter}${v.search ? ` + '${v.search}'` : ""}${v.tags.length ? ` + tags(${v.tags.join(",")})` : ""}`}
           />
-
-          {/* Phase 9 #4: tag filter chip strip. Only renders when
-              the book has at least one tagged contact. Click a chip
-              to toggle it into the active filter set; multiple
-              selected = OR (contact must have at least one). */}
-          {allTags.length > 0 && (
-            <AdminControlGroup
-              label="Tags"
-              helpText="Select one or more tags to show contacts with any selected tag. Clear the active tags to see every contact."
-              collapsible
-              defaultOpen={false}
-              summary={tagFilter.size ? `${tagFilter.size} selected` : `${allTags.length} available`}
-            >
-              {allTags.map((t) => {
-                const active = tagFilter.has(t);
-                return (
-                  <AdminFilterChip
-                    key={t}
-                    active={active}
-                    label={t}
-                    chatTag={t}
-                    tone="slate"
-                    onClick={() => setTagFilter((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(t)) next.delete(t);
-                      else next.add(t);
+          <PortalCard id="contact-filters" data-chat-section="admin.contacts.filters" data-chat-section-label="Contact filters" className="mb-3 space-y-2 p-3 sm:p-4">
+            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+              <AdminSearchField
+                inputRef={searchRef}
+                placeholder="Search name, email, phone... (press /)"
+                value={search}
+                onChange={setSearch}
+                className="min-w-0 flex-1"
+                inputClassName="h-11"
+              />
+              <p className="shrink-0 text-[11px] text-slate-600 sm:text-right">
+                Showing {fuzzyVisible.length} of {contacts.length} contacts
+              </p>
+            </div>
+            <div className="flex min-w-0 flex-wrap items-center gap-2 border-t border-slate-100 pt-2">
+              <Select value={filter} onValueChange={(value) => setFilter(value as ContactFilter)}>
+                <SelectTrigger aria-label="Filter contacts by lifecycle" className="h-11 min-w-0 flex-1 bg-white text-xs sm:w-52 sm:flex-none">
+                  <SelectValue placeholder="All contacts" />
+                </SelectTrigger>
+                <SelectContent>
+                  {FILTERS.map((option) => <SelectItem key={option.id} value={option.id} textValue={`${option.label}, ${counts[option.id] ?? 0}`} className="text-xs">
+                    <span className="flex min-w-0 items-center justify-between gap-4">
+                      <span className="truncate">{option.label}</span>
+                      <span className="shrink-0 text-[11px] tabular-nums text-slate-500">{counts[option.id] ?? 0}</span>
+                    </span>
+                  </SelectItem>)}
+                </SelectContent>
+              </Select>
+              {allTags.length > 0 && <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline" className="h-11 shrink-0 gap-2 px-3" aria-label={tagFilter.size ? `Filter by tags, ${tagFilter.size} selected` : "Filter by tags"}>
+                    <Filter className="h-4 w-4" />
+                    <span>Tags</span>
+                    {tagFilter.size > 0 && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] tabular-nums text-slate-700">{tagFilter.size}</span>}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="max-h-[min(60vh,24rem)] w-64 overflow-y-auto">
+                  {allTags.map((tag) => <DropdownMenuCheckboxItem key={tag} checked={tagFilter.has(tag)} className="text-xs" onSelect={(event) => event.preventDefault()}
+                    onCheckedChange={(checked) => setTagFilter((previous) => {
+                      const next = new Set(previous);
+                      if (checked) next.add(tag); else next.delete(tag);
                       return next;
-                    })}
-                  />
-                );
-              })}
-              {tagFilter.size > 0 && (
-                <button
-                  onClick={() => setTagFilter(new Set())}
-                  className="inline-flex min-h-8 items-center rounded-full px-2.5 text-xs font-semibold text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline"
-                >
-                  Clear ({tagFilter.size})
-                </button>
-              )}
-            </AdminControlGroup>
-          )}
-
-          {/* Smart filter chips with live counts */}
-          <AdminControlGroup
-            label="Lifecycle"
-            helpText="Show contacts by relationship stage, including clients and leads who need follow-up. Counts use the contacts currently loaded for this company."
-            compactLabel="Filter contacts by lifecycle"
-            compactValue={filter}
-            onCompactValueChange={(value) => setFilter(value as ContactFilter)}
-            compactOptions={FILTERS.map((f) => ({ value: f.id, label: f.label, count: counts[f.id] ?? 0 }))}
-          >
-            {FILTERS.map((f) => {
-              const c = counts[f.id] ?? 0;
-              // "all" and "clients" are scope chips, not lifecycle
-              // statuses, so they have no STATUS_META entry.
-              const meta = f.id !== "all" && f.id !== "clients" ? STATUS_META[f.id as ClientStatus] : null;
-              const active = filter === f.id;
-              const tone =
-                f.id === "hot_lead" || f.id === "lost" ? "rose"
-                : f.id === "quiet" || f.id === "quoted" ? "amber"
-                : f.id === "active" || f.id === "won" ? "brand"
-                : "slate";
-              return (
-                <AdminFilterChip
-                  key={f.id}
-                  active={active}
-                  icon={meta?.icon}
-                  label={f.label}
-                  count={c}
-                  tone={tone}
-                  onClick={() => setFilter(f.id)}
-                />
-              );
-            })}
-          </AdminControlGroup>
+                    })}>
+                    <span className="truncate">{tag}</span>
+                  </DropdownMenuCheckboxItem>)}
+                  {tagFilter.size > 0 && <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="text-xs" onSelect={() => setTagFilter(new Set())}>Clear selected tags</DropdownMenuItem>
+                  </>}
+                </DropdownMenuContent>
+              </DropdownMenu>}
+              {(filter !== "all" || tagFilter.size > 0) && <Button type="button" variant="ghost" className="h-11 px-2 text-[11px] text-slate-600" onClick={() => { setFilter("all"); setTagFilter(new Set()); }}>
+                Clear filters
+              </Button>}
+            </div>
           </PortalCard>
 
           {/* Email cap notice, ties to pricing tier */}
-          <p className="mb-3 flex items-center gap-1.5 text-xs text-slate-500">
+          <p className="mb-3 flex items-center gap-1.5 text-[11px] text-slate-500">
             <Inbox className="h-3.5 w-3.5 shrink-0" />
             Quick-mail opens your own mail app, so messages come from your address.
           </p>
@@ -1667,14 +1639,14 @@ function ClientsCRM() {
                         >
                           <div className="flex items-start justify-between gap-2 mb-1.5">
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold text-slate-900 truncate">{c.name}</p>
+                              <p className="text-xs font-semibold text-slate-900 truncate">{c.name}</p>
                               {c.clientId && clientCredits[c.clientId] > 0 && (
-                                <p className="text-xs font-semibold text-brand-primary">Credit {fmtMoney.format(clientCredits[c.clientId])}</p>
+                                <p className="text-[11px] font-semibold text-brand-primary">Credit {fmtMoney.format(clientCredits[c.clientId])}</p>
                               )}
-                              {c.companyName && <p className="break-words text-xs text-slate-600">{c.companyName}</p>}
-                              <p className="text-xs text-slate-500 truncate">{c.email || c.phone || c.mobile_number || "-"}</p>
+                              {c.companyName && <p className="break-words text-[11px] text-slate-600">{c.companyName}</p>}
+                              <p className="text-[11px] text-slate-500 truncate">{c.email || c.phone || c.mobile_number || "-"}</p>
                             </div>
-                            <Badge className={`${meta.tone} text-[10px] gap-1 shrink-0`}>
+                            <Badge className={`${meta.tone} text-[11px] gap-1 shrink-0`}>
                               <Icon className="w-3 h-3" />
                               {meta.label}
                             </Badge>
@@ -1713,8 +1685,8 @@ function ClientsCRM() {
                   </div>
                   {/* Tablet + desktop: full 7-col table. */}
                   <div className="hidden sm:block overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                  <table className="w-full text-xs">
+                    <thead className="text-[11px] uppercase tracking-wide text-slate-500 border-b border-slate-200">
                       <tr>
                         <th className="text-left py-3 pl-4 pr-2">
                           <span className="inline-flex items-center gap-1.5">
@@ -1800,18 +1772,18 @@ function ClientsCRM() {
                                     {c.name}
                                   </button>
                                   {c.clientId && clientCredits[c.clientId] > 0 && (
-                                    <Badge className="border-0 bg-brand-primary/10 text-[10px] font-semibold text-brand-primary" title="Store credit this client can use on their next payment">
+                                    <Badge className="border-0 bg-brand-primary/10 text-[11px] font-semibold text-brand-primary" title="Store credit this client can use on their next payment">
                                       Credit {fmtMoney.format(clientCredits[c.clientId])}
                                     </Badge>
                                   )}
-                                  {c.companyName && <span className="break-words text-xs font-normal text-slate-600">{c.companyName}</span>}
+                                  {c.companyName && <span className="break-words text-[11px] font-normal text-slate-600">{c.companyName}</span>}
                                   {/* Phase 16 #4: client_type badge.
                                       Only renders for actual clients
                                       (source='client') so a lead /
                                       order-only row doesn't show a
                                       misleading 'Individual' chip. */}
                                   {c.source === "client" && c.clientType && (
-                                    <span className={`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border ${
+                                    <span className={`text-[11px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border ${
                                       c.clientType === "company"
                                         ? "bg-blue-50 text-blue-700 border-blue-200"
                                         : "bg-slate-50 text-slate-600 border-slate-200"
@@ -1823,7 +1795,7 @@ function ClientsCRM() {
                                 {/* CTS-C (CTS-8): tap-to-call + tap-to-email
                                     on every phone / mail render. Sales rep on
                                     a tablet shouldn't have to copy-paste. */}
-                                <div className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
+                                <div className="text-[11px] text-slate-500 flex items-center gap-2 flex-wrap">
                                   {c.email && (
                                     <a href={`mailto:${c.email}`} className="flex items-center gap-1 hover:text-slate-900 hover:underline">
                                       <Mail className="w-3 h-3" />{c.email}
@@ -1854,7 +1826,7 @@ function ClientsCRM() {
                                   )}
                                   {c.importedFilename && (
                                     <span
-                                      className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200"
+                                      className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200"
                                       title={`Imported via ${c.importedFilename}`}
                                     >
                                       Imported
@@ -1869,7 +1841,7 @@ function ClientsCRM() {
                                     {c.tags.map((t) => (
                                       <span
                                         key={t}
-                                        className="text-[10px] px-1.5 py-0.5 rounded bg-slate-50 text-slate-700 border border-slate-200"
+                                        className="text-[11px] px-1.5 py-0.5 rounded bg-slate-50 text-slate-700 border border-slate-200"
                                       >
                                         {t}
                                       </span>
@@ -1885,7 +1857,7 @@ function ClientsCRM() {
                               </Badge>
                             </td>
                             <td className="hidden py-3 px-2 2xl:table-cell">
-                              <div className={`text-xs font-medium ${
+                              <div className={`text-[11px] font-medium ${
                                 c.suggestion.tone === "urgent" ? "text-rose-600" :
                                 c.suggestion.tone === "warm"   ? "text-amber-600" : "text-slate-600"
                               }`}>
@@ -1901,7 +1873,7 @@ function ClientsCRM() {
                                   10 prior weddings. */}
                               {c.orderCount + (c.historicalTotalEvents ?? 0)}
                               {c.historicalTotalEvents ? (
-                                <span className="text-[10px] text-slate-600 ml-1" title={`${c.historicalTotalEvents} imported`}>
+                                <span className="text-[11px] text-slate-600 ml-1" title={`${c.historicalTotalEvents} imported`}>
                                   +{c.historicalTotalEvents}
                                 </span>
                               ) : null}
@@ -1920,13 +1892,13 @@ function ClientsCRM() {
                                   <span title={hasHistoric ? `In-system ${fmtMoney.format(c.totalSpent)} + imported ${fmtMoney.format(c.historicalLifetimeSpend!)}` : undefined}>
                                     {fmtMoney.format(combined)}
                                     {hasHistoric && (
-                                      <span className="text-[10px] text-slate-600 ml-1">incl. history</span>
+                                      <span className="text-[11px] text-slate-600 ml-1">incl. history</span>
                                     )}
                                   </span>
                                 );
                               })()}
                             </td>
-                            <td className="py-3 px-2 text-xs text-slate-600">
+                            <td className="py-3 px-2 text-[11px] text-slate-600">
                               {lastContacted ? (
                                 <span className="text-brand-primary">
                                   {daysBetween(new Date(lastContacted), new Date())}d ago
@@ -1977,7 +1949,7 @@ function ClientsCRM() {
                                   }}
                                 />
                                 {c.mobile_number || c.phone && (
-                                  <Button asChild variant="outline" size="sm" className="h-8 text-xs">
+                                  <Button asChild variant="outline" size="sm" className="h-8 text-[11px]">
                                     <Link href={withSlug(`/admin/whatsapp/replies?phone=${encodeURIComponent(String(c.mobile_number || c.phone))}`)}>WhatsApp history</Link>
                                   </Button>
                                 )}
@@ -2070,17 +2042,17 @@ function ClientsCRM() {
                   </table>
                   </div>
                   {/* Pagination */}
-                  <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:text-slate-400">
+                  <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-600 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:text-slate-400">
                     <span className="tabular-nums">
                       Showing {pageStart + 1}-{Math.min(pageStart + pageSize, allVisible.length)} of {allVisible.length.toLocaleString("en-ZA")} contacts
                     </span>
                     <div className="flex flex-wrap items-center gap-2">
-                      <label className="flex items-center gap-1.5 text-xs">
+                      <label className="flex items-center gap-1.5 text-[11px]">
                         Rows
                         <select
                           value={pageSize}
                           onChange={(e) => setPageSize(Number(e.target.value))}
-                          className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
+                          className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-900"
                           aria-label="Rows per page"
                         >
                           {PAGE_SIZES.map((size) => <option key={size} value={size}>{size}</option>)}
@@ -2088,7 +2060,7 @@ function ClientsCRM() {
                       </label>
                       <Button variant="outline" size="sm" onClick={() => setPage(0)} disabled={page === 0} aria-label="First page">«</Button>
                       <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>Previous</Button>
-                      <span className="tabular-nums text-xs">Page {page + 1} of {pageCount.toLocaleString("en-ZA")}</span>
+                      <span className="tabular-nums text-[11px]">Page {page + 1} of {pageCount.toLocaleString("en-ZA")}</span>
                       <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))} disabled={page >= pageCount - 1}>Next</Button>
                       <Button variant="outline" size="sm" onClick={() => setPage(pageCount - 1)} disabled={page >= pageCount - 1} aria-label="Last page">»</Button>
                     </div>
@@ -2173,15 +2145,15 @@ function ClientsCRM() {
 
                 <div className="space-y-4">
                   <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
-                    <p className="text-sm font-semibold text-rose-900 mb-2">
+                    <p className="text-xs font-semibold text-rose-900 mb-2">
                       What gets hidden
                     </p>
                     {counts.length === 0 ? (
-                      <p className="text-sm text-rose-700">
+                      <p className="text-xs text-rose-700">
                         Nothing on file beyond the contact entry itself.
                       </p>
                     ) : (
-                      <ul className="space-y-1 text-sm text-rose-800">
+                      <ul className="space-y-1 text-xs text-rose-800">
                         {counts.map(({ kind, n, icon: Icon }) => (
                           <li key={kind} className="flex items-center gap-2">
                             <Icon className="h-3.5 w-3.5 flex-shrink-0" />
@@ -2191,7 +2163,7 @@ function ClientsCRM() {
                       </ul>
                     )}
                     {c.totalSpent > 0 && (
-                      <p className="text-sm font-medium text-rose-900 mt-2 pt-2 border-t border-rose-200">
+                      <p className="text-xs font-medium text-rose-900 mt-2 pt-2 border-t border-rose-200">
                         Lifetime spend on file: {fmtMoney.format(c.totalSpent)}
                       </p>
                     )}
@@ -2204,7 +2176,7 @@ function ClientsCRM() {
                         onCheckedChange={(v) => setDeleteBlockToo(v === true)}
                         className="mt-0.5"
                       />
-                      <div className="flex-1 text-sm">
+                      <div className="flex-1 text-xs">
                         <div className="font-medium text-slate-900 flex items-center gap-1.5">
                           <Ban className="h-3.5 w-3.5 text-slate-500" />
                           Also block {c.email} from future comms
@@ -2218,7 +2190,7 @@ function ClientsCRM() {
 
                   {requiresTyping && (
                     <div className="space-y-1.5">
-                      <label htmlFor="confirm-name" className="text-sm font-medium text-slate-900">
+                      <label htmlFor="confirm-name" className="text-xs font-medium text-slate-900">
                         Type{" "}
                         <span className="font-mono text-rose-600">{c.name}</span>{" "}
                         to confirm
@@ -2230,7 +2202,7 @@ function ClientsCRM() {
                         placeholder={c.name}
                         autoComplete="off"
                       />
-                      <p className="text-xs text-slate-500">
+                      <p className="text-[11px] text-slate-500">
                         Required because this contact has paying history. Stops accidental deletes.
                       </p>
                     </div>
@@ -2678,17 +2650,14 @@ function ClientFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* max-h + overflow-y-auto matches the rest of the codebase's
-          long-form dialogs (see AddEditCompanyDialog, ShortagesPanel,
-          ImportRecordsModal). Without it, expanding "More details"
-          pushes the dialog past the viewport and the bottom (Cancel /
-          Add client buttons + notes / tags) becomes unreachable. */}
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
+      {/* Keep the dialog inside the viewport; only the form body scrolls,
+          so its heading and save actions remain visible while editing. */}
+      <DialogContent className="flex min-h-0 max-h-[calc(100dvh-1rem)] flex-col overflow-hidden [&_button]:!text-xs [&_input]:!text-xs [&_textarea]:!text-xs sm:max-w-2xl">
+        <DialogHeader className="min-w-0 pr-10 text-left sm:pr-0">
+          <DialogTitle className="text-base">
             {editing?.clientId ? "Edit client" : promoting ? "Save as client" : "Add a client"}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs">
             {editing?.clientId
               ? "Update the contact and billing details for this client."
               : promoting
@@ -2697,24 +2666,25 @@ function ClientFormDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <CustomerIdentityFields contactName={form.client_name} companyName={form.company_name} onContactNameChange={(client_name) => setForm((f) => ({ ...f, client_name }))} onCompanyNameChange={(company_name) => setForm((f) => ({ ...f, company_name }))} companyRequired={form.client_type !== "individual"} />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Email</label>
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+        <div className="min-w-0 space-y-4 sm:space-y-5">
+          <CustomerIdentityFields contactName={form.client_name} companyName={form.company_name} onContactNameChange={(client_name) => setForm((f) => ({ ...f, client_name }))} onCompanyNameChange={(company_name) => setForm((f) => ({ ...f, company_name }))} companyRequired={form.client_type !== "individual"} layout="columns" />
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="min-w-0">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-700">Email</label>
               <Input type="email" value={form.email} onChange={set("email")} placeholder="sarah@example.co.za" className="mt-1" />
             </div>
-            <div>
-              <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Phone</label>
+            <div className="min-w-0">
+              <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-700">Phone</label>
               <Input value={form.phone} onChange={set("phone")} placeholder="082 123 4567" className="mt-1" />
             </div>
           </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Client type</label>
+          <div className="min-w-0 sm:max-w-sm">
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-700">Client type</label>
             <select
               value={form.client_type}
               onChange={(e) => setForm((f) => ({ ...f, client_type: e.target.value }))}
-              className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+              className="mt-1 w-full min-w-0 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs"
             >
               <option value="individual">Individual</option>
               <option value="company">Company</option>
@@ -2724,13 +2694,21 @@ function ClientFormDialog({
           </div>
 
           {!showMore ? (
-            <Button variant="ghost" size="sm" onClick={() => setShowMore(true)} className="text-slate-600">
-              + More details (billing, payment terms, currency, notes)
-            </Button>
+            <div className="border-t border-slate-100 pt-3">
+              <Button variant="ghost" size="sm" onClick={() => setShowMore(true)} className="h-10 max-w-full justify-start gap-2 whitespace-normal px-2 text-left text-slate-700">
+                <MoreHorizontal className="h-4 w-4 shrink-0" />
+                <span>More details</span>
+              </Button>
+              <p className="ml-9 text-[11px] text-slate-500">Billing, payment terms, currency and notes</p>
+            </div>
           ) : (
-            <div className="space-y-3 pt-2 border-t border-slate-100">
-              <div>
-                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">VAT / Tax number</label>
+            <div className="grid min-w-0 gap-x-4 gap-y-4 border-t border-slate-100 pt-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <h3 className="text-xs font-semibold text-slate-900">Billing and preferences</h3>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">Tax, invoice terms, currency and client notes.</p>
+              </div>
+              <div className="min-w-0">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-700">VAT / Tax number</label>
                 <Input value={form.tax_number} onChange={set("tax_number")} placeholder="VAT 4123456789" className="mt-1" />
               </div>
 
@@ -2739,39 +2717,39 @@ function ClientFormDialog({
                   a corporate that needs Net 30 stay on Net 30 while
                   everyone else uses the catering-style 7-day balance.
                   Leave blank to use the company default. */}
-              <div>
-                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Payment terms (days)</label>
+              <div className="min-w-0">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-700">Payment terms (days)</label>
                 <Input
                   type="number"
                   min={1}
                   max={120}
                   value={form.payment_terms}
                   onChange={set("payment_terms")}
-                  placeholder="Leave blank for the company default"
+                  placeholder="Company default"
                   className="mt-1"
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Net X days for this client&apos;s invoices. Useful for corporate accounts who need 30 or 60 days. Blank = use the company-wide default (typically 7 for catering).
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                  Net X days for this client&apos;s invoices. Blank uses the company default (typically 7 days).
                 </p>
               </div>
 
               {scheduleAvailable && (
-                <div className="space-y-3 rounded-md border border-slate-200 p-3">
+                <div className="min-w-0 space-y-3 rounded-md border border-slate-200 p-3 sm:col-span-2 sm:p-4">
                   <div>
-                    <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Payment due date and reminder</p>
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      Overrides Settings &rarr; Financial for this client only. Leave on &quot;Same as company setting&quot; to follow the company.
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">Payment due date and reminder</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                      Overrides Settings → Financial for this client. Choose the company setting to inherit it.
                     </p>
                   </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700">Payment is due</label>
-                    <div className="mt-1 flex gap-2">
+                  <div className="min-w-0">
+                    <label className="block text-[11px] font-semibold text-slate-700">Payment is due</label>
+                    <div className="mt-1 flex min-w-0 gap-2">
                       <select
                         value={schedule.dueDirection}
                         onChange={(e) => setSchedule((sc) => ({ ...sc, dueDirection: e.target.value }))}
-                        className="flex-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                        className="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2 py-2 text-xs sm:px-3"
                       >
-                        <option value="">Same as company setting</option>
+                        <option value="">Company setting</option>
                         <option value="before_event">Days before the event</option>
                         <option value="after_event">Days after the event</option>
                       </select>
@@ -2784,20 +2762,20 @@ function ClientFormDialog({
                           value={schedule.dueDays}
                           onChange={(e) => setSchedule((sc) => ({ ...sc, dueDays: e.target.value }))}
                           placeholder="Days"
-                          className="w-24"
+                          className="w-20 shrink-0 sm:w-24"
                         />
                       )}
                     </div>
                   </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700">Payment reminder</label>
-                    <div className="mt-1 flex gap-2">
+                  <div className="min-w-0">
+                    <label className="block text-[11px] font-semibold text-slate-700">Payment reminder</label>
+                    <div className="mt-1 flex min-w-0 gap-2">
                       <select
                         value={schedule.reminderMode}
                         onChange={(e) => setSchedule((sc) => ({ ...sc, reminderMode: e.target.value }))}
-                        className="flex-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                        className="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2 py-2 text-xs sm:px-3"
                       >
-                        <option value="">Same as company setting</option>
+                        <option value="">Company setting</option>
                         <option value="off">Don&apos;t send payment reminders</option>
                         <option value="before_due">Send one reminder before payment is due</option>
                       </select>
@@ -2810,69 +2788,66 @@ function ClientFormDialog({
                           value={schedule.reminderDays}
                           onChange={(e) => setSchedule((sc) => ({ ...sc, reminderDays: e.target.value }))}
                           placeholder="Days"
-                          className="w-24"
+                          className="w-20 shrink-0 sm:w-24"
                         />
                       )}
                     </div>
                     {schedule.reminderMode === "before_due" && (
-                      <p className="text-[11px] text-slate-500 mt-1">Number of days before payment is due.</p>
+                      <p className="mt-1 text-[11px] text-slate-500">Number of days before payment is due.</p>
                     )}
                   </div>
                 </div>
               )}
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Preferred currency</label>
+              <div className="min-w-0">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-700">Preferred currency</label>
                 <select
                   value={form.preferred_currency}
                   onChange={(e) => setForm((f) => ({ ...f, preferred_currency: e.target.value }))}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                  className="mt-1 w-full min-w-0 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs"
                 >
                   <option value="">Use company default</option>
                   {Object.entries(CURRENCY_CONFIG).map(([code, config]) => (
                     <option key={code} value={code}>{code} - {config.name}</option>
                   ))}
                 </select>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  New quotes for this client use this currency. Leave blank to use the company default.
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                  New quotes use this currency. Blank uses the company default.
                 </p>
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Billing address</label>
-                <Input value={form.billing_address_line1} onChange={set("billing_address_line1")} placeholder="Line 1" className="mt-1" />
-                <Input value={form.billing_address_line2} onChange={set("billing_address_line2")} placeholder="Line 2 (optional)" className="mt-2" />
-                <div className="grid grid-cols-2 gap-2 mt-2">
+              <div className="min-w-0 sm:col-span-2">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-700">Billing address</label>
+                <Input value={form.billing_address_line1} onChange={set("billing_address_line1")} placeholder="Address line 1" className="mt-1" />
+                <Input value={form.billing_address_line2} onChange={set("billing_address_line2")} placeholder="Address line 2 (optional)" className="mt-2" />
+                <div className="mt-2 grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_10rem]">
                   <Input value={form.billing_city} onChange={set("billing_city")} placeholder="City" />
                   <Input value={form.billing_postal_code} onChange={set("billing_postal_code")} placeholder="Postal code" />
                 </div>
               </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Notes</label>
-                <Textarea value={form.notes} onChange={set("notes")} rows={3} className="mt-1" placeholder="Allergies, preferences, anything worth remembering..." />
+
+              <div className="min-w-0 sm:col-span-2">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-700">Notes</label>
+                <Textarea value={form.notes} onChange={set("notes")} rows={3} className="mt-1 min-w-0" placeholder="Allergies, preferences, anything worth remembering..." />
               </div>
-              {/* Phase 8 #10: customer tags. Comma-separated free
-                  text - normalised to lowercase, deduped and
-                  trimmed at save. The tags surface as little
-                  chips on the contact card so VIP / corporate /
-                  vegan / no-pork etc. is visible at a glance. */}
-              <div>
-                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Tags</label>
+              {/* Phase 8 #10: customer tags. Comma-separated free text,
+                  normalised to lowercase, deduped and trimmed at save. */}
+              <div className="min-w-0 sm:col-span-2">
+                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-700">Tags</label>
                 <Input
                   value={form.tags}
                   onChange={set("tags")}
                   className="mt-1"
-                  placeholder="vip, corporate, halaal, repeat (comma separated)"
+                  placeholder="vip, corporate, halaal, repeat"
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Comma-separated. Lowercased and deduped on save.
-                </p>
+                <p className="mt-1 text-[11px] text-slate-500">Comma-separated; lowercased and deduplicated on save.</p>
               </div>
             </div>
           )}
         </div>
+        </div>
 
-        <DialogFooter className="flex-col sm:flex-row sm:justify-between gap-2">
+        <DialogFooter className="shrink-0 flex-col items-stretch gap-2 border-t border-slate-200 bg-white pt-3 dark:border-slate-700 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between sm:space-x-0">
           {/* Phase 12 #3: per-client data export. Compiles every
               order, quote and invoice we hold for this client into
               a CSV the operator can hand to a POPI / GDPR data
@@ -2983,7 +2958,7 @@ function ClientFormDialog({
               Export client data
             </Button>
           )}
-          <div className="flex gap-2 sm:ml-auto">
+          <div className="flex flex-wrap justify-end gap-2 sm:ml-auto">
             <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
             <Button onClick={handleSave} disabled={saving} className="bg-brand-primary text-white hover:opacity-90">
               {saving ? "Saving..." : editing?.clientId ? "Save changes" : promoting ? "Save as client" : "Add client"}

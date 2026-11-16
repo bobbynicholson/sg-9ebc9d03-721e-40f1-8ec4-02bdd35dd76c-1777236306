@@ -583,12 +583,12 @@ function FixedCostsPage() {
             meta={
               !loading && !loadError ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {activeRows.length} active cost{activeRows.length === 1 ? "" : "s"}
                   </span>
                   {pausedRows.length > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/90">
                       {pausedRows.length} paused
                     </span>
                   )}
@@ -596,16 +596,16 @@ function FixedCostsPage() {
               ) : undefined
             }
             actions={
-            <>
-              <Button onClick={openBulk} variant="outline">
-                <Upload className="w-4 h-4 mr-1.5" />
-                Bulk import
+            <div className="flex w-full items-center justify-end gap-2 xl:w-auto">
+              <Button onClick={openBulk} variant="outline" title="Import fixed costs from CSV" aria-label="Import fixed costs from CSV" className="h-11 w-11 justify-self-end p-0 sm:h-9 sm:w-auto sm:px-3">
+                <Upload className="h-4 w-4 sm:mr-1.5" />
+                <span className="sr-only sm:not-sr-only">Bulk import</span>
               </Button>
-              <Button onClick={openCreate} className="bg-brand-primary hover:bg-brand-primary/90">
-                <Plus className="w-4 h-4 mr-1.5" />
-                Add fixed cost
+              <Button onClick={openCreate} title="Add a recurring fixed cost" aria-label="Add a recurring fixed cost" className="h-11 w-11 justify-self-end bg-brand-primary p-0 hover:bg-brand-primary/90 sm:h-9 sm:w-auto sm:px-3">
+                <Plus className="h-4 w-4 sm:mr-1.5" />
+                <span className="sr-only sm:not-sr-only">Add fixed cost</span>
               </Button>
-            </>
+            </div>
             }
           />
           <PageWorkbench />
@@ -627,13 +627,13 @@ function FixedCostsPage() {
           <>
           {/* Only facts saved on a fixed-cost record appear in these cards.
               Forecast-style estimates belong on the cashflow dashboard. */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <Card className="border-2">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm text-slate-600">Active</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tabular-nums text-slate-900">{activeRows.length}</div>
+                <div className="text-lg font-bold leading-tight tabular-nums text-slate-900 sm:text-2xl">{activeRows.length}</div>
                 <p className="text-xs text-slate-500 mt-1">
                   Of {rows.length} total{pausedRows.length > 0 ? `, ${pausedRows.length} paused` : ""}
                 </p>
@@ -644,7 +644,7 @@ function FixedCostsPage() {
                 <CardTitle className="text-sm text-slate-600">Paused</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tabular-nums text-slate-900">
+                <div className="text-lg font-bold leading-tight tabular-nums text-slate-900 sm:text-2xl">
                   {pausedRows.length}
                 </div>
                 <p className="text-xs text-slate-500 mt-1">Not included in the active list</p>
@@ -675,11 +675,12 @@ function FixedCostsPage() {
               <button
                 type="button"
                 onClick={() => setGroupByCategory((v) => !v)}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900"
+                className="inline-flex h-11 w-11 items-center justify-center gap-1.5 justify-self-end rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 sm:h-9 sm:w-auto sm:justify-self-auto sm:px-2"
                 title="Group active rows by category"
+                aria-label={groupByCategory ? "Show flat list" : "Group active rows by category"}
               >
-                <Tag className="w-3.5 h-3.5" />
-                {groupByCategory ? "Flat list" : "Group by category"}
+                <Tag className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">{groupByCategory ? "Flat list" : "Group by category"}</span>
               </button>
             </div>
           )}
@@ -993,7 +994,7 @@ function FixedCostsPage() {
 function Bucket({ label, amount }: { label: string; amount: string }) {
   return (
     <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
-      <p className="text-[10px] uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
       <p className="text-sm font-semibold tabular-nums text-slate-800">{amount}</p>
     </div>
   );
@@ -1046,8 +1047,8 @@ function CostRow({ row, currency, fmt, today, isLargest, onEdit, onToggle, onDel
     && row.previous_amount_cents !== row.amount_cents;
 
   return (
-    <div className="flex flex-wrap items-center gap-3 p-4 hover:bg-slate-50 sm:flex-nowrap sm:gap-4">
-      <div className="flex-1 min-w-[10rem]">
+    <div className="flex flex-col gap-3 p-3 hover:bg-slate-50 sm:flex-row sm:items-center sm:gap-4 sm:p-4">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
@@ -1057,45 +1058,45 @@ function CostRow({ row, currency, fmt, today, isLargest, onEdit, onToggle, onDel
           >
             {row.label}
           </button>
-          <Badge variant="outline" className="text-[10px]">
-            <Repeat className="w-2.5 h-2.5 mr-0.5" />
+          <Badge variant="outline" className="text-xs">
+            <Repeat className="mr-0.5 h-3 w-3" />
             {row.cadence}
           </Badge>
           {!row.active && (
             <Badge variant="secondary" className="bg-slate-100 text-slate-600">paused</Badge>
           )}
           {isLargest && row.active && (
-            <Badge variant="outline" className="text-[10px] border-slate-300 text-slate-700 bg-slate-50">
+            <Badge variant="outline" className="border-slate-300 bg-slate-50 text-xs text-slate-700">
               Largest line
             </Badge>
           )}
           {isAnnualSoon && (
-            <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-800 bg-amber-50 animate-pulse">
+            <Badge variant="outline" className="animate-pulse border-amber-300 bg-amber-50 text-xs text-amber-800">
               Annual due in {daysToNext}d
             </Badge>
           )}
           {storedIsPast && row.active && (
             <Badge
               variant="outline"
-              className="text-[10px] border-amber-300 text-amber-800 bg-amber-50"
+              className="border-amber-300 bg-amber-50 text-xs text-amber-800"
               title="The stored next_due_date is in the past. The forecast walks forward client-side, and the nightly cron should be catching up. Edit the row to set a fresh date if this persists."
             >
-              <AlertCircle className="w-2.5 h-2.5 mr-0.5" />
+              <AlertCircle className="mr-0.5 h-3 w-3" />
               Date drifted
             </Badge>
           )}
           {isStaleAmount && (
             <Badge
               variant="outline"
-              className="text-[10px] border-blue-300 text-blue-800 bg-blue-50"
+              className="border-blue-300 bg-blue-50 text-xs text-blue-800"
               title={`Same amount for ${monthsAtAmount} months. Most fixed costs renegotiate annually - worth a check.`}
             >
               Renegotiate? {monthsAtAmount}mo unchanged
             </Badge>
           )}
           {row.category && (
-            <Badge variant="outline" className="text-[10px] text-slate-600 border-slate-200">
-              <Tag className="w-2.5 h-2.5 mr-0.5" />
+            <Badge variant="outline" className="border-slate-200 text-xs text-slate-600">
+              <Tag className="mr-0.5 h-3 w-3" />
               {categoryLabel(row.category)}
             </Badge>
           )}
@@ -1114,8 +1115,9 @@ function CostRow({ row, currency, fmt, today, isLargest, onEdit, onToggle, onDel
           {row.notes ? ` - ${row.notes}` : ""}
         </div>
       </div>
-      <div className="text-right">
-        <div className={`font-semibold tabular-nums ${row.active ? "text-slate-900" : "text-slate-400"}`}>
+      <div className="flex flex-wrap items-center justify-between gap-3 sm:ml-auto sm:flex-nowrap sm:justify-start">
+      <div className="text-left sm:text-right">
+        <div className={`break-words text-sm font-semibold leading-tight tabular-nums sm:text-base ${row.active ? "text-slate-900" : "text-slate-400"}`}>
           {fmt(row.amount_cents / 100, currency)}
         </div>
         {/* FXC-B: previous amount annotation. Stamped by the
@@ -1123,14 +1125,14 @@ function CostRow({ row, currency, fmt, today, isLargest, onEdit, onToggle, onDel
             without an audit_logs query. Helps the operator place
             the most recent renegotiation. */}
         {showPreviousAmount && row.previous_amount_cents != null && (
-          <div className="text-[10px] text-slate-500 tabular-nums">
+          <div className="text-xs text-slate-500 tabular-nums">
             was {fmt(row.previous_amount_cents / 100, currency)}
             {monthsAtAmount > 0 ? `, ${monthsAtAmount}mo ago` : ""}
           </div>
         )}
         {/* FXC-A: per-row annualised hint. R1,800/mo = R21,600/yr.
             Makes the renegotiation conversation concrete. */}
-        <div className="text-[10px] text-slate-400 tabular-nums">
+        <div className="text-xs text-slate-400 tabular-nums">
           {fmt(annualised, currency)} / yr
         </div>
       </div>
@@ -1139,12 +1141,13 @@ function CostRow({ row, currency, fmt, today, isLargest, onEdit, onToggle, onDel
         onCheckedChange={(v) => onToggle(!!v)}
         aria-label={`${row.active ? "Pause" : "Resume"} ${row.label}`}
       />
-      <Button size="sm" variant="ghost" onClick={onEdit} aria-label={`Edit ${row.label}`}>
-        <Pencil className="w-3.5 h-3.5" />
+      <Button size="sm" variant="ghost" onClick={onEdit} aria-label={`Edit ${row.label}`} title={`Edit ${row.label}`} className="h-11 w-11 p-0 sm:h-9 sm:w-9">
+        <Pencil className="h-4 w-4" />
       </Button>
-      <Button size="sm" variant="ghost" onClick={onDelete} aria-label={`Delete ${row.label}`}>
-        <Trash2 className="w-3.5 h-3.5" />
+      <Button size="sm" variant="ghost" onClick={onDelete} aria-label={`Delete ${row.label}`} className="h-11 w-11 p-0 sm:h-9 sm:w-9">
+        <Trash2 className="h-4 w-4" />
       </Button>
+      </div>
     </div>
   );
 }

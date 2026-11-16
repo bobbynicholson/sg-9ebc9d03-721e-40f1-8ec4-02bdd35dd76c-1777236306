@@ -133,7 +133,7 @@ function KitchenMenuPhoto({
       <div
         aria-hidden="true"
         title={`No photo available for ${itemName}`}
-        className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-slate-300 bg-slate-50 text-slate-400 sm:h-[76px] sm:w-[76px]"
+        className="flex h-10 w-10 shrink-0 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-slate-300 bg-slate-50 text-slate-400 sm:h-[76px] sm:w-[76px]"
       >
         <ImageIcon className="h-4 w-4" />
       </div>
@@ -141,7 +141,7 @@ function KitchenMenuPhoto({
   }
 
   return (
-    <span className="group relative block h-14 w-14 shrink-0 cursor-zoom-in overflow-hidden rounded-md border border-slate-200 bg-slate-100 sm:h-[76px] sm:w-[76px]">
+    <span className="group relative block h-10 w-10 shrink-0 cursor-zoom-in overflow-hidden rounded-md border border-slate-200 bg-slate-100 sm:h-[76px] sm:w-[76px]">
       <img
         src={imageUrl}
         alt={itemName}
@@ -488,31 +488,31 @@ export function KitchenSection({
                   return (
                     <li
                       key={it.id}
-                      className="flex items-start gap-2"
+                      className="flex min-w-0 items-start gap-1.5 sm:gap-2"
                     >
                       <button
                         type="button"
                         onClick={openItemPreview}
                         aria-label={`Open photo and kitchen details for ${it.item_name}`}
                         title="Open photo and kitchen details"
-                        className={`flex min-w-0 flex-1 cursor-pointer items-start gap-2.5 rounded-md border p-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 ${isBuyAndSell ? "border-slate-200 bg-slate-50 hover:bg-slate-100" : "border-orange-200 bg-white hover:bg-orange-50/70"}`}
+                        className={`flex min-w-0 flex-1 cursor-pointer items-start gap-1.5 rounded-md border p-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 sm:gap-2.5 sm:p-2.5 ${isBuyAndSell ? "border-slate-200 bg-slate-50 hover:bg-slate-100" : "border-orange-200 bg-white hover:bg-orange-50/70"}`}
                       >
-                        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-100 text-xs font-bold tabular-nums text-orange-800">
+                        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-orange-100 text-[11px] font-bold tabular-nums text-orange-800 sm:h-7 sm:w-7 sm:text-xs">
                           {it.quantity}
                         </span>
                         <KitchenMenuPhoto imageUrl={mi?.image_url} itemName={it.item_name} />
                         <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-medium text-slate-900">
+                          <span className="block break-words text-xs font-medium text-slate-900 sm:text-sm">
                           {it.item_name}
                           {isBuyAndSell && (
-                            <span className="ml-2 text-[10px] uppercase tracking-wider text-slate-600 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">Buy-and-sell</span>
+                            <span className="ml-1 inline-block text-[9px] uppercase tracking-wide text-slate-600 bg-slate-100 border border-slate-200 rounded px-1 py-0.5 sm:ml-2 sm:text-[10px] sm:tracking-wider sm:px-1.5">Buy-and-sell</span>
                           )}
                           {mi?.fulfilment_type === "outsourced" && (
-                            <span className="ml-2 text-[10px] uppercase tracking-wider text-slate-700 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5">Outsourced</span>
+                            <span className="ml-1 inline-block text-[9px] uppercase tracking-wide text-slate-700 bg-slate-50 border border-slate-200 rounded px-1 py-0.5 sm:ml-2 sm:text-[10px] sm:tracking-wider sm:px-1.5">Outsourced</span>
                           )}
                           </span>
                         {it.description && (
-                          <span className="mt-0.5 block text-xs text-slate-600">{it.description}</span>
+                          <span className="mt-0.5 block break-words text-[11px] text-slate-600 sm:text-xs">{it.description}</span>
                         )}
                         {/* Tag strip - category + dietary + allergens */}
                         {(tagBits.length > 0 || (mi?.allergen_codes && mi.allergen_codes.length > 0)) && (
@@ -530,12 +530,12 @@ export function KitchenSection({
                           </span>
                         )}
                         {it.special_instructions && (
-                          <span className="mt-1.5 block rounded border border-amber-200 bg-amber-50 p-1.5 text-xs text-amber-800">
+                          <span className="mt-1.5 block break-words rounded border border-amber-200 bg-amber-50 p-1.5 text-[11px] text-amber-800 sm:text-xs">
                             <span className="font-semibold">Special: </span>{it.special_instructions}
                           </span>
                         )}
                         {totalMinutes > 0 && !isBuyAndSell && (
-                          <span className="mt-1 block text-[11px] tabular-nums text-slate-500">
+                          <span className="mt-1 block text-[10px] tabular-nums text-slate-500 sm:text-[11px]">
                             {mi?.prep_time_minutes ? `Prep ${mi.prep_time_minutes}min` : ""}
                             {mi?.prep_time_minutes && mi?.cook_time_minutes ? " · " : ""}
                             {mi?.cook_time_minutes ? `Cook ${mi.cook_time_minutes}min` : ""}
@@ -555,11 +555,12 @@ export function KitchenSection({
                             itemName: it.item_name,
                             quantity: it.quantity,
                           })}
-                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-orange-300 text-orange-800 hover:bg-orange-50 flex-shrink-0"
+                          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded border border-orange-300 p-0 text-orange-800 hover:bg-orange-50 sm:h-8 sm:w-auto sm:gap-1 sm:px-2"
+                          aria-label={`View recipe for ${it.item_name}`}
                           title="View recipe and ingredients scaled for this order"
                         >
-                          <BookOpen className="w-3 h-3" />
-                          Recipe
+                          <BookOpen className="h-4 w-4 sm:h-3 sm:w-3" />
+                          <span className="sr-only sm:not-sr-only">Recipe</span>
                         </button>
                       )}
                     </li>

@@ -461,11 +461,23 @@
 
 /* Mobile rendering defaults */
 @media (max-width: 768px) {
+  /* Slightly tighten rem-based type and spacing across the app on smaller
+     screens while preserving 16px form controls to prevent iOS zoom-on-focus. */
+  html {
+    font-size: 15.5px;
+  }
+
   /* Optimize font rendering */
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+  }
+}
+
+@media (max-width: 480px) {
+  html {
+    font-size: 15px;
   }
 }
 
@@ -611,4 +623,190 @@
 .leaflet-container {
   position: relative;
   z-index: 0;
+}
+
+/* Business analysis is a dense set of charts. Keep every card inside the
+   phone viewport and scale its padding and headline figures together. */
+@media (max-width: 639px) {
+  #bi-section-content,
+  #bi-section-content > *,
+  #bi-section-content > * > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  #bi-section-content [class~="p-5"] {
+    padding: 0.75rem !important;
+  }
+
+  #bi-section-content [class~="p-4"] {
+    padding: 0.75rem !important;
+  }
+
+  #bi-section-content [class~="gap-4"],
+  #bi-section-content [class~="gap-6"] {
+    gap: 0.75rem !important;
+  }
+
+  #bi-section-content [class~="text-4xl"] {
+    font-size: 1.25rem !important;
+    line-height: 1.5rem !important;
+  }
+
+  #bi-section-content [class~="text-3xl"] {
+    font-size: 1.125rem !important;
+    line-height: 1.375rem !important;
+  }
+
+  #bi-section-content [class~="text-2xl"] {
+    font-size: 1rem !important;
+    line-height: 1.25rem !important;
+  }
+
+  #bi-section-content [class~="text-xl"],
+  #bi-section-content [class~="text-lg"] {
+    font-size: 0.875rem !important;
+    line-height: 1.25rem !important;
+  }
+
+  #bi-section-content [class~="text-base"] {
+    font-size: 0.8125rem !important;
+    line-height: 1.125rem !important;
+  }
+
+  #bi-section-content [class~="text-sm"] {
+    font-size: 0.75rem !important;
+    line-height: 1rem !important;
+  }
+
+  #bi-section-content .recharts-responsive-container {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+}
+
+/* Compact, readable type across admin routes on phones. Keep the same
+   relative hierarchy while preventing default Tailwind headings and body
+   copy from dominating narrow workspaces. Explicit 10-12px metadata stays
+   as authored; form controls retain the 16px mobile focus size above. */
+@media (max-width: 639px) {
+  .admin-page-shell [class~="text-4xl"] {
+    font-size: 1.5rem !important;
+    line-height: 1.875rem !important;
+  }
+
+  .admin-page-shell [class~="text-3xl"] {
+    font-size: 1.375rem !important;
+    line-height: 1.75rem !important;
+  }
+
+  .admin-page-shell [class~="text-2xl"] {
+    font-size: 1.25rem !important;
+    line-height: 1.5rem !important;
+  }
+
+  .admin-page-shell [class~="text-xl"] {
+    font-size: 1.125rem !important;
+    line-height: 1.5rem !important;
+  }
+
+  .admin-page-shell [class~="text-lg"] {
+    font-size: 1rem !important;
+    line-height: 1.25rem !important;
+  }
+
+  .admin-page-shell [class~="text-base"] {
+    font-size: 0.9375rem !important;
+    line-height: 1.25rem !important;
+  }
+
+  .admin-page-shell [class~="text-sm"] {
+    font-size: 0.875rem !important;
+    line-height: 1.125rem !important;
+  }
+}
+
+/* Radix renders the order manager in a body-level portal, outside the admin
+   page shell. Give the full manage surface and its embedded panels the same
+   compact hierarchy without changing other dialogs. */
+.order-details-dialog [class~="text-5xl"] {
+  font-size: 1.875rem !important;
+  line-height: 2.25rem !important;
+}
+
+.order-details-dialog [class~="text-4xl"] {
+  font-size: 1.625rem !important;
+  line-height: 2rem !important;
+}
+
+.order-details-dialog [class~="text-3xl"] {
+  font-size: 1.5rem !important;
+  line-height: 1.875rem !important;
+}
+
+.order-details-dialog [class~="text-2xl"] {
+  font-size: 1.25rem !important;
+  line-height: 1.625rem !important;
+}
+
+.order-details-dialog [class~="text-xl"] {
+  font-size: 1.125rem !important;
+  line-height: 1.5rem !important;
+}
+
+.order-details-dialog [class~="text-lg"] {
+  font-size: 1rem !important;
+  line-height: 1.375rem !important;
+}
+
+.order-details-dialog [class~="text-base"] {
+  font-size: 0.9375rem !important;
+  line-height: 1.375rem !important;
+}
+
+.order-details-dialog [class~="text-sm"] {
+  font-size: 0.8125rem !important;
+  line-height: 1.25rem !important;
+}
+
+@media (max-width: 639px) {
+  .order-details-dialog [class~="text-5xl"] {
+    font-size: 1.5rem !important;
+    line-height: 1.875rem !important;
+  }
+
+  .order-details-dialog [class~="text-4xl"] {
+    font-size: 1.375rem !important;
+    line-height: 1.75rem !important;
+  }
+
+  .order-details-dialog [class~="text-3xl"] {
+    font-size: 1.25rem !important;
+    line-height: 1.625rem !important;
+  }
+
+  .order-details-dialog [class~="text-2xl"] {
+    font-size: 1.125rem !important;
+    line-height: 1.5rem !important;
+  }
+
+  .order-details-dialog [class~="text-xl"] {
+    font-size: 1rem !important;
+    line-height: 1.375rem !important;
+  }
+
+  .order-details-dialog [class~="text-lg"] {
+    font-size: 0.9375rem !important;
+    line-height: 1.25rem !important;
+  }
+
+  .order-details-dialog [class~="text-base"] {
+    font-size: 0.875rem !important;
+    line-height: 1.25rem !important;
+  }
+
+  .order-details-dialog [class~="text-sm"] {
+    font-size: 0.8125rem !important;
+    line-height: 1.125rem !important;
+  }
 }

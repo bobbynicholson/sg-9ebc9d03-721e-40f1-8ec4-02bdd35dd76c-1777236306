@@ -117,21 +117,21 @@ export function WeeklyOrdersChart({ companyId }: { companyId: string | null }) {
   if (!loading && buckets.every((b) => b.count === 0)) return null;
 
   return (
-    <Card className="mb-6">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <BarChart3 className="w-4 h-4 text-slate-600" />
+    <Card className="mb-6 min-w-0 max-w-full overflow-hidden">
+      <CardHeader className="min-w-0 px-3 py-3 sm:p-5">
+        <CardTitle className="flex flex-wrap items-center gap-1.5 text-sm leading-5 sm:gap-2 sm:text-base">
+          <BarChart3 className="h-4 w-4 shrink-0 text-slate-600" />
           Order load, past + next 7 days
         </CardTitle>
-        <CardDescription className="text-xs">
+        <CardDescription className="mt-1 text-[10px] leading-4 sm:text-xs">
           Confirmed-and-onwards orders by event_date. Today highlighted.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0 px-3 py-3 sm:p-5">
         {loading ? (
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
-          <div className="flex items-end gap-1.5 h-28">
+          <div className="flex h-28 min-w-0 items-end gap-0.5 sm:gap-1.5">
             {buckets.map((b) => {
               const heightPct = b.count > 0 ? Math.max(8, Math.round((b.count / max) * 100)) : 4;
               const tone = b.isToday
@@ -140,8 +140,8 @@ export function WeeklyOrdersChart({ companyId }: { companyId: string | null }) {
                   ? "bg-slate-300"
                   : "bg-brand-primary/70";
               return (
-                <div key={b.date} className="flex-1 flex flex-col items-center justify-end gap-1 min-w-0">
-                  <span className="text-[10px] tabular-nums font-semibold text-slate-700">
+                <div key={b.date} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1">
+                  <span className="text-[9px] font-semibold tabular-nums text-slate-700 sm:text-[10px]">
                     {b.count > 0 ? b.count : ""}
                   </span>
                   <div
@@ -149,7 +149,7 @@ export function WeeklyOrdersChart({ companyId }: { companyId: string | null }) {
                     style={{ height: `${heightPct}%` }}
                     title={`${b.weekday} ${b.label}: ${b.count} order${b.count === 1 ? "" : "s"}`}
                   />
-                  <span className={`text-[10px] tabular-nums ${b.isToday ? "text-blue-700 font-semibold" : "text-slate-500"}`}>
+                  <span className={`text-[9px] tabular-nums sm:text-[10px] ${b.isToday ? "text-blue-700 font-semibold" : "text-slate-500"}`}>
                     {b.weekday}
                   </span>
                 </div>

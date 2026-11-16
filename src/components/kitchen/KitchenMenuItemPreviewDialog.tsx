@@ -37,20 +37,20 @@ export function KitchenMenuItemPreviewDialog({ item, onOpenChange }: Props) {
 
   return (
     <Dialog open={!!item} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto p-3 sm:p-5">
+      <DialogContent className="max-h-[90dvh] max-w-5xl overflow-x-hidden overflow-y-auto p-3 sm:p-5">
         <DialogHeader>
-          <DialogTitle>{item?.itemName || "Menu item"}</DialogTitle>
-          <DialogDescription>Reference photo and kitchen details for this order item.</DialogDescription>
+          <DialogTitle className="break-words text-base sm:text-lg">{item?.itemName || "Menu item"}</DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm">Reference photo and kitchen details for this order item.</DialogDescription>
         </DialogHeader>
         {item && (
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.75fr)]">
-            <div className="flex min-h-52 items-center justify-center overflow-hidden rounded-md bg-slate-50 p-2 dark:bg-slate-900 sm:min-h-72">
+          <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,1.25fr)_minmax(0,0.85fr)] md:gap-5">
+            <div className="flex min-h-44 min-w-0 items-center justify-center overflow-hidden rounded-md bg-slate-50 p-2 dark:bg-slate-900 sm:min-h-64 md:min-h-72">
               {item.url && !imageFailed ? (
                 <img
                   src={item.url}
                   alt={`Kitchen reference for ${item.itemName}`}
                   onError={() => setImageFailed(true)}
-                  className="max-h-[60vh] max-w-full object-contain"
+                  className="max-h-[42dvh] max-w-full object-contain sm:max-h-[55dvh] md:max-h-[65dvh]"
                 />
               ) : (
                 <div
@@ -64,7 +64,7 @@ export function KitchenMenuItemPreviewDialog({ item, onOpenChange }: Props) {
               )}
             </div>
 
-            <div className="space-y-4">
+            <div className="min-w-0 space-y-3 break-words sm:space-y-4">
               <div className="flex flex-wrap items-center gap-2">
                 {item.quantity != null && (
                   <span className="inline-flex items-center gap-1.5 rounded-md bg-orange-50 px-2.5 py-1.5 text-sm font-semibold text-orange-900 dark:bg-orange-950/40 dark:text-orange-200">
@@ -83,7 +83,7 @@ export function KitchenMenuItemPreviewDialog({ item, onOpenChange }: Props) {
               {item.description && (
                 <section>
                   <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Description</h3>
-                  <p className="text-sm leading-relaxed text-slate-800 dark:text-slate-200">{item.description}</p>
+                  <p className="break-words text-xs leading-relaxed text-slate-800 dark:text-slate-200 sm:text-sm">{item.description}</p>
                 </section>
               )}
 
@@ -107,7 +107,7 @@ export function KitchenMenuItemPreviewDialog({ item, onOpenChange }: Props) {
               {item.specialInstructions && (
                 <section className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
                   <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-200">Special instructions</h3>
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-amber-950 dark:text-amber-100">{item.specialInstructions}</p>
+                  <p className="whitespace-pre-wrap break-words text-xs leading-relaxed text-amber-950 dark:text-amber-100 sm:text-sm">{item.specialInstructions}</p>
                 </section>
               )}
 

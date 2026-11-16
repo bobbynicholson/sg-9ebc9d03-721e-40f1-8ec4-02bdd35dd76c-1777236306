@@ -206,7 +206,7 @@ export function PortalHeader({
           </span>
         )}
         <div className="min-w-0">
-          <h1 className="font-brand-display text-balance text-[1.75rem] font-semibold leading-[1.15] tracking-tight text-slate-950 dark:text-white sm:text-3xl">
+          <h1 className="font-brand-display text-balance text-2xl font-semibold leading-[1.15] tracking-tight text-slate-950 dark:text-white sm:text-3xl">
             {title}
           </h1>
           {subtitle && (
@@ -637,6 +637,7 @@ export function StatTile({
   trend,
   tone,
   className,
+  compact = false,
 }: {
   label: React.ReactNode;
   value: React.ReactNode;
@@ -649,6 +650,8 @@ export function StatTile({
    *  bad = urgent, info = informational, brand = the company colour. */
   tone?: StatTone;
   className?: string;
+  /** Smaller metric type for dense mobile dashboards. */
+  compact?: boolean;
 }) {
   const dir = trend?.dir ?? "up";
   const toneStyle = tone ? STAT_TONES[tone] : null;
@@ -662,7 +665,7 @@ export function StatTile({
     >
       {toneStyle && <span aria-hidden="true" className={cn("absolute inset-x-0 top-0 h-0.5", toneStyle.bar)} />}
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[13px] font-medium leading-5 text-slate-500 dark:text-slate-400">{label}</p>
+        <p className={cn(compact ? "text-xs" : "text-[13px]", "font-medium leading-5 text-slate-500 dark:text-slate-400")}>{label}</p>
         {Icon && (
           <span
             className={cn(
@@ -677,13 +680,13 @@ export function StatTile({
         )}
       </div>
       <div className="mt-1.5 flex items-end justify-between gap-2">
-        <p className="text-[1.75rem] font-semibold leading-none tracking-tight tabular-nums text-slate-950 dark:text-white">
+        <p className={cn(compact ? "text-lg sm:text-xl" : "text-[1.75rem]", "font-semibold leading-none tracking-tight tabular-nums text-slate-950 dark:text-white")}>
           {value}
         </p>
         {trend && (
           <span
             className={cn(
-              "mb-0.5 inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
+              cn("mb-0.5 inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 font-semibold tabular-nums", compact ? "text-[10px]" : "text-[11px]"),
               dir === "down"
                 ? "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
                 : dir === "flat"
@@ -697,7 +700,7 @@ export function StatTile({
           </span>
         )}
       </div>
-      {hint && <p className="mt-1.5 text-xs leading-4 text-slate-500 dark:text-slate-400">{hint}</p>}
+      {hint && <p className={cn("mt-1.5 leading-4 text-slate-500 dark:text-slate-400", compact ? "text-[11px]" : "text-xs")}>{hint}</p>}
     </div>
   );
 }

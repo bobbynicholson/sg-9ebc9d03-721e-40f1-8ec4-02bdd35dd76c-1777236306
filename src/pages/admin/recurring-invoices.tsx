@@ -303,9 +303,17 @@ function RecurringInvoicesPageInner() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           {/* withSlug keeps the tenant slug on the back-link; the bare
               /admin/invoices path dropped it and broke slug routing. */}
-          <Link href={withSlug("/admin/invoices")} className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4">
-            <ArrowLeft className="w-4 h-4" /> Back to invoices
-          </Link>
+          <Button
+            variant="outline"
+            asChild
+            title="Return to invoices"
+            className="mb-3 h-11 min-w-0 gap-2 border-slate-200 bg-white/90 px-3 text-sm font-medium text-slate-700 shadow-sm hover:border-brand-primary/40 hover:bg-white hover:text-brand-primary dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200 dark:hover:bg-slate-900 sm:mb-4 sm:h-9"
+          >
+            <Link href={withSlug("/admin/invoices")}>
+              <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>Back to invoices</span>
+            </Link>
+          </Button>
           <PortalHeader
             variant="hero"
             title="Recurring invoices"
@@ -314,7 +322,7 @@ function RecurringInvoicesPageInner() {
             meta={
               !loading && !loadError ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     {rows.length} template{rows.length === 1 ? "" : "s"}
                   </span>
                   {(() => {
@@ -322,12 +330,12 @@ function RecurringInvoicesPageInner() {
                     const perCycle = active.reduce((s, t) => s + toCents(t.total_amount), 0) / 100;
                     return (
                       <>
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                           {active.length} active
                         </span>
                         {active.length > 0 && (
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                             {tenantMoney.format(perCycle)} per cycle
                           </span>
                         )}
@@ -338,16 +346,29 @@ function RecurringInvoicesPageInner() {
               ) : undefined
             }
             actions={
-            <>
-              <Button variant="outline" onClick={load} disabled={loading}>
-                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
-              <Button onClick={openCreate} disabled={creating} className="bg-brand-primary hover:opacity-90">
-                <Plus className="w-4 h-4 mr-2" />
-                New template
-              </Button>
-            </>
+              <div className="col-span-full flex w-full items-center justify-end gap-2 xl:w-auto">
+                <Button
+                  variant="outline"
+                  onClick={load}
+                  disabled={loading}
+                  title="Refresh recurring invoices"
+                  aria-label="Refresh recurring invoices"
+                  className="h-11 w-11 shrink-0 p-0 sm:h-9 sm:w-auto sm:px-3"
+                >
+                  <RefreshCw className={`h-4 w-4 sm:mr-2 ${loading ? "animate-spin" : ""}`} />
+                  <span className="sr-only sm:not-sr-only">Refresh</span>
+                </Button>
+                <Button
+                  onClick={openCreate}
+                  disabled={creating}
+                  title="Create a recurring invoice template"
+                  aria-label="Create a recurring invoice template"
+                  className="h-11 w-11 shrink-0 bg-brand-primary p-0 hover:opacity-90 sm:h-9 sm:w-auto sm:px-3"
+                >
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="sr-only sm:not-sr-only">New template</span>
+                </Button>
+              </div>
             }
           />
           <PageWorkbench />
@@ -379,25 +400,31 @@ function RecurringInvoicesPageInner() {
               .filter(Boolean)
               .sort()[0] || null;
             return (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <StatTile label="Templates" value={rows.length} icon={Repeat} />
+              <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+                <StatTile label="Templates" value={rows.length} icon={Repeat} compact className="min-w-0 px-3 py-3 sm:px-4" />
                 <StatTile
                   label="Active"
                   value={active.length}
                   hint={paused > 0 ? `${paused} paused` : "All templates running"}
                   icon={Play}
+                  compact
+                  className="min-w-0 px-3 py-3 sm:px-4"
                 />
                 <StatTile
                   label="Billed per cycle"
-                  value={tenantMoney.format(perCycleCents / 100)}
+                  value={<span className="break-words text-sm leading-tight sm:text-base">{tenantMoney.format(perCycleCents / 100)}</span>}
                   hint="Active templates only."
                   icon={Banknote}
+                  compact
+                  className="min-w-0 px-3 py-3 sm:px-4"
                 />
                 <StatTile
                   label="Next run"
-                  value={nextRun ? formatLocalDate(nextRun, "-") : "-"}
+                  value={<span className="break-words text-sm leading-tight sm:text-base">{nextRun ? formatLocalDate(nextRun, "-") : "-"}</span>}
                   hint={nextRun ? "Earliest scheduled generation." : "No active schedule."}
                   icon={CalendarClock}
+                  compact
+                  className="min-w-0 px-3 py-3 sm:px-4"
                 />
               </div>
             );
@@ -426,7 +453,7 @@ function RecurringInvoicesPageInner() {
               )}
               <div className="space-y-2">
                 {rows.map((t) => (
-                  <div key={t.id} className={`flex items-center justify-between gap-3 p-3 rounded-lg border transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800/40 ${t.active ? "border-slate-200 bg-white" : "border-slate-200 bg-slate-50 opacity-70"}`}>
+                  <div key={t.id} className={`flex min-w-0 flex-col gap-3 rounded-lg border p-3 transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800/40 sm:flex-row sm:items-center sm:justify-between sm:gap-4 ${t.active ? "border-slate-200 bg-white" : "border-slate-200 bg-slate-50 opacity-70"}`}>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-slate-900 truncate">{t.template_name}</span>
@@ -439,16 +466,16 @@ function RecurringInvoicesPageInner() {
                         {t.client_name} · next run {formatLocalDate(t.next_run_at, "not scheduled")}
                       </p>
                     </div>
-                    <div className="text-right tabular-nums">
+                    <div className="flex items-center justify-between gap-3 tabular-nums sm:block sm:text-right">
                       <p className="text-sm font-semibold text-slate-900">{tenantMoney.format(Number(t.total_amount) || 0)}</p>
-                      <p className="text-[11px] text-slate-500">per cycle</p>
+                      <p className="text-xs text-slate-500">per cycle</p>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => toggleActive(t)} title={t.active ? "Pause" : "Resume"}>
-                        {t.active ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                    <div className="flex items-center gap-1 sm:ml-auto">
+                      <Button size="sm" variant="ghost" onClick={() => toggleActive(t)} title={t.active ? "Pause" : "Resume"} aria-label={`${t.active ? "Pause" : "Resume"} ${t.template_name}`} className="h-11 w-11 p-0 sm:h-9 sm:w-9">
+                        {t.active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                       </Button>
-                      <Button size="sm" variant="ghost" className="text-rose-600" onClick={() => remove(t)} title="Delete template">
-                        <Trash2 className="w-4 h-4" />
+                      <Button size="sm" variant="ghost" className="h-11 w-11 p-0 text-rose-600 sm:h-9 sm:w-9" onClick={() => remove(t)} title="Delete template" aria-label={`Delete ${t.template_name}`}>
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -539,7 +566,7 @@ function RecurringInvoicesPageInner() {
               </div>
               <div className="border border-slate-200 rounded-md overflow-x-auto">
                 <table className="w-full min-w-[420px] text-sm">
-                  <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
                     <tr>
                       <th className="text-left px-2 py-1.5">Item</th>
                       <th className="text-right px-2 py-1.5 w-20">Qty</th>

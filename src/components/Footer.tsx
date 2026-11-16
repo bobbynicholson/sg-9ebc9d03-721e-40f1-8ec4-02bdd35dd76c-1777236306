@@ -72,36 +72,36 @@ export function SlimInternalFooter({
   const currentYear = new Date().getFullYear();
   return (
     <footer
-      className="internal-footer-shell border-t border-slate-200 bg-white/95 text-slate-500 backdrop-blur-sm dark:border-slate-200 dark:bg-white/95 dark:text-slate-500 lg:ml-72 xl:ml-80"
+      className="internal-footer-shell border-t border-slate-200 bg-white text-slate-500 dark:border-slate-200 dark:bg-white dark:text-slate-500 lg:ml-72 xl:ml-80"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       {/* Right padding keeps the links clear of the floating assistant
           button, which docks in the bottom-right corner. */}
-      <div className="py-3 pl-4 pr-24 sm:px-6 sm:pr-28">
-        <div className="flex flex-col gap-1.5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+      <div className="py-2.5 pl-4 pr-20 sm:px-6 sm:pr-20">
+        <div className="flex min-w-0 flex-col gap-1.5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
             <span>© {currentYear} {displayName}.</span>
             {isWhiteLabeled && (
               <Link
                 href="https://cateringms.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 hover:text-slate-700 transition-colors"
+                className="inline-flex min-h-10 items-center gap-1 rounded-md px-1.5 transition-colors hover:bg-slate-50 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50"
               >
-                <Sparkles className="w-3 h-3" />
+                <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span>Powered by CateringMS</span>
               </Link>
             )}
           </div>
           {/* New tab, so reading the legal text never loses unsaved work. */}
-          <div className="flex flex-wrap gap-x-4 gap-y-1">
-            <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="underline-offset-2 transition-colors hover:text-slate-700 hover:underline">
+          <nav aria-label="Legal information" className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-1">
+            <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center rounded-md px-2 underline-offset-2 transition-colors hover:bg-slate-50 hover:text-slate-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50">
               Privacy policy
             </Link>
-            <Link href={termsHref} target="_blank" rel="noopener noreferrer" className="underline-offset-2 transition-colors hover:text-slate-700 hover:underline">
+            <Link href={termsHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center rounded-md px-2 underline-offset-2 transition-colors hover:bg-slate-50 hover:text-slate-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50">
               Terms and conditions
             </Link>
-          </div>
+          </nav>
         </div>
       </div>
     </footer>

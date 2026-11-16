@@ -23,7 +23,7 @@ import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  ShoppingCart, Calendar, Users, Banknote, Eye, Edit, ChevronRight,
+  ShoppingCart, Calendar, Users, Banknote, Eye, Edit, ChevronDown, ChevronRight,
   Clock, CheckCircle2, Package, MapPin, AlertCircle, Save, X, FileText,
   Receipt, Pause, Copy, Star, RefreshCw, MoreHorizontal, Phone,
   Mail, ArrowRight, Download, Trash2, Play,
@@ -897,10 +897,10 @@ const changeOrderDetailTab = (value: string) => {
           {editMode ? "Editing order" : "Viewing order"}
         </DialogDescription>
 
-        {/* Row 1: identity + primary action */}
-        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
+        {/* Two-row identity: order/status, then client/date with actions. */}
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 sm:gap-x-4">
+          <div className="col-span-2 min-w-0">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
               {(selectedOrder as any)?.order_number && (
                 <button
                   type="button"
@@ -913,10 +913,10 @@ const changeOrderDetailTab = (value: string) => {
                       toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
                     }
                   }}
-                  className="inline-flex min-w-0 max-w-full items-center gap-1.5 break-all rounded-md border border-slate-200 bg-slate-100 px-2.5 py-1 font-mono text-sm font-semibold text-slate-900 transition hover:bg-slate-200 sm:text-base"
+                  className="inline-flex min-w-0 max-w-full items-center gap-1 whitespace-nowrap rounded-md border border-slate-200 bg-slate-100 px-2 py-1 font-mono text-xs font-semibold text-slate-900 transition hover:bg-slate-200 sm:gap-1.5 sm:px-2.5 sm:text-sm"
                   title="Copy order number"
                 >
-                  <Copy className="w-3.5 h-3.5 text-slate-500" />
+                  <Copy className="h-3 w-3 shrink-0 text-slate-500 sm:h-3.5 sm:w-3.5" />
                   {(selectedOrder as any).order_number}
                 </button>
               )}
@@ -935,7 +935,7 @@ const changeOrderDetailTab = (value: string) => {
                   s === "in_transit" ? "In transit" :
                   s ? s[0].toUpperCase() + s.slice(1) : "";
                 return (
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
+                  <span className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium sm:px-2.5 ${cls}`}>
                     {label}
                   </span>
                 );
@@ -947,7 +947,7 @@ const changeOrderDetailTab = (value: string) => {
                 <div
                   role="radiogroup"
                   aria-label="Order rating"
-                  className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-full px-2 py-0.5"
+                  className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-slate-200 bg-white px-1.5 py-0.5 text-xs font-medium text-slate-700 sm:gap-1 sm:px-2"
                   title={orderRating ? `Rated ${orderRating}/5. Tap a star to change.` : "Rate this order"}
                 >
                   {[1, 2, 3, 4, 5].map((n) => {
@@ -963,28 +963,31 @@ const changeOrderDetailTab = (value: string) => {
                         className="hover:scale-110 transition-transform disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1 rounded-sm"
                         aria-label={`Rate ${n} star${n === 1 ? "" : "s"}`}
                       >
-                        <Star className={`w-3.5 h-3.5 ${filled ? "fill-amber-500 text-amber-500" : "text-slate-300"}`} />
+                        <Star className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${filled ? "fill-amber-500 text-amber-500" : "text-slate-300"}`} />
                       </button>
                     );
                   })}
                 </div>
               )}
             </div>
-            {selectedOrder && (
-              <p className="mt-1 truncate text-xs text-slate-600 sm:text-sm">
-                {(selectedOrder as any).client_name || "Client"}
-                {(selectedOrder as any).event_date && (
-                  <> &middot; {formatDate((selectedOrder as any).event_date)}</>
-                )}
-              </p>
-            )}
           </div>
+          {selectedOrder && (
+            <p className="col-start-1 row-start-2 mt-0 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-600 sm:text-sm">
+              <span className="max-w-full truncate font-semibold text-slate-900">{(selectedOrder as any).client_name || "Client"}</span>
+              {(selectedOrder as any).event_date && (
+                <span className="inline-flex shrink-0 items-center gap-1.5 text-slate-500">
+                  <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+                  {formatDate((selectedOrder as any).event_date)}
+                </span>
+              )}
+            </p>
+          )}
 
           {!editMode ? (
-            <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
-              <Button onClick={() => setEditMode(true)} size="sm" className="h-10 sm:h-9">
-                <Edit className="w-4 h-4 mr-2" />
-                Edit
+            <div className="col-start-2 row-start-2 flex shrink-0 items-center justify-end gap-1.5 sm:gap-2">
+              <Button onClick={() => setEditMode(true)} size="sm" className="h-10 w-10 p-0 sm:h-9 sm:w-auto sm:px-3" aria-label="Edit order" title="Edit order">
+                <Edit className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Edit</span>
               </Button>
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
@@ -1083,7 +1086,7 @@ const changeOrderDetailTab = (value: string) => {
               </DropdownMenu>
             </div>
           ) : (
-            <div className="flex w-full shrink-0 flex-wrap justify-end gap-2 sm:w-auto">
+            <div className="col-span-2 row-start-3 flex min-w-0 flex-wrap justify-end gap-1.5 sm:col-span-1 sm:col-start-2 sm:row-start-2 sm:w-auto sm:gap-2">
               {selectedOrder && (selectedOrder as any).status !== "cancelled" && (
                 <Button
                   onClick={() => {
@@ -1149,11 +1152,12 @@ const changeOrderDetailTab = (value: string) => {
                   target={tok ? "_blank" : undefined}
                   rel={tok ? "noopener noreferrer" : undefined}
                   onClick={() => setIsModalOpen(false)}
-                  className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:min-h-9"
+                  aria-label={tok ? "Open client quote" : "Open source quote"}
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white p-0 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:h-9 sm:w-auto sm:justify-start sm:gap-1.5 sm:px-3"
                   title={tok ? "Open the polished client view of this quote" : "Open the source quote"}
                 >
-                  <FileText className="w-3.5 h-3.5" />
-                  Quote
+                  <FileText className="h-4 w-4 shrink-0" />
+                  <span className="hidden sm:inline">Quote</span>
                 </Link>
               );
             })()}
@@ -1176,11 +1180,12 @@ const changeOrderDetailTab = (value: string) => {
                   });
                 }
               }}
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:min-h-9"
+              aria-label="Open client view"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white p-0 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:h-9 sm:w-auto sm:justify-start sm:gap-1.5 sm:px-3"
               title="Open the page the client sees in a new tab"
             >
-              <Eye className="w-3.5 h-3.5" />
-              Client view
+              <Eye className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Client view</span>
             </button>
             <button
               type="button"
@@ -1202,27 +1207,29 @@ const changeOrderDetailTab = (value: string) => {
                   });
                 }
               }}
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:min-h-9"
+              aria-label="Copy client link"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white p-0 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:h-9 sm:w-auto sm:justify-start sm:gap-1.5 sm:px-3"
               title="Copy a tokenised client-view link"
             >
-              <Copy className="w-3.5 h-3.5" />
-              Copy link
+              <Copy className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Copy link</span>
             </button>
             <Link
               href={withSlug(`/admin/invoices?orderId=${selectedOrder.id}`)}
               onClick={() => setIsModalOpen(false)}
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:min-h-9"
+              aria-label="Open invoice"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white p-0 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:h-9 sm:w-auto sm:justify-start sm:gap-1.5 sm:px-3"
               title="Open the invoice list filtered to this order"
             >
-              <Receipt className="w-3.5 h-3.5" />
-              Invoice
+              <Receipt className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Invoice</span>
             </Link>
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-10 gap-2 border-slate-200 bg-white text-slate-700 sm:h-9">
-                  <Users className="h-4 w-4" />
-                  Operations
-                  <MoreHorizontal className="h-4 w-4" />
+                <Button variant="outline" size="sm" className="h-11 w-11 p-0 border-slate-200 bg-white text-slate-700 sm:h-9 sm:w-auto sm:gap-2 sm:px-3" aria-label="Order operations" title="Order operations">
+                  <Users className="h-4 w-4 shrink-0" />
+                  <span className="hidden sm:inline">Operations</span>
+                  <MoreHorizontal className="hidden h-4 w-4 sm:inline" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
@@ -1250,18 +1257,19 @@ const changeOrderDetailTab = (value: string) => {
             accent because operators scan for it specifically;
             Call + Email stay slate so the row reads cleanly. */}
         {selectedOrder && ((selectedOrder as any).client_phone || (selectedOrder as any).client_email || (selectedOrder as any).client_id) && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 sm:gap-2">
             {(selectedOrder as any).client_phone && (
               <>
                 <a
                   href={`tel:${String((selectedOrder as any).client_phone).replace(/[^+\d]/g, "")}`}
-                  className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:min-h-9"
+                  aria-label={`Call ${(selectedOrder as any).client_phone}`}
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white p-0 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:h-9 sm:w-auto sm:justify-start sm:gap-1.5 sm:px-3"
                   title={`Call ${(selectedOrder as any).client_phone}`}
                 >
-                  <Phone className="w-3.5 h-3.5" />
-                  Call {(selectedOrder as any).client_phone}
+                  <Phone className="h-4 w-4 shrink-0" />
+                  <span className="hidden sm:inline">Call {(selectedOrder as any).client_phone}</span>
                 </a>
-                <OrderWhatsAppButton order={selectedOrder} />
+                <OrderWhatsAppButton order={selectedOrder} compactOnMobile />
               </>
             )}
             {((selectedOrder as any).client_phone || (selectedOrder as any).client_id) && (
@@ -1270,17 +1278,18 @@ const changeOrderDetailTab = (value: string) => {
                 entityId={selectedOrder.id}
                 companyId={(selectedOrder as any).company_id || companyId}
                 recipientName={(selectedOrder as any).client_name}
-                className="h-10 sm:h-8"
+                compactOnMobile
               />
             )}
             {(selectedOrder as any).client_email && (
               <a
                 href={`mailto:${(selectedOrder as any).client_email}?subject=${encodeURIComponent(`Booking ${(selectedOrder as any).order_number || "your order"}`)}`}
-                className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:min-h-9"
+                aria-label={`Email ${(selectedOrder as any).client_email}`}
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white p-0 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:h-9 sm:w-auto sm:justify-start sm:gap-1.5 sm:px-3"
                 title={`Email ${(selectedOrder as any).client_email}`}
               >
-                <Mail className="w-3.5 h-3.5" />
-                Email
+                <Mail className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Email</span>
               </a>
             )}
           </div>
@@ -1295,18 +1304,32 @@ const changeOrderDetailTab = (value: string) => {
           refetch on cateringms:order-updated so the panels stay
           live when other surfaces mutate things. */}
       {bookingFacts && bookingFacts.role === "admin" && (
-        <div className="mb-4">
+        <details className="mt-3 mb-2 min-w-0">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50">
+            <span>Progress overview</span>
+            <span className="min-w-0 flex-1 truncate text-right text-xs font-normal text-slate-500">Kitchen, dispatch, service and finance</span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform open:rotate-180" />
+          </summary>
+          <div className="pt-3">
           <BookingFacts facts={bookingFacts} />
-        </div>
+          </div>
+        </details>
       )}
       {selectedOrder && companyId && (
-        <div className="mb-4">
+        <details className="mt-3 mb-2 min-w-0">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50">
+            <span>Staffing and shifts</span>
+            <span className="min-w-0 flex-1 truncate text-right text-xs font-normal text-slate-500">Team assignments and scheduled work</span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform open:rotate-180" />
+          </summary>
+          <div className="pt-3">
           <OrderStaffingPanel
             orderId={selectedOrder.id}
             companyId={companyId}
             order={selectedOrder as any}
           />
-        </div>
+          </div>
+        </details>
       )}
 
       {/* ODOC H.3: edit-in-quote notice. Tells the operator that
@@ -1317,25 +1340,26 @@ const changeOrderDetailTab = (value: string) => {
           for quick reference; the source of truth is the doc at
           /order/[id]. */}
       {selectedOrder && (selectedOrder as any).quote_id && (
-        <div className="mb-4 flex min-w-0 flex-col items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3 sm:flex-row">
-          <div className="text-blue-700 flex-shrink-0 mt-0.5">
-            <FileText className="w-5 h-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] uppercase tracking-wider text-blue-800 font-semibold">Where to make changes</p>
-            <p className="text-sm font-medium text-blue-900 mt-0.5">
-              Status, payments, amendments and messages are handled right here. To change the booking itself - menu, guest count, event date, venue or pricing - edit the source quote and the changes mirror back automatically.
+        <details className="mt-3 mb-2 min-w-0 overflow-hidden rounded-lg border border-blue-200 bg-blue-50">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-semibold text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50">
+            <FileText className="h-4 w-4 shrink-0 text-blue-700" />
+            <span className="min-w-0 flex-1">Edit booking on the source quote</span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-blue-700 transition-transform open:rotate-180" />
+          </summary>
+          <div className="border-t border-blue-200 px-3 pb-3 pt-2">
+            <p className="text-xs leading-relaxed text-blue-900">
+              Menu, guest count, event date, venue and pricing come from the quote. Status, payments, amendments and messages stay here.
             </p>
+            <Link
+              href={withSlug(`/admin/quotes/${(selectedOrder as any).quote_id}`)}
+              onClick={() => setIsModalOpen(false)}
+              className="mt-2 inline-flex min-h-10 items-center gap-1 rounded-md bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Edit quote
+            </Link>
           </div>
-          <Link
-            href={withSlug(`/admin/quotes/${(selectedOrder as any).quote_id}`)}
-            onClick={() => setIsModalOpen(false)}
-            className="inline-flex min-h-10 items-center gap-1 self-start rounded-md bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800 sm:shrink-0 sm:self-auto"
-          >
-            <FileText className="w-3.5 h-3.5" />
-            Edit quote
-          </Link>
-        </div>
+        </details>
       )}
 
       {/* Wave 54.3 - controlled Tabs that honour ?tab= query
@@ -1348,9 +1372,9 @@ const changeOrderDetailTab = (value: string) => {
       <Tabs
         value={activeOrderDetailTab}
         onValueChange={changeOrderDetailTab}
-        className="mt-5 min-w-0 sm:mt-6"
+        className="mt-3 min-w-0 sm:mt-4"
       >
-        <div className="mb-3 md:hidden">
+        <div className="mb-2 md:hidden">
           <Label className="sr-only" htmlFor="order-detail-section">Order section</Label>
           <Select value={activeOrderDetailTab} onValueChange={changeOrderDetailTab}>
             <SelectTrigger id="order-detail-section" className="h-11 w-full bg-white">
@@ -1374,8 +1398,17 @@ const changeOrderDetailTab = (value: string) => {
           <TabsTrigger className="min-h-10 min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" id="order-history" data-chat-section="admin.order-details.history" data-chat-section-label="Order history" value="history">History</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="details" className="mt-4 min-w-0 space-y-4">
-          <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
+        <TabsContent value="details" className="mt-3 min-w-0 space-y-2">
+          <div className="space-y-2">
+            <details open={editMode || undefined} className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2.5 px-3 py-2 text-sm font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50">
+                <span className="shrink-0">Client and event</span>
+                <span className="min-w-0 flex-1 truncate text-right text-xs font-normal text-slate-500">
+                  {editedOrder.client_name || "Client"} · {editedOrder.event_date ? new Intl.DateTimeFormat("en-ZA", { day: "numeric", month: "short" }).format(new Date(`${String(editedOrder.event_date).slice(0, 10)}T12:00:00`)) : "Date not set"} · {editedOrder.guest_count || "Guests TBD"} guests
+                </span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform open:rotate-180" />
+              </summary>
+              <div className="grid min-w-0 grid-cols-1 gap-4 border-t border-slate-200 p-3 md:grid-cols-2">
             <CustomerIdentityFields contactName={editedOrder.client_name || ""} companyName={editedOrder.client_company_name || ""} onContactNameChange={(client_name) => setEditedOrder({ ...editedOrder, client_name })} onCompanyNameChange={(client_company_name) => setEditedOrder({ ...editedOrder, client_company_name })} disabled={!editMode} idPrefix="order-customer" />
 
             <div className="space-y-2">
@@ -1442,6 +1475,8 @@ const changeOrderDetailTab = (value: string) => {
                 disabled={!editMode}
               />
             </div>
+              </div>
+            </details>
 
             {/* Wave 66.3 - operational times block. Pre-Wave-66.3
                 event_time, setup_time and pickup_time existed on
@@ -1455,9 +1490,15 @@ const changeOrderDetailTab = (value: string) => {
                 clear header so the operator can set start-of-day
                 pickup, on-site setup, and event start in one
                 place. handleSave below now persists all three. */}
-            <div id="op-times" className="col-span-1 min-w-0 space-y-2 border-t border-slate-200 pt-2 md:col-span-2">
-              <Label className="text-xs uppercase tracking-wide text-slate-500">Operational times</Label>
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+            <details id="op-times" open={editMode || router.asPath.includes("#op-times") || undefined} className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2.5 px-3 py-2 text-sm font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50">
+                <span className="shrink-0">Operational times</span>
+                <span className="min-w-0 flex-1 truncate text-right text-xs font-normal text-slate-500">
+                  Event {(editedOrder as any).event_time || "—"} · Setup {(editedOrder as any).setup_time || "—"} · Pickup {(editedOrder as any).pickup_time || "—"}
+                </span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform open:rotate-180" />
+              </summary>
+              <div className="grid grid-cols-1 gap-3 border-t border-slate-200 p-3 lg:grid-cols-3">
                 <div className="space-y-1">
                   <Label className="text-xs text-slate-600">Event start</Label>
                   <Input
@@ -1489,7 +1530,7 @@ const changeOrderDetailTab = (value: string) => {
                   <p className="text-[10px] text-slate-500">When the driver leaves the kitchen with the order. Drives prep backplanning.</p>
                 </div>
               </div>
-            </div>
+            </details>
 
             {/* Wave 67 Phase D - outsourced fulfilment panel.
                 Lists every outsource_assignments row for this
@@ -1497,7 +1538,13 @@ const changeOrderDetailTab = (value: string) => {
                 mailto/wa.me, copy magic-link, mark accepted on
                 their behalf, advance status, cancel. */}
             {selectedOrder?.id && (
-              <div className="min-w-0 md:col-span-2">
+              <details open={editMode || undefined} className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2.5 px-3 py-2 text-sm font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50">
+                  <span className="shrink-0">Outsourced fulfilment</span>
+                  <span className="min-w-0 flex-1 truncate text-right text-xs font-normal text-slate-500">Supplier requests and status</span>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform open:rotate-180" />
+                </summary>
+                <div className="border-t border-slate-200 p-3">
               <OutsourcedFulfilmentPanel
                 orderId={selectedOrder.id}
                 orderNumber={(selectedOrder as any).order_number || null}
@@ -1508,20 +1555,34 @@ const changeOrderDetailTab = (value: string) => {
                 venueAddress={(selectedOrder as any).venue_address || null}
                 guestCount={(selectedOrder as any).guest_count ?? null}
               />
-              </div>
+                </div>
+              </details>
             )}
 
             {(selectedOrder as any).special_instructions && (
-              <div className="col-span-1 min-w-0 space-y-2 md:col-span-2">
-                <Label>Client special instructions</Label>
-                <p className="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 whitespace-pre-wrap">
+              <details className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2.5 px-3 py-2 text-sm font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50">
+                  <span className="shrink-0">Client instructions</span>
+                  <span className="min-w-0 flex-1 truncate text-right text-xs font-normal text-slate-500">{String((selectedOrder as any).special_instructions).replace(/\s+/g, " ")}</span>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform open:rotate-180" />
+                </summary>
+                <p className="border-t border-slate-200 px-3 py-3 text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">
                   {(selectedOrder as any).special_instructions}
                 </p>
-              </div>
+              </details>
             )}
 
             {/* Money summary - read-only at-a-glance for the team. */}
-            <div className="col-span-1 mt-2 grid min-w-0 grid-cols-2 gap-3 border-t border-slate-200 pt-3 md:col-span-2 lg:grid-cols-4">
+            <details open={editMode || undefined} className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2.5 px-3 py-2 text-sm font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50">
+                <span className="shrink-0">Financial summary</span>
+                <span className="min-w-0 flex-1 truncate text-right text-sm font-semibold tabular-nums text-brand-primary">
+                  {C}{Number((editedOrder as any).total_amount || 0).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
+                </span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform open:rotate-180" />
+              </summary>
+              <div className="space-y-3 border-t border-slate-200 p-3">
+            <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-4">
               <div>
                 <Label className="text-xs">Subtotal</Label>
                 <p className="text-sm font-semibold text-slate-900 mt-1 tabular-nums">
@@ -1620,17 +1681,23 @@ const changeOrderDetailTab = (value: string) => {
                 </div>
               );
             })()}
+              </div>
+            </details>
 
             {/* Dispatch summary - vehicle + 2-driver flag. Internal
                 only, never goes near the client portal. The vehicle
                 is auto-booked when a driver is assigned and can be
                 overridden from the Dispatch Queue. */}
-            <div className="col-span-1 mt-2 min-w-0 border-t border-slate-200 pt-3 md:col-span-2">
-              <Label className="text-xs flex items-center gap-1.5">
-                Dispatch
-                <span className="text-[10px] text-slate-400 uppercase tracking-wide">internal</span>
-              </Label>
-              <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <details open={editMode || undefined} className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2.5 px-3 py-2 text-sm font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50">
+                <span className="shrink-0">Dispatch</span>
+                <span className="min-w-0 flex-1 truncate text-right text-xs font-normal text-slate-500">
+                  {(selectedOrder as any).assigned_vehicle ? `Vehicle ${(selectedOrder as any).assigned_vehicle.nickname || (selectedOrder as any).assigned_vehicle.plate}` : "No vehicle assigned"} · {(selectedOrder as any).requires_two_drivers ? "Two drivers" : "One driver"}
+                </span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform open:rotate-180" />
+              </summary>
+              <div className="border-t border-slate-200 p-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs">
                   <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
                     Vehicle
@@ -1675,7 +1742,8 @@ const changeOrderDetailTab = (value: string) => {
                   )}
                 </div>
               </div>
-            </div>
+              </div>
+            </details>
           </div>
         </TabsContent>
 

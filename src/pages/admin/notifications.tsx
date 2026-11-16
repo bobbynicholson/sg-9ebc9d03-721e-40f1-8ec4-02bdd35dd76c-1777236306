@@ -528,18 +528,18 @@ function NotificationsPage() {
             actions={
               <>
                 {unreadCount > 0 && (
-                  <Button variant="outline" size="sm" onClick={handleMarkAllAsRead}>
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Mark all read
+                  <Button variant="outline" size="sm" onClick={handleMarkAllAsRead} className="h-11 w-11 shrink-0 px-0 lg:h-9 lg:w-auto lg:gap-1.5 lg:px-3" aria-label="Mark all notifications as read" title="Mark all read">
+                    <CheckCircle className="h-4 w-4 lg:mr-1.5" aria-hidden="true" />
+                    <span className="hidden lg:inline">Mark all read</span>
                   </Button>
                 )}
-                <Button variant="outline" size="sm" onClick={exportCsv} disabled={filteredNotifications.length === 0}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Export CSV
+                <Button variant="outline" size="sm" onClick={exportCsv} disabled={filteredNotifications.length === 0} className="h-11 w-11 shrink-0 px-0 lg:h-9 lg:w-auto lg:gap-1.5 lg:px-3" aria-label="Export notifications as CSV" title="Export CSV">
+                  <Download className="h-4 w-4 lg:mr-1.5" aria-hidden="true" />
+                  <span className="hidden lg:inline">Export CSV</span>
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleDeleteAll} disabled={readCount === 0}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete read
+                <Button variant="outline" size="sm" onClick={handleDeleteAll} disabled={readCount === 0} className="h-11 w-11 shrink-0 px-0 lg:h-9 lg:w-auto lg:gap-1.5 lg:px-3" aria-label="Delete read notifications" title="Delete read">
+                  <Trash2 className="h-4 w-4 lg:mr-1.5" aria-hidden="true" />
+                  <span className="hidden lg:inline">Delete read</span>
                 </Button>
                 {/* Wave 24: clear stale rows older than 14 days.
                     Catches the unread-and-old case "Delete read"
@@ -550,9 +550,11 @@ function NotificationsPage() {
                   onClick={handleClearStale}
                   disabled={staleCount === 0}
                   title={`Delete notifications older than ${STALE_NOTIFICATION_DAYS} days, regardless of read status`}
+                  aria-label="Clear stale notifications"
+                  className="h-11 w-11 shrink-0 px-0 lg:h-9 lg:w-auto lg:gap-1.5 lg:px-3"
                 >
-                  <Archive className="h-4 w-4 mr-2" />
-                  Clear stale
+                  <Archive className="h-4 w-4 lg:mr-1.5" aria-hidden="true" />
+                  <span className="hidden lg:inline">Clear stale</span>
                 </Button>
               </>
             }
@@ -812,16 +814,16 @@ function NotificationsPage() {
                       {filteredNotifications.map((notification) => (
                         <div
                           key={notification.id}
-                          className={`p-4 sm:p-6 transition-colors ${getPriorityColor(notification.priority, !notification.is_read)}`}
+                          className={`min-w-0 overflow-hidden p-3 transition-colors sm:p-6 ${getPriorityColor(notification.priority, !notification.is_read)}`}
                         >
                           <div className="flex items-start gap-4">
                             <div className="mt-1 flex-shrink-0">
                               {getPriorityIcon(notification.priority)}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-3 mb-2">
-                                <div className="flex-1">
-                                  <h3 className="font-semibold text-slate-900 leading-tight">
+                              <div className="mb-2 flex min-w-0 items-start justify-between gap-2 sm:gap-3">
+                                <div className="min-w-0 flex-1">
+                                  <h3 className="break-words font-semibold leading-tight text-slate-900">
                                     {notification.title}
                                   </h3>
                                   {!notification.is_read && (
@@ -830,12 +832,14 @@ function NotificationsPage() {
                                     </Badge>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-1">
+                                <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
                                   {!notification.is_read && (
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-8 w-8"
+                                      className="h-11 w-11 sm:h-8 sm:w-8"
+                                      aria-label="Mark notification as read"
+                                      title="Mark as read"
                                       onClick={() => handleMarkAsRead(notification.id)}
                                     >
                                       <Check className="h-4 w-4" />
@@ -844,7 +848,9 @@ function NotificationsPage() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                                    className="h-11 w-11 text-rose-600 hover:text-rose-700 hover:bg-rose-50 sm:h-8 sm:w-8"
+                                    aria-label="Delete notification"
+                                    title="Delete notification"
                                     onClick={() => handleDelete(notification.id)}
                                   >
                                     <X className="h-4 w-4" />

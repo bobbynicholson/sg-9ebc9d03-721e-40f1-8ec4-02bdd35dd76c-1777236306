@@ -172,31 +172,31 @@ export function EquipmentReturnCard({
 
   return (
     <div id="order-equipment-return" className="rounded-lg border border-slate-200 bg-white px-3 py-2 space-y-2">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
         <div className="flex items-start gap-2 flex-1 min-w-0">
           <PackageCheck className="w-4 h-4 text-brand-primary mt-0.5 flex-shrink-0" />
           <div className="min-w-0">
-            <p className="text-sm text-slate-900">
+            <p className="text-xs leading-relaxed text-slate-900 sm:text-sm">
               <span className="font-semibold">Equipment return:</span> {opt.responsible}
             </p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-xs leading-relaxed text-slate-500">
               {opt.detail}
               {!chosen && " (Not chosen on the quote, so this follows the default rule.)"}
             </p>
             {method === "waiter" && !hasWaiter && (
-              <p className="text-[11px] font-medium text-amber-800">No waiter is booked on this order. Choose who brings the equipment back.</p>
+              <p className="text-xs font-medium leading-relaxed text-amber-800">No waiter is booked on this order. Choose who brings the equipment back.</p>
             )}
           </div>
         </div>
         {canEdit && (
-          <div className="flex items-center gap-2">
+          <div className="flex w-full items-center gap-2 sm:w-auto">
             {saving && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />}
             <select
               value={chosen ? method : ""}
               onChange={(e) => e.target.value && change(e.target.value as EquipmentReturnMethod)}
               disabled={saving}
               aria-label="Who brings the equipment back"
-              className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs"
+              className="h-10 min-w-0 w-full rounded-md border border-slate-300 bg-white px-2 text-xs sm:w-auto"
             >
               {!chosen && <option value="">Choose who returns it...</option>}
               {EQUIPMENT_RETURN_METHODS.map((m) => (
@@ -209,7 +209,7 @@ export function EquipmentReturnCard({
 
       {/* Collection trip: driver + time (driver collections). */}
       {isDriverCollection(method) && (trip || delivered) && (
-        <p className="text-[11px] text-slate-700 flex items-center gap-1 pl-6">
+        <p className="flex items-center gap-1 pl-6 text-xs leading-relaxed text-slate-700">
           <Truck className="w-3 h-3" />
           {trip
             ? <>Collection driver: <span className="font-semibold">{(trip.driver_id && names[trip.driver_id]) || "Unknown"}</span>
@@ -220,7 +220,7 @@ export function EquipmentReturnCard({
 
       {/* Live status + who returned it. */}
       {status && status.state !== "not_applicable" && (
-        <p className={`pl-6 text-[11px] font-medium flex items-center gap-1 ${
+        <p className={`flex items-center gap-1 pl-6 text-xs font-medium leading-relaxed ${
           status.state === "overdue" ? "text-rose-700"
             : status.state === "returned" ? (status.missing ? "text-amber-800" : "text-emerald-700")
             : "text-slate-700"}`}>
@@ -234,20 +234,20 @@ export function EquipmentReturnCard({
       )}
 
       {showDriverPicker && (
-        <div className="pl-6 flex flex-wrap items-center gap-2">
+        <div className="grid min-w-0 grid-cols-1 gap-2 pl-6 sm:flex sm:flex-wrap sm:items-center">
           <select
             value={pickDriver}
             onChange={(e) => setPickDriver(e.target.value)}
             disabled={saving}
             aria-label="Collection driver"
-            className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs"
+            className="h-10 min-w-0 w-full rounded-md border border-slate-300 bg-white px-2 text-xs sm:w-auto sm:min-w-[12rem]"
           >
             <option value="">{trip ? "Give the collection to..." : "Choose the collection driver..."}</option>
             {drivers.filter((d) => d.id !== trip?.driver_id).map((d) => (
               <option key={d.id} value={d.id}>{d.full_name || "Driver"}</option>
             ))}
           </select>
-          <Button size="sm" variant="outline" className="h-8 text-xs" disabled={!pickDriver || saving} onClick={bookCollection}>
+          <Button size="sm" variant="outline" className="h-10 w-full text-xs sm:w-auto" disabled={!pickDriver || saving} onClick={bookCollection}>
             {trip ? "Reassign collection" : "Book collection"}
           </Button>
         </div>

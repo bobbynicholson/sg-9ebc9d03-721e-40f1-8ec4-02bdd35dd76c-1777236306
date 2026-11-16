@@ -15,11 +15,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle , CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   TrendingUp, Banknote, AlertTriangle, RefreshCw,
-  FileText, Wallet, Receipt, ChevronRight,
+  FileText, Wallet, Receipt, ChevronRight, Zap,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
@@ -98,7 +98,8 @@ export default function ProtectedCashflowDashboardPage() {
 function CashflowDashboardInner() {
   const { user } = useAuth();
   // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
-  const refreshSignal = useOrderRefreshSignal(user?.company_id);
+  const companyId = user?.company_id;
+  const refreshSignal = useOrderRefreshSignal(companyId, { refreshOnFocus: false });
   const { withSlug } = useTenantHref();
   // CASH-A: region scoping. Without this, a multi-branch tenant sees
   // the company-wide forecast even when the global region filter is
@@ -146,15 +147,13 @@ function CashflowDashboardInner() {
   const fmt = (a: number, c: string) => formatZAR(a, { currency: c });
 
   const load = useCallback(async () => {
-    if (!user?.company_id) return;
+    if (!companyId) return;
     if (loadInFlightRef.current) return;
     loadInFlightRef.current = true;
     try {
       setLoading(true);
       setLoadError(null);
       const failures: string[] = [];
-
-      const companyId = user.company_id;
 
       // Tenant timezone anchor. Every "today" comparison below follows
       // the tenant's wall clock (companies.timezone), not the
@@ -405,27 +404,26 @@ function CashflowDashboardInner() {
     } catch (e: any) {
       captureException(e, {
         level: "error",
-        tags: { companyId: user?.company_id, route: "/admin/cashflow-dashboard", step: "load" },
+        tags: { companyId, route: "/admin/cashflow-dashboard", step: "load" },
       });
       setLoadError(e?.message || "Couldn't load the cashflow figures. Try again.");
     } finally {
       loadInFlightRef.current = false;
       setLoading(false);
     }
-  }, [user, regionFilterId]);
+  }, [companyId, regionFilterId]);
 
   useEffect(() => {
-    if (user) {
+    if (companyId) {
       void load();
     }
-  }, [user, load, refreshSignal]);
+  }, [companyId, load, refreshSignal]);
 
   // CASH-A: realtime channel scoped to the caller's company so the
   // forecast updates when orders / payments / fixed_costs / supplier_
   // payables / equipment_hire_orders mutate in another tab. Pre-CASH-A
   // the operator had to hit Refresh manually.
   useEffect(() => {
-    const companyId = user?.company_id;
     if (!companyId) return;
     const channelKey = `admin-cashflow-dashboard:${companyId}`;
     const channel = (supabase as any)
@@ -450,7 +448,7 @@ function CashflowDashboardInner() {
       (supabase as any).removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.company_id]);
+  }, [companyId]);
 
   // CASH-C: canonical Net-30 via the shared helper. inventoryCosts
   // is null here because this page doesn't fetch 90d COGS; the
@@ -480,6 +478,7 @@ function CashflowDashboardInner() {
           <PageLoader
             label="Loading cashflow"
             detail="Preparing your latest income, costs and forecast."
+            brandName={user?.company_name || "Spit Braai Delivery"}
             className="mx-auto w-full max-w-md"
           />
         </div>
@@ -499,8 +498,8 @@ function CashflowDashboardInner() {
           <div className="max-w-md mx-auto mt-12 rounded-lg border border-rose-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-bold text-rose-900 mb-2">Couldn't load cashflow</h2>
             <p className="text-sm text-slate-600 mb-4">{loadError}</p>
-            <Button onClick={() => { void load(); }} className="bg-brand-primary hover:bg-brand-primary/90">
-              <RefreshCw className="w-4 h-4 mr-2" /> Retry
+            <Button onClick={() => { void load(); }} className="h-11 gap-2 bg-brand-primary hover:bg-brand-primary/90 sm:h-9">
+              <RefreshCw className="h-4 w-4" aria-hidden="true" /> Retry
             </Button>
           </div>
         </div>
@@ -529,15 +528,15 @@ function CashflowDashboardInner() {
             meta={
               metrics ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold tabular-nums text-white">
                     <span className={`h-1.5 w-1.5 rounded-full ${net30 >= 0 ? "bg-emerald-400" : "bg-rose-400"}`} />
                     Net 30d {fmt(net30, currency)}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold tabular-nums text-white">
                     {fmt(metrics.pendingPayments, currency)} outstanding
                   </span>
                   {alerts.length > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                       {alerts.length} alert{alerts.length === 1 ? "" : "s"}
                     </span>
@@ -554,7 +553,7 @@ function CashflowDashboardInner() {
             <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4">
               <AlertTriangle className="h-5 w-5 shrink-0 text-rose-600" />
               <p className="flex-1 text-sm text-rose-900">Couldn't refresh: {loadError} The figures below may be stale.</p>
-              <Button variant="outline" size="sm" onClick={() => { void load(); }} disabled={loading}>Retry</Button>
+              <Button variant="outline" onClick={() => { void load(); }} disabled={loading} className="h-11 sm:h-9">Retry</Button>
             </div>
           )}
 
@@ -566,7 +565,7 @@ function CashflowDashboardInner() {
               <p className="flex-1 text-sm text-amber-900">
                 Some figures failed to load and may show 0 ({partialFailures.join(", ")}).
               </p>
-              <Button variant="outline" size="sm" onClick={() => { void load(); }} disabled={loading}>Retry</Button>
+              <Button variant="outline" onClick={() => { void load(); }} disabled={loading} className="h-11 sm:h-9">Retry</Button>
             </div>
           )}
 
@@ -589,18 +588,18 @@ function CashflowDashboardInner() {
             && (metrics?.supplierPayablesNext30 || 0) === 0
             && (metrics?.equipmentHireUpcomingCount || 0) === 0
             && (metrics?.shoppingUpcomingCount || 0) === 0 ? (
-            <div className="mb-6 rounded-lg border border-brand-primary/20 bg-white p-8 text-center shadow-sm">
-              <TrendingUp className="w-10 h-10 text-brand-primary mx-auto mb-3" />
+            <div className="mb-6 rounded-lg border border-brand-primary/20 bg-white p-5 text-center shadow-sm sm:p-8">
+              <TrendingUp className="mx-auto mb-3 h-9 w-9 text-brand-primary sm:h-10 sm:w-10" aria-hidden="true" />
               <h2 className="text-lg font-bold text-slate-900 mb-2">No cashflow activity yet</h2>
               <p className="text-sm text-slate-600 max-w-md mx-auto">
                 Once you confirm your first order or record your first payment, this dashboard
                 will start projecting your cash position forward 30 days.
               </p>
-              <div className="mt-4 inline-flex gap-2">
-                <Button asChild className="bg-brand-primary hover:bg-brand-primary/90">
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
+                <Button asChild className="h-11 w-full bg-brand-primary hover:bg-brand-primary/90 sm:h-9 sm:w-auto">
                   <Link href={withSlug("/admin/quotes/new")}>Start a quote</Link>
                 </Button>
-                <Button asChild variant="outline">
+                <Button asChild variant="outline" className="h-11 w-full sm:h-9 sm:w-auto">
                   <Link href={withSlug("/admin/payables")}>Add a payable</Link>
                 </Button>
               </div>
@@ -627,10 +626,10 @@ function CashflowDashboardInner() {
               dashboard, focused here on cash gaps the forecast
               detects. */}
           {alerts.length > 0 && (
-            <Card className="mb-6 border-l-4 border-l-amber-500">
+            <Card className="mb-6 border border-amber-200 bg-amber-50">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base text-amber-800 flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5" />
+                <CardTitle className="flex items-center gap-2 text-base text-amber-800">
+                  <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
                   Cashflow alerts
                 </CardTitle>
               </CardHeader>
@@ -656,10 +655,10 @@ function CashflowDashboardInner() {
 
           {/* Cashflow summary grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-            <Card collapsible defaultOpen={true} collapseLabel="30-day cashflow summary" className="border-2">
+            <Card collapsible defaultOpen={true} collapseLabel="30-day cashflow summary" className="border border-slate-200 shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <Banknote className="w-5 h-5 text-brand-primary" />
+                  <Banknote className="h-4 w-4 shrink-0 text-brand-primary" aria-hidden="true" />
                   30-day cashflow summary
                   <InfoTooltip content={"The same numbers the forecast chart subtracts.\n\nReceived: cash already in the bank from paid orders.\n\nWages owed, fixed costs and supplier payables are subtracted to get Net 30d."} />
                 </CardTitle>
@@ -669,25 +668,26 @@ function CashflowDashboardInner() {
                 <Row label="Wages owed" value={`-${fmt(metrics?.staffPaymentsOwed || 0, currency)}`} tone="negative" />
                 <Row label="Fixed costs (next 30d)" value={`-${fmt(metrics?.fixedCostsNext30 || 0, currency)}`} tone="negative" />
                 <Row label="Supplier payables (next 30d)" value={`-${fmt(metrics?.supplierPayablesNext30 || 0, currency)}`} tone="negative" />
-                <div className="border-t pt-3 flex justify-between items-center">
-                  <span className="font-semibold flex items-center gap-1">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 border-t pt-3">
+                  <span className="flex min-w-0 items-center gap-1 font-semibold">
                     Net cash flow (30d)
                     <InfoTooltip content={"Matches the projected balance trend in the chart above."} />
                   </span>
-                  <span className={`font-bold text-lg ${net30 >= 0 ? "text-brand-primary" : "text-rose-600"}`}>
+                  <span className={`whitespace-nowrap text-sm font-bold leading-tight tabular-nums sm:text-base ${net30 >= 0 ? "text-brand-primary" : "text-rose-600"}`}>
                     {fmt(net30, currency)}
                   </span>
                 </div>
               </CardContent>
             </Card>
 
-            <Card collapsible defaultOpen={false} collapseLabel="Quick actions" className="border-2">
+            <Card collapsible defaultOpen={false} collapseLabel="Quick actions" className="border border-slate-200 shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
+                  <Zap className="h-4 w-4 shrink-0 text-brand-primary" aria-hidden="true" />
                   Quick actions
                   <InfoTooltip content={"Shortcuts to the working surfaces that feed the forecast.\n\nA scheduled cost only appears in the chart once it's recorded on one of these pages."} />
                 </CardTitle>
-<CardDescription>Open the pages that contribute to your cashflow forecast.</CardDescription>
+                <CardDescription className="text-sm">Open the pages that contribute to your cashflow forecast.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {/* CASH-D: live subtitles + ?from=cashflow on every
@@ -755,9 +755,9 @@ function Row({ label, value, tone }: { label: string; value: string; tone: "posi
     : tone === "negative" ? "text-rose-700"
     : "text-slate-900";
   return (
-    <div className="flex justify-between items-center">
-      <span className="text-slate-600">{label}</span>
-      <span className={`font-semibold tabular-nums ${color}`}>{value}</span>
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-3 text-sm">
+      <span className="min-w-0 text-slate-600">{label}</span>
+      <span className={`whitespace-nowrap text-right font-semibold tabular-nums ${color}`}>{value}</span>
     </div>
   );
 }
@@ -775,16 +775,16 @@ function NavLink({
   desc: string;
 }) {
   return (
-    <Link href={href} className="block">
-      <div className="flex items-center gap-3 p-3 rounded-md border border-slate-200 hover:bg-slate-50 hover:border-brand-primary/30 transition-colors">
-        <div className="w-9 h-9 rounded-md bg-brand-primary/10 text-brand-primary flex items-center justify-center shrink-0">
-          <Icon className="w-4 h-4" />
+    <Link href={href} className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2">
+      <div className="flex min-h-[68px] min-w-0 items-center gap-3 rounded-lg border border-slate-200 p-3 transition-colors hover:border-brand-primary/30 hover:bg-slate-50">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-brand-primary/10 text-brand-primary">
+          <Icon className="h-4 w-4" aria-hidden="true" />
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-slate-900">{label}</p>
-          <p className="text-xs text-slate-500 truncate">{desc}</p>
+          <p className="line-clamp-2 break-words text-xs leading-4 text-slate-500">{desc}</p>
         </div>
-        <ChevronRight className="w-4 h-4 text-slate-400" />
+        <ChevronRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
       </div>
     </Link>
   );
@@ -812,17 +812,17 @@ function ActionLink({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="block w-full text-left disabled:opacity-60 disabled:cursor-not-allowed"
+      className="group block min-h-[68px] w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
     >
-      <div className="flex items-center gap-3 p-3 rounded-md border border-slate-200 hover:bg-slate-50 hover:border-brand-primary/30 transition-colors">
-        <div className="w-9 h-9 rounded-md bg-brand-primary/10 text-brand-primary flex items-center justify-center shrink-0">
-          <Icon className="w-4 h-4" />
+      <div className="flex min-h-[68px] min-w-0 items-center gap-3 rounded-lg border border-slate-200 p-3 transition-colors hover:border-brand-primary/30 hover:bg-slate-50">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-brand-primary/10 text-brand-primary">
+          <Icon className="h-4 w-4" aria-hidden="true" />
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-slate-900">{label}</p>
-          <p className="text-xs text-slate-500 truncate">{desc}</p>
+          <p className="line-clamp-2 break-words text-xs leading-4 text-slate-500">{desc}</p>
         </div>
-        <ChevronRight className="w-4 h-4 text-slate-400" />
+        <ChevronRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
       </div>
     </button>
   );

@@ -1779,16 +1779,20 @@ function AdminQuotesInner() {
                 </>
               ) : undefined
             }
-            actions={showQuoteManagement ? (
-              <>
-                <Button variant="outline" onClick={() => setShowQuoteManagement(false)}>
-                  <CalendarDays className="mr-2 h-4 w-4" />Opportunity calendar
+            actions={(
+              <div className="col-span-full flex w-full min-w-0 flex-wrap items-center justify-start gap-2 sm:justify-end xl:col-auto xl:w-auto">
+              {showQuoteManagement ? <>
+                <Button variant="outline" className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3" onClick={() => setShowQuoteManagement(false)} aria-label="Opportunity calendar" title="Opportunity calendar">
+                  <CalendarDays className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Opportunity calendar</span>
                 </Button>
                 {/* Phase 11 #2: CSV export of the currently filtered
                     quote set. Respects bucket + search so the file
                     matches what the operator sees on screen. */}
                 <Button
                   variant="outline"
+                  className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3"
+                  aria-label="Export quotes as CSV"
+                  title="Export quotes as CSV"
                   onClick={() => {
                     const rows = filteredRows;
                     if (rows.length === 0) {
@@ -1838,27 +1842,28 @@ function AdminQuotesInner() {
                     URL.revokeObjectURL(url);
                   }}
                 >
-                  <Download className="w-4 h-4 mr-2" />
-                  Export CSV
+                  <Download className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Export CSV</span>
                 </Button>
-                {canImportQuotes && <Button asChild variant="outline"><Link href={withSlug("/admin/document-imports?target=quotes")}><Upload className="mr-2 h-4 w-4" />Import PDFs</Link></Button>}
+                {canImportQuotes && <Button asChild variant="outline" className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3" aria-label="Import quote PDFs" title="Import quote PDFs"><Link href={withSlug("/admin/document-imports?target=quotes")}><FileText className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Import PDFs</span></Link></Button>}
                 {canImportQuotes && (
-                  <Button variant="outline" onClick={() => setImportOpen(true)}>
-                    <Upload className="w-4 h-4 mr-2" />
-                    Import quotes
+                  <Button variant="outline" className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3" onClick={() => setImportOpen(true)} aria-label="Import quotes from a file" title="Import quotes from a file">
+                    <Upload className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Import quotes</span>
                   </Button>
                 )}
-                <Link href={withSlug("/admin/quotes/new")}>
-                  <Button size="lg" className="bg-brand-primary hover:bg-brand-primary/90">
-                    <Plus className="w-5 h-5 mr-2" />
-                    New Quote
-                  </Button>
-                </Link>
-              </>
-            ) : (
-              <Button variant="outline" onClick={() => setShowQuoteManagement(true)}>
-                <List className="mr-2 h-4 w-4" />Manage quotes
+                <Button asChild className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3" aria-label="New quote" title="New quote">
+                  <Link href={withSlug("/admin/quotes/new")}>
+                    <Plus className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">New quote</span>
+                  </Link>
+                </Button>
+              </> : (
+              <Button variant="outline" className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3" onClick={() => setShowQuoteManagement(true)} aria-label="Manage quotes" title="Manage quotes">
+                <List className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Manage quotes</span>
               </Button>
+              )}
+              </div>
             )}
           />
 
@@ -1962,24 +1967,28 @@ function AdminQuotesInner() {
               value={tileRows.length}
               icon={FileText}
               hint={`Created within ${tileRange.label.toLowerCase()}`}
+              compact
             />
             <StatTile
               label="Action needed"
               value={tileCounts.action_needed}
               icon={Flame}
               hint={`Drafts to price + expiring quotes, ${tileRange.label.toLowerCase()}`}
+              compact
             />
             <StatTile
               label={`Won ${tileRange.label.toLowerCase()}`}
               value={tileCounts.won}
               icon={Crown}
               hint="Accepted; cancelled-order wins drop out"
+              compact
             />
             <StatTile
               label="Total value"
-              value={`${C}${new Intl.NumberFormat("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(quoteValueTotal(tileRows.map((q) => q.quote as any))).map((p) => (p.type === "group" ? " " : p.type === "decimal" ? "." : p.value)).join("")}`}
+              value={<span className="whitespace-nowrap text-[clamp(0.75rem,3.5vw,1rem)] font-semibold tabular-nums">{`${C}${new Intl.NumberFormat("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(quoteValueTotal(tileRows.map((q) => q.quote as any))).map((p) => (p.type === "group" ? " " : p.type === "decimal" ? "." : p.value)).join("")}`}</span>}
               icon={Banknote}
               hint={`Smallest quote per client per event date, ${tileRange.label.toLowerCase()}`}
+              compact
             />
           </div>
 
@@ -2401,7 +2410,7 @@ function AdminQuotesInner() {
                       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between xl:gap-0">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-3 mb-3 flex-wrap">
-                            <h3 className="text-xl font-semibold text-slate-900">
+                            <h3 className="text-sm font-semibold text-slate-900 sm:text-lg">
                               <Link
                                 href={withSlug(`/admin/quotes/${quote.id}`)}
                                 className="rounded-sm underline decoration-transparent underline-offset-4 transition hover:text-brand-primary hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
@@ -2595,7 +2604,7 @@ function AdminQuotesInner() {
                             </div>
                             <div className="flex items-center gap-2 text-slate-600">
                               <Banknote className="w-4 h-4 shrink-0" />
-                              <span className="text-sm font-semibold text-brand-primary">
+                              <span className="text-xs font-semibold text-brand-primary sm:text-sm">
                                 {formatQuoteMoney(Number(displayTotal), quote.currency, tenantCurrency.code)}
                               </span>
                             </div>
@@ -2689,7 +2698,7 @@ function AdminQuotesInner() {
                               own subtotal / VAT / total on the right. Null-guarded
                               because legacy rows can carry null money fields. */}
                           <div className="space-y-1">
-                            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-slate-100 pt-3 text-sm">
+                            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-slate-100 pt-3 text-xs sm:text-sm">
                               <span className="text-slate-600">
                                 {Array.isArray(quote.menu_items) ? quote.menu_items.length : 0} menu items · {Array.isArray(quote.equipment_items) ? quote.equipment_items.length : 0} equipment items
                               </span>
@@ -2725,7 +2734,7 @@ function AdminQuotesInner() {
                             Lifecycle moves (Mark sent, Mark lost) and
                             CRUD (Edit, Duplicate, Delete) live in the
                             menu since they're not row-level urgent. */}
-                        <div className="flex flex-row flex-wrap gap-2 xl:ml-4 xl:flex-col xl:items-stretch xl:w-44 xl:shrink-0">
+                        <div className="flex min-w-0 flex-row flex-wrap items-center gap-2 xl:ml-5 xl:max-w-[28rem] xl:shrink-0 xl:justify-end">
                           {/* Primary CTA - tone-coloured. Draft -> Send,
                               everything else -> Compose. */}
                           {quote.status === "draft" ? (
@@ -2736,6 +2745,7 @@ function AdminQuotesInner() {
                               tooltip="Send this draft. Emails the client and stamps the quote 'sent'."
                               disabled={sendingId === quote.id}
                               onClick={() => handleSend(quote.id)}
+                              compactOnMobile
                             />
                           ) : (
                             <RowPrimaryAction
@@ -2748,14 +2758,16 @@ function AdminQuotesInner() {
                                 setComposeMode("status");
                                 setComposeQuote(quote);
                               }}
+                              compactOnMobile
                             />
                           )}
                           <Button
                             type="button"
                             size="sm"
                             variant="outline"
-                            className="h-auto min-h-9 w-full justify-center gap-1.5 whitespace-normal break-words px-2 py-2 text-center leading-tight"
+                            className="h-11 w-11 shrink-0 justify-center px-0 sm:h-9 sm:w-auto sm:px-2"
                             disabled={!quote.client_email}
+                            aria-label="Tell client we're fully booked"
                             title={quote.client_email
                               ? "Open an email to tell the client we're fully booked"
                               : "Add the client's email address to this quote to email them"}
@@ -2764,33 +2776,16 @@ function AdminQuotesInner() {
                               setEmailQuote(quote);
                             }}
                           >
-                            <Mail className="w-4 h-4 shrink-0" />
-                            <span className="sm:hidden">Fully booked</span>
-                            <span className="hidden sm:inline">Tell client we&apos;re fully booked</span>
+                            <Mail className="h-4 w-4 shrink-0 sm:mr-1.5" />
+                            <span className="sr-only sm:not-sr-only">Fully booked</span>
                           </Button>
-                          {canEmailOutsideArea && <Button
-                            type="button"
-                            size="sm"
-                            variant="default"
-                            className="h-auto min-h-9 w-full justify-center gap-1.5 whitespace-normal break-words px-2 py-2 text-center leading-tight"
-                            aria-label={`Email ${quote.client_name || "client"} about service area`}
-                            title={quote.client_email
-                              ? "Open an editable outside-area email"
-                              : "Open the editable template; add the client's email before sending"}
-                            onClick={() => {
-                              setEmailQuoteDefaultOptionId("outside_service_area");
-                              setEmailQuote(quote);
-                            }}
-                          >
-                            <MapPin className="h-4 w-4 shrink-0" />
-                            Outside area
-                          </Button>}
                           <WhatsAppTemplateSend
                             entityType="quote"
                             entityId={quote.id}
                             companyId={profile?.company_id ?? user?.company_id}
                             recipientName={quote.client_name}
-                            className="w-full justify-center"
+                            compactOnMobile
+                            className="justify-center"
                           />
                           <WhatsAppButton
                             kind="client"
@@ -2799,8 +2794,9 @@ function AdminQuotesInner() {
                             clientId={(quote as any).client_id}
                             size="sm"
                             variant="outline"
-                            className="w-full justify-center"
+                            className="justify-center"
                             label="Open WhatsApp chat"
+                            compactOnMobile
                             templates={["quote_sent", "quote_chase", "quote_accepted"]}
                             defaultTemplate={
                               quote.status === "accepted"
@@ -2825,81 +2821,6 @@ function AdminQuotesInner() {
                               companyName: companyName || null,
                             }}
                           />
-                          {/* Make the close-out path visible for stale,
-                              expired, draft, and sent quotes. The existing
-                              guarded reason dialog remains the single source
-                              of truth; this is only a clearer entry point
-                              than hiding "Mark rejected" inside More. */}
-                          {quote.status !== "accepted" && quote.status !== "rejected" && !(quote as any).converted_to_order_id && (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleMarkAsLost(quote)}
-                              className="w-full justify-center border-slate-300 text-slate-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700"
-                              title="Close this quote as rejected and record the reason"
-                            >
-                              <X className="w-4 h-4 mr-2" />
-                              Close quote
-                            </Button>
-                          )}
-                          {/* Mark accepted - single highest-value
-                              follow-on action. Converts to a live order
-                              + fires deposit invoice. Hidden once
-                              accepted / rejected. */}
-                          {quote.status !== "accepted" && quote.status !== "rejected" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setAcceptPreflight(quote)}
-                              disabled={acceptingId === quote.id}
-                              title="Client confirmed verbally? Mark accepted and convert to a live order in one click."
-                              className="border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
-                            >
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              {acceptingId === quote.id ? "Accepting..." : "Mark accepted"}
-                            </Button>
-                          )}
-                          {/* Accepted but no order yet (public accept
-                              with conversion refused, or pre-Wave-3
-                              acceptances). The intel chip already says
-                              "Convert to order" but it's a passive
-                              label - operators kept hunting for the
-                              actual button (it only lived on the
-                              detail page). Offer the real action here,
-                              through the same pre-flight + cascade as
-                              Mark accepted. */}
-                          {quote.status === "accepted" && !(quote as any).converted_to_order_id && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setAcceptPreflight(quote)}
-                              disabled={acceptingId === quote.id}
-                              title="Create the live order from this accepted quote - deposit invoice, kitchen prep and confirmation email all fire."
-                              className="border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
-                            >
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              {acceptingId === quote.id ? "Converting..." : "Convert to order"}
-                            </Button>
-                          )}
-                          {/* Send next follow-up - only visible when
-                              amber or rose, otherwise we'd be nagging. */}
-                          {followup?.nextPosition && (followup.light === "amber" || followup.light === "rose") && canCompose && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleSendFollowup(quote)}
-                              className={
-                                followup.light === "rose"
-                                  ? "border-rose-300 text-rose-700 hover:bg-rose-50"
-                                  : "border-amber-300 text-amber-700 hover:bg-amber-50"
-                              }
-                              title={followup.reason}
-                            >
-                              <ArrowRight className="w-4 h-4 mr-2" />
-                              Send FU {followup.nextPosition}
-                            </Button>
-                          )}
                           {/* Overflow menu. Holds every secondary
                               action - lifecycle tweaks, share /
                               export, CRUD, accounting push, delete. */}
@@ -2908,14 +2829,40 @@ function AdminQuotesInner() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                title="More actions for this quote"
+                                title="Manage quote and more actions"
+                                aria-label="Manage quote and more actions"
+                                className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3"
                               >
-                                <MoreHorizontal className="w-4 h-4 mr-2" />
-                                More
+                                <MoreHorizontal className="w-4 h-4 sm:mr-2" />
+                                <span className="sr-only sm:not-sr-only">Manage</span>
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuContent align="end" collisionPadding={12} className="max-h-[min(70dvh,var(--radix-popper-available-height))] w-[min(calc(100vw-1.5rem),18rem)] overflow-y-auto overscroll-contain">
                               <DropdownMenuLabel className="text-[11px] uppercase tracking-wide text-slate-500">Manage</DropdownMenuLabel>
+                              {canEmailOutsideArea && <DropdownMenuItem
+                                onSelect={() => {
+                                  setEmailQuoteDefaultOptionId("outside_service_area");
+                                  setEmailQuote(quote);
+                                }}
+                                className="whitespace-normal break-words"
+                              >
+                                <MapPin className="mr-2 h-4 w-4 shrink-0" /> Email about service area
+                              </DropdownMenuItem>}
+                              {quote.status !== "accepted" && quote.status !== "rejected" && (
+                                <DropdownMenuItem onSelect={() => setAcceptPreflight(quote)} disabled={acceptingId === quote.id} className="whitespace-normal break-words">
+                                  <CheckCircle className="mr-2 h-4 w-4 shrink-0" /> {acceptingId === quote.id ? "Accepting..." : "Mark accepted"}
+                                </DropdownMenuItem>
+                              )}
+                              {quote.status === "accepted" && !(quote as any).converted_to_order_id && (
+                                <DropdownMenuItem onSelect={() => setAcceptPreflight(quote)} disabled={acceptingId === quote.id} className="whitespace-normal break-words">
+                                  <CheckCircle className="mr-2 h-4 w-4 shrink-0" /> {acceptingId === quote.id ? "Converting..." : "Convert to order"}
+                                </DropdownMenuItem>
+                              )}
+                              {followup?.nextPosition && (followup.light === "amber" || followup.light === "rose") && canCompose && (
+                                <DropdownMenuItem onSelect={() => handleSendFollowup(quote)} className="whitespace-normal break-words">
+                                  <ArrowRight className="mr-2 h-4 w-4 shrink-0" /> Send follow-up {followup.nextPosition}
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem asChild>
                                 <Link href={withSlug(`/admin/quotes/new?fromQuoteId=${quote.id}`)}>
                                   <Edit className="w-4 h-4 mr-2" />

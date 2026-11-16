@@ -671,27 +671,29 @@ export function CashflowForecastCard({
   };
 
   return (
-    <Card className="border-2 border-brand-primary/20 hover:shadow-lg transition-shadow">
+    <Card className="min-w-0 overflow-hidden border border-slate-200 shadow-sm dark:border-slate-700">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
-            Cashflow Forecast
+        <div className="flex min-w-0 items-center">
+          <CardTitle className="flex min-w-0 items-center gap-2 text-base font-semibold text-slate-900 dark:text-white">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
+              <Banknote className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <span>Cashflow forecast</span>
             <InfoTooltip
               content={
                 "How much cash you'll have at the end of the picker-selected horizon, given:\n\n+ Cash on hand today (typed in from your bank balance)\n+ Income still to come (booked orders firing in the window)\n- Costs still to come (staff wages owed, more categories coming in later phases)\n\nUpdate the cash-on-hand figure daily from your bank app for the forecast to stay sharp."
               }
             />
           </CardTitle>
-          <Banknote className="w-5 h-5 text-brand-primary" />
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <CardContent className="min-w-0">
+        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
           {/* Left column: cash on hand (editable). */}
-          <div className="border-r border-slate-100 md:pr-4">
+          <div className="min-w-0 border-b border-slate-100 pb-4 md:border-b-0 md:border-r md:pb-0 md:pr-4">
             <div className="text-xs text-slate-500 mb-1">Cash on hand</div>
             {loading ? (
-              <div className="text-2xl font-bold text-slate-400">...</div>
+              <div className="text-base font-bold text-slate-400 sm:text-lg lg:text-xl">...</div>
             ) : editing ? (
               <div className="space-y-2">
                 <Input
@@ -707,21 +709,22 @@ export function CashflowForecastCard({
                     size="sm"
                     onClick={handleSave}
                     disabled={saving}
-                    className="bg-brand-primary hover:bg-brand-primary/90"
+                    className="h-11 bg-brand-primary hover:bg-brand-primary/90 sm:h-9"
                   >
-                    <Save className="w-3.5 h-3.5 mr-1" />
+                    <Save className="h-4 w-4" aria-hidden="true" />
                     {saving ? "Saving..." : "Save"}
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
+                    className="h-11 sm:h-9"
                     onClick={() => {
                       setEditing(false);
                       setDraft("");
                     }}
                     disabled={saving}
                   >
-                    <X className="w-3.5 h-3.5 mr-1" />
+                    <X className="h-4 w-4" aria-hidden="true" />
                     Cancel
                   </Button>
                 </div>
@@ -729,20 +732,21 @@ export function CashflowForecastCard({
             ) : (
               <div>
                 <div className="flex items-center gap-2">
-                  <div className="text-2xl font-bold text-slate-900 tabular-nums">
+                  <div className="min-w-0 break-words text-base font-bold leading-tight text-slate-900 tabular-nums sm:text-lg lg:text-xl">
                     {(currencyUtils.formatCurrency as (a: number, c: string) => string)(cashOnHand, currency)}
                   </div>
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-7 px-2"
+                    className="h-11 w-11 p-0 sm:h-8 sm:w-8"
                     onClick={() => {
                       setDraft(String(cashOnHand || ""));
                       setEditing(true);
                     }}
                     title="Update cash on hand"
+                    aria-label="Update cash on hand"
                   >
-                    <Pencil className="w-3.5 h-3.5" />
+                    <Pencil className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-xs">
@@ -770,14 +774,14 @@ export function CashflowForecastCard({
           </div>
 
           {/* Right column: forecast for the selected horizon. */}
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-500">Forecast end of</span>
               <Select
                 value={String(horizonDays)}
                 onValueChange={(v) => setHorizonDays(Number(v))}
               >
-                <SelectTrigger className="h-7 w-[110px] text-xs">
+                <SelectTrigger className="h-11 w-[140px] text-sm sm:h-8 sm:w-[130px] sm:text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -790,7 +794,7 @@ export function CashflowForecastCard({
               </Select>
             </div>
             <div
-              className={`text-2xl font-bold tabular-nums ${
+              className={`min-w-0 break-words text-base font-bold leading-tight tabular-nums sm:text-lg lg:text-xl ${
                 isPositive ? (isTight ? "text-amber-700" : "text-brand-primary") : "text-rose-700"
               }`}
             >
@@ -798,7 +802,7 @@ export function CashflowForecastCard({
             </div>
             {/* Breakdown so the forecast number isn't a black box. */}
             <div className="mt-2 space-y-0.5 text-xs">
-              <div className="flex justify-between text-slate-600">
+              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 text-xs text-slate-600">
                 {/* CASH-A (cashflow dashboard audit): label clarity.
                     Pre-CASH-A this said "Income in window" - the
                     operator reasonably read it as cash arriving. But
@@ -811,44 +815,44 @@ export function CashflowForecastCard({
                   Order revenue (gross)
                   <InfoTooltip content={"Sum of total_amount on non-cancelled orders with an event_date inside the forecast window. The chart subtracts per-order COGS from each day, so the bottom-line forecast is net of the cost to make. The Inventory (90d COGS) line on the Current Cash Flow tile and the Net Cash Flow row on the financial dashboard report the historical version."} />
                 </span>
-                <span className="tabular-nums text-brand-primary">
+                <span className="whitespace-nowrap text-right tabular-nums text-brand-primary">
                   +{(currencyUtils.formatCurrency as (a: number, c: string) => string)(projectedRevenueForWindow, currency)}
                 </span>
               </div>
-              <div className="flex justify-between text-slate-600">
+              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 text-xs text-slate-600">
                 <span>Wages owed</span>
-                <span className="tabular-nums text-rose-700">
+                <span className="whitespace-nowrap text-right tabular-nums text-rose-700">
                   -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(projectedCostsForWindow, currency)}
                 </span>
               </div>
               {totalHireForWindow > 0 && (
-                <div className="flex justify-between text-slate-600">
+                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 text-xs text-slate-600">
                   <span>Equipment hire</span>
-                  <span className="tabular-nums text-rose-700">
+                  <span className="whitespace-nowrap text-right tabular-nums text-rose-700">
                     -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(totalHireForWindow, currency)}
                   </span>
                 </div>
               )}
               {totalShoppingForWindow > 0 && (
-                <div className="flex justify-between text-slate-600">
+                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 text-xs text-slate-600">
                   <span>Shopping</span>
-                  <span className="tabular-nums text-rose-700">
+                  <span className="whitespace-nowrap text-right tabular-nums text-rose-700">
                     -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(totalShoppingForWindow, currency)}
                   </span>
                 </div>
               )}
               {totalCogsForWindow > 0 && (
-                <div className="flex justify-between text-slate-600">
+                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 text-xs text-slate-600">
                   <span>Food cost (COGS)</span>
-                  <span className="tabular-nums text-rose-700">
+                  <span className="whitespace-nowrap text-right tabular-nums text-rose-700">
                     -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(totalCogsForWindow, currency)}
                   </span>
                 </div>
               )}
               {totalPayablesForWindow > 0 && (
-                <div className="flex justify-between text-slate-600">
+                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 text-xs text-slate-600">
                   <span>Supplier payables</span>
-                  <span className="tabular-nums text-rose-700">
+                  <span className="whitespace-nowrap text-right tabular-nums text-rose-700">
                     -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(totalPayablesForWindow, currency)}
                   </span>
                 </div>
@@ -861,8 +865,8 @@ export function CashflowForecastCard({
                   </span>
                 </div>
               )}
-              <div className="flex justify-between items-center text-slate-600">
-                <span className="flex items-center gap-1">
+              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 text-xs text-slate-600">
+                <span className="flex min-w-0 items-center gap-1">
                   Contingency
                   <InfoTooltip
                     content={
@@ -870,15 +874,15 @@ export function CashflowForecastCard({
                     }
                   />
                 </span>
-                <span className="flex items-center gap-1">
-                  <span className="text-slate-400 text-[10px]">-</span>
+                <span className="flex shrink-0 items-center gap-1">
+                  <span className="text-xs text-slate-400">-</span>
                   <Input
                     type="number"
                     step="100"
                     value={probableSpend || ""}
                     onChange={(e) => setProbableSpend(Number(e.target.value) || 0)}
                     placeholder="0"
-                    className="h-6 w-20 text-[11px] text-right tabular-nums px-1.5 py-0"
+                    className="h-11 w-24 text-sm text-right tabular-nums px-2 py-1"
                   />
                 </span>
               </div>
@@ -896,21 +900,22 @@ export function CashflowForecastCard({
             to see that day's opening balance + the orders firing
             income that day. The chart's zero line is drawn dashed
             so the owner can eyeball where they go red. */}
-        <div className="mt-5 border-t border-slate-100 pt-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-slate-600">
+        <div className="mt-5 min-w-0 border-t border-slate-100 pt-4">
+          <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
+            <span className="text-sm font-semibold text-slate-700">
               Projected balance, day-by-day
             </span>
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 text-[11px]"
+                className="h-11 w-11 p-0 sm:h-8 sm:w-auto sm:px-2"
                 onClick={() => downloadCsv(series, currency, cashOnHand, staffPaymentsOwed, probableSpend || 0)}
                 title="Export the day-by-day forecast as a CSV for your bookkeeper"
+                aria-label="Export day-by-day cashflow forecast as CSV"
               >
-                <Download className="w-3 h-3 mr-1" />
-                CSV
+                <Download className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">Export CSV</span>
               </Button>
               {/* CASH-A: pre-CASH-A the label rendered "{series.length}
                   days" which produced "31 DAYS" for the "30 days"
@@ -918,12 +923,12 @@ export function CashflowForecastCard({
                   (day 0 = today, day 30 = +30d, 31 points total).
                   Confusing vs the dropdown. New copy is honest about
                   the inclusive window. */}
-              <span className="text-[10px] uppercase tracking-wide text-slate-400">
+              <span className="text-xs uppercase tracking-wide text-slate-400">
                 Today + {horizonDays}d
               </span>
             </div>
           </div>
-          <div className="h-48 w-full">
+          <div className="h-48 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={series}
@@ -947,7 +952,7 @@ export function CashflowForecastCard({
                 <XAxis
                   dataKey="label"
                   interval="preserveStartEnd"
-                  tick={{ fontSize: 10, fill: "#64748b" }}
+                  tick={{ fontSize: 11, fill: "#64748b" }}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -955,7 +960,7 @@ export function CashflowForecastCard({
                   tickFormatter={(v) =>
                     compactCurrency(Number(v) || 0, currency)
                   }
-                  tick={{ fontSize: 10, fill: "#64748b" }}
+                  tick={{ fontSize: 11, fill: "#64748b" }}
                   axisLine={false}
                   tickLine={false}
                   width={60}
@@ -980,7 +985,7 @@ export function CashflowForecastCard({
               </AreaChart>
             </ResponsiveContainer>
           </div>
-          <p className="mt-2 text-[10px] text-slate-400">
+          <p className="mt-2 text-xs text-slate-400">
             Tap a day on the chart to see the full order breakdown.
           </p>
         </div>
@@ -1009,7 +1014,7 @@ export function CashflowForecastCard({
                   <div className="rounded-md border border-slate-200 p-3">
                     <div className="text-xs text-slate-500">Projected balance</div>
                     <div
-                      className={`text-2xl font-bold tabular-nums ${
+                      className={`break-words text-lg font-bold leading-tight tabular-nums sm:text-2xl ${
                         point.balance < 0 ? "text-rose-700" : "text-slate-900"
                       }`}
                     >
@@ -1037,7 +1042,7 @@ export function CashflowForecastCard({
                         <div className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2">
                           <span className="text-sm text-slate-900 flex-1">
                             Wages owed
-                            <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-400">staff</span>
+                            <span className="ml-1.5 text-xs uppercase tracking-wide text-slate-400">staff</span>
                           </span>
                           <span className="ml-3 tabular-nums text-sm text-rose-700">
                             -{fmt(staffPaymentsOwed, currency)}
@@ -1048,7 +1053,7 @@ export function CashflowForecastCard({
                         <div className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2">
                           <span className="text-sm text-slate-900 flex-1">
                             Contingency
-                            <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-400">your buffer</span>
+                            <span className="ml-1.5 text-xs uppercase tracking-wide text-slate-400">your buffer</span>
                           </span>
                           <span className="ml-3 tabular-nums text-sm text-rose-700">
                             -{fmt(probableSpend || 0, currency)}
@@ -1103,7 +1108,7 @@ export function CashflowForecastCard({
                             >
                               <span className="text-sm text-slate-900 truncate flex-1">
                                 {c.label}
-                                <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-400">
+                                <span className="ml-1.5 text-xs uppercase tracking-wide text-slate-400">
                                   {
                                   c.category === "equipment_hire" ? "hire"
                                   : c.category === "shopping" ? "shopping"
@@ -1156,7 +1161,7 @@ function CashflowTooltip({ active, payload, currency }: TooltipProps) {
     <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg max-w-[260px]">
       <div className="flex items-center justify-between gap-3">
         <span className="font-semibold text-slate-900">{row.label}</span>
-        <span className="text-[10px] text-slate-500">{row.date}</span>
+        <span className="text-xs text-slate-500">{row.date}</span>
       </div>
       <div className="mt-1 flex items-center justify-between gap-3">
         <span className="text-slate-600">Balance</span>
@@ -1178,11 +1183,11 @@ function CashflowTooltip({ active, payload, currency }: TooltipProps) {
       )}
       {row.orders.length > 0 && (
         <div className="mt-2 border-t border-slate-100 pt-1 space-y-0.5">
-          <div className="text-[10px] uppercase tracking-wide text-slate-400">
+          <div className="text-xs uppercase tracking-wide text-slate-400">
             {row.orders.length === 1 ? "1 order" : `${row.orders.length} orders`}
           </div>
           {row.orders.slice(0, 4).map((o) => (
-            <div key={o.id} className="flex items-center justify-between gap-3 text-[11px]">
+            <div key={o.id} className="flex items-center justify-between gap-3 text-xs">
               <span className="text-slate-700 truncate">{o.client}</span>
               <span className="tabular-nums text-slate-900">
                 {fmt(o.amount, currency)}
@@ -1190,7 +1195,7 @@ function CashflowTooltip({ active, payload, currency }: TooltipProps) {
             </div>
           ))}
           {row.orders.length > 4 && (
-            <div className="text-[10px] text-slate-400">
+            <div className="text-xs text-slate-400">
               +{row.orders.length - 4} more
             </div>
           )}

@@ -315,15 +315,15 @@ function OutstandingBalancesPage() {
             meta={
               !loading && !loadError ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold tabular-nums text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {fmt(summary.totalOwed)} owed
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     {summary.count} invoice{summary.count === 1 ? "" : "s"} in view
                   </span>
                   {summary.overdueCount > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
                       {summary.overdueCount} overdue
                     </span>
@@ -332,10 +332,19 @@ function OutstandingBalancesPage() {
               ) : undefined
             }
             actions={
-              <Button variant="outline" onClick={exportCsv} disabled={filtered.length === 0} className="gap-2">
-                <Download className="w-4 h-4" />
-                Export CSV
-              </Button>
+              <div className="col-span-full flex w-full justify-end xl:w-auto">
+                <Button
+                  variant="outline"
+                  onClick={exportCsv}
+                  disabled={filtered.length === 0}
+                  title="Export visible balances to CSV"
+                  aria-label="Export visible balances to CSV"
+                  className="h-11 w-11 shrink-0 p-0 sm:h-9 sm:w-auto sm:px-3"
+                >
+                  <Download className="h-4 w-4 sm:mr-2" aria-hidden="true" />
+                  <span className="sr-only sm:not-sr-only">Export CSV</span>
+                </Button>
+              </div>
             }
           />
           <PageWorkbench />
@@ -350,8 +359,8 @@ function OutstandingBalancesPage() {
                   <p className="text-sm font-semibold text-rose-900">Couldn't load outstanding balances</p>
                   <p className="text-xs text-slate-600 mt-0.5">{loadError}</p>
                 </div>
-                <Button size="sm" variant="outline" onClick={load} className="gap-1.5">
-                  <RefreshCw className="w-4 h-4" /> Retry
+                <Button variant="outline" onClick={load} className="h-11 gap-2 sm:h-9">
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" /> Retry
                 </Button>
               </CardContent>
             </Card>
@@ -369,30 +378,38 @@ function OutstandingBalancesPage() {
               StatTile primitive, live aggregates off the filtered view.
               Semantic colours stay semantic: rose = overdue, amber =
               falling due this week. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="mb-6 grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:gap-4 xl:grid-cols-4">
             <StatTile
               label="Total outstanding"
-              value={fmt(summary.totalOwed)}
+              value={<span className="break-words text-base leading-tight sm:text-lg">{fmt(summary.totalOwed)}</span>}
               hint={`${summary.count} invoice${summary.count === 1 ? "" : "s"} in view.`}
               icon={Wallet}
+              compact
+              className="min-w-0 px-3 py-3 sm:px-4"
             />
             <StatTile
               label="Overdue"
-              value={<span className={summary.overdueOwed > 0 ? "text-rose-700 dark:text-rose-400" : undefined}>{fmt(summary.overdueOwed)}</span>}
+              value={<span className={`break-words text-base leading-tight sm:text-lg ${summary.overdueOwed > 0 ? "text-rose-700 dark:text-rose-400" : ""}`}>{fmt(summary.overdueOwed)}</span>}
               hint={`${summary.overdueCount} past due date.`}
               icon={AlertTriangle}
+              compact
+              className="min-w-0 px-3 py-3 sm:px-4"
             />
             <StatTile
               label="Due in 7 days"
-              value={<span className={summary.dueSoonOwed > 0 ? "text-amber-700 dark:text-amber-400" : undefined}>{fmt(summary.dueSoonOwed)}</span>}
+              value={<span className={`break-words text-base leading-tight sm:text-lg ${summary.dueSoonOwed > 0 ? "text-amber-700 dark:text-amber-400" : ""}`}>{fmt(summary.dueSoonOwed)}</span>}
               hint={`${summary.dueSoonCount} falling due this week.`}
               icon={AlertCircle}
+              compact
+              className="min-w-0 px-3 py-3 sm:px-4"
             />
             <StatTile
               label="Clients owing"
               value={summary.clientsOwing}
               hint="Distinct clients in view."
               icon={UserIcon}
+              compact
+              className="min-w-0 px-3 py-3 sm:px-4"
             />
           </div>
 
@@ -400,31 +417,31 @@ function OutstandingBalancesPage() {
           <Card className="mb-4">
             <CardContent className="grid grid-cols-1 gap-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-[minmax(15rem,1fr)_11rem_11rem_auto_auto] lg:items-end">
               <div>
-                <label className="text-[11px] text-slate-500 font-medium">Search</label>
+                <label htmlFor="balances-search" className="text-xs font-medium text-slate-600">Search</label>
                 <div className="relative mt-1">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Client, order, invoice or email" className="pl-8" />
+                  <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                  <Input id="balances-search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Client, order, invoice or email" className="h-11 pl-8" />
                 </div>
               </div>
               <div>
-                <label className="text-[11px] text-slate-500 font-medium">Due from</label>
-                <Input type="date" value={dueFrom} onChange={(e) => setDueFrom(e.target.value)} className="mt-1 w-full" />
+                <label htmlFor="balances-due-from" className="text-xs font-medium text-slate-600">Due from</label>
+                <Input id="balances-due-from" type="date" value={dueFrom} onChange={(e) => setDueFrom(e.target.value)} className="mt-1 h-11 w-full" />
               </div>
               <div>
-                <label className="text-[11px] text-slate-500 font-medium">Due to</label>
-                <Input type="date" value={dueTo} onChange={(e) => setDueTo(e.target.value)} className="mt-1 w-full" />
+                <label htmlFor="balances-due-to" className="text-xs font-medium text-slate-600">Due to</label>
+                <Input id="balances-due-to" type="date" value={dueTo} onChange={(e) => setDueTo(e.target.value)} className="mt-1 h-11 w-full" />
               </div>
               <Button
                 variant={overdueOnly ? "default" : "outline"}
                 onClick={() => setOverdueOnly((v) => !v)}
-                className={`w-full gap-1.5 sm:w-auto ${overdueOnly ? "bg-rose-600 hover:bg-rose-700" : ""}`}
+                className={`h-11 w-full gap-2 sm:h-9 sm:w-auto ${overdueOnly ? "bg-rose-600 hover:bg-rose-700" : ""}`}
               >
-                <AlertTriangle className="w-4 h-4" />
+                <AlertTriangle className="h-4 w-4" aria-hidden="true" />
                 Overdue only
               </Button>
               {hasFilters && (
-                <Button variant="ghost" onClick={clearFilters} className="w-full gap-1.5 text-slate-500 sm:w-auto">
-                  <X className="w-4 h-4" /> Clear
+                <Button variant="ghost" onClick={clearFilters} className="h-11 w-full gap-2 text-slate-600 sm:h-9 sm:w-auto">
+                  <X className="h-4 w-4" aria-hidden="true" /> Clear
                 </Button>
               )}
             </CardContent>
@@ -437,6 +454,7 @@ function OutstandingBalancesPage() {
                 <PageLoader
                   label="Loading outstanding balances"
                   detail="Gathering unpaid invoices and their payment status."
+                  brandName={user?.company_name || "Spit Braai Delivery"}
                   className="m-4 min-h-[14rem] border-0 bg-transparent shadow-none"
                 />
               ) : filtered.length === 0 ? (
@@ -474,7 +492,7 @@ function OutstandingBalancesPage() {
                               {r.clientEmail ? <p className="truncate text-xs text-slate-500">{r.clientEmail}</p> : null}
                             </div>
                           </div>
-                          {overdue ? <Badge className="shrink-0 border border-rose-200 bg-rose-100 text-[10px] text-rose-700">overdue</Badge> : null}
+                          {overdue ? <Badge className="shrink-0 border border-rose-200 bg-rose-100 text-xs text-rose-700">overdue</Badge> : null}
                         </div>
 
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
@@ -488,16 +506,16 @@ function OutstandingBalancesPage() {
 
                         <div className="grid grid-cols-3 gap-2 rounded-lg bg-slate-50 p-3 text-right dark:bg-slate-900/70">
                           <div>
-                            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Total</p>
-                            <p className="mt-0.5 text-xs font-medium tabular-nums text-slate-700 dark:text-slate-200">{fmt(r.total)}</p>
+                            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Total</p>
+                            <p className="mt-0.5 break-words text-xs font-medium tabular-nums text-slate-700 dark:text-slate-200">{fmt(r.total)}</p>
                           </div>
                           <div>
-                            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Paid</p>
-                            <p className="mt-0.5 text-xs font-medium tabular-nums text-brand-primary">{fmt(r.paid)}</p>
+                            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Paid</p>
+                            <p className="mt-0.5 break-words text-xs font-medium tabular-nums text-brand-primary">{fmt(r.paid)}</p>
                           </div>
                           <div>
-                            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Balance</p>
-                            <p className="mt-0.5 text-sm font-bold tabular-nums text-slate-900 dark:text-white">{fmt(r.balance)}</p>
+                            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Balance</p>
+                            <p className="mt-0.5 break-words text-sm font-bold tabular-nums text-slate-900 dark:text-white">{fmt(r.balance)}</p>
                           </div>
                         </div>
 
@@ -514,7 +532,7 @@ function OutstandingBalancesPage() {
                         </div>
 
                         <div className="flex items-center justify-between gap-3">
-                          {mismatch ? <Badge className="border border-amber-300 bg-amber-100 text-[10px] text-amber-800">Check totals</Badge> : <span />}
+                          {mismatch ? <Badge className="border border-amber-300 bg-amber-100 text-xs text-amber-800">Check totals</Badge> : <span />}
                           {r.publicToken ? (
                             <Link href={`/pay/i/${r.publicToken}`} target="_blank" className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline">
                               Open pay link <ExternalLink className="h-3 w-3" />
@@ -527,9 +545,9 @@ function OutstandingBalancesPage() {
                 </div>
 
                 <div className="hidden overflow-x-auto md:block">
-                  <table className="w-full text-sm">
+                  <table className="w-full min-w-[900px] text-sm">
                     <thead>
-                      <tr className="text-left text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                      <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800">
                         <th className="py-2.5 px-4 font-semibold">Client</th>
                         <th className="py-2.5 px-3 font-semibold">Order / Invoice</th>
                         <th className="py-2.5 px-3 font-semibold">Event</th>
@@ -555,7 +573,7 @@ function OutstandingBalancesPage() {
                                 <UserIcon className="w-4 h-4 text-slate-400 shrink-0" />
                                 <div className="min-w-0">
                                   <p className="font-medium text-slate-900 dark:text-white truncate">{r.clientName || "Client"}</p>
-                                  {r.clientEmail && <p className="text-[11px] text-slate-500 truncate">{r.clientEmail}</p>}
+                                  {r.clientEmail && <p className="truncate text-xs text-slate-500">{r.clientEmail}</p>}
                                 </div>
                               </div>
                             </td>
@@ -565,17 +583,17 @@ function OutstandingBalancesPage() {
                                   {r.orderNumber || "Order"} <ExternalLink className="w-3 h-3" />
                                 </Link>
                               ) : <span className="text-slate-400">-</span>}
-                              <p className="text-[11px] text-slate-500">{r.invoiceNumber || ""}</p>
+                              <p className="text-xs text-slate-500">{r.invoiceNumber || ""}</p>
                             </td>
                             <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300">
                               {formatLocalDate(r.eventDate, "-")}
-                              {r.eventTime ? <span className="block text-[11px] text-slate-500">{formatClock(r.eventTime)}</span> : null}
+                              {r.eventTime ? <span className="block text-xs text-slate-500">{formatClock(r.eventTime)}</span> : null}
                             </td>
                             <td className="py-2.5 px-3">
                               <span className={overdue ? "text-rose-600 font-semibold" : "text-slate-600 dark:text-slate-300"}>
                                 {formatLocalDate(r.dueDate, "-")}
                               </span>
-                              {overdue && <Badge className="ml-1.5 bg-rose-100 text-rose-700 border border-rose-200 text-[10px]">overdue</Badge>}
+                              {overdue && <Badge className="ml-1.5 border border-rose-200 bg-rose-100 text-xs text-rose-700">overdue</Badge>}
                             </td>
                             <td className="py-2.5 px-3 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(r.total)}</td>
                             <td className="py-2.5 px-3 text-right tabular-nums text-brand-primary">{fmt(r.paid)}</td>
@@ -583,7 +601,7 @@ function OutstandingBalancesPage() {
                               {fmt(r.balance)}
                               {mismatch && (
                                 <Badge
-                                  className="ml-1.5 bg-amber-100 text-amber-800 border border-amber-300 text-[10px] align-middle"
+                                  className="ml-1.5 border border-amber-300 bg-amber-100 text-xs text-amber-800 align-middle"
                                   title={`Paid ${fmt(r.paid)} + balance ${fmt(r.balance)} does not equal total ${fmt(r.total)}. Open the invoice and check its payment ledger.`}
                                 >
                                   check totals

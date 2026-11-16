@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Send } from "lucide-react";
+import { ExternalLink, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
@@ -64,6 +64,7 @@ interface Props {
   className?: string;
   buttonLabel?: string;
   iconOnly?: boolean;
+  compactOnMobile?: boolean;
 }
 
 interface TemplateChoice {
@@ -79,7 +80,7 @@ function withCompany(path: string, companyId?: string | null) {
   return `${path}?companyId=${encodeURIComponent(companyId)}`;
 }
 
-export function WhatsAppTemplateSend({ entityType, entityId, companyId, recipientName, recipientId, onSent, className, buttonLabel, iconOnly = false }: Props) {
+export function WhatsAppTemplateSend({ entityType, entityId, companyId, recipientName, recipientId, onSent, className, buttonLabel, iconOnly = false, compactOnMobile = false }: Props) {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
@@ -181,25 +182,43 @@ export function WhatsAppTemplateSend({ entityType, entityId, companyId, recipien
           size="sm"
           variant="outline"
           className={iconOnly
-            ? `h-11 w-11 shrink-0 p-0 lg:h-8 lg:w-8 ${className || ""}`
-            : `h-auto min-h-11 max-w-full whitespace-normal text-left lg:min-h-9 ${className || ""}`}
-          aria-label={iconOnly ? `${actionLabel} ${recipientName || "contact"}` : undefined}
-          title={iconOnly ? actionLabel : undefined}
-          onClick={(event) => event.stopPropagation()}
+            ? `h-11 w-11 shrink-0 p-0 sm:h-9 sm:w-9 ${className || ""}`
+            : compactOnMobile
+              ? `h-11 w-11 shrink-0 p-0 sm:h-9 sm:w-auto sm:px-3 ${className || ""}`
+              : `h-auto min-h-11 max-w-full whitespace-normal text-left lg:min-h-9 ${className || ""}`}
+          aria-label={iconOnly || compactOnMobile ? `${actionLabel} ${recipientName || "contact"}` : undefined}
+          aria-expanded={open}
+          title={iconOnly || compactOnMobile ? actionLabel : undefined}
+          onClick={(event) => {
+            event.stopPropagation();
+            // Keep the controlled picker responsive when the trigger sits
+            // inside a clickable order or lead row.
+            setOpen((current) => !current);
+          }}
         >
-          <Send className="h-3.5 w-3.5 shrink-0" />
-          <span className={iconOnly ? "sr-only" : "min-w-0"}>{actionLabel}</span>
+          <Send className="h-4 w-4 shrink-0" />
+          <span className={iconOnly ? "sr-only" : compactOnMobile ? "sr-only sm:not-sr-only" : "min-w-0"}>{actionLabel}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" collisionPadding={12} className="max-h-[min(80dvh,var(--radix-popper-available-height))] w-[min(calc(100vw-1.5rem),22rem)] overflow-y-auto overscroll-contain p-3">
         <div className="min-w-0 space-y-3">
-          <div>
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-900">
                 {ENTITY_COPY[entityType].noun} messages{choices.length ? ` (${choices.length})` : ""}
               </p>
             <p className="mt-0.5 text-xs text-slate-600">
               {ENTITY_COPY[entityType].guidance} {recipientName ? `Recipient: ${recipientName}.` : ""}
             </p>
+            {entityType === "lead_admin" && (
+              <a href={settingsHref} className="mt-2 inline-flex min-h-8 items-center gap-1.5 text-xs font-medium text-brand-primary hover:underline" title="Open the full WhatsApp workspace">
+                <ExternalLink className="h-3.5 w-3.5" /> Open full WhatsApp workspace
+              </a>
+            )}
+            </div>
+            <Button type="button" size="icon" variant="ghost" className="-mr-1 -mt-1 h-8 w-8 shrink-0" onClick={() => setOpen(false)} aria-label="Close template chooser" title="Close">
+              <X className="h-4 w-4" />
+            </Button>
           </div>
 
           {loading ? (

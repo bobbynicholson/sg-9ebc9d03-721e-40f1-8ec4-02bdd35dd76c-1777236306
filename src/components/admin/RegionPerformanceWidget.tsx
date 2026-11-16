@@ -21,7 +21,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { MapPin, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -144,39 +143,37 @@ export function RegionPerformanceWidget({ companyId }: { companyId: string | nul
   if (!loading && entries.length === 0) return null;
 
   return (
-    <Card className="mb-6 border-slate-200 bg-slate-50/30">
-      <CardHeader className="pb-3">
-        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+    <Card className="mb-6 min-w-0 max-w-full overflow-hidden border-slate-200 bg-slate-50/30">
+      <CardHeader className="min-w-0 px-3 py-3 sm:p-5">
+        <div className="flex min-w-0 items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <MapPin className="w-4 h-4 text-slate-600" />
+            <CardTitle className="flex flex-wrap items-center gap-1.5 text-sm leading-5 sm:gap-2 sm:text-base">
+              <MapPin className="h-4 w-4 shrink-0 text-slate-600" />
               Branches, last 30 days
             </CardTitle>
-            <CardDescription className="text-xs">
+            <CardDescription className="mt-1 text-[10px] leading-4 sm:text-xs">
               Booked-and-onwards revenue + order count per region. Sorted by revenue.
             </CardDescription>
           </div>
-          <Link href={withSlug("/admin/regions")} className="shrink-0 self-start">
-            <Button variant="ghost" size="sm" className="text-slate-700">
-              Manage regions <ArrowRight className="w-3.5 h-3.5 ml-1" />
-            </Button>
+          <Link href={withSlug("/admin/regions")} aria-label="Manage regions" title="Manage regions" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-700 hover:bg-slate-200 sm:h-8 sm:w-auto sm:gap-1 sm:px-2">
+            <span className="sr-only sm:not-sr-only">Manage regions</span><ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0 px-3 py-3 sm:p-5">
         {loading ? (
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="min-w-0 space-y-2">
             {entries.map((e) => {
               const share = Math.max(6, Math.round((e.revenue / topRevenue) * 100));
               return (
                 <li key={e.id}>
-                  <div className="mb-1 flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
-                    <span className="min-w-0 flex-1 basis-28 break-words text-sm font-medium text-slate-900">{e.label}</span>
-                    <span className="max-w-full text-right text-xs text-slate-700 tabular-nums">
-                      <span className="font-semibold">{tenantCurrency.format(e.revenue, 0)}</span>
-                      <span className="ml-2 text-slate-500">{e.count} order{e.count === 1 ? "" : "s"}</span>
+                  <div className="mb-1 flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
+                    <span className="min-w-0 break-words text-xs font-medium text-slate-900 sm:flex-1 sm:text-sm">{e.label}</span>
+                    <span className="inline-flex min-w-0 max-w-full items-baseline gap-x-2 text-[11px] tabular-nums text-slate-700 sm:text-xs">
+                      <span className="whitespace-nowrap font-semibold">{tenantCurrency.format(e.revenue, 0)}</span>
+                      <span className="whitespace-nowrap text-slate-500">{e.count} order{e.count === 1 ? "" : "s"}</span>
                     </span>
                   </div>
                   <div className="h-1.5 bg-slate-100 rounded overflow-hidden">

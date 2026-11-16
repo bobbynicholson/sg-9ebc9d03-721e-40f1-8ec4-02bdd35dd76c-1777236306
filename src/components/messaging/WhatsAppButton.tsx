@@ -68,6 +68,10 @@ interface BaseProps {
   className?: string;
   /** Defaults to "WhatsApp". Pass "" to render the icon-only chip. */
   label?: string;
+  /** Keep row actions compact on phones while retaining their visible labels on wider screens. */
+  compactOnMobile?: boolean;
+  /** Render a labelled, accessible icon trigger when an action row is already dense. */
+  iconOnly?: boolean;
   /** Default template selected when the dialog opens. */
   defaultTemplate?: ClientWhatsAppKind | StaffWhatsAppKind;
   /** Called after the chat is opened (analytics / "marked as touched"). */
@@ -119,6 +123,8 @@ export function WhatsAppButton(props: Props) {
     phone, forceShow = false, showWhenUnavailable = false,
     size = "sm", variant = "outline", className,
     label = "WhatsApp",
+    compactOnMobile = false,
+    iconOnly = false,
     defaultTemplate, onSent,
     optedOut = false,
     clientId,
@@ -324,13 +330,13 @@ export function WhatsAppButton(props: Props) {
         size={size}
         variant={variant}
         disabled
-        className={`gap-1.5 opacity-60 ${className ?? ""}`}
+        className={`${iconOnly ? "h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-9 sm:px-0" : compactOnMobile ? "h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3" : ""} gap-1.5 opacity-60 ${className ?? ""}`}
         title={phoneUnavailableReason}
-        aria-label={label === "" ? "WhatsApp unavailable" : undefined}
+        aria-label={iconOnly || compactOnMobile ? `${label || "WhatsApp"} unavailable` : label === "" ? "WhatsApp unavailable" : undefined}
       >
-        <MessageCircle className="w-3.5 h-3.5 text-slate-400" />
+        <MessageCircle className="h-4 w-4 text-slate-400" />
         {/* label="" means an icon-only slot; keep the reason in the tooltip. */}
-        {label === "" ? null : (label || "WhatsApp unavailable")}
+        {label === "" ? null : <span className={iconOnly ? "sr-only" : compactOnMobile ? "sr-only sm:not-sr-only" : undefined}>{label || "WhatsApp unavailable"}</span>}
       </Button>
     );
   }
@@ -348,11 +354,12 @@ export function WhatsAppButton(props: Props) {
             type="button"
             size={size}
             variant={variant}
-            className={`h-auto min-h-11 max-w-full whitespace-normal gap-1.5 opacity-50 cursor-not-allowed lg:min-h-9 ${className ?? ""}`}
+            className={`${iconOnly ? "h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-9 sm:px-0" : compactOnMobile ? "h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3" : "h-auto min-h-11 max-w-full whitespace-normal lg:min-h-9"} gap-1.5 opacity-50 cursor-not-allowed ${className ?? ""}`}
+            aria-label={label || "WhatsApp comms off"}
             title="Client has opted out of WhatsApp comms"
           >
-            <MessageCircle className="w-3.5 h-3.5 text-slate-400" />
-            {label || null}
+            <MessageCircle className="h-4 w-4 text-slate-400" />
+            {label ? <span className={iconOnly ? "sr-only" : compactOnMobile ? "sr-only sm:not-sr-only" : undefined}>{label}</span> : null}
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" collisionPadding={12} className="max-h-[min(80dvh,var(--radix-popper-available-height))] w-[min(calc(100vw-1.5rem),300px)] overflow-y-auto overscroll-contain p-3">
@@ -380,10 +387,11 @@ export function WhatsAppButton(props: Props) {
           variant={variant}
           aria-label={label || "Open WhatsApp message composer"}
           aria-expanded={open}
-          className={`h-auto min-h-11 max-w-full whitespace-normal gap-1.5 lg:min-h-9 ${className ?? ""}`}
+          title={iconOnly ? label || "Open WhatsApp message composer" : undefined}
+          className={`${iconOnly ? "h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-9 sm:px-0" : compactOnMobile ? "h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3" : "h-auto min-h-11 max-w-full whitespace-normal lg:min-h-9"} gap-1.5 ${className ?? ""}`}
         >
-          <MessageCircle className="w-3.5 h-3.5 text-brand-primary" />
-          {label || null}
+          <MessageCircle className="h-4 w-4 text-brand-primary" />
+          {label ? <span className={iconOnly ? "sr-only" : compactOnMobile ? "sr-only sm:not-sr-only" : undefined}>{label}</span> : null}
         </Button>
       </DialogTrigger>
 

@@ -80,27 +80,27 @@ export function EmailFailuresWidget({ companyId }: { companyId: string | null })
   if (!loading && rows.length === 0) return null;
 
   return (
-    <Card collapsible defaultOpen={false} collapseLabel="Recent email failures" className="mb-6 border-rose-200 bg-rose-50/40">
-      <CardHeader className="pb-3 min-w-0 flex-wrap">
+    <Card collapsible defaultOpen={false} collapseLabel="Recent email failures" className="mb-6 min-w-0 max-w-full overflow-hidden border-rose-200 bg-rose-50/40">
+      <CardHeader className="min-w-0 flex-wrap px-3 py-3 sm:p-5">
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <CardTitle className="flex min-w-0 flex-wrap items-center gap-2 text-base">
-              <AlertCircle className="w-4 h-4 text-rose-600" />
+            <CardTitle className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm leading-5 sm:gap-2 sm:text-base">
+              <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
               Recent email failures
               {!loading && <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700" aria-label={`${rows.length} items`}>{rows.length}</span>}
             </CardTitle>
-            <CardDescription className="line-clamp-1 text-xs">
+            <CardDescription className="line-clamp-1 text-[10px] leading-4 sm:text-xs">
               Sends that didn't reach the recipient in the last 24 hours.
             </CardDescription>
           </div>
-          <Link href={withSlug("/admin/email-automation-dashboard")}>
-            <Button variant="ghost" size="sm" className="text-rose-700">
-              Triage <ArrowRight className="w-3.5 h-3.5 ml-1" />
+          <Link href={withSlug("/admin/email-automation-dashboard")} aria-label="Triage email failures" title="Triage" className="shrink-0">
+            <Button variant="ghost" size="sm" className="h-9 w-9 shrink-0 px-0 text-rose-700 sm:h-8 sm:w-auto sm:px-2">
+              <span className="sr-only sm:not-sr-only">Triage</span><ArrowRight className="ml-0 h-3.5 w-3.5 sm:ml-1" />
             </Button>
           </Link>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0 px-3 py-3 sm:p-5">
         {loading ? (
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (

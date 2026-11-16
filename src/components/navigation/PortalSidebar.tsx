@@ -9,7 +9,7 @@
  * ShoppingNav, CleaningNav) that diverged only in icons, accent
  * colours, and section data.
  */
-import { useEffect, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import {
   ChevronRight,
   ChevronLeft,
   Download,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -46,6 +47,8 @@ export interface PortalSidebarNavItem {
    *  overdue tasks) without the config object having to know how to
    *  fetch state. Return null to hide the badge. Wave 70.7. */
   badge?: (() => { text: string; tone?: "default" | "warning" | "critical" | "info"; pulse?: boolean } | null);
+  /** Optional first-load spinner for a live section. */
+  loading?: () => boolean;
   /** Optional dynamic description override. Lets the nav item show
    *  "Nothing on today" instead of the static description when count
    *  is zero. Wave 70.7. */
@@ -342,6 +345,20 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
 
   const desktopScrollRef = useNavScrollRestore<HTMLDivElement>(`${config.role}-nav`);
   const mobileScrollRef = useNavScrollRestore<HTMLDivElement>(`${config.role}-nav-mobile`, open);
+  const desktopScrollTopRef = useRef(0);
+  const mobileScrollTopRef = useRef(0);
+  const attachDesktopScrollRef = useCallback((node: HTMLDivElement | null) => {
+    desktopScrollRef.current = node;
+    if (node) {
+      node.scrollTop = Math.min(desktopScrollTopRef.current, Math.max(0, node.scrollHeight - node.clientHeight));
+    }
+  }, [desktopScrollRef]);
+  const attachMobileScrollRef = useCallback((node: HTMLDivElement | null) => {
+    mobileScrollRef.current = node;
+    if (node) {
+      node.scrollTop = Math.min(mobileScrollTopRef.current, Math.max(0, node.scrollHeight - node.clientHeight));
+    }
+  }, [mobileScrollRef]);
   // Tenant logo. When the company has uploaded a white-label logo we
   // show it in the brand tile instead of the generic role glyph, so the
   // admin + team portals carry the tenant's identity (not just colour).
@@ -365,6 +382,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   ) => {
     const Icon = item.icon;
     const badge = item.badge ? item.badge() : null;
+    const loading = item.loading?.() ?? false;
     const liveDesc = item.liveDescription ? item.liveDescription() : null;
     const overlay = item.iconOverlay ? item.iconOverlay() : null;
     const description = liveDesc !== null ? liveDesc : (item.description || null);
@@ -399,7 +417,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           // Keep nav rows easy to tap while the text and icon columns stay
           // compact. Specific transition properties avoid animating layout.
           "group relative flex min-h-11 items-center gap-2.5 overflow-hidden rounded-lg border border-transparent transition-[color,background-color,border-color,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset active:scale-[0.99] motion-reduce:transform-none",
-          footer ? "px-3 py-2 text-[13px] font-medium" : "px-3 py-2.5 text-sm font-medium",
+          footer ? "px-3 py-2 text-xs font-medium lg:text-[13px]" : "px-2.5 py-2 text-[13px] font-medium lg:px-3 lg:py-2.5 lg:text-sm",
           // Brand rail: white-glass rows (brand-tinted states would be
           // tone-on-tone against the brand-painted surface).
           forceBrand
@@ -426,7 +444,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             footer
               ? ""
               : cn(
-                  "h-8 w-8 rounded-lg border",
+                  "h-7 w-7 rounded-lg border lg:h-8 lg:w-8",
                   forceBrand
                     ? active
                       ? "border-white/30 bg-white/20"
@@ -439,7 +457,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
         >
           <Icon
             className={cn(
-              footer ? "h-4 w-4" : "h-[18px] w-[18px]",
+              footer ? "h-4 w-4" : "h-4 w-4 lg:h-[18px] lg:w-[18px]",
               forceBrand
                 ? active
                   ? "text-white"
@@ -459,12 +477,18 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               <div className="truncate">{item.title}</div>
               {description && !active && !footer && (
                 <div className={cn(
-                  "text-[11px] truncate",
+                  "truncate text-[10px] lg:text-[11px]",
                   forceBrand ? "text-white/60" : "text-slate-500/90 dark:text-slate-400",
                 )}>{description}</div>
               )}
             </div>
-            {badge && !active && (
+            {loading && (
+              <Loader2
+                aria-hidden="true"
+                className={cn("h-3.5 w-3.5 shrink-0 animate-spin", forceBrand ? "text-white/80" : "text-brand-primary")}
+              />
+            )}
+            {badge && !active && !loading && (
               <span
                 className={cn(
                   // Wave 70.41b - max-width + truncate so long badge
@@ -516,7 +540,10 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     <div className={cn(
       "portal-scrollbar h-full min-w-0 overflow-x-hidden overflow-y-auto overscroll-none px-3 py-4",
       forceBrand && "portal-scrollbar-brand",
-    )} ref={mobile ? mobileScrollRef : undefined}>
+    )}
+      ref={mobile ? attachMobileScrollRef : undefined}
+      onScroll={mobile ? (event) => { mobileScrollTopRef.current = event.currentTarget.scrollTop; } : undefined}
+    >
       <div className="space-y-4">
         {mobile && (
           <div className="space-y-3">
@@ -676,7 +703,11 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                   </Link>
                 </div>
                 <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
-                  <NavBody mobile hideSignOut />
+                  {/* Render this as a helper, not a nested React component.
+                      A nested component gets a new type every parent render;
+                      React remounts its scroll node when live badges/API state
+                      updates and the mobile drawer jumps back to the top. */}
+                  {NavBody({ mobile: true, hideSignOut: true })}
                 </div>
                 {/* Pinned sign-out so the operator can always leave --
                     not buried under the nav scroll. */}
@@ -823,7 +854,8 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               attached to nothing - the desktop menu reset to the top on
               every navigation. */}
           <div
-            ref={desktopScrollRef}
+            ref={attachDesktopScrollRef}
+            onScroll={(event) => { desktopScrollTopRef.current = event.currentTarget.scrollTop; }}
             className={cn(
               "portal-scrollbar flex-1 min-w-0 overflow-x-hidden overflow-y-auto overscroll-none px-3 py-4",
               forceBrand && "portal-scrollbar-brand",

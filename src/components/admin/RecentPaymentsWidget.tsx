@@ -141,7 +141,7 @@ export function RecentPaymentsWidget({ companyId }: { companyId: string | null }
                         {r.payment_method || "method tbc"} · {fmtRelative(r.created_at)}
                       </p>
                     </div>
-                    <span className="col-start-2 row-start-1 row-span-2 max-w-full text-right text-sm font-bold tabular-nums text-brand-primary sm:row-auto sm:shrink-0 sm:whitespace-nowrap">
+                    <span className="col-start-2 row-start-1 row-span-2 max-w-full text-right text-xs font-bold tabular-nums text-brand-primary sm:row-auto sm:shrink-0 sm:whitespace-nowrap sm:text-sm">
                       {tenantCurrency.format(Number(r.amount || 0), 0)}
                     </span>
                   </>

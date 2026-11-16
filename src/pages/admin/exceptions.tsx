@@ -18,6 +18,7 @@ type AttentionItem = {
   href: string;
   icon: typeof AlertTriangle;
   tone: "critical" | "warning" | "info";
+  isCurrency?: boolean;
 };
 
 function toneClasses(tone: AttentionItem["tone"]): string {
@@ -32,6 +33,8 @@ function ExceptionCenterPageInner() {
   const { withSlug } = useTenantHref();
   const currency = useTenantCurrency(companyId);
   const live = useAdminLiveCounts();
+  const initialLoading = live.loading && live.refreshedAt === null;
+  const initialLoadFailed = Boolean(live.error && live.refreshedAt === null);
 
   const items: AttentionItem[] = [
     {
@@ -65,6 +68,7 @@ function ExceptionCenterPageInner() {
       href: "/admin/invoices",
       icon: Wallet,
       tone: live.canSeeFinance && live.unpaidValue > 0 ? "warning" : "info",
+      isCurrency: true,
     },
     {
       title: "New leads today",
@@ -97,39 +101,77 @@ function ExceptionCenterPageInner() {
           <PageWorkbench />
 
           {live.error && (
-            <PortalCard className="mb-5 border-rose-200 bg-rose-50">
-              <div className="flex items-start gap-3 text-rose-900"><AlertCircle className="mt-0.5 h-5 w-5" /><div className="min-w-0 flex-1"><p className="font-semibold">Some live signals could not be refreshed</p><p className="mt-1 text-sm">{live.error}</p></div><Button size="sm" variant="outline" onClick={live.refresh} disabled={live.loading}>Retry</Button></div>
+            <PortalCard className="mb-5 min-w-0 border-rose-200 bg-rose-50 p-3 sm:p-4">
+              <div className="flex min-w-0 flex-wrap items-start gap-2.5 text-rose-900 sm:gap-3">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold sm:text-sm">Some live signals could not be refreshed</p>
+                  <p className="mt-1 break-words text-[11px] sm:text-sm">{live.error}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 w-9 shrink-0 px-0 text-rose-900 sm:h-8 sm:w-auto sm:px-3"
+                  onClick={live.refresh}
+                  disabled={live.loading}
+                  aria-label="Retry refreshing live signals"
+                  title="Retry"
+                >
+                  {live.loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  <span className="sr-only sm:not-sr-only sm:ml-2">Retry</span>
+                </Button>
+              </div>
             </PortalCard>
           )}
 
-          <p className="mb-4 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+          <p className="mb-3 flex items-start gap-1.5 text-[11px] leading-4 text-slate-500 dark:text-slate-400 sm:mb-4 sm:text-xs">
             <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-brand-primary" />
             Resolve red and amber items first. Each card opens the screen where it can be fixed.
           </p>
 
-          {activeItems.length > 0 && (
-            <section className="mb-6" aria-labelledby="active-attention-heading">
-              <h2 id="active-attention-heading" className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Needs attention now</h2>
-              <div className="grid gap-4 md:grid-cols-2">
+          {(activeItems.length > 0 || initialLoading) && (
+            <section className="mb-5 min-w-0 sm:mb-6" aria-labelledby="active-attention-heading">
+              <h2 id="active-attention-heading" className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:mb-3 sm:text-sm">Needs attention now</h2>
+              {initialLoading ? (
+                <div role="status" className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs text-slate-500 shadow-sm sm:text-sm">
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand-primary" />
+                  <span>Checking current alerts…</span>
+                </div>
+              ) : (
+              <div className="grid min-w-0 gap-2.5 md:grid-cols-2 sm:gap-4">
                 {activeItems.map((item) => {
                   const Icon = item.icon;
-                  return <Link key={item.title} href={withSlug(item.href)} className={`group rounded-xl border p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${toneClasses(item.tone)}`}>
-                    <div className="flex items-start justify-between gap-4"><div className="flex items-start gap-3"><Icon className="mt-0.5 h-5 w-5" /><div><h3 className="font-semibold">{item.title}</h3><p className="mt-1 text-sm opacity-80">{item.description}</p></div></div><span className="text-xl font-bold tabular-nums">{item.count}</span></div>
-                    <div className="mt-4 flex items-center gap-1 text-xs font-semibold">Open and resolve <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" /></div>
+                  return <Link key={item.title} href={withSlug(item.href)} className={`group min-w-0 rounded-xl border p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:p-5 ${toneClasses(item.tone)}`}>
+                    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,6rem)] items-start gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-3">
+                      <div className="flex min-w-0 items-start gap-2 sm:gap-3">
+                        <Icon className="mt-0.5 h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
+                        <div className="min-w-0">
+                          <h3 className="break-words text-xs font-semibold leading-4 sm:text-sm">{item.title}</h3>
+                          <p className="mt-1 break-words text-[11px] leading-4 opacity-80 sm:text-sm">{item.description}</p>
+                        </div>
+                      </div>
+                      <span className={`w-full min-w-0 break-words text-right font-bold tabular-nums leading-tight ${item.isCurrency ? "text-sm sm:whitespace-nowrap sm:text-lg" : "text-base sm:text-xl"}`}>{item.count}</span>
+                    </div>
+                    <div className="mt-2.5 flex items-center gap-1 text-[10px] font-semibold sm:mt-4 sm:text-xs">Open and resolve <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" /></div>
                   </Link>;
                 })}
               </div>
+              )}
             </section>
           )}
 
-          <section aria-labelledby="live-signals-heading">
-            <h2 id="live-signals-heading" className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Live signals</h2>
+          <section aria-labelledby="live-signals-heading" aria-busy={initialLoading}>
+            <h2 id="live-signals-heading" className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:mb-3 sm:text-sm">
+              Live signals
+              {live.loading && live.refreshedAt && <Loader2 aria-label="Refreshing live signals" className="h-3.5 w-3.5 animate-spin text-brand-primary" />}
+            </h2>
             {/* The admin rail consumes 18–20rem on desktop, so five cards
                 at the page-level lg breakpoint were being squeezed into a
                 much narrower *remaining* workspace. Step the grid up more
                 gradually so each metric stays readable beside the sidebar. */}
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-              {items.map((item) => <Link key={item.title} href={withSlug(item.href)} className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-brand-primary/40 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900"><p className="text-xs text-slate-500">{item.title}</p><p className="mt-1 text-xl font-bold tabular-nums text-slate-900 dark:text-white">{item.count}</p></Link>)}
+            <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+              {initialLoading && <span className="sr-only" role="status">Loading live signals</span>}
+              {items.map((item) => <Link key={item.title} href={withSlug(item.href)} className="min-w-0 max-w-full rounded-xl border border-slate-200 bg-white p-2.5 transition hover:border-brand-primary/40 hover:shadow-sm sm:p-4 dark:border-slate-800 dark:bg-slate-900"><p className="break-words text-[10px] leading-4 text-slate-500 sm:text-xs">{item.title}</p>{initialLoading ? <div aria-hidden="true" className="mt-2 h-4 w-16 max-w-full animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : <p className={`mt-1 max-w-full break-words font-bold leading-tight tabular-nums text-slate-900 dark:text-white ${item.isCurrency ? "text-xs sm:text-lg" : "text-sm sm:text-lg"}`}>{initialLoadFailed && item.count !== "Restricted" ? "Unavailable" : item.count}</p>}</Link>)}
             </div>
           </section>
         </PortalShell>

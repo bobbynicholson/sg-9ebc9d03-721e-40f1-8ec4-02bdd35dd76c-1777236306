@@ -357,16 +357,16 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
   );
 
   return (
-    <section className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-card shadow-sm dark:border-slate-800" aria-labelledby="bi-section-heading">
-      <div className="flex items-start justify-between gap-3 border-b border-slate-200 p-5 dark:border-slate-800">
+    <section className="mb-6 min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-200 bg-card shadow-sm dark:border-slate-800" aria-labelledby="bi-section-heading">
+      <div className="flex min-w-0 items-start justify-between gap-2 border-b border-slate-200 p-3 dark:border-slate-800 sm:gap-3 sm:p-5">
         <div className="min-w-0 flex-1">
-          <h2 id="bi-section-heading" className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-white"><BarChart3 className="h-4 w-4 text-brand-primary" />Business intelligence</h2>
-          <p className="mt-1.5 text-sm text-muted-foreground">Revenue trends, client retention and booking patterns for longer-term planning.</p>
+          <h2 id="bi-section-heading" className="flex items-center gap-1.5 text-sm font-semibold leading-5 text-slate-900 dark:text-white sm:gap-2 sm:text-base"><BarChart3 className="h-4 w-4 shrink-0 text-brand-primary" />Business intelligence</h2>
+          <p className="mt-1 text-xs leading-4 text-muted-foreground sm:mt-1.5 sm:text-sm">Revenue trends, client retention and booking patterns for longer-term planning.</p>
         </div>
         <button
           type="button"
           onClick={toggleCollapsed}
-          className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          className="inline-flex h-9 w-9 min-h-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 p-0 text-xs font-medium text-slate-600 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary sm:h-10 sm:w-auto sm:min-h-10 sm:gap-1.5 sm:px-2.5 sm:py-0 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
           aria-label={`${collapsed ? "Expand" : "Collapse"} Business intelligence`}
           aria-expanded={!collapsed}
           aria-controls="bi-section-content"
@@ -376,7 +376,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
         </button>
       </div>
 
-        <div id="bi-section-content" hidden={collapsed} className="space-y-4 p-5" style={collapsed ? { display: "none" } : undefined}>
+        <div id="bi-section-content" hidden={collapsed} className="min-w-0 space-y-3 p-3 sm:space-y-4 sm:p-5" style={collapsed ? { display: "none" } : undefined}>
           {overflow && (
             <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
               You have more than {ROW_CAP.toLocaleString()} records in the last 24 months. The charts use the most recent

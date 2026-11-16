@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
-import { MapPin, Clock, Package, User, Phone, Navigation, TrendingUp, AlertCircle, Download, Printer, ExternalLink, Search, RefreshCw } from "lucide-react";
+import { MapPin, Clock, Package, User, Phone, Navigation, TrendingUp, AlertCircle, Download, Printer, ExternalLink, Search, RefreshCw, SlidersHorizontal, X } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -36,6 +37,7 @@ import { dispatchService, computeRiskScore } from "@/services/dispatchService";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { isAutomatedTestOrder } from "@/lib/testDataDetection";
+import styles from "./tracking.module.css";
 
 // Haversine + average speed for ETA. Phase 3 will plug real traffic.
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
@@ -633,6 +635,68 @@ function AdminTrackingInner() {
     total: orders.length,
   };
 
+  const activeFilterCount =
+    Number(operationsScope !== "today") +
+    Number(statusFilter !== "all") +
+    Number(driverFilter !== "all") +
+    Number(Boolean(searchTerm.trim()));
+
+  const clearLiveFilters = () => {
+    setOperationsScope("today");
+    setStatusFilter("all");
+    setDriverFilter("all");
+    setSearchTerm("");
+  };
+
+  const exportFilteredOrders = () => {
+    if (filteredOrders.length === 0) {
+      toast({ title: "Nothing to export", description: "Adjust filters until at least one order is visible." });
+      return;
+    }
+    const esc = (v: any) => {
+      if (v == null) return "";
+      const s = String(v).replace(/"/g, '""');
+      return /[",\n]/.test(s) ? `"${s}"` : s;
+    };
+    const headers = [
+      "Order", "Client", "Status", "Delivery status",
+      "Risk tier", "Event date", "Event time",
+      "Driver", "Venue", "Total",
+    ];
+    const lines = [headers.join(",")];
+    for (const o of filteredOrders as any[]) {
+      lines.push([
+        esc(o.order_number || ""),
+        esc(o.client_name || ""),
+        esc(o.status || ""),
+        esc(o.delivery_status || ""),
+        esc(o.risk_tier || ""),
+        esc(o.event_date || ""),
+        esc(o.event_time || ""),
+        esc(o.driver_name || ""),
+        esc(o.venue || o.venue_name || ""),
+        esc(Number(o.total_amount || 0).toFixed(2)),
+      ].join(","));
+    }
+    const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `tracking-${toLocalISO(new Date())}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const printFilteredOrders = () => {
+    if (filteredOrders.length === 0) {
+      toast({ title: "Nothing to print", description: "Adjust filters until at least one order is visible." });
+      return;
+    }
+    setTimeout(() => window.print(), 100);
+  };
+
   return (
     <>
       <Head>
@@ -643,7 +707,7 @@ function AdminTrackingInner() {
       <AdminNav />
 
       <div className="admin-page-shell admin-page-shell--deep-footer">
-        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+        <PortalShell className={`min-h-0 bg-transparent dark:bg-transparent ${styles.compactTypography}`}>
           <PortalHeader
             variant="hero"
             title="Live operations"
@@ -679,229 +743,213 @@ function AdminTrackingInner() {
             <div className="mb-4 flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3">
               <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-rose-600" />
               <p className="flex-1 text-sm text-rose-900">{loadError}</p>
-              <Button variant="outline" size="sm" onClick={loadTrackingData} disabled={loading}>
-                Try again
+              <Button variant="outline" size="sm" className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3" onClick={loadTrackingData} disabled={loading} aria-label="Retry loading live operations" title="Retry loading live operations">
+                <RefreshCw className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Try again</span>
               </Button>
             </div>
           )}
-
-          <div className="mb-4 flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-900">
-                {operationsScope === "today" ? "Today is highlighted" : "All live orders"}
-              </p>
-              <p className="text-xs text-slate-500 tabular-nums">
-                {stats.today} today - {stats.total} active/upcoming from today forward
-              </p>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div className="inline-grid grid-cols-2 rounded-lg border border-slate-200 bg-slate-50 p-1">
-                <button
-                  type="button"
-                  onClick={() => setOperationsScope("today")}
-                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${
-                    operationsScope === "today"
-                      ? "bg-brand-primary text-white shadow-sm"
-                      : "text-slate-600 hover:bg-white"
-                  }`}
-                >
-                  Today <span className="ml-1 tabular-nums">{stats.today}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOperationsScope("all")}
-                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${
-                    operationsScope === "all"
-                      ? "bg-brand-primary text-white shadow-sm"
-                      : "text-slate-600 hover:bg-white"
-                  }`}
-                >
-                  All live <span className="ml-1 tabular-nums">{stats.total}</span>
-                </button>
-              </div>
-              <Link
-                href={withSlug("/admin/orders")}
-                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                <Package className="w-4 h-4" />
-                Full order book
-              </Link>
-            </div>
-          </div>
 
           {/* Live KPI strip. StatTile row per the command-centre
               standard; the at-risk value stays SEMANTIC rose when
               non-zero. Skeletons render inside the shell during the
               first load so the rail never disappears. */}
           {loading && orders.length === 0 ? (
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6" aria-hidden="true">
+            <div className="grid grid-cols-2 gap-3 mb-5 sm:gap-4 sm:mb-6 xl:grid-cols-4" aria-hidden="true">
               {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white/70 dark:border-slate-800 dark:bg-slate-900/60" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 gap-3 mb-5 sm:gap-4 sm:mb-6 xl:grid-cols-4">
               <StatTile
                 label={operationsScope === "today" ? "Today" : "Shown"}
                 value={scopedOrders.length}
                 hint="In scope before search and filters"
                 icon={Clock}
+                compact
               />
               <StatTile
                 label="At risk"
                 value={<span className={stats.atRisk > 0 ? "text-rose-600" : undefined}>{stats.atRisk}</span>}
                 hint="Predicted late, stale GPS or no pin in motion"
                 icon={AlertCircle}
+                compact
               />
               <StatTile
                 label="In transit"
                 value={stats.active}
                 hint="Driver on the way to the venue"
                 icon={Navigation}
+                compact
               />
               <StatTile
                 label="In kitchen"
                 value={stats.preparing + stats.ready}
                 hint={`${stats.preparing} preparing, ${stats.ready} ready for collection`}
                 icon={Package}
+                compact
               />
             </div>
           )}
 
-          {/* Filters: search + selects + refresh/export/print in ONE
-              toolbar card. */}
+          {/* Keep the live board calm: search stays one tap away, while
+              scope, filters and secondary actions live in one compact panel. */}
           <PortalCard className="mb-6">
-            <div>
-              <div className="grid gap-4">
-                <div className="min-w-0">
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-950">Find an operation</p>
-                      <p className="text-xs text-slate-500">{filteredOrders.length} shown after filters</p>
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  aria-label="Search live operations"
+                  placeholder="Search client, venue, order or driver"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className={`h-11 w-full rounded-lg border-slate-300 bg-white pl-10 shadow-sm focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 ${searchTerm ? "pr-10" : "pr-4"}`}
+                />
+                {searchTerm && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Clear search"
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-0.5 top-1/2 h-10 w-10 -translate-y-1/2 text-slate-500"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={activeFilterCount > 0 ? "secondary" : "outline"}
+                    className="relative h-11 w-11 shrink-0 justify-center p-0 sm:w-auto sm:min-w-36 sm:gap-2 sm:px-4"
+                    aria-label={activeFilterCount > 0 ? `Filters and tools, ${activeFilterCount} active filters` : "Filters and tools"}
+                    title="Filters and tools"
+                  >
+                    <SlidersHorizontal className="h-4 w-4" />
+                    <span className="hidden sm:inline">Filters &amp; tools</span>
+                    {activeFilterCount > 0 && (
+                      <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-primary px-1.5 text-[11px] font-semibold leading-none text-white sm:static sm:h-5 sm:px-1.5">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  collisionPadding={12}
+                  className="max-h-[min(82dvh,42rem)] w-[calc(100vw-2rem)] max-w-96 overflow-y-auto overscroll-contain p-3 text-[13px] sm:p-4 sm:text-sm"
+                >
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h2 className="text-sm font-semibold text-slate-950">Filters &amp; tools</h2>
+                      <p className="mt-0.5 text-xs text-slate-500">{filteredOrders.length} operations shown</p>
                     </div>
-                    {searchTerm && (
-                      <Button variant="ghost" size="sm" onClick={() => setSearchTerm("")} className="h-8 px-2 text-xs">
-                        Clear
+                    {activeFilterCount > 0 && (
+                      <Button type="button" variant="ghost" size="sm" onClick={clearLiveFilters} className="h-8 shrink-0 px-2 text-xs">
+                        Reset all
                       </Button>
                     )}
                   </div>
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                    <Input
-                      placeholder="Search client, venue, order number, driver..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="h-12 w-full rounded-lg border-slate-300 bg-white pl-12 pr-4 text-[15px] shadow-sm focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
-                    />
+
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-slate-600">Date scope</p>
+                      <Select value={operationsScope} onValueChange={(value) => setOperationsScope(value as "today" | "all")}>
+                        <SelectTrigger aria-label="Date scope" className="h-11 w-full text-sm font-normal">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="today">Today ({stats.today})</SelectItem>
+                          <SelectItem value="all">All live orders ({stats.total})</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-slate-600">Order status</p>
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger aria-label="Order status" className="h-11 w-full text-sm font-normal">
+                          <SelectValue placeholder="All statuses" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All statuses</SelectItem>
+                          <SelectItem value="confirmed">Confirmed</SelectItem>
+                          <SelectItem value="preparing">Preparing</SelectItem>
+                          <SelectItem value="ready">Ready</SelectItem>
+                          <SelectItem value="in_transit">On the way</SelectItem>
+                          <SelectItem value="delivered">Delivered</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-slate-600">Driver</p>
+                      <Select value={driverFilter} onValueChange={setDriverFilter}>
+                        <SelectTrigger aria-label="Driver" className="h-11 w-full text-sm font-normal">
+                          <SelectValue placeholder="All drivers" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All drivers</SelectItem>
+                          {drivers.map((driver) => (
+                            <SelectItem key={driver.id} value={driver.id}>
+                              {driver.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                </div>
 
-                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[180px_180px_repeat(4,minmax(0,1fr))]">
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="h-10 w-full">
-                      <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All statuses</SelectItem>
-                      <SelectItem value="confirmed">Confirmed</SelectItem>
-                      <SelectItem value="preparing">Preparing</SelectItem>
-                      <SelectItem value="ready">Ready</SelectItem>
-                      <SelectItem value="in_transit">On the way</SelectItem>
-                      <SelectItem value="delivered">Delivered</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={driverFilter} onValueChange={setDriverFilter}>
-                    <SelectTrigger className="h-10 w-full">
-                      <SelectValue placeholder="Filter by driver" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All drivers</SelectItem>
-                      {drivers.map((driver) => (
-                        <SelectItem key={driver.id} value={driver.id}>
-                          {driver.full_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Button
-                    variant={autoRefresh ? "default" : "outline"}
-                    onClick={() => setAutoRefresh(!autoRefresh)}
-                    className="h-10 justify-center whitespace-nowrap"
-                  >
-                    {autoRefresh ? "Auto on" : "Auto off"}
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      if (filteredOrders.length === 0) {
-                        toast({ title: "Nothing to export", description: "Adjust filters until at least one order is visible." });
-                        return;
-                      }
-                      const esc = (v: any) => {
-                        if (v == null) return "";
-                        const s = String(v).replace(/"/g, '""');
-                        return /[",\n]/.test(s) ? `"${s}"` : s;
-                      };
-                      const headers = [
-                        "Order", "Client", "Status", "Delivery status",
-                        "Risk tier", "Event date", "Event time",
-                        "Driver", "Venue", "Total",
-                      ];
-                      const lines = [headers.join(",")];
-                      for (const o of filteredOrders as any[]) {
-                        lines.push([
-                          esc(o.order_number || ""),
-                          esc(o.client_name || ""),
-                          esc(o.status || ""),
-                          esc(o.delivery_status || ""),
-                          esc(o.risk_tier || ""),
-                          esc(o.event_date || ""),
-                          esc(o.event_time || ""),
-                          esc(o.driver_name || ""),
-                          esc(o.venue || o.venue_name || ""),
-                          esc(Number(o.total_amount || 0).toFixed(2)),
-                        ].join(","));
-                      }
-                      // UTF-8 BOM so Excel-ZA opens the export as
-                      // UTF-8 (same fix as calendar / financial).
-                      const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = `tracking-${toLocalISO(new Date())}.csv`;
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      URL.revokeObjectURL(url);
-                    }}
-                    className="h-10 justify-center gap-1.5 whitespace-nowrap"
-                  >
-                    <Download className="h-4 w-4" />
-                    Export
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      if (filteredOrders.length === 0) {
-                        toast({ title: "Nothing to print", description: "Adjust filters until at least one order is visible." });
-                        return;
-                      }
-                      setTimeout(() => window.print(), 100);
-                    }}
-                    className="h-10 justify-center gap-1.5 whitespace-nowrap"
-                  >
-                    <Printer className="h-4 w-4" />
-                    Print
-                  </Button>
-                </div>
-              </div>
+                  <div className="mt-4 border-t border-slate-200 pt-4">
+                    <p className="mb-2 text-xs font-semibold text-slate-700">Operations</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        type="button"
+                        variant={autoRefresh ? "secondary" : "outline"}
+                        onClick={() => setAutoRefresh(!autoRefresh)}
+                        className="h-11 justify-start px-3 text-sm"
+                        aria-pressed={autoRefresh}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Auto {autoRefresh ? "on" : "off"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={loadTrackingData}
+                        disabled={loading}
+                        className="h-11 justify-start px-3 text-sm"
+                      >
+                        <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                        Refresh now
+                      </Button>
+                      <Button type="button" variant="outline" onClick={exportFilteredOrders} className="h-11 justify-start px-3 text-sm">
+                        <Download className="h-4 w-4" />
+                        Export CSV
+                      </Button>
+                      <Button type="button" variant="outline" onClick={printFilteredOrders} className="h-11 justify-start px-3 text-sm">
+                        <Printer className="h-4 w-4" />
+                        Print
+                      </Button>
+                      <Button asChild variant="outline" className="col-span-2 h-11 justify-start px-3 text-sm">
+                        <Link href={withSlug("/admin/orders")}>
+                          <Package className="h-4 w-4" />
+                          Full order book
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
+            <p className="mt-2 text-xs text-slate-500">
+              {filteredOrders.length} shown · {operationsScope === "today" ? "Today" : "All live orders"}
+            </p>
           </PortalCard>
-
           {/* Main Content */}
           <Tabs value={activeTab} onValueChange={(v) => handleViewChange(v as "map" | "list")} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
@@ -940,6 +988,19 @@ function AdminTrackingInner() {
                       <MapPin className="w-4 h-4" />
                       {selectedOrder ? "Order details" : operationsScope === "today" ? "Today's orders" : "Live orders"}
                     </>}
+                    action={selectedOrder ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setSelectedOrder(null)}
+                        className="h-11 w-11 shrink-0 rounded-full border-slate-200 bg-white text-slate-700 shadow-sm hover:border-brand-primary/40 hover:bg-brand-primary/5 hover:text-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary/40"
+                        aria-label="Close order details"
+                        title="Close order details"
+                      >
+                        <X className="h-5 w-5" aria-hidden="true" />
+                      </Button>
+                    ) : undefined}
                   />
                   <div className="max-h-[700px] overflow-y-auto">
                     {selectedOrder ? (
@@ -947,7 +1008,6 @@ function AdminTrackingInner() {
                         order={selectedOrder}
                         fromName={profile?.full_name || companyName}
                         companyName={companyName}
-                        onClose={() => setSelectedOrder(null)}
                       />
                     ) : (
                       <div className="space-y-2">
@@ -1071,17 +1131,24 @@ function AdminTrackingInner() {
                             : "No confirmed orders from today forward. New confirmed work lands here automatically."}
                       </p>
                       <div className="inline-flex flex-wrap justify-center gap-2">
-                        {(statusFilter !== "all" || driverFilter !== "all" || searchTerm) && (
+                        {activeFilterCount > 0 && (
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => { setStatusFilter("all"); setDriverFilter("all"); setSearchTerm(""); }}
+                            className="h-11 w-11 px-0 sm:h-9 sm:w-auto sm:px-3"
+                            onClick={clearLiveFilters}
+                            aria-label="Clear all live operation filters"
+                            title="Clear all live operation filters"
                           >
-                            Clear filters
+                            <X className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Clear filters</span>
                           </Button>
                         )}
                         <Link href={withSlug("/admin/orders")}>
-                          <Button variant="outline" size="sm">Open the order book</Button>
+                          <Button variant="outline" size="sm" className="h-11 w-11 px-0 sm:h-9 sm:w-auto sm:px-3" aria-label="Open the order book" title="Open the order book">
+                            <Package className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Open the order book</span>
+                          </Button>
                         </Link>
                       </div>
                     </div>
@@ -1214,6 +1281,7 @@ function AdminTrackingInner() {
                                   companyId={profile?.company_id ?? user?.company_id}
                                   recipientName={order.client_name || "client"}
                                   buttonLabel="Choose business template (6)"
+                                  compactOnMobile
                                 />
                                 <WhatsAppButton
                                   kind="client"
@@ -1222,6 +1290,7 @@ function AdminTrackingInner() {
                                   size="sm"
                                   variant="outline"
                                   label="Running late draft"
+                                  compactOnMobile
                                   defaultTemplate="delay_alert"
                                   templates={["delay_alert"]}
                                   ctx={{

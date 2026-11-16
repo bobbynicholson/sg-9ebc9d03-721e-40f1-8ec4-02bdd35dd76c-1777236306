@@ -224,6 +224,7 @@ function AdminReviewsInner() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             variant="hero"
+            className="mb-3 px-3 py-3 sm:px-5 sm:py-4"
             title="Reviews"
             icon={Star}
             subtitle="Read client feedback and follow up on reviews that need attention."
@@ -249,12 +250,27 @@ function AdminReviewsInner() {
                 )}
               </>
             }
-            actions={lastLoadedAt ? (
-              // Hero band: muted copy must stay light-on-dark.
-              <span className="text-[11px] text-white/70 tabular-nums hidden sm:inline" title={lastLoadedAt.toLocaleString("en-ZA")}>
-                As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
-              </span>
-            ) : undefined}
+            actions={
+              <div className="col-span-full flex w-full items-center justify-end gap-2 xl:w-auto">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => load()}
+                  disabled={loading}
+                  title="Refresh reviews"
+                  aria-label="Refresh reviews"
+                  className="h-10 w-10 shrink-0 border border-white/20 bg-white/10 p-0 text-white hover:bg-white/20 hover:text-white"
+                >
+                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                </Button>
+                {lastLoadedAt && (
+                  <span className="hidden text-[11px] tabular-nums text-white/70 sm:inline" title={lastLoadedAt.toLocaleString("en-ZA")}>
+                    Updated {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                )}
+              </div>
+            }
           />
           <PageWorkbench />
 
@@ -272,24 +288,30 @@ function AdminReviewsInner() {
 
           {/* Command-centre stat row: real aggregates off the loaded
               set. Open follow-ups stays semantically rose (risk). */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="mb-4 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             <StatTile
               label="Total reviews"
               value={stats.total}
               icon={MessageSquareText}
               hint={lastLoadedAt ? `As of ${lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}` : undefined}
+              compact
+              className="px-3 py-3 sm:px-4 sm:py-3.5"
             />
             <StatTile
               label="Average rating"
               value={stats.total > 0 ? `${stats.avg || 0}/5` : "-"}
               icon={Star}
               hint={stats.total > 0 ? "Across all overall ratings" : "No ratings yet"}
+              compact
+              className="px-3 py-3 sm:px-4 sm:py-3.5"
             />
             <StatTile
               label="Promoters (4-5)"
               value={stats.promoters}
               icon={CheckCircle2}
               hint={stats.detractors > 0 ? `${stats.detractors} rated 2 or lower` : "No low ratings"}
+              compact
+              className="px-3 py-3 sm:px-4 sm:py-3.5"
             />
             <StatTile
               label="Open follow-ups"
@@ -300,34 +322,47 @@ function AdminReviewsInner() {
               }
               icon={AlertTriangle}
               hint={stats.openFollowUps > 0 ? "Flagged by clients, not yet handled" : "All handled"}
+              compact
+              className="px-3 py-3 sm:px-4 sm:py-3.5"
             />
           </div>
 
           <Card className="mb-6">
-            <CardContent className="p-4 flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
+            <CardContent className="flex flex-col gap-2.5 p-3 sm:flex-row sm:items-center sm:gap-3 sm:p-4">
+              <div className="relative min-w-0 flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input placeholder="Search by client, order, comment..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+                <Input placeholder="Search by client, order, comment..." className="h-9 pl-9 text-xs sm:text-sm" value={search} onChange={(e) => setSearch(e.target.value)} />
               </div>
-              <div className="inline-flex gap-1 p-1 bg-slate-100 rounded-lg self-start">
+              <label className="sr-only" htmlFor="review-follow-filter">Filter reviews by follow-up status</label>
+              <select
+                id="review-follow-filter"
+                value={follow}
+                onChange={(event) => setFollow(event.target.value as "all" | "open" | "done")}
+                className="h-9 w-full rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 sm:hidden"
+              >
+                <option value="all">All reviews</option>
+                <option value="open">Needs follow-up</option>
+                <option value="done">Followed up</option>
+              </select>
+              <div className="hidden shrink-0 gap-1 rounded-lg bg-slate-100 p-1 sm:inline-flex">
                 <button
                   type="button"
                   onClick={() => setFollow("all")}
-                  className={`px-3 py-1.5 text-sm rounded-md font-medium ${follow === "all" ? "bg-white shadow-sm" : "text-slate-600"}`}
+                  className={`min-h-8 whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium sm:text-sm ${follow === "all" ? "bg-white shadow-sm" : "text-slate-600"}`}
                 >
                   All
                 </button>
                 <button
                   type="button"
                   onClick={() => setFollow("open")}
-                  className={`px-3 py-1.5 text-sm rounded-md font-medium ${follow === "open" ? "bg-white shadow-sm text-rose-700" : "text-slate-600"}`}
+                  className={`min-h-8 whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium sm:text-sm ${follow === "open" ? "bg-white shadow-sm text-rose-700" : "text-slate-600"}`}
                 >
                   Needs follow-up
                 </button>
                 <button
                   type="button"
                   onClick={() => setFollow("done")}
-                  className={`px-3 py-1.5 text-sm rounded-md font-medium ${follow === "done" ? "bg-white shadow-sm text-brand-primary" : "text-slate-600"}`}
+                  className={`min-h-8 whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium sm:text-sm ${follow === "done" ? "bg-white shadow-sm text-brand-primary" : "text-slate-600"}`}
                 >
                   Followed up
                 </button>
@@ -340,7 +375,7 @@ function AdminReviewsInner() {
               {loading ? (
                 // Skeleton inside the shell so the nav rail never
                 // disappears while the list resolves.
-                <div className="p-4 space-y-3" aria-busy="true" aria-label="Loading reviews">
+                <div className="space-y-2 p-3 sm:space-y-3 sm:p-4" aria-busy="true" aria-label="Loading reviews">
                   {[0, 1, 2, 3].map((i) => (
                     <div key={i} className="animate-pulse rounded-lg border border-slate-100 p-4">
                       <div className="h-3.5 w-48 rounded bg-slate-200" />
@@ -383,12 +418,12 @@ function AdminReviewsInner() {
                     const rating = Number(r.overall_rating || 0);
                     const tone = rating >= 4 ? "bg-brand-primary/10" : rating <= 2 ? "bg-rose-50" : "";
                     return (
-                      <li key={r.id} className={`p-4 transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800/40 ${needsFollow ? "bg-rose-50/60" : tone}`}>
+                      <li key={r.id} className={`p-3 transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800/40 sm:p-4 ${needsFollow ? "bg-rose-50/60" : tone}`}>
                         <div className="flex items-start justify-between gap-3 flex-wrap">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               {stars(r.overall_rating)}
-                              <span className="text-sm font-semibold text-slate-900">{r.client?.client_name || "Unknown client"}</span>
+                              <span className="text-[13px] font-semibold text-slate-900 sm:text-sm">{r.client?.client_name || "Unknown client"}</span>
                               {r.order?.order_number && (
                                 <Link
                                   href={user?.company_slug ? `/${user.company_slug}${staffOrderHref(r.order_id, "admin")}` : staffOrderHref(r.order_id, "admin")}
@@ -415,7 +450,7 @@ function AdminReviewsInner() {
                               {r.created_at && <span> · rated {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}</span>}
                             </div>
                             {r.comments && (
-                              <p className="text-sm text-slate-700 mt-2 whitespace-pre-wrap break-words bg-white border rounded p-2.5">
+                              <p className="mt-2 whitespace-pre-wrap break-words rounded border bg-white p-2 text-[13px] text-slate-700 sm:p-2.5 sm:text-sm">
                                 {r.comments}
                               </p>
                             )}
@@ -431,9 +466,10 @@ function AdminReviewsInner() {
                               variant="outline"
                               onClick={() => markFollowedUp(r.id)}
                               disabled={acking === r.id}
-                              className="border-rose-300 text-rose-800 hover:bg-rose-50"
+                              aria-label={acking === r.id ? "Saving follow-up" : "Mark review as followed up"}
+                              className="h-10 w-10 shrink-0 border-rose-300 p-0 text-rose-800 hover:bg-rose-50 sm:h-9 sm:w-auto sm:px-3"
                             >
-                              {acking === r.id ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Saving</> : <><CheckCircle2 className="w-3 h-3 mr-1" />Mark followed up</>}
+                              {acking === r.id ? <><Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1" /><span className="sr-only sm:not-sr-only">Saving</span></> : <><CheckCircle2 className="h-3.5 w-3.5 sm:mr-1" /><span className="sr-only sm:not-sr-only">Mark followed up</span></>}
                             </Button>
                           )}
                         </div>

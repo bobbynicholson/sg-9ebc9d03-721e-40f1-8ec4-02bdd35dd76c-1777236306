@@ -39,7 +39,6 @@ import {
   Circle,
   Send,
   Copy,
-  X,
   AlertTriangle,
   Receipt,
 } from "lucide-react";
@@ -114,7 +113,6 @@ interface Props {
   order: OrderLike;
   fromName?: string;
   companyName?: string;
-  onClose: () => void;
 }
 
 // Audit (May 2026): canonical "truck rolling" status is in_transit
@@ -142,7 +140,7 @@ function statusIndex(status: string) {
   return STATUS_FLOW.findIndex((s) => s.key === status);
 }
 
-export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Props) {
+export function OrderDetailsPanel({ order, fromName, companyName }: Props) {
   const { toast } = useToast();
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
@@ -295,7 +293,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
   return (
     <div className="space-y-4">
       {/* HEADER */}
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex min-w-0 items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-mono text-xs text-slate-500">
@@ -305,7 +303,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
               <Badge className={`${eventBadge.tone} text-xs`}>{eventBadge.text}</Badge>
             )}
           </div>
-          <h2 className="text-lg font-semibold text-slate-900 leading-tight mt-1">
+          <h2 className="mt-1 break-words text-lg font-semibold leading-tight text-slate-900">
             {orderDisplayName(order)}
           </h2>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -320,9 +318,6 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
             )}
           </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} className="flex-shrink-0">
-          <X className="h-4 w-4" />
-        </Button>
       </div>
 
       {/* CLIENT BLOCK */}
@@ -335,7 +330,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
             <div className="text-sm">
               <p className="font-medium text-slate-900">{order.client_name || "Unknown"}</p>
               {order.client_email && (
-                <a href={`mailto:${order.client_email}`} className="text-blue-600 hover:underline text-xs flex items-center gap-1 mt-0.5">
+                <a href={`mailto:${order.client_email}`} className="mt-0.5 flex min-w-0 items-center gap-1 break-all text-xs text-blue-600 hover:underline">
                   <Mail className="h-3 w-3" /> {order.client_email}
                 </a>
               )}
@@ -347,8 +342,8 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
             </div>
             <div className="flex gap-1.5 flex-wrap pt-1">
               {order.client_email && (
-                <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={() => setComposeOpen(true)}>
-                  <Send className="h-3 w-3" /> Compose
+                <Button size="sm" variant="outline" className="h-11 w-11 shrink-0 px-0 sm:h-7 sm:w-auto sm:px-2" aria-label="Compose email to client" title="Compose email to client" onClick={() => setComposeOpen(true)}>
+                  <Send className="h-3.5 w-3.5 sm:mr-1" /> <span className="sr-only sm:not-sr-only">Compose</span>
                 </Button>
               )}
               {order.client_phone && (
@@ -358,6 +353,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                   companyId={companyId}
                   recipientName={order.client_name || "client"}
                   buttonLabel="Choose business template (6)"
+                  compactOnMobile
                 />
               )}
               {order.client_phone && (
@@ -367,8 +363,9 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                   clientId={order.client_id || null}
                   size="sm"
                   variant="outline"
-                  className="h-7 text-xs"
+                  className="text-xs sm:h-7"
                   label="Running late draft"
+                  compactOnMobile
                   defaultTemplate="delay_alert"
                   templates={["delay_alert"]}
                   ctx={{

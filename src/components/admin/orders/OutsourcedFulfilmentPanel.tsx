@@ -463,43 +463,42 @@ export function OutsourcedFulfilmentPanel({
   };
 
   return (
-    <div className="col-span-2 rounded-lg border border-slate-200 bg-white">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
-            <HardHat className="w-4 h-4 text-blue-600" />
-            Outsourced fulfilment
-            {assignments.length > 0 && (
-              <span className="text-xs font-normal text-slate-500">({assignments.length})</span>
-            )}
-          </h3>
-          <p className="text-[11px] text-slate-500 mt-0.5">
-            External providers we&apos;ve asked to fulfil parts of this order. Send the magic-link, they tap accept - no login needed.
-          </p>
-        </div>
+    <div className="min-w-0">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <p className="min-w-0 flex-1 text-xs leading-relaxed text-slate-600">
+          Send providers a secure acceptance link. No login required.
+          {assignments.length > 0 && <span className="ml-1 font-medium text-slate-700">{assignments.length} attached</span>}
+        </p>
         <Button
           size="sm"
           variant="outline"
           onClick={openAdd}
           disabled={providers.length === 0}
+          className="h-10 w-10 shrink-0 p-0 sm:h-9 sm:w-auto sm:px-3"
+          aria-label="Add provider"
           title={providers.length === 0 ? "Add a provider first via /admin/outsource-providers" : "Attach an outsource provider"}
         >
-          <Plus className="w-3.5 h-3.5 mr-1" />
-          Add provider
+          <Plus className="h-4 w-4 sm:mr-1" />
+          <span className="hidden sm:inline">Add provider</span>
         </Button>
       </div>
 
-      <div className="p-4">
+      <div className="mt-3 min-w-0">
         {loading ? (
           <div className="text-xs text-slate-500 flex items-center gap-2 py-3">
             <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading...
           </div>
         ) : assignments.length === 0 ? (
-          <div className="text-center py-6">
-            <p className="text-xs text-slate-500">
-              No outsource providers attached yet.
-              {providers.length === 0 && " Register one on /admin/outsource-providers first."}
-            </p>
+          <div className="flex min-w-0 items-start gap-2.5 rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-2.5">
+            <HardHat className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-700">No provider attached yet</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
+                {providers.length === 0
+                  ? "Register a provider in Outsource Providers, then attach them here."
+                  : "Choose Add provider to assign a provider to this order."}
+              </p>
+            </div>
           </div>
         ) : (
           <ul className="space-y-2.5">

@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Truck, Plus, Snowflake, Edit, Trash2, AlertCircle, Search, Flame,
-  User, Building2, Users, AlertTriangle, X, RefreshCw,
+  User, Building2, Users, AlertTriangle, X, RefreshCw, BarChart3,
 } from "lucide-react";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -603,6 +603,7 @@ function VehiclesPage() {
 
           <PortalHeader
             variant="hero"
+            className="mb-3 px-3 py-3 sm:px-5 sm:py-4"
             title={
               <span className="flex items-center gap-2">
                 Vehicles
@@ -634,16 +635,19 @@ function VehiclesPage() {
               ) : undefined
             }
             actions={
-            <>
+            <div className="col-span-full flex w-full justify-end sm:w-auto">
               <Button
+                type="button"
                 size="sm"
-                className="bg-brand-primary hover:opacity-90 gap-2"
+                className="h-10 w-10 shrink-0 bg-brand-primary p-0 hover:opacity-90 md:w-auto md:px-3"
                 onClick={openNew}
+                title="Add vehicle"
+                aria-label="Add vehicle"
               >
                 <Plus className="w-4 h-4" />
-                Add vehicle
+                <span className="sr-only md:not-sr-only">Add vehicle</span>
               </Button>
-            </>
+            </div>
             }
           />
           <PageWorkbench />
@@ -661,30 +665,38 @@ function VehiclesPage() {
           {/* Command-centre restructure: shared StatTile row. Company +
               driver-owned are the visible breakdown of the fleet total,
               so the strip always sums. */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             <StatTile
               label={<span className="inline-flex items-center gap-1">Total fleet <InfoTooltip content="Every active vehicle, company-owned and driver-owned together." /></span>}
               value={loading ? "-" : stats.total}
               hint="Company + driver-owned"
               icon={Truck}
+              compact
+              className="px-3 py-3 sm:px-4 sm:py-3.5"
             />
             <StatTile
               label="Company"
               value={loading ? "-" : stats.company}
               hint="Any driver can take these"
               icon={Building2}
+              compact
+              className="px-3 py-3 sm:px-4 sm:py-3.5"
             />
             <StatTile
               label="Driver-owned"
               value={loading ? "-" : stats.driverOwned}
               hint="Only available with their driver"
               icon={User}
+              compact
+              className="px-3 py-3 sm:px-4 sm:py-3.5"
             />
             <StatTile
               label="Refrigerated"
               value={loading ? "-" : stats.refrigerated}
               hint="Unlock cold-chain orders"
               icon={Snowflake}
+              compact
+              className="px-3 py-3 sm:px-4 sm:py-3.5"
             />
           </div>
 
@@ -725,22 +737,25 @@ function VehiclesPage() {
           )}
 
           {/* Roster vs Utilisation tabs */}
-          <div className="mb-4 flex w-fit gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs shadow-sm">
+          <div className="mb-3 flex w-fit gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs shadow-sm">
             {([
-              { id: "roster", label: "Roster" },
-              { id: "utilisation", label: "Utilisation" },
+              { id: "roster", label: "Roster", icon: Truck },
+              { id: "utilisation", label: "Utilisation", icon: BarChart3 },
             ] as const).map((t) => (
               <button
                 key={t.id}
                 type="button"
                 onClick={() => setTab(t.id)}
-                className={`px-4 py-1.5 rounded-md ${
+                aria-label={`${t.label} view`}
+                title={`${t.label} view`}
+                className={`inline-flex h-10 w-10 items-center justify-center gap-2 rounded-md p-0 md:w-auto md:px-3 ${
                   tab === t.id
                     ? "bg-brand-primary/10 text-brand-primary font-medium"
                     : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                {t.label}
+                <t.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="sr-only md:not-sr-only">{t.label}</span>
               </button>
             ))}
           </div>
@@ -755,8 +770,8 @@ function VehiclesPage() {
           ) : (
             <>
           {/* Filter pills + search - one toolbar card */}
-          <PortalCard className="mb-4 grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_190px_auto] sm:items-center" padded={false}>
-            <div className="relative flex-1">
+          <PortalCard className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] gap-2 p-2.5 sm:mb-4 sm:grid-cols-[minmax(0,1fr)_190px_auto] sm:items-center sm:gap-3 sm:p-3" padded={false}>
+            <div className="relative col-span-full min-w-0 sm:col-span-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 ref={searchRef}
@@ -764,7 +779,7 @@ function VehiclesPage() {
                 placeholder="Search by plate, nickname, make or model (press /)"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary"
+                className="h-9 w-full rounded-md border border-slate-200 py-2 pl-9 pr-9 text-xs focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/30 sm:text-sm"
               />
               {/* Phase 25 #8: clear-search affordance. */}
               {search && (
@@ -783,7 +798,7 @@ function VehiclesPage() {
               value={filter}
               onChange={(event) => setFilter(event.target.value as typeof filter)}
               aria-label="Filter vehicles"
-              className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
+              className="h-9 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 sm:h-10 sm:px-3 sm:text-sm"
             >
               <option value="all">All vehicles</option>
               <option value="company">Company vehicles</option>
@@ -791,8 +806,9 @@ function VehiclesPage() {
               <option value="fridge">Refrigerated vehicles</option>
               <option value="warmer">Vehicles with warmer</option>
             </select>
-            <p className="text-xs text-slate-500 sm:whitespace-nowrap sm:text-right">
-              Showing <span className="font-semibold text-slate-700">{filtered.length}</span> of {vehicles.length} vehicle{vehicles.length === 1 ? "" : "s"}
+            <p className="whitespace-nowrap text-right text-[11px] text-slate-500 sm:text-xs">
+              <span className="sm:hidden"><span className="font-semibold text-slate-700">{filtered.length}</span> / {vehicles.length}</span>
+              <span className="hidden sm:inline">Showing <span className="font-semibold text-slate-700">{filtered.length}</span> of {vehicles.length} vehicle{vehicles.length === 1 ? "" : "s"}</span>
             </p>
           </PortalCard>
 
@@ -837,40 +853,40 @@ function VehiclesPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-slate-900">
+                          <p className="text-sm font-semibold text-slate-900 sm:text-[15px]">
                             {v.nickname ? `${v.nickname} ` : ""}
-                            <span className="font-mono text-sm text-slate-500">{v.plate || "-"}</span>
+                            <span className="font-mono text-xs text-slate-500 sm:text-sm">{v.plate || "-"}</span>
                           </p>
                           {v.owner_kind === "driver" ? (
-                            <Badge className="bg-amber-100 text-amber-800 border-0 text-[10px] gap-1">
+                            <Badge className="gap-1 border-0 bg-amber-100 text-[11px] text-amber-800">
                               <User className="w-3 h-3" />
                               {v.driver_owner_id ? driverNameById[v.driver_owner_id] || "Driver-owned" : "Driver-owned"}
                             </Badge>
                           ) : (
-                            <Badge className="border border-slate-200 bg-slate-50 text-slate-700 text-[10px] gap-1">
+                            <Badge className="gap-1 border border-slate-200 bg-slate-50 text-[11px] text-slate-700">
                               <Building2 className="w-3 h-3" />
                               Company
                             </Badge>
                           )}
                           {v.refrigerated && (
-                            <Badge className="border border-sky-200 bg-sky-50 text-sky-700 text-[10px] gap-1">
+                            <Badge className="gap-1 border border-sky-200 bg-sky-50 text-[11px] text-sky-700">
                               <Snowflake className="w-3 h-3" />
                               Fridge
                             </Badge>
                           )}
                           {v.has_warmer && (
-                            <Badge className="bg-orange-100 text-orange-800 border-0 text-[10px] gap-1">
+                            <Badge className="gap-1 border-0 bg-orange-100 text-[11px] text-orange-800">
                               <Flame className="w-3 h-3" />
                               Warmer
                             </Badge>
                           )}
                           {v.requires_two_people && (
-                            <Badge className="bg-rose-100 text-rose-800 border-0 text-[10px] gap-1">
+                            <Badge className="gap-1 border-0 bg-rose-100 text-[11px] text-rose-800">
                               <Users className="w-3 h-3" />
                               2-person
                             </Badge>
                           )}
-                          {!v.is_active && <Badge variant="secondary" className="text-[10px]">Inactive</Badge>}
+                          {!v.is_active && <Badge variant="secondary" className="text-[11px]">Inactive</Badge>}
                         </div>
                         <p className="text-xs text-slate-500 truncate">
                           {[v.make, v.model, v.year ? `${v.year}` : null].filter(Boolean).join(" ")}
@@ -883,10 +899,10 @@ function VehiclesPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1 self-end sm:self-auto">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(v)} title="Edit">
+                      <Button variant="ghost" size="sm" className="h-10 w-10 shrink-0 p-0 sm:h-9 sm:w-9" onClick={() => openEdit(v)} title="Edit" aria-label={`Edit ${v.plate || "vehicle"}`}>
                         <Edit className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50" onClick={() => setDeleteTarget(v)} title="Delete">
+                      <Button variant="ghost" size="sm" className="h-10 w-10 shrink-0 p-0 text-rose-500 hover:bg-rose-50 hover:text-rose-700 sm:h-9 sm:w-9" onClick={() => setDeleteTarget(v)} title="Delete" aria-label={`Delete ${v.plate || "vehicle"}`}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
@@ -902,7 +918,7 @@ function VehiclesPage() {
 
       {/* Add / Edit dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-2xl overflow-y-auto p-3 sm:max-h-[90vh] sm:p-6">
           <DialogHeader>
             <DialogTitle>{editTarget ? `Edit ${editTarget.plate}` : "Add vehicle"}</DialogTitle>
             <DialogDescription>
@@ -912,7 +928,7 @@ function VehiclesPage() {
 
           <div className="space-y-4">
             {/* Identity */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label htmlFor="plate">Number plate *</Label>
                 <Input id="plate" value={form.plate} onChange={e => setForm({ ...form, plate: e.target.value })} placeholder="CA 123-456" className="mt-1" />
@@ -953,7 +969,7 @@ function VehiclesPage() {
                   Ownership
                   <InfoTooltip content={"Company-owned vehicles can be assigned to any driver.\n\nDriver-owned means the driver brings their own bakkie. The vehicle is only available when that driver is on the run."} />
                 </Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, owner_kind: "company", driver_owner_id: "" })}
@@ -1111,7 +1127,7 @@ function VehiclesPage() {
                     Log a service
                   </Button>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <Label htmlFor="service_interval_days" className="text-xs">Service interval (days)</Label>
                     <Input
@@ -1379,18 +1395,18 @@ function UtilisationView({
   const fmtR = (v: number) => formatZAR(v, { decimals: 0 });
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-lg border border-slate-200 bg-white shadow-sm p-3 flex flex-wrap items-center gap-3">
-        <span className="text-xs text-slate-500 font-semibold uppercase tracking-wide">
+    <div className="space-y-3 sm:space-y-4">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm sm:gap-3 sm:p-3">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 sm:text-xs">
           Window
         </span>
-        <div className="flex gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs">
+        <div className="flex gap-1 rounded-lg border border-slate-200 bg-white p-1 text-[11px] sm:text-xs">
           {([7, 30, 90] as const).map((n) => (
             <button
               key={n}
               type="button"
               onClick={() => onDaysChange(n)}
-              className={`px-3 py-1.5 rounded-md ${
+              className={`min-h-8 rounded-md px-2.5 py-1 sm:px-3 ${
                 days === n
                   ? "bg-brand-primary/10 text-brand-primary font-medium"
                   : "text-slate-600 hover:bg-slate-50"
@@ -1401,7 +1417,7 @@ function UtilisationView({
           ))}
         </div>
         <div className="flex-1" />
-        <div className="text-xs text-slate-600">
+        <div className="basis-full text-[11px] leading-4 text-slate-600 sm:ml-auto sm:basis-auto sm:text-xs">
           <strong className="text-slate-900">{totals.runs}</strong> runs ·
           {" "}<strong className="text-slate-900">{totals.hours.toFixed(1)}h</strong> on the road ·
           {" "}<strong className="text-slate-900">{totals.distance.toFixed(0)}km</strong> ·
@@ -1409,7 +1425,7 @@ function UtilisationView({
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-x-auto">
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         {loading ? (
           <div className="text-center py-12">
             <div className="animate-spin w-6 h-6 border-2 border-brand-primary border-t-transparent rounded-full mx-auto mb-3" />
@@ -1420,7 +1436,44 @@ function UtilisationView({
             No vehicles in the fleet yet. Add one on the Roster tab.
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <>
+          <div className="grid gap-2 p-2 lg:hidden">
+            {rows.map((r) => {
+              const share = (r.plannedHours / totalsHours) * 100;
+              const isQuiet = r.runs === 0;
+              return (
+                <article key={r.vehicle.id} className={`min-w-0 rounded-md border p-2.5 ${isQuiet ? "border-amber-200 bg-amber-50/40" : "border-slate-200 bg-white"}`}>
+                  <div className="flex min-w-0 items-start gap-2">
+                    {r.vehicle.refrigerated
+                      ? <Snowflake className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+                      : r.vehicle.has_warmer
+                        ? <Flame className="mt-0.5 h-4 w-4 shrink-0 text-orange-600" />
+                        : <Truck className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <span className="min-w-0 break-words text-xs font-semibold text-slate-900">
+                          {r.vehicle.nickname ? `${r.vehicle.nickname} ` : ""}
+                          <span className="font-mono font-normal text-slate-500">{r.vehicle.plate}</span>
+                        </span>
+                        {r.vehicle.owner_kind === "driver" && <Badge className="border-0 bg-amber-100 text-[10px] text-amber-800">Driver-owned</Badge>}
+                        {isQuiet && <Badge className="border-0 bg-rose-100 text-[10px] text-rose-800">Idle</Badge>}
+                      </div>
+                      <dl className="mt-2 grid grid-cols-2 gap-1.5 text-xs">
+                        <div className="rounded bg-slate-50 px-2 py-1"><dt className="text-[10px] text-slate-500">Runs</dt><dd className="font-semibold tabular-nums text-slate-900">{r.runs}</dd></div>
+                        <div className="rounded bg-slate-50 px-2 py-1"><dt className="text-[10px] text-slate-500">Hours</dt><dd className="font-semibold tabular-nums text-slate-900">{r.plannedHours.toFixed(1)}</dd></div>
+                        <div className="rounded bg-slate-50 px-2 py-1"><dt className="text-[10px] text-slate-500">Share</dt><dd className="flex items-center gap-1.5 font-semibold tabular-nums text-slate-900"><span>{share.toFixed(0)}%</span><span className="h-1 w-10 overflow-hidden rounded-full bg-slate-200"><span className="block h-full bg-brand-primary" style={{ width: `${Math.min(100, share)}%` }} /></span></dd></div>
+                        <div className="rounded bg-slate-50 px-2 py-1"><dt className="text-[10px] text-slate-500">Distance</dt><dd className="font-semibold tabular-nums text-slate-900">{r.distanceKm > 0 ? `${r.distanceKm.toFixed(0)} km` : "-"}</dd></div>
+                        <div className="rounded bg-slate-50 px-2 py-1"><dt className="text-[10px] text-slate-500">Revenue carried</dt><dd className="font-semibold tabular-nums text-slate-900">{r.revenueCarried > 0 ? fmtR(r.revenueCarried) : "-"}</dd></div>
+                        <div className="rounded bg-slate-50 px-2 py-1"><dt className="text-[10px] text-slate-500">Cancels</dt><dd className={`font-semibold tabular-nums ${r.cancelledRuns > 0 ? "text-rose-700" : "text-slate-500"}`}>{r.cancelledRuns}</dd></div>
+                      </dl>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          <div className="hidden overflow-x-auto lg:block">
+          <table className="w-full min-w-[850px] text-sm">
             <thead className="text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200 bg-slate-50">
               <tr>
                 <th className="text-left px-4 py-2.5">Vehicle</th>
@@ -1485,10 +1538,12 @@ function UtilisationView({
               })}
             </tbody>
           </table>
+          </div>
+          </>
         )}
       </div>
 
-      <p className="text-[11px] text-slate-500">
+      <p className="text-[10px] leading-4 text-slate-500 sm:text-[11px]">
         Hours are taken from each booking's depart-to-back-at-kitchen window. Distance and revenue
         come from the linked order. Cancelled bookings are counted in the Cancels column but not in
         the runs / hours / distance totals.

@@ -83,35 +83,36 @@ export function NewLeadsTodayWidget({ companyId }: { companyId: string | null })
   if (!loading && rows.length === 0) return null;
 
   return (
-    <Card className="mb-6 border-brand-primary/20 bg-brand-primary/5">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="w-4 h-4 text-brand-primary" />
-              New leads (last 24h)
+    <Card className="mb-6 min-w-0 max-w-full overflow-hidden border-brand-primary/20 bg-brand-primary/5">
+      <CardHeader className="min-w-0 px-3 pb-2.5 pt-3 sm:px-6 sm:pb-3 sm:pt-6">
+        <div className="flex min-w-0 items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm leading-5 sm:gap-2 sm:text-base">
+              <Sparkles className="h-4 w-4 shrink-0 text-brand-primary" />
+              <span className="min-w-0">New leads (last 24h)</span>
               {rows.length > 0 && (
-                <Badge className="ml-2 bg-brand-primary/15 text-brand-primary border-brand-primary/30 text-[10px]">
+                <Badge className="ml-0.5 shrink-0 border-brand-primary/30 bg-brand-primary/15 px-1.5 text-[9px] sm:ml-2 sm:text-[10px]">
                   {rows.length}
                 </Badge>
               )}
             </CardTitle>
-            <CardDescription className="text-xs">
-              Fresh enquiries waiting on first contact. First response wins - the longer they sit the colder they go.
+            <CardDescription className="mt-1 max-w-prose text-[10px] leading-4 sm:text-xs">
+              Fresh enquiries waiting on a first response.
             </CardDescription>
           </div>
-          <Link href={withSlug("/admin/leads")}>
-            <Button variant="ghost" size="sm" className="text-brand-primary">
-              All leads <ArrowRight className="w-3.5 h-3.5 ml-1" />
+          <Link href={withSlug("/admin/leads")} aria-label="View all leads" title="View all leads" className="shrink-0">
+            <Button variant="ghost" size="sm" className="h-9 w-9 shrink-0 px-0 text-brand-primary sm:h-8 sm:w-auto sm:px-2">
+              <span className="sr-only sm:not-sr-only">All leads</span>
+              <ArrowRight className="ml-0 h-3.5 w-3.5 sm:ml-1" />
             </Button>
           </Link>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0 px-3 pb-3 sm:px-6 sm:pb-6">
         {loading ? (
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
-          <ul className="divide-y divide-brand-primary/15">
+          <ul className="min-w-0 divide-y divide-brand-primary/15">
             {rows.map((r) => {
               const name = r.contact_name || r.client_name || "Unknown enquiry";
               const email = r.email || r.client_email || "";
@@ -122,37 +123,38 @@ export function NewLeadsTodayWidget({ companyId }: { companyId: string | null })
                 <li key={r.id}>
                   <Link
                     href={withSlug(`/admin/leads?leadId=${r.id}`)}
-                    className="py-2 flex items-center gap-3 hover:bg-brand-primary/10 rounded transition"
+                    className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2 rounded px-1.5 py-2 hover:bg-brand-primary/10 sm:gap-x-3 sm:px-2"
                   >
-                    <Badge className="shrink-0 text-[10px] uppercase tracking-wide font-semibold bg-brand-primary/15 text-brand-primary border-brand-primary/20">
+                    <Badge className="mt-0.5 shrink-0 border-brand-primary/20 bg-brand-primary/15 px-1.5 text-[9px] font-semibold uppercase tracking-wide text-brand-primary sm:text-[10px]">
                       {age <= 0 ? "now" : `${age}h ago`}
                     </Badge>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-medium leading-4 text-slate-900 sm:text-sm">
                         {name}
                         {r.source && (
-                          <span className="ml-2 text-[11px] font-normal text-slate-500">
+                          <span className="ml-1 text-[10px] font-normal text-slate-500 sm:ml-2 sm:text-[11px]">
                             via {r.source}
                           </span>
                         )}
                       </p>
-                      <p className="text-[11px] text-slate-500 flex items-center gap-3 flex-wrap">
+                      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] leading-4 text-slate-500 sm:text-[11px]">
                         {email && (
-                          <span className="inline-flex items-center gap-1">
-                            <Mail className="w-3 h-3" />{email}
+                          <span className="inline-flex min-w-0 basis-full items-center gap-1 sm:basis-auto">
+                            <Mail className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{email}</span>
                           </span>
                         )}
                         {phone && (
-                          <span className="inline-flex items-center gap-1">
-                            <Phone className="w-3 h-3" />{phone}
+                          <span className="inline-flex min-w-0 max-w-full items-center gap-1 whitespace-nowrap">
+                            <Phone className="h-3 w-3 shrink-0" />{phone}
                           </span>
                         )}
                         {r.event_date && (
-                          <span className="text-slate-700">
+                          <span className="min-w-0 text-slate-600">
                             Event {r.event_date}
                           </span>
                         )}
-                      </p>
+                      </div>
                     </div>
                   </Link>
                 </li>

@@ -31,6 +31,7 @@ export function RowPrimaryAction({
   disabled,
   tooltip,
   className,
+  compactOnMobile = false,
 }: {
   tone: RowActionTone;
   label: string;
@@ -39,6 +40,7 @@ export function RowPrimaryAction({
   disabled?: boolean;
   tooltip?: string;
   className?: string;
+  compactOnMobile?: boolean;
 }) {
   return (
     <Button
@@ -46,10 +48,11 @@ export function RowPrimaryAction({
       onClick={onClick}
       disabled={disabled}
       title={tooltip}
-      className={`gap-1.5 font-semibold ${TONE_CLASS[tone]} ${className || ""}`}
+      aria-label={compactOnMobile ? label : undefined}
+      className={`gap-1.5 font-semibold ${compactOnMobile ? "h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3" : ""} ${TONE_CLASS[tone]} ${className || ""}`}
     >
       {icon}
-      {label}
+      <span className={compactOnMobile ? "sr-only sm:not-sr-only" : undefined}>{label}</span>
     </Button>
   );
 }

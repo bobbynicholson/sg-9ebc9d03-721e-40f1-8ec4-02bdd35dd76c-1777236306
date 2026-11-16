@@ -15,9 +15,11 @@ import { PortalShell, PortalHeader,
 import { Card, CardContent, CardHeader, CardTitle , CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, MapPin, Users, ArrowRight, Sparkles, Keyboard, Download, RefreshCw, AlertCircle, ChefHat, Truck, Package, Droplets, PartyPopper } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, MoreHorizontal, Plus, Clock, MapPin, Users, ArrowRight, Sparkles, Keyboard, Download, RefreshCw, AlertCircle, ChefHat, Truck, Package, Droplets, PartyPopper } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -37,6 +39,7 @@ import { onOrderUpdated } from "@/lib/events/orderEvents";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { isAutomatedTestOrder, isAutomatedTestQuote } from "@/lib/testDataDetection";
 import { DEFAULT_MAX_CONCURRENT_EVENTS, resolveMaxConcurrentEvents } from "@/lib/eventCapacity";
+import styles from "./calendar.module.css";
 
 // CAL-C (CAL-4): region_admin + sales_admin need diary access.
 // RLS on orders narrows region_admin to their regions_covered
@@ -68,6 +71,10 @@ const STATUS_TONES: Record<string, string> = {
   paused:     "bg-blue-100 text-blue-800 border-blue-300 border-dashed",
 };
 
+const CALENDAR_ORDER_STATUSES = [
+  "confirmed", "preparing", "ready", "in_transit", "delivered", "completed",
+] as const;
+
 // TIGHTEN I.84: fmtMoney moved inside the component so the calendar
 // uses the active tenant's currency (was hardcoded ZAR module-scope).
 
@@ -93,6 +100,28 @@ interface OpenQuote {
   status: string;
   valid_until: string | null;
   sent_at: string | null;
+}
+
+function buildOrdersByDay(source: AppOrder[]): Record<string, AppOrder[]> {
+  const map: Record<string, AppOrder[]> = {};
+  source.forEach((order) => {
+    if (String((order as any).status || "").toLowerCase() === "cancelled") return;
+    const startISO = (order.event_date as any)?.split?.("T")?.[0] || (order as any).event_date;
+    if (!startISO) return;
+    const endISO = ((order as any).event_end_date as string | undefined) || startISO;
+    const start = new Date(`${startISO}T12:00:00`);
+    const end = new Date(`${endISO}T12:00:00`);
+    let iterations = 0;
+    for (let date = new Date(start); date.getTime() <= end.getTime() && iterations < 60; date.setDate(date.getDate() + 1)) {
+      const iso = toLocalISO(date);
+      (map[iso] = map[iso] || []).push(order);
+      iterations += 1;
+    }
+  });
+  Object.values(map).forEach((events) =>
+    events.sort((a: any, b: any) => String(a.event_time || "23:59").localeCompare(String(b.event_time || "23:59"))),
+  );
+  return map;
 }
 
 function AdminCalendar() {
@@ -154,6 +183,7 @@ function AdminCalendar() {
   }, [layers]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   // Audit fix (2026-07-02): a failed events load only fired a
   // transient toast, then the grid rendered empty and read as "no
@@ -255,11 +285,6 @@ function AdminCalendar() {
       // is excluded server-side. Pending / draft stays off the
       // calendar entirely - those belong on /admin/quotes and
       // /admin/orders, not the kitchen / dispatch surface.
-      const CALENDAR_STATUSES = [
-        "confirmed", "preparing", "ready",
-        "in_transit", "delivered", "completed",
-      ] as const;
-
       // Null event_dates can't render on a calendar grid - drop
       // them from the load. They're still visible on /admin/orders.
       // order_items(*) was being pulled but is never read on this
@@ -275,7 +300,7 @@ function AdminCalendar() {
         `)
         .eq("company_id", user.company_id)
         .is("deleted_at", null)
-        .in("status", CALENDAR_STATUSES)
+        .in("status", CALENDAR_ORDER_STATUSES)
         .gte("event_date", startISO)
         .lte("event_date", endISO)
         .order("event_date", { ascending: true });
@@ -415,40 +440,17 @@ function AdminCalendar() {
     };
   }, [currentDate]);
 
-  const ordersByDay = useMemo(() => {
-    const map: Record<string, AppOrder[]> = {};
-    orders.forEach((o) => {
-      // Skip cancelled orders so they don't visually fill the diary.
-      if (String((o as any).status || "").toLowerCase() === "cancelled") return;
-      const startISO = (o.event_date as any)?.split?.("T")?.[0] || (o as any).event_date;
-      if (!startISO) return;
-      // Wave 70.70: multi-day events. event_end_date defaults to
-      // event_date via the orders trigger; for a single-day event
-      // start === end and the loop fires once. For a 3-day event
-      // the order lands in three day cells with the SAME row
-      // reference (so click-into-day, conflict detection and
-      // capacity counts all naturally include the day in
-      // question). Trigger guarantees end >= start, so the loop
-      // can't run forever even on bad data; we cap at 60 days
-      // defensively.
-      const endISO = ((o as any).event_end_date as string | undefined) || startISO;
-      const start = new Date(`${startISO}T12:00:00`);
-      const end = new Date(`${endISO}T12:00:00`);
-      const maxIters = 60;
-      let iters = 0;
-      for (let d = new Date(start); d.getTime() <= end.getTime() && iters < maxIters; d.setDate(d.getDate() + 1)) {
-        const k = toLocalISO(d);
-        (map[k] = map[k] || []).push(o);
-        iters += 1;
-      }
-    });
-    Object.values(map).forEach((arr) =>
-      arr.sort((a: any, b: any) =>
-        String(a.event_time || "23:59").localeCompare(String(b.event_time || "23:59")),
-      ),
-    );
-    return map;
-  }, [orders]);
+  const calendarOrders = useMemo(
+    () => statusFilter === "all"
+      ? orders
+      : orders.filter((order) => String(order.status || "").toLowerCase() === statusFilter),
+    [orders, statusFilter],
+  );
+  const allOrdersByDay = useMemo(() => buildOrdersByDay(orders), [orders]);
+  const ordersByDay = useMemo(
+    () => statusFilter === "all" ? allOrdersByDay : buildOrdersByDay(calendarOrders),
+    [allOrdersByDay, calendarOrders, statusFilter],
+  );
 
   const quotesByDay = useMemo(() => {
     const map: Record<string, OpenQuote[]> = {};
@@ -582,8 +584,11 @@ function AdminCalendar() {
   // Keyboard navigation: arrows, T for today, [ ] for months
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return;
-      if (e.target instanceof HTMLTextAreaElement) return;
+      const target = e.target instanceof HTMLElement ? e.target : null;
+      if (target?.closest("input, textarea, select, [contenteditable='true'], [role='combobox'], [role='listbox'], [role='option'], [role='menuitem'], a")) return;
+      // Calendar shortcuts should not steal Enter, Space or arrow keys
+      // from status filters, month controls, and other focused buttons.
+      if (target?.closest("button") && !target.closest("[data-calendar-day]")) return;
       if (!focusedISO) return;
 
       // Wave 70.66: parse the focused ISO date as local-noon so
@@ -640,10 +645,10 @@ function AdminCalendar() {
   // The preview list slices this to 5 separately so the count isn't
   // capped at five (a real bookings number is the useful figure).
   const upcomingAll = useMemo(() =>
-    orders
+    calendarOrders
       .filter((o) => (o.event_date as any) >= todayISO && o.status !== "cancelled")
       .sort((a, b) => String(a.event_date).localeCompare(String(b.event_date))),
-  [orders, todayISO]);
+  [calendarOrders, todayISO]);
   const upcoming = useMemo(() => upcomingAll.slice(0, 5), [upcomingAll]);
 
   // Events with an event date in the visible month. Shared by the
@@ -651,11 +656,11 @@ function AdminCalendar() {
   // never disagree. parseLocalDay avoids the UTC-midnight parse
   // pushing month-boundary events into the wrong bucket west of UTC.
   const eventsThisMonth = useMemo(() =>
-    orders.filter((o: any) => {
+    calendarOrders.filter((o: any) => {
       const d = parseLocalDay(o.event_date);
       return d && d.getMonth() === month && d.getFullYear() === year;
     }).length,
-  [orders, month, year]);
+  [calendarOrders, month, year]);
 
   /** Wave 70.69: assignment review. For every day, detect events
    *  that share a driver / vehicle / chef. The same resource may be
@@ -666,7 +671,7 @@ function AdminCalendar() {
    *  surfaced on the gap-finder tile. */
   const opsConflictsByDay = useMemo(() => {
     const map: Record<string, string[]> = {};
-    for (const [iso, dayEvents] of Object.entries(ordersByDay)) {
+    for (const [iso, dayEvents] of Object.entries(allOrdersByDay)) {
       const reasons: string[] = [];
       const seenDriver = new Map<string, string>(); // id -> first client name
       const seenVehicle = new Map<string, string>();
@@ -695,7 +700,7 @@ function AdminCalendar() {
       if (reasons.length > 0) map[iso] = reasons;
     }
     return map;
-  }, [ordersByDay]);
+  }, [allOrdersByDay]);
 
   /** Next-30-day diary stats. Drives the gap-finder strip + sidebar:
    *  the operator sees at a glance how many days are booked, how many
@@ -720,7 +725,7 @@ function AdminCalendar() {
       const d = new Date(today);
       d.setDate(today.getDate() + i);
       const iso = toLocalISO(d);
-      const ev = ordersByDay[iso] || [];
+      const ev = allOrdersByDay[iso] || [];
       const qu = quotesByDay[iso] || [];
       if (ev.length > 0) booked += 1;
       else if (qu.length > 0) winnable += 1;
@@ -748,10 +753,13 @@ function AdminCalendar() {
       opsConflictDays,
       capacityDays,
     };
-  }, [ordersByDay, quotesByDay, opsConflictsByDay, todayISO, maxConcurrent]);
+  }, [allOrdersByDay, quotesByDay, opsConflictsByDay, todayISO, maxConcurrent]);
 
   const dayEvents = selectedDate
     ? ordersByDay[toLocalISO(selectedDate)] || []
+    : [];
+  const allDayEvents = selectedDate
+    ? allOrdersByDay[toLocalISO(selectedDate)] || []
     : [];
   const dayQuotes = selectedDate
     ? quotesByDay[toLocalISO(selectedDate)] || []
@@ -865,7 +873,7 @@ function AdminCalendar() {
       <AdminNav />
 
       <div className="admin-page-shell">
-        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+        <PortalShell className={`min-h-0 bg-transparent dark:bg-transparent ${styles.compactTypography}`}>
 
           <PortalHeader
             variant="hero"
@@ -875,15 +883,15 @@ function AdminCalendar() {
             meta={
               !loading && !loadError ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {upcomingAll.length} upcoming event{upcomingAll.length === 1 ? "" : "s"}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     {horizonStats.booked} booked day{horizonStats.booked === 1 ? "" : "s"} in the next 30
                   </span>
                   {horizonStats.winnable > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/15 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/15 px-2.5 py-1 text-xs font-semibold text-amber-200">
                       {horizonStats.winnable} winnable day{horizonStats.winnable === 1 ? "" : "s"}
                     </span>
                   )}
@@ -1095,22 +1103,73 @@ function AdminCalendar() {
           />
           <PageWorkbench />
 
-          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
-            <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Calendar tools</span>
-            <Button variant="outline" size="sm" onClick={jumpToday} className="gap-1.5">
-              <Sparkles className="h-3.5 w-3.5" /> Today
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => document.getElementById("calendar-export-csv")?.click()} className="gap-1.5">
-              <Download className="h-3.5 w-3.5" /> Export month
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => document.getElementById("calendar-export-ical")?.click()} className="gap-1.5">
-              <CalendarIcon className="h-3.5 w-3.5" /> Export iCal
-            </Button>
-            <Link href={withSlug("/admin/orders")}>
-              <Button size="sm" className="gap-1.5 bg-brand-primary hover:opacity-90">
-                <Plus className="h-3.5 w-3.5" /> New Event
-              </Button>
-            </Link>
+          <div className="mb-4 flex min-w-0 items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm sm:px-4">
+            <div className="flex min-w-0 items-center gap-2">
+              <CalendarIcon className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
+              <span className="hidden truncate text-sm font-semibold text-slate-800 sm:inline">Calendar tools</span>
+            </div>
+            <div className="flex min-w-0 items-center gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger
+                  aria-label="Filter calendar by order status"
+                  title="Filter calendar by order status"
+                  className={cn(
+                    "h-10 w-36 min-w-0 text-xs sm:w-44 sm:text-sm",
+                    statusFilter !== "all" && "border-brand-primary/50 bg-brand-primary/[0.03]",
+                  )}
+                >
+                  <SelectValue placeholder="All statuses" />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  <SelectItem value="all">All statuses</SelectItem>
+                  {CALENDAR_ORDER_STATUSES.map((status) => (
+                    <SelectItem key={status} value={status} className="capitalize">
+                      {status.replace("_", " ")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label="Open calendar tools"
+                    title="Open calendar tools"
+                    className="h-10 w-10 shrink-0 px-0 sm:w-auto sm:gap-2 sm:px-3"
+                  >
+                    <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                    <span className="hidden sm:inline">Open tools</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" collisionPadding={12} className="w-[min(calc(100vw-1.5rem),18rem)] p-1.5">
+                  <DropdownMenuLabel className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Calendar actions
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem onSelect={jumpToday} className="min-h-11 gap-3 px-3 text-sm">
+                    <Sparkles className="h-4 w-4 text-slate-500" />
+                    Jump to today
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => document.getElementById("calendar-export-csv")?.click()} className="min-h-11 gap-3 px-3 text-sm">
+                    <Download className="h-4 w-4 text-slate-500" />
+                    Export this month as CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => document.getElementById("calendar-export-ical")?.click()} className="min-h-11 gap-3 px-3 text-sm">
+                    <CalendarIcon className="h-4 w-4 text-slate-500" />
+                    Export this month as iCalendar
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild className="min-h-11 gap-3 px-3 text-sm">
+                    <Link href={withSlug("/admin/orders")}>
+                      <Plus className="h-4 w-4 text-slate-500" />
+                      Create a new event
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
 
           {/* Load-failure panel: without it a failed fetch rendered an
@@ -1122,8 +1181,9 @@ function AdminCalendar() {
                 <p className="text-sm font-semibold text-rose-900">Couldn't load calendar events</p>
                 <p className="text-xs text-rose-800 mt-0.5">{loadError}</p>
               </div>
-              <Button variant="outline" size="sm" onClick={loadOrders} disabled={loading}>
-                Retry
+              <Button variant="outline" size="sm" className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3" onClick={loadOrders} disabled={loading} aria-label="Retry loading calendar events" title="Retry loading calendar events">
+                <RefreshCw className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Retry</span>
               </Button>
             </div>
           )}
@@ -1142,57 +1202,61 @@ function AdminCalendar() {
               the grid, gap-finder and sidebar use, so every surface
               agrees. Skeletons keep the rail during the first load. */}
           {loading && orders.length === 0 ? (
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6" aria-hidden="true">
+            <div className="grid grid-cols-2 gap-3 mb-5 sm:gap-4 sm:mb-6 xl:grid-cols-4" aria-hidden="true">
               {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white/70 dark:border-slate-800 dark:bg-slate-900/60" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 gap-3 mb-5 sm:gap-4 sm:mb-6 xl:grid-cols-4">
               <StatTile
                 label="Upcoming events"
                 value={upcomingAll.length}
                 hint="Dated today or later"
                 icon={CalendarIcon}
+                compact
               />
               <StatTile
                 label={`${monthNames[month]} events`}
                 value={eventsThisMonth}
                 hint="In the month on screen"
                 icon={Clock}
+                compact
               />
               <StatTile
                 label="Booked days"
                 value={horizonStats.booked}
                 hint="Days with an event in the next 30"
                 icon={Users}
+                compact
               />
               <StatTile
                 label="Winnable days"
                 value={<span className={horizonStats.winnable > 0 ? "text-amber-600" : undefined}>{horizonStats.winnable}</span>}
                 hint="Open quotes, nothing booked yet"
                 icon={Sparkles}
+                compact
               />
             </div>
           )}
 
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            <div className="xl:col-span-2">
+          <div className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-3">
+            <div className="min-w-0 xl:col-span-2">
               <Card>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                       <Button variant="outline" size="sm" onClick={previousMonth} aria-label="Previous month">
                         <ChevronLeft className="w-4 h-4" />
                       </Button>
-                      <h2 className="text-xl font-bold tabular-nums">
+                      <h2 className="text-lg font-bold tabular-nums sm:text-xl">
                         {monthNames[month]} {year}
                       </h2>
                       <Button variant="outline" size="sm" onClick={nextMonth} aria-label="Next month">
                         <ChevronRight className="w-4 h-4" />
                       </Button>
                     </div>
-                    <div className="hidden md:flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-500">
                       <Keyboard className="w-3.5 h-3.5" />
                       <kbd className="px-1.5 py-0.5 bg-slate-100 rounded">←→↑↓</kbd>
                       <span>nav</span>
@@ -1253,8 +1317,12 @@ function AdminCalendar() {
                           >
                             <button
                               type="button"
+                              data-calendar-day={d.iso}
                               className="w-full text-left"
-                              onClick={() => setSelectedDate(new Date(year, month, Number(d.iso.slice(8, 10))))}
+                              onClick={() => {
+                                setFocusedISO(d.iso);
+                                setSelectedDate(new Date(year, month, Number(d.iso.slice(8, 10))));
+                              }}
                             >
                               <div className="flex items-center justify-between mb-2">
                                 <span className={cn(
@@ -1363,6 +1431,7 @@ function AdminCalendar() {
                       const date = new Date(year, month, day);
                       const iso = toLocalISO(date);
                       const events = ordersByDay[iso] || [];
+                      const allEvents = allOrdersByDay[iso] || [];
                       const quotes = quotesByDay[iso] || [];
                       const isToday = iso === todayISO;
                       const isPast = iso < todayISO;
@@ -1378,22 +1447,22 @@ function AdminCalendar() {
                       // Diary state - drives the cell border colour. Past
                       // days are excluded from the gap-finder logic; they
                       // can't be filled retroactively.
-                      const overCapacity = events.length > maxConcurrent;
-                      const atCapacity = events.length >= maxConcurrent;
+                      const overCapacity = allEvents.length > maxConcurrent;
+                      const atCapacity = allEvents.length >= maxConcurrent;
                       const hasQuotes = !isPast && quotes.length > 0;
                       // A day with ANY paused order surfaces as "paused"
                       // (dashed blue) so the operator can spot at-risk
                       // bookings at a glance. Capacity still counts the
                       // paused orders - they're holding the slot.
-                      const pausedCount = events.filter((e: any) => String(e.status).toLowerCase() === "paused").length;
+                      const pausedCount = allEvents.filter((e: any) => String(e.status).toLowerCase() === "paused").length;
                       const hasPaused = pausedCount > 0;
-                      const allPaused = events.length > 0 && pausedCount === events.length;
+                      const allPaused = allEvents.length > 0 && pausedCount === allEvents.length;
                       const cellState: "selected" | "capacity" | "booked_with_quotes" | "booked" | "paused" | "winnable" | "empty" =
                         isSelected ? "selected"
                         : atCapacity ? "capacity"
                         : allPaused ? "paused"
-                        : (events.length > 0 && hasQuotes) ? "booked_with_quotes"
-                        : events.length > 0 ? "booked"
+                        : (allEvents.length > 0 && hasQuotes) ? "booked_with_quotes"
+                        : allEvents.length > 0 ? "booked"
                         : hasQuotes ? "winnable"
                         : "empty";
 
@@ -1401,10 +1470,11 @@ function AdminCalendar() {
                         <button
                           key={iso}
                           ref={isFocused ? focusedRef : undefined}
+                          data-calendar-day={iso}
                           onClick={() => { setSelectedDate(date); setFocusedISO(iso); }}
                           onMouseEnter={() => setFocusedISO(iso)}
                           className={cn(
-                            "relative min-h-[88px] p-2 rounded-lg border-2 text-left transition-all",
+                            "relative min-h-[88px] min-w-0 p-2 rounded-lg border-2 text-left transition-all",
                             "hover:shadow-md hover:scale-[1.02] focus:outline-none",
                             isToday  && "ring-2 ring-slate-500 ring-offset-1",
                             cellState === "selected"          && "bg-slate-50 border-slate-500",
@@ -1418,7 +1488,7 @@ function AdminCalendar() {
                             !allPaused && hasPaused && cellState !== "selected" && "ring-1 ring-blue-300",
                             isFocused && !isSelected && "ring-1 ring-slate-300",
                           )}
-                          aria-label={`${day} ${monthNames[month]}, ${events.length} event${events.length === 1 ? "" : "s"}${pausedCount > 0 ? `, ${pausedCount} paused` : ""}, ${quotes.length} quote${quotes.length === 1 ? "" : "s"} pending`}
+                          aria-label={`${day} ${monthNames[month]}, ${events.length} matching event${events.length === 1 ? "" : "s"}${statusFilter !== "all" ? ` of ${allEvents.length} total` : ""}${pausedCount > 0 ? `, ${pausedCount} paused` : ""}, ${quotes.length} quote${quotes.length === 1 ? "" : "s"} pending`}
                         >
                           <div className="flex items-center justify-between">
                             <span className={cn(
@@ -1528,27 +1598,27 @@ function AdminCalendar() {
                               const hol = holidaysByDay[iso];
                               const chips: React.ReactNode[] = [];
                               if (layers.kitchen && k > 0) chips.push(
-                                <span key="k" className="inline-flex items-center gap-0.5 text-[9px] text-orange-700 bg-orange-50 border border-orange-100 rounded px-1 py-px" title={`${k} kitchen shift${k === 1 ? "" : "s"} rostered`}>
+                                <span key="k" className="inline-flex items-center gap-0.5 text-[10px] text-orange-700 bg-orange-50 border border-orange-100 rounded px-1 py-px" title={`${k} kitchen shift${k === 1 ? "" : "s"} rostered`}>
                                   <ChefHat className="w-2.5 h-2.5" />{k}
                                 </span>,
                               );
                               if (layers.drivers && d > 0) chips.push(
-                                <span key="d" className="inline-flex items-center gap-0.5 text-[9px] text-blue-700 bg-blue-50 border border-blue-100 rounded px-1 py-px" title={`${d} driver shift${d === 1 ? "" : "s"} rostered`}>
+                                <span key="d" className="inline-flex items-center gap-0.5 text-[10px] text-blue-700 bg-blue-50 border border-blue-100 rounded px-1 py-px" title={`${d} driver shift${d === 1 ? "" : "s"} rostered`}>
                                   <Truck className="w-2.5 h-2.5" />{d}
                                 </span>,
                               );
                               if (layers.equipment && eq > 0) chips.push(
-                                <span key="e" className="inline-flex items-center gap-0.5 text-[9px] text-slate-700 bg-slate-50 border border-slate-100 rounded px-1 py-px" title={`${eq} equipment booking${eq === 1 ? "" : "s"} active`}>
+                                <span key="e" className="inline-flex items-center gap-0.5 text-[10px] text-slate-700 bg-slate-50 border border-slate-100 rounded px-1 py-px" title={`${eq} equipment booking${eq === 1 ? "" : "s"} active`}>
                                   <Package className="w-2.5 h-2.5" />{eq}
                                 </span>,
                               );
                               if (layers.cleaning && cl > 0) chips.push(
-                                <span key="c" className="inline-flex items-center gap-0.5 text-[9px] text-brand-primary bg-brand-primary/10 border border-brand-primary/15 rounded px-1 py-px" title={`${cl} cleaning block${cl === 1 ? "" : "s"}`}>
+                                <span key="c" className="inline-flex items-center gap-0.5 text-[10px] text-brand-primary bg-brand-primary/10 border border-brand-primary/15 rounded px-1 py-px" title={`${cl} cleaning block${cl === 1 ? "" : "s"}`}>
                                   <Droplets className="w-2.5 h-2.5" />{cl}
                                 </span>,
                               );
                               if (layers.holidays && hol) chips.push(
-                                <span key="h" className="inline-flex items-center gap-0.5 text-[9px] text-rose-700 bg-rose-50 border border-rose-100 rounded px-1 py-px" title={hol}>
+                                <span key="h" className="inline-flex items-center gap-0.5 text-[10px] text-rose-700 bg-rose-50 border border-rose-100 rounded px-1 py-px" title={hol}>
                                   <PartyPopper className="w-2.5 h-2.5" />
                                   <span className="truncate max-w-[3rem]">{hol.length > 6 ? hol.slice(0, 6) + "..." : hol}</span>
                                 </span>,
@@ -1570,15 +1640,47 @@ function AdminCalendar() {
 
               {/* Status legend + diary-state legend */}
               <div className="mt-3 flex flex-wrap items-center gap-2 px-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Order status:</span>
-                {Object.entries(STATUS_TONES).slice(0, 7).map(([k, tone]) => (
-                  <Badge key={k} variant="outline" className={`${tone} border text-[10px] capitalize`}>
-                    {k.replace("_", " ")}
-                  </Badge>
-                ))}
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Order status:</span>
+                <span className="text-[11px] capitalize text-brand-primary sm:hidden">
+                  {statusFilter === "all" ? "All statuses" : statusFilter.replace("_", " ")}
+                </span>
+                <div className="hidden flex-wrap items-center gap-1.5 sm:flex">
+                  <button
+                    type="button"
+                    aria-pressed={statusFilter === "all"}
+                    onClick={() => setStatusFilter("all")}
+                    className={cn(
+                      "min-h-8 rounded-full border px-2.5 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40",
+                      statusFilter === "all"
+                        ? "border-slate-800 bg-slate-800 text-white"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                    )}
+                  >
+                    All
+                  </button>
+                  {CALENDAR_ORDER_STATUSES.map((status) => {
+                    const selected = statusFilter === status;
+                    const tone = STATUS_TONES[status] || STATUS_TONES.confirmed;
+                    return (
+                      <button
+                        key={status}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => setStatusFilter(selected ? "all" : status)}
+                        className={cn(
+                          "min-h-8 rounded-full border px-2.5 text-[11px] font-medium capitalize transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40",
+                          tone,
+                          selected ? "ring-2 ring-slate-500 ring-offset-1" : "opacity-80 hover:opacity-100",
+                        )}
+                      >
+                        {status.replace("_", " ")}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2 px-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Diary state:</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Diary state:</span>
                 <span className="inline-flex items-center gap-1 text-[10px] text-slate-700 px-2 py-0.5 rounded border-2 border-blue-200 bg-blue-50/60">Booked</span>
                 <span className="inline-flex items-center gap-1 text-[10px] text-amber-800 px-2 py-0.5 rounded border-2 border-amber-300 bg-amber-50/60">Quotes out (winnable)</span>
                 <span className="inline-flex items-center gap-1 text-[10px] text-amber-800 px-2 py-0.5 rounded border-2 border-amber-300 bg-blue-50/60">Booked + extra quotes</span>
@@ -1590,7 +1692,7 @@ function AdminCalendar() {
             </div>
 
             {/* Sidebar */}
-            <div className="space-y-6">
+            <div className="min-w-0 space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1707,13 +1809,13 @@ function AdminCalendar() {
                       >
                         {horizonStats.capacityChecks}
                         {horizonStats.capacityChecks > 0 && (
-                          <span className="text-[11px] font-normal ml-2 text-amber-800">
+                          <span className="text-xs font-normal ml-2 text-amber-800">
                             - max {maxConcurrent} event{maxConcurrent === 1 ? "" : "s"} / day
                           </span>
                         )}
                       </p>
                       {horizonStats.capacityChecks > 0 && (
-                        <ul className="mt-1.5 space-y-0.5 text-[11px] text-amber-900">
+                        <ul className="mt-1.5 space-y-0.5 text-xs text-amber-900">
                           {horizonStats.capacityDays.slice(0, 3).map((d) => {
                             const dt = new Date(`${d.iso}T12:00:00`);
                             const niceDate = dt.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" });
@@ -1746,11 +1848,11 @@ function AdminCalendar() {
                       >
                         {horizonStats.opsConflicts}
                         {horizonStats.opsConflicts > 0 && (
-                          <span className="text-[11px] font-normal ml-2 text-amber-800">- resource assigned twice</span>
+                          <span className="text-xs font-normal ml-2 text-amber-800">- resource assigned twice</span>
                         )}
                       </p>
                       {horizonStats.opsConflicts > 0 && (
-                        <ul className="mt-1.5 space-y-0.5 text-[11px] text-amber-900">
+                        <ul className="mt-1.5 space-y-0.5 text-xs text-amber-900">
                           {horizonStats.opsConflictDays.slice(0, 3).map((d) => {
                             const dt = new Date(`${d.iso}T12:00:00`);
                             const niceDate = dt.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" });
@@ -1802,7 +1904,7 @@ function AdminCalendar() {
                                   className="flex items-center justify-between gap-2 text-xs text-slate-700 hover:bg-amber-50 -mx-1 px-1 py-0.5 rounded"
                                 >
                                   <span className="truncate">{q.client_name || "Quote"}</span>
-                                  <span className="text-[11px] text-slate-500 tabular-nums shrink-0">
+                                  <span className="text-xs text-slate-500 tabular-nums shrink-0">
                                     {q.total ? fmtMoney.format(Number(q.total)) : "-"}
                                   </span>
                                 </Link>
@@ -1826,7 +1928,7 @@ function AdminCalendar() {
       {/* Day detail sheet - shared resizable host (drag the left edge) */}
       <ComposeDrawerHost open={!!selectedDate} onClose={() => setSelectedDate(null)}>
           {selectedDate && (
-            <>
+            <div className={styles.compactTypography}>
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
                   <CalendarIcon className="w-5 h-5 text-slate-600" />
@@ -1834,7 +1936,9 @@ function AdminCalendar() {
                 </SheetTitle>
                 <SheetDescription>
                   {dayEvents.length === 0 && dayQuotes.length === 0
-                    ? "Nothing booked or quoted for this date yet."
+                    ? statusFilter !== "all" && allDayEvents.length > 0
+                      ? `No ${statusFilter.replace("_", " ")} events match this date. ${allDayEvents.length} other booking${allDayEvents.length === 1 ? " is" : "s are"} hidden by the status filter.`
+                      : "Nothing booked or quoted for this date yet."
                     : [
                         dayEvents.length > 0 && `${dayEvents.length} event${dayEvents.length === 1 ? "" : "s"}`,
                         dayQuotes.length > 0 && `${dayQuotes.length} quote${dayQuotes.length === 1 ? "" : "s"} pending`,
@@ -1856,41 +1960,41 @@ function AdminCalendar() {
                       <div className={cn("rounded-xl border px-3 py-2.5 flex items-start gap-2.5", meta.bg, meta.text, meta.pulse ? "motion-safe:animate-pulse" : "")}>
                         <Sparkles className="w-4 h-4 mt-0.5 flex-shrink-0" />
                         <div className="min-w-0">
-                          <p className="text-[11px] font-bold uppercase tracking-[0.08em] leading-none">
+                          <p className="text-xs font-bold uppercase tracking-[0.08em] leading-none">
                             {dayIntel.isPastDay && dayIntel.mode === "quiet" ? "Past · Quiet" : meta.label}
                           </p>
-                          <p className="text-[11px] mt-1 opacity-90 leading-snug">{meta.sublabel}</p>
+                          <p className="text-xs mt-1 opacity-90 leading-snug">{meta.sublabel}</p>
                         </div>
                       </div>
                     );
                   })()}
 
                   {/* Day aggregates - 4 mini pills */}
-                  <div className="grid grid-cols-4 gap-1.5">
-                    <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
-                      <p className="text-[14px] font-bold tabular-nums leading-none text-slate-900">{dayIntel.totalEvents}</p>
-                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mt-0.5 leading-none">Events</p>
+                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                    <div className="min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+                      <p className="truncate text-sm font-bold tabular-nums leading-none text-slate-900">{dayIntel.totalEvents}</p>
+                      <p className="mt-0.5 text-[10px] uppercase tracking-wider leading-none text-slate-500">Events</p>
                     </div>
-                    <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
-                      <p className="text-[14px] font-bold tabular-nums leading-none text-slate-900">{dayIntel.totalGuests}</p>
-                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mt-0.5 leading-none">Guests</p>
+                    <div className="min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+                      <p className="truncate text-sm font-bold tabular-nums leading-none text-slate-900">{dayIntel.totalGuests}</p>
+                      <p className="mt-0.5 text-[10px] uppercase tracking-wider leading-none text-slate-500">Guests</p>
                     </div>
-                    <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
-                      <p className="text-[14px] font-bold tabular-nums leading-none text-slate-900">{fmtMoney.format(dayIntel.totalRevenue).replace(/\s/g, "")}</p>
-                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mt-0.5 leading-none">Revenue</p>
+                    <div className="min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+                      <p className="truncate text-sm font-bold tabular-nums leading-none text-slate-900">{fmtMoney.format(dayIntel.totalRevenue).replace(/\s/g, "")}</p>
+                      <p className="mt-0.5 text-[10px] uppercase tracking-wider leading-none text-slate-500">Revenue</p>
                     </div>
                     <div className={cn(
                       "rounded-lg border px-2 py-1.5",
                       dayIntel.eventsWithIssues > 0 ? "border-rose-200 bg-rose-50" : "border-brand-primary/20 bg-brand-primary/10",
                     )}>
                       <p className={cn(
-                        "text-[14px] font-bold tabular-nums leading-none",
+                        "truncate text-sm font-bold tabular-nums leading-none",
                         dayIntel.eventsWithIssues > 0 ? "text-rose-700" : "text-brand-primary",
                       )}>
                         {dayIntel.eventsWithIssues}
                       </p>
                       <p className={cn(
-                        "text-[9px] uppercase tracking-wider mt-0.5 leading-none",
+                        "mt-0.5 text-[10px] uppercase tracking-wider leading-none",
                         dayIntel.eventsWithIssues > 0 ? "text-rose-700" : "text-brand-primary",
                       )}>
                         {/* Day-level scale = events at risk (NOT issue
@@ -1911,7 +2015,7 @@ function AdminCalendar() {
                       = potential conflict; spread out = relaxed. */}
                   {dayIntel.times.length > 0 && (
                     <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-                      <div className="flex items-center justify-between text-[9px] uppercase tracking-wider text-slate-500 mb-1.5">
+                      <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-2 text-[10px] uppercase tracking-wider text-slate-500">
                         <span>Timeline</span>
                         <span>
                           {dayIntel.earliestMin !== null && dayIntel.latestMin !== null
@@ -1936,7 +2040,7 @@ function AdminCalendar() {
                           );
                         })}
                       </div>
-                      <div className="flex items-center justify-between text-[8px] text-slate-400 mt-1 tabular-nums">
+                      <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400 tabular-nums">
                         <span>07:00</span>
                         <span>12:00</span>
                         <span>17:00</span>
@@ -1986,7 +2090,17 @@ function AdminCalendar() {
                   </div>
                 )}
 
-                {dayEvents.length === 0 && dayQuotes.length === 0 ? (
+                {dayEvents.length === 0 && dayQuotes.length === 0 && allDayEvents.length > 0 ? (
+                  <Card className="border border-slate-200 bg-slate-50/70">
+                    <CardContent className="py-6 text-center">
+                      <p className="text-sm font-semibold text-slate-700">Other statuses are hidden</p>
+                      <p className="mt-1 text-xs text-slate-500">This date has {allDayEvents.length} booking{allDayEvents.length === 1 ? "" : "s"} outside the selected status.</p>
+                      <Button type="button" variant="outline" size="sm" className="mt-3 min-h-10" onClick={() => setStatusFilter("all")}>
+                        Show all statuses
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ) : dayEvents.length === 0 && dayQuotes.length === 0 ? (
                   // "Book an event" used to land on the dispatch queue
                   // (order-assignments), which cannot create anything.
                   // The quote builder is where a booking actually starts.
@@ -2050,7 +2164,7 @@ function AdminCalendar() {
                             {issues.length > 0 && (
                               <ul className="mt-2 pt-2 border-t border-rose-100 space-y-0.5">
                                 {issues.map((issue, i) => (
-                                  <li key={i} className="text-[11px] text-rose-700 flex items-start gap-1.5">
+                                  <li key={i} className="text-xs text-rose-700 flex items-start gap-1.5">
                                     <span className="text-rose-400 mt-0.5">•</span>
                                     <span>{issue}</span>
                                   </li>
@@ -2079,7 +2193,7 @@ function AdminCalendar() {
                   })
                 )}
               </div>
-            </>
+            </div>
           )}
       </ComposeDrawerHost>
     </>

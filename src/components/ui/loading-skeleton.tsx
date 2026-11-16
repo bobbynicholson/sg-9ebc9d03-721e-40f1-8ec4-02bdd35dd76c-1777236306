@@ -30,8 +30,9 @@ interface BaseProps {
 export function PageLoader({
   label = "Loading…",
   detail,
+  brandName,
   className,
-}: BaseProps & { label?: string; detail?: string }) {
+}: BaseProps & { label?: string; detail?: string; brandName?: string }) {
   return (
     <div
       role="status"
@@ -43,6 +44,11 @@ export function PageLoader({
       )}
     >
       <div>
+        {brandName ? (
+          <p className="mb-2 break-words text-xs font-semibold uppercase tracking-wide text-brand-primary">
+            {brandName}
+          </p>
+        ) : null}
         <span className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-brand-primary/10 text-brand-primary">
           <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
         </span>

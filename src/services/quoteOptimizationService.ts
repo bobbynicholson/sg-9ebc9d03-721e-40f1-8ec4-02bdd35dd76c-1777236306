@@ -49,7 +49,7 @@ export async function loadQuoteOptimizationData(db: any, companyId: string, star
     }
   };
   const windowFilter = `event_date.is.null,and(event_date.gte.${start},event_date.lte.${end})`;
-  const orderFields = "id, quote_id, client_id, client_name, client_email, region_id, event_date, event_time, event_name, guest_count, status, total_amount, currency, deleted_at, order_number, updated_at, venue_name, venue_address, venue_lat, venue_lng";
+  const orderFields = "id, quote_id, client_id, client_name, client_email, region_id, event_date, event_end_date, event_time, event_name, guest_count, status, total_amount, currency, deleted_at, order_number, updated_at, venue_name, venue_address, venue_lat, venue_lng, assigned_driver_id, assigned_vehicle_id, assigned_chef_id";
   const [quotes, leads, windowOrders, diary, capacity] = await Promise.all([
     pages<Quote>(() => db.from("quotes").select(quoteFields).eq("company_id", companyId).is("deleted_at", null).or(windowFilter)),
     pages<PlanningLead>(() => db.from("leads").select(leadFields).eq("company_id", companyId).is("deleted_at", null).or(windowFilter)),
@@ -61,7 +61,31 @@ export async function loadQuoteOptimizationData(db: any, companyId: string, star
   // Resolve links outside the window as well: moving an order must not leave
   // the old lead or accepted quote looking like an additional open enquiry.
   const relatedQuotes = new Map(quotes.map((quote) => [quote.id, quote]));
+  // Catalogue costs are independent of the link-resolution reads below.
+  // Start them while those queries are in flight so the lab does not wait
+  // through two serial database phases before it can build the calendar.
+  const catalogueCostsPromise = (async () => {
+    const catalogueCosts = new Map<string, number>();
+    const ids = [...new Set(quotes.flatMap((quote) => Array.isArray(quote.menu_items)
+      ? quote.menu_items.map((line: any) => line?.menu_item_id).filter(Boolean) as string[] : []))];
+    if (ids.length === 0) return catalogueCosts;
+    for (let offset = 0; offset < ids.length; offset += 100) {
+      const { data, error } = await db.from("menu_items").select("id, cost_per_unit")
+        .eq("company_id", companyId).in("id", ids.slice(offset, offset + 100));
+      if (error) throw error;
+      for (const row of data || []) {
+        if (row.cost_per_unit != null && Number.isFinite(Number(row.cost_per_unit)) && Number(row.cost_per_unit) >= 0) {
+          catalogueCosts.set(row.id, Number(row.cost_per_unit));
+        }
+      }
+    }
+    return catalogueCosts;
+  })().then(
+    (value) => ({ ok: true as const, value }),
+    (error: unknown) => ({ ok: false as const, error }),
+  );
   const readLinkedQuotes = async (field: string, ids: string[]) => {
+    if (ids.length === 0) return;
     for (let offset = 0; offset < ids.length; offset += 100) {
       const rows = await pages<Quote>(() => db.from("quotes").select(quoteFields).eq("company_id", companyId).is("deleted_at", null)
         .in(field, ids.slice(offset, offset + 100)));
@@ -78,6 +102,7 @@ export async function loadQuoteOptimizationData(db: any, companyId: string, star
   const orderIds = [...new Set([...relatedQuotes.values()].map((quote) => quote.converted_to_order_id)
     .concat(leads.map((lead) => lead.source_order_id)).filter(Boolean))];
   const readLinkedOrders = async (field: string, ids: string[]) => {
+    if (ids.length === 0) return;
     for (let offset = 0; offset < ids.length; offset += 100) {
       const rows = await pages<PlanningOrder>(() => db.from("orders").select(orderFields).eq("company_id", companyId)
         .in(field, ids.slice(offset, offset + 100)));
@@ -88,19 +113,9 @@ export async function loadQuoteOptimizationData(db: any, companyId: string, star
   const orderRows = [...orders.values()].filter((order) => !isAutomatedTestOrder(order));
   const bookedOrderIds = new Set(orderRows.filter(isBookedPlanningOrder).map((order) => order.id));
   const commitments = diary.filter((entry) => entry.kind === "accepted_quote" || bookedOrderIds.has(entry.sourceId));
-  const catalogueCosts = new Map<string, number>();
-  const ids = [...new Set(quotes.flatMap((quote) => Array.isArray(quote.menu_items)
-    ? quote.menu_items.map((line: any) => line?.menu_item_id).filter(Boolean) as string[] : []))];
-  for (let offset = 0; offset < ids.length; offset += 100) {
-    const { data, error } = await db.from("menu_items").select("id, cost_per_unit")
-      .eq("company_id", companyId).in("id", ids.slice(offset, offset + 100));
-    if (error) throw error;
-    for (const row of data || []) {
-      if (row.cost_per_unit != null && Number.isFinite(Number(row.cost_per_unit)) && Number(row.cost_per_unit) >= 0) {
-        catalogueCosts.set(row.id, Number(row.cost_per_unit));
-      }
-    }
-  }
+  const catalogueCostsResult = await catalogueCostsPromise;
+  if (catalogueCostsResult.ok === false) throw catalogueCostsResult.error;
+  const catalogueCosts = catalogueCostsResult.value;
   return { companyId, start, end, allUpcoming, quotes, leads, relatedQuotes: [...relatedQuotes.values()], orders: orderRows,
     commitments, capacity, catalogueCosts, loadedAt: new Date().toISOString() };
 }

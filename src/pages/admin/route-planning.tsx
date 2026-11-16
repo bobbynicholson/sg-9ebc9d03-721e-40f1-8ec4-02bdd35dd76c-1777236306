@@ -445,6 +445,7 @@ function RoutePlanningInner() {
           {/* Page Header */}
           <PortalHeader
             variant="hero"
+            className="mb-3 px-3 py-3 sm:px-5 sm:py-4"
             title="Route planning"
             icon={Route}
             subtitle={
@@ -480,46 +481,41 @@ function RoutePlanningInner() {
               ) : undefined
             }
             actions={
-            <>
+            <div className="col-span-full flex w-full items-center justify-end gap-1.5 sm:flex-wrap xl:w-auto">
                 <Button
+                  type="button"
                   onClick={autoAssignAll}
                   disabled={autoAssigning || unassignedOrders.length === 0 || drivers.length === 0}
-                  size="lg"
+                  size="sm"
                   variant="outline"
-                  className="border-brand-primary/80 text-brand-primary hover:bg-brand-primary/10"
+                  className="h-10 w-10 shrink-0 border-brand-primary/80 p-0 text-brand-primary hover:bg-brand-primary/10 md:w-auto md:px-3"
                   title="Score every unassigned order and assign the top-matched driver"
+                  aria-label="Auto-assign drivers"
                 >
                   {autoAssigning ? (
-                    <>
-                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                      Matching...
-                    </>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
                   ) : (
-                    <>
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Auto-assign drivers
-                    </>
+                    <Sparkles className="h-4 w-4" />
                   )}
+                  <span className="sr-only md:not-sr-only">{autoAssigning ? "Matching..." : "Auto-assign drivers"}</span>
                 </Button>
                 <Button
+                  type="button"
                   onClick={optimizeAllRoutes}
                   disabled={optimising || unassignedOrders.length === 0 || drivers.length === 0}
-                  size="lg"
-                  className="bg-brand-primary hover:opacity-90"
+                  size="sm"
+                  className="h-10 w-10 shrink-0 bg-brand-primary p-0 hover:opacity-90 md:w-auto md:px-3"
+                  title="Optimise routes"
+                  aria-label="Optimise routes"
                 >
                   {optimising ? (
-                    <>
-                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                      Optimising...
-                    </>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
                   ) : (
-                    <>
-                      <Navigation className="mr-2 h-4 w-4" />
-                      Optimise routes
-                    </>
+                    <Navigation className="h-4 w-4" />
                   )}
+                  <span className="sr-only md:not-sr-only">{optimising ? "Optimising..." : "Optimise routes"}</span>
                 </Button>
-            </>
+            </div>
             }
           />
           <PageWorkbench />
@@ -539,7 +535,7 @@ function RoutePlanningInner() {
           {/* Stats Overview - command-centre StatTile row, live values
               from loaded state. Unassigned count stays semantic amber
               while orders wait on a driver. */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             <StatTile
               label={<span className="inline-flex items-center gap-1">Unassigned orders <InfoTooltip content={"Confirmed orders that still need a driver assigned. Pulled live from the orders table for your company."} /></span>}
               value={
@@ -551,24 +547,32 @@ function RoutePlanningInner() {
               }
               hint={unassignedOrders.length > 0 ? "Waiting on a driver" : "Queue is clear"}
               icon={AlertCircle}
+              compact
+              className="px-3 py-3 sm:px-4 sm:py-3.5"
             />
             <StatTile
               label={<span className="inline-flex items-center gap-1">Active drivers <InfoTooltip content={"Drivers with role=driver on your team. Drivers without an explicit is_active flag count as active."} /></span>}
               value={loading ? "-" : drivers.length}
               hint="Eligible for assignment"
               icon={Truck}
+              compact
+              className="px-3 py-3 sm:px-4 sm:py-3.5"
             />
             <StatTile
               label={<span className="inline-flex items-center gap-1">Optimised routes <InfoTooltip content={"How many routes the optimiser has built so far in this session."} /></span>}
               value={optimizedRoutes.length}
               hint="Built this session"
               icon={Route}
+              compact
+              className="px-3 py-3 sm:px-4 sm:py-3.5"
             />
             <StatTile
               label={<span className="inline-flex items-center gap-1">Total distance <InfoTooltip content={"Total kilometres across every route built in this session."} /></span>}
               value={`${optimizedRoutes.reduce((sum, r) => sum + r.total_distance, 0).toFixed(1)} km`}
               hint="Across every built route"
               icon={TrendingUp}
+              compact
+              className="px-3 py-3 sm:px-4 sm:py-3.5"
             />
           </div>
 
@@ -658,6 +662,8 @@ function RoutePlanningInner() {
                     <Button
                       variant="outline"
                       size="sm"
+                      title="Export unassigned orders to CSV"
+                      aria-label="Export unassigned orders to CSV"
                       disabled={filteredOrders.length === 0}
                       onClick={() => {
                         const esc = (v: any) => {
@@ -694,15 +700,16 @@ function RoutePlanningInner() {
                         document.body.removeChild(a);
                         URL.revokeObjectURL(url);
                       }}
-                      className="gap-1.5"
+                      className="h-9 w-9 shrink-0 gap-1.5 p-0 md:h-9 md:w-auto md:px-3"
                     >
-                      <Download className="w-3.5 h-3.5" /> CSV
+                      <Download className="h-3.5 w-3.5" />
+                      <span className="sr-only md:not-sr-only">CSV</span>
                     </Button>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger className="h-9 w-full text-xs sm:h-10 sm:text-sm">
                       <SelectValue placeholder="Filter by status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -795,7 +802,7 @@ function RoutePlanningInner() {
                 <CardContent className="space-y-3">
                   {drivers.length > 0 && (
                     <Select value={driverFilter} onValueChange={setDriverFilter}>
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger className="h-9 w-full text-xs sm:h-10 sm:text-sm">
                         <SelectValue placeholder="Filter by driver" />
                       </SelectTrigger>
                       <SelectContent>
@@ -826,7 +833,7 @@ function RoutePlanningInner() {
                           }`}
                           onClick={() => setSelectedRoute(route)}
                         >
-                          <CardContent className="p-4">
+                          <CardContent className="p-3 sm:p-4">
                             <div className="flex items-start justify-between mb-3">
                               <div className="flex items-center gap-2 min-w-0">
                                 <div className="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center font-semibold flex-shrink-0">
@@ -850,7 +857,7 @@ function RoutePlanningInner() {
                               )}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div className="grid grid-cols-2 gap-2 text-xs sm:text-sm">
                               <div className="flex items-center gap-1 text-slate-600">
                                 <Route className="w-3 h-3" />
                                 <span>{stats.totalStops} stops</span>
@@ -871,7 +878,7 @@ function RoutePlanningInner() {
 
                             <Button
                               size="sm"
-                              className="w-full mt-3"
+                              className="mt-3 h-9 w-full text-xs sm:text-sm"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 applyRoute(route);
@@ -891,7 +898,7 @@ function RoutePlanningInner() {
 
             {/* Map & Details */}
             <div className="lg:col-span-2">
-              <Card className="h-[460px] sm:h-[560px] lg:h-[700px]">
+              <Card className="h-[360px] sm:h-[500px] lg:h-[700px]">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <MapPin className="h-5 w-5" />

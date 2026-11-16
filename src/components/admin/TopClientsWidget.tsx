@@ -97,11 +97,11 @@ export function TopClientsWidget({ companyId }: { companyId: string | null }) {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <CardTitle className="flex items-center gap-2 text-base">
+            <CardTitle className="flex items-center gap-2 text-sm">
               <Crown className="w-4 h-4 text-amber-600" />
               Top clients (last 30 days)
             </CardTitle>
-            <CardDescription className="text-xs">
+            <CardDescription className="text-[11px]">
               Biggest spenders by booked order value. Use this for thank-yous, loyalty perks and follow-up.
             </CardDescription>
           </div>
@@ -114,7 +114,7 @@ export function TopClientsWidget({ companyId }: { companyId: string | null }) {
       </CardHeader>
       <CardContent>
         {loading ? (
-          <p className="text-xs text-slate-500 py-4">Loading...</p>
+          <p className="text-[11px] text-slate-500 py-4">Loading...</p>
         ) : (
           <ul className="divide-y divide-amber-100">
             {rows.map((r, idx) => (
@@ -126,18 +126,18 @@ export function TopClientsWidget({ companyId }: { companyId: string | null }) {
                   href={withSlug(`/admin/contacts?q=${encodeURIComponent(r.client_name)}`)}
                   className="py-2 flex items-center gap-3 hover:bg-amber-50/60 rounded transition"
                 >
-                  <Badge className="shrink-0 text-[10px] uppercase tracking-wide font-semibold bg-amber-100 text-amber-800 border-amber-200">
+                  <Badge className="shrink-0 text-[11px] uppercase tracking-wide font-semibold bg-amber-100 text-amber-800 border-amber-200">
                     #{idx + 1}
                   </Badge>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">
+                    <p className="text-xs font-medium text-slate-900 truncate">
                       {r.client_name}
                     </p>
                     <p className="text-[11px] text-slate-500">
                       {r.orders} order{r.orders === 1 ? "" : "s"}
                     </p>
                   </div>
-                  <span className="shrink-0 text-sm font-bold tabular-nums text-amber-800">
+                  <span className="shrink-0 text-xs font-bold tabular-nums text-amber-800">
                     {tenantCurrency.format(r.total, 0)}
                   </span>
                 </Link>

@@ -174,7 +174,7 @@ export function TodaysPulse({
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] uppercase tracking-wide opacity-80 leading-none">{t.label}</p>
-                <p className="text-lg sm:text-xl font-bold tabular-nums leading-tight mt-0.5">
+                <p className="text-sm font-bold tabular-nums leading-tight mt-0.5 sm:text-xl">
                   {loading ? "..." : t.value ?? "Unavailable"}
                 </p>
               </div>

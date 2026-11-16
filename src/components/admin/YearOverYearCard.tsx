@@ -104,43 +104,43 @@ export function YearOverYearCard({
   const OrdIcon = Icon(orderDelta.delta);
 
   return (
-    <Card className="mb-6 border-slate-200">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Year-over-year</CardTitle>
-        <CardDescription className="text-xs">
+    <Card className="mb-6 min-w-0 max-w-full overflow-hidden border-slate-200">
+      <CardHeader className="min-w-0 px-3 py-3 sm:p-5">
+        <CardTitle className="text-sm sm:text-base">Year-over-year</CardTitle>
+        <CardDescription className="mt-1 text-[10px] leading-4 sm:text-xs">
           {range.label} this year vs the same window last year.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0 px-3 py-3 sm:p-5">
         {loading ? (
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
-          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="min-w-0 rounded-lg border border-slate-200 p-3">
-              <p className="text-xs text-slate-500 mb-1">Booked revenue</p>
-              <p className="break-words text-xl font-bold tabular-nums text-slate-900">
+          <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+            <div className="min-w-0 rounded-lg border border-slate-200 p-2.5 sm:p-3">
+              <p className="mb-1 text-[10px] text-slate-500 sm:text-xs">Booked revenue</p>
+              <p className="break-words text-sm font-bold tabular-nums text-slate-900 sm:text-xl">
                 {tenantCurrency.format(thisYearRevenue, 0)}
               </p>
               <div className="mt-1 flex flex-wrap items-center justify-between gap-1">
-                <span className="min-w-0 break-words text-[11px] text-slate-500 tabular-nums">
+                <span className="min-w-0 break-words text-[10px] text-slate-500 tabular-nums sm:text-[11px]">
                   was {tenantCurrency.format(prior?.revenue || 0, 0)}
                 </span>
-                <span className={`inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2 py-0.5 ${tone(revenueDelta.delta)}`}>
+                <span className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold sm:px-2 sm:text-xs ${tone(revenueDelta.delta)}`}>
                   <RevIcon className="w-3 h-3" />
                   {revenueDelta.label}
                 </span>
               </div>
             </div>
-            <div className="min-w-0 rounded-lg border border-slate-200 p-3">
-              <p className="text-xs text-slate-500 mb-1">Booked orders</p>
-              <p className="break-words text-xl font-bold tabular-nums text-slate-900">
+            <div className="min-w-0 rounded-lg border border-slate-200 p-2.5 sm:p-3">
+              <p className="mb-1 text-[10px] text-slate-500 sm:text-xs">Booked orders</p>
+              <p className="break-words text-sm font-bold tabular-nums text-slate-900 sm:text-xl">
                 {thisYearOrders}
               </p>
               <div className="mt-1 flex flex-wrap items-center justify-between gap-1">
-                <span className="min-w-0 break-words text-[11px] text-slate-500 tabular-nums">
+                <span className="min-w-0 break-words text-[10px] text-slate-500 tabular-nums sm:text-[11px]">
                   was {prior?.count ?? 0}
                 </span>
-                <span className={`inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2 py-0.5 ${tone(orderDelta.delta)}`}>
+                <span className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold sm:px-2 sm:text-xs ${tone(orderDelta.delta)}`}>
                   <OrdIcon className="w-3 h-3" />
                   {orderDelta.label}
                 </span>

@@ -13,13 +13,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Phone, Mail, MapPin, Banknote, TrendingUp, ArrowRight, FileText, ShoppingCart, UserCheck, Clock, Trash2, Send, MailQuestion, RefreshCw, ChevronDown, Download } from "lucide-react";
+import { Plus, Phone, Mail, MapPin, Banknote, TrendingUp, FileText, ShoppingCart, UserCheck, Clock, Trash2, Send, MailQuestion, RefreshCw, ChevronDown, Download, Eye, EyeOff, MoreHorizontal } from "lucide-react";
 import { ConvertLeadDialog } from "@/components/admin/leads/ConvertLeadDialog";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { formatLocalDate } from "@/lib/localFormat";
 import { formatZAR } from "@/lib/formatters";
@@ -32,7 +33,6 @@ import { WhatsAppTemplateSend } from "@/components/messaging/WhatsAppTemplateSen
 import { ClientEmailDrawer } from "@/components/messaging/ClientEmailDrawer";
 import { useToast } from "@/hooks/use-toast";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { RowPrimaryAction } from "@/components/admin/RowPrimaryAction";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
@@ -269,25 +269,9 @@ function suggestionCtaText(kind: LeadActionKind): string {
   }
 }
 
-/** Hover tooltip explaining what the primary CTA actually does. */
-function suggestionCtaTooltip(kind: LeadActionKind): string {
-  switch (kind) {
-    case "reply_email":      return "Open the email composer with a quick first-reply template, prefilled from the lead.";
-    case "touch_base":       return "Open the email composer with a 'just checking in' template (lead is 2-6 days old).";
-    case "follow_up":        return "Open the email composer with a 'haven't heard back, here's a nudge' template (lead has gone quiet 7+ days).";
-    case "chase_quote":      return "Open the email composer with a 'just chasing on the quote' template. You've already sent one, time to nudge.";
-    case "send_quote":       return "Jump straight into the rich quote builder, prefilled from this lead.";
-    case "open_quote_draft": return "Open the existing draft quote in the editable builder so you can finish + send it.";
-    case "convert_to_order": return "The client accepted the quote. Open it so you can convert it to an order.";
-    case "winback":          return "Quote was rejected. Open the email composer with a soft win-back template.";
-    case "reopen":           return "Re-open this lost lead with a low-pressure check-in email.";
-    case "view_order":       return "This lead is already booked. Jump to the order.";
-  }
-}
-
 /** Inline icon for the CTA. JSX returned so we can use it directly. */
 function suggestionCtaIcon(kind: LeadActionKind) {
-  const cls = "w-4 h-4 mr-2";
+  const cls = "h-4 w-4 shrink-0";
   switch (kind) {
     case "reply_email":
     case "touch_base":
@@ -477,6 +461,8 @@ function AdminLeadsInner() {
   const [leads, setLeads] = useState<any[]>([]);
   const [linksByLeadId, setLinksByLeadId] = useState<Map<string, LeadLinks>>(new Map());
   const [loading, setLoading] = useState(true);
+  const hasLoadedLeadsRef = useRef(false);
+  const leadLoadRequestRef = useRef(0);
   // Command-centre audit: loadLeads used to swallow failures in a
   // bare catch, so a fetch error rendered as "Your active pipeline
   // is empty" - indistinguishable from a genuinely empty funnel.
@@ -691,10 +677,22 @@ function AdminLeadsInner() {
   };
 
   useEffect(() => {
-    if (user) {
-      loadLeads();
+    // AuthContext can create a fresh tenant-scoped user object on every
+    // render for platform admins. Key the load to the stable company id so
+    // setting leads/loading cannot retrigger this effect indefinitely.
+    leadLoadRequestRef.current += 1;
+    hasLoadedLeadsRef.current = false;
+    setLeads([]);
+    setLinksByLeadId(new Map());
+    if (!user) return;
+    if (!user.company_id) {
+      setLoading(false);
+      return;
     }
-  }, [user]);
+    setLoading(true);
+    void loadLeads();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.company_id]);
 
   // LDS-A (leads audit, LDS-2): supabase realtime sub on leads +
   // quotes + orders filtered by company_id. When a quote is sent
@@ -742,14 +740,17 @@ function AdminLeadsInner() {
   }, [user?.company_id, refreshEmailProviderStatus]);
 
   const loadLeads = async () => {
+    const requestId = ++leadLoadRequestRef.current;
+    const isInitialLoad = !hasLoadedLeadsRef.current;
     if (!user?.company_id) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (isInitialLoad) setLoading(true);
     setLoadError(null);
     try {
       const data = await leadService.getLeads(user.company_id);
+      if (requestId !== leadLoadRequestRef.current) return;
       setLeads(data);
 
       // Build the lead-id -> linked-records index. Two queries: one
@@ -1002,15 +1003,21 @@ function AdminLeadsInner() {
           // Else leave the default lead-sourced resolved view in place.
         }
       }
+      if (requestId !== leadLoadRequestRef.current) return;
       setLinksByLeadId(map);
+      hasLoadedLeadsRef.current = true;
     } catch (err: any) {
       // Wave 70.83 dropped the console.error; the audit pass then
       // found nothing surfaced the failure at all - the page just
       // showed the "pipeline is empty" state. Persist the message
       // for the inline banner + Retry.
-      setLoadError(err?.message || "Couldn't load your leads. Please try again.");
+      if (requestId === leadLoadRequestRef.current) {
+        setLoadError(err?.message || "Couldn't load your leads. Please try again.");
+      }
     } finally {
-      setLoading(false);
+      if (requestId === leadLoadRequestRef.current && isInitialLoad) {
+        setLoading(false);
+      }
     }
   };
 
@@ -1193,6 +1200,10 @@ function AdminLeadsInner() {
                   see is what they get. */}
               <Button
                 variant="outline"
+                size="sm"
+                className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3"
+                aria-label="Export visible leads as CSV"
+                title="Export visible leads as CSV"
                 onClick={() => {
                   if (filteredLeads.length === 0) {
                     toast({ title: "Nothing to export", description: "Adjust filters until at least one lead is visible." });
@@ -1236,13 +1247,13 @@ function AdminLeadsInner() {
                   URL.revokeObjectURL(url);
                 }}
               >
-                <Download className="w-4 h-4 mr-2" />
-                Export CSV
+                <Download className="w-4 h-4 sm:mr-2" />
+                <span className="sr-only sm:not-sr-only">Export CSV</span>
               </Button>
               <Link href={withSlug("/admin/leads/new")}>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Lead
+                <Button size="sm" className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3" aria-label="Add lead" title="Add lead">
+                  <Plus className="w-4 h-4 sm:mr-2" />
+                  <span className="sr-only sm:not-sr-only">Add Lead</span>
                 </Button>
               </Link>
               </div>
@@ -1430,6 +1441,8 @@ function AdminLeadsInner() {
                       },
                     };
                     const suggestion = deriveLeadSuggestion(lead, links);
+                    const leadEmail = lead.client_email || lead.email || "";
+                    const leadPhone = lead.client_phone || lead.phone || "";
                     const ageDays = lead.created_at
                       ? Math.floor((Date.now() - new Date(lead.created_at).getTime()) / 86_400_000)
                       : null;
@@ -1437,30 +1450,33 @@ function AdminLeadsInner() {
                     <div
                       key={lead.id}
                       id={`lead-row-${lead.id}`}
-                      className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50/70 ${
+                      className={`rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50/70 sm:p-4 ${
                         suggestion.tone === "urgent" ? "ring-2 ring-rose-200" : ""
                       } ${
                         focusedLeadId === lead.id ? "ring-2 ring-amber-400 ring-inset bg-amber-50 animate-pulse" : ""
                       }`}
                     >
-                      <div className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(21rem,31rem)] lg:gap-6">
+                      <div className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,23rem)] lg:gap-6">
                         <div className="min-w-0">
-                          <div className="flex items-center gap-3 mb-2 flex-wrap">
-                            <h3 className="font-semibold text-slate-900">
+                          <div className="mb-2 min-w-0 space-y-2">
+                            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <h3 className="min-w-0 max-w-full font-semibold text-slate-900">
                               <button
                                 type="button"
                                 aria-expanded={expandedLeadId === lead.id}
                                 aria-controls={`lead-details-${lead.id}`}
                                 onClick={() => setExpandedLeadId(expandedLeadId === lead.id ? null : lead.id)}
-                                className="inline-flex items-center gap-1.5 rounded-sm text-left underline decoration-transparent underline-offset-4 transition hover:text-brand-primary hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
+                                className="inline-flex max-w-full items-center gap-1.5 rounded-sm text-left underline decoration-transparent underline-offset-4 transition hover:text-brand-primary hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
                                 title={`${expandedLeadId === lead.id ? "Hide" : "Open"} details for ${lead.client_name || "this lead"}`}
                               >
-                                {lead.client_name || "Unknown lead"}
+                                <span className="break-words">{lead.client_name || "Unknown lead"}</span>
                                 <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${expandedLeadId === lead.id ? "rotate-180" : ""}`} aria-hidden="true" />
                               </button>
                             </h3>
                             <RegionBadge regionId={(lead as any).region_id} />
-                            <Badge className={getStatusColor(lead.status || "new")}>
+                            </div>
+                            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                            <Badge className={`${getStatusColor(lead.status || "new")} shrink-0 px-2 py-0.5 text-[11px] leading-4`}>
                               {lead.status || "new"}
                             </Badge>
                             {/* Wave 70.85: unreachable-lead guard. A
@@ -1472,12 +1488,12 @@ function AdminLeadsInner() {
                                 hard way. Amber chip surfaces the
                                 problem on the row so the next move
                                 is obvious. */}
-                            {!lead.client_email && !lead.client_phone && (
+                            {!leadEmail && !leadPhone && (
                               <Badge
-                                className="bg-amber-100 text-amber-800 border-amber-200 gap-1"
+                                className="shrink-0 gap-1 border-amber-200 bg-amber-100 px-2 py-0.5 text-[11px] leading-4 text-amber-800"
                                 title="No email or phone on this lead - the operator can't contact them from inside the system. Open Details to add a channel."
                               >
-                                <MailQuestion className="w-3 h-3" />
+                                  <MailQuestion className="h-3 w-3" />
                                 Unreachable
                               </Badge>
                             )}
@@ -1501,10 +1517,10 @@ function AdminLeadsInner() {
                               if (ed >= todayIso) return null;
                               return (
                                 <Badge
-                                  className="bg-rose-50 text-rose-800 border-rose-200 gap-1"
+                                  className="shrink-0 gap-1 border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] leading-4 text-rose-800"
                                   title={`Event date ${ed} has already passed. Re-qualify the lead with a new date or mark Lost / Won.`}
                                 >
-                                  <Clock className="w-3 h-3" />
+                                  <Clock className="h-3 w-3" />
                                   Event date passed
                                 </Badge>
                               );
@@ -1518,9 +1534,9 @@ function AdminLeadsInner() {
                             {links.quoteCount === 1 && links.latestQuoteId && (
                               <Link
                                 href={withSlug(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`)}
-                                className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded px-1.5 py-0.5 hover:bg-brand-primary/15"
+                                className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-brand-primary/20 bg-brand-primary/10 px-2 text-[11px] font-medium leading-4 text-brand-primary hover:bg-brand-primary/15"
                               >
-                                <FileText className="w-3 h-3" />
+                                <FileText className="h-3 w-3" />
                                 1 quote
                               </Link>
                             )}
@@ -1529,11 +1545,11 @@ function AdminLeadsInner() {
                                 <DropdownMenuTrigger asChild>
                                   <button
                                     type="button"
-                                    className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded px-1.5 py-0.5 hover:bg-brand-primary/15"
+                                    className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-brand-primary/20 bg-brand-primary/10 px-2 text-[11px] font-medium leading-4 text-brand-primary hover:bg-brand-primary/15"
                                   >
-                                    <FileText className="w-3 h-3" />
+                                    <FileText className="h-3 w-3" />
                                     {links.quoteCount} quotes
-                                    <ChevronDown className="w-3 h-3" />
+                                    <ChevronDown className="h-3 w-3" />
                                   </button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="start" className="w-72">
@@ -1543,7 +1559,7 @@ function AdminLeadsInner() {
                                       onClick={() => router.push(withSlug(`/admin/quotes/new?fromQuoteId=${q.id}`))}
                                       className="flex flex-col items-start gap-0.5"
                                     >
-                                      <span className="text-sm font-medium text-slate-900">
+                                        <span className="text-xs font-medium text-slate-900">
                                         {formatQuoteLabel(q)}
                                       </span>
                                       {q.createdAt && (
@@ -1574,92 +1590,89 @@ function AdminLeadsInner() {
                               return (
                                 <Link
                                   href={withSlug(staffOrderHref(links.orderId, "admin"))}
-                                  className={`inline-flex items-center gap-1 text-[11px] font-medium border rounded px-1.5 py-0.5 ${classes} ${hoverClasses}`}
+                                  className={`inline-flex h-6 shrink-0 items-center gap-1 rounded-md border px-2 text-[11px] font-medium leading-4 ${classes} ${hoverClasses}`}
                                   title={`Linked order is ${label.toLowerCase()}. Click to open.`}
                                 >
-                                  <ShoppingCart className="w-3 h-3" />
+                                  <ShoppingCart className="h-3 w-3" />
                                   {label.toLowerCase()}
                                 </Link>
                               );
                             })()}
                             {links.clientId && (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5">
-                                <UserCheck className="w-3 h-3" />
+                              <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 text-[11px] font-medium leading-4 text-slate-700">
+                                <UserCheck className="h-3 w-3" />
                                 client
                               </span>
                             )}
                             {ageDays !== null && (
-                              <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
-                                <Clock className="w-3 h-3" />
+                              <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 text-[11px] leading-4 text-slate-600">
+                                <Clock className="h-3 w-3" />
                                 {ageDays}d old
                               </span>
                             )}
+                            </div>
                           </div>
-                          {/* Suggested action strip, now clickable. Opens
-                              the right next step (compose email, send a
-                              quote, open the order, etc.) for this lead. */}
+                          {/* Separate the suggested action from its reason
+                              and the contact channels below. */}
+                          <p className="mb-1 mt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Suggested next step</p>
                           <button
                             type="button"
                             onClick={() => runSuggestionAction(lead, links, suggestion.kind)}
-                            className={`group flex items-center gap-1.5 text-sm font-semibold mb-2 hover:underline focus:outline-none ${
+                            className={`inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-md border px-2.5 py-1 text-left text-xs font-semibold leading-4 hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 ${
                               suggestion.tone === "urgent"
-                                ? "text-rose-600"
+                                ? "border-rose-200 bg-rose-50 text-rose-700"
                                 : suggestion.tone === "warm"
-                                  ? "text-amber-600"
-                                  : "text-slate-700"
+                                  ? "border-amber-200 bg-amber-50 text-amber-800"
+                                  : "border-slate-200 bg-slate-50 text-slate-700"
                             }`}
-                            title="Click to take this next step"
+                            title="Take the suggested next step"
                           >
-                            <ArrowRight className="w-4 h-4 flex-shrink-0" />
-                            <span>{suggestion.label}</span>
-                            <span className="font-normal text-xs text-slate-500 group-hover:text-slate-700">
-                              · {suggestion.reason}
-                            </span>
+                            {suggestionCtaIcon(suggestion.kind)}
+                            {suggestion.label}
                           </button>
-                          <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600">
+                          <p className="mb-2 mt-1 break-words text-[11px] leading-4 text-slate-600">{suggestion.reason}</p>
+                          <div className="grid min-w-0 grid-cols-1 gap-1.5 sm:grid-cols-2">
                             {lead.company_name && (
-                              <span className="flex min-w-0 items-center gap-1">
+                              <span className="flex min-w-0 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs leading-4 text-slate-700">
+                                <UserCheck className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                                 {lead.company_name}
                               </span>
                             )}
-                            {lead.client_email && (
-                              <span className="flex min-w-0 items-center gap-1 break-all sm:break-normal">
-                                <Mail className="w-3 h-3" />
-                                {lead.client_email}
-                              </span>
-                            )}
-                            {lead.client_phone && (
+                            {leadEmail && (
                               <a
-                                href={`tel:${lead.client_phone}`}
-                                className="flex items-center gap-1 hover:text-slate-900 hover:underline"
+                                href={`mailto:${leadEmail}`}
+                                aria-label={`Email ${leadEmail}`}
+                                className="flex min-w-0 items-start gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[11px] leading-4 text-slate-700 hover:border-slate-300 hover:text-brand-primary"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <Phone className="w-3 h-3" />
-                                {lead.client_phone}
+                                <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                                <span className="min-w-0 break-all">{leadEmail}</span>
+                              </a>
+                            )}
+                            {leadPhone && (
+                              <a
+                                href={`tel:${leadPhone}`}
+                                className="flex min-w-0 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[11px] leading-4 text-slate-700 hover:border-slate-300 hover:text-brand-primary"
+                                aria-label={`Call ${leadPhone}`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Phone className="h-3.5 w-3.5 shrink-0" />
+                                <span className="min-w-0 break-all">{leadPhone}</span>
                               </a>
                             )}
                           </div>
                         </div>
-                        {/* Keep actions in a compact, wrapping toolbar. A
-                            full-width vertical stack made the lead cards
-                            unnecessarily tall and unbalanced on desktop. */}
-                        <div className="flex min-w-0 w-full flex-wrap items-center gap-2 lg:justify-end">
-                          {/* Primary CTA, always the suggested next step.
-                              Uses the shared RowPrimaryAction so the colour
-                              scheme matches Contacts and Quotes. */}
-                          <RowPrimaryAction
-                            tone={suggestion.tone}
-                            icon={suggestionCtaIcon(suggestion.kind)}
-                            label={suggestionCtaText(suggestion.kind)}
-                            tooltip={suggestionCtaTooltip(suggestion.kind)}
-                            onClick={() => runSuggestionAction(lead, links, suggestion.kind)}
-                          />
+                        {/* Keep the next step prominent and put the secondary
+                            actions on one compact toolbar at every width. */}
+                        <div className="flex min-w-0 w-full flex-nowrap items-center justify-start gap-2 lg:justify-end">
                           <WhatsAppTemplateSend
                             entityType="lead"
                             entityId={lead.id}
                             companyId={profile?.company_id ?? user?.company_id}
                             recipientName={lead.client_name || lead.contact_name}
                             buttonLabel="Enquiry templates (3)"
+                            compactOnMobile
+                            iconOnly
                             className="max-w-full justify-center border-emerald-200 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
                           />
                           {lead.source === "embed" && <WhatsAppTemplateSend
@@ -1668,171 +1681,118 @@ function AdminLeadsInner() {
                             companyId={profile?.company_id ?? user?.company_id}
                             recipientName="your admins"
                             buttonLabel="Notify admins"
-                            className="w-full justify-center"
+                            compactOnMobile
+                            iconOnly
+                            className="justify-center"
                           />}
-                          <LeadWhatsAppButton lead={lead} label="Custom WhatsApp message" className="max-w-full justify-center" />
-                          <div className="flex min-w-0 flex-wrap items-center gap-1.5 lg:justify-end">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={!(lead.client_email || lead.email)}
-                              title={(lead.client_email || lead.email)
-                                ? "Write an email to this lead - for example, to tell them we're fully booked"
-                                : "Add an email address to this lead to email them"}
-                              onClick={() => {
-                                setEmailLeadDefaultOptionId(null);
-                                setEmailLead(lead);
-                              }}
-                            >
-                              <Mail className="w-3.5 h-3.5 mr-1" /> Email lead
-                            </Button>
-                            <Button
-                              variant="default"
-                              size="sm"
-                              aria-label={`Email ${lead.client_name || lead.contact_name || "lead"} about service area`}
-                              title={!(lead.client_email || lead.email)
-                                ? "Add an email address to this lead to email them"
-                                : serviceAreaEmailConfigured
-                                  ? "Open an editable outside-area email"
-                                  : "Open an editable outside-area email; add served areas in Settings > Operations to personalize it"}
-                              onClick={() => {
-                                setEmailLeadDefaultOptionId("outside_service_area");
-                                setEmailLead(lead);
-                              }}
-                            >
-                              <MapPin className="mr-1 h-3.5 w-3.5" /> Outside area
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setExpandedLeadId(expandedLeadId === lead.id ? null : lead.id)}
-                            >
-                              {expandedLeadId === lead.id ? "Hide" : "Details"}
-                            </Button>
-                            {/* Secondary "open / start a quote" button.
-                                Only rendered when the primary CTA isn't
-                                already routing to the same quote;
-                                otherwise we end up with two buttons that
-                                navigate to the same URL (Bobby flagged
-                                this). */}
-                            {(() => {
-                              if (links.orderId) return null;
-                              // Kinds whose primary CTA actually navigates
-                              // straight into the quote builder. chase_quote
-                              // and winback live in the email composer
-                              // branch, so they DON'T belong here - the
-                              // secondary "Edit quote" button is exactly
-                              // what an operator wants while chasing a
-                              // quote that needs a quick tweak.
-                              const primaryAlreadyOpensQuote = [
-                                "open_quote_draft",
-                                "convert_to_order",
-                                "send_quote",
-                              ].includes(suggestion.kind);
-                              if (primaryAlreadyOpensQuote) return null;
-
-                              // 0 quotes -> "New quote" button.
-                              // 1 quote  -> "Edit quote" button (direct).
-                              // 2+ quotes -> dropdown so the operator
-                              //              picks which alternate to edit
-                              //              (or starts a fresh one).
-                              if (links.quoteCount === 0) {
-                                return (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    // Wave 70.88: flip the lead to
-                                    // quoted before navigating, same
-                                    // as the suggestion CTA's
-                                    // send_quote path.
-                                    onClick={() => {
-                                      void flipLeadToQuoted(lead);
-                                      router.push(withSlug(`/admin/quotes/new?leadId=${lead.id}`));
-                                    }}
-                                    className="gap-1.5 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
-                                    title={`Start a fresh quote for ${lead.contact_name || lead.client_name || "this lead"}`}
-                                  >
-                                    <FileText className="w-3.5 h-3.5" />
-                                    New quote
-                                  </Button>
-                                );
-                              }
-                              if (links.quoteCount === 1 && links.latestQuoteId) {
-                                return (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => router.push(withSlug(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`))}
-                                    className="gap-1.5 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
-                                    title="Open the existing quote in the editable builder for a quick edit"
-                                  >
-                                    <FileText className="w-3.5 h-3.5" />
-                                    Edit quote
-                                  </Button>
-                                );
-                              }
-                              return (
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="gap-1.5 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
-                                      title="Pick which of the alternate quotes to edit"
-                                    >
-                                      <FileText className="w-3.5 h-3.5" />
-                                      Edit quote
-                                      <ChevronDown className="w-3.5 h-3.5" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-72">
-                                    {links.quotes.map((q) => (
-                                      <DropdownMenuItem
-                                        key={q.id}
-                                        onClick={() => router.push(withSlug(`/admin/quotes/new?fromQuoteId=${q.id}`))}
-                                        className="flex flex-col items-start gap-0.5"
-                                      >
-                                        <span className="text-sm font-medium text-slate-900">
-                                          {formatQuoteLabel(q)}
-                                        </span>
-                                        {q.createdAt && (
-                                          <span className="text-[11px] text-slate-500">
-                                            Created {formatLocalDate(q.createdAt)}
-                                          </span>
-                                        )}
-                                      </DropdownMenuItem>
-                                    ))}
+                          <LeadWhatsAppButton lead={lead} label="Custom WhatsApp message" compactOnMobile iconOnly className="max-w-full justify-center" />
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-9 sm:px-0"
+                                aria-label={`More actions for ${lead.client_name || lead.contact_name || "lead"}`}
+                                title="More lead actions"
+                              >
+                                <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="max-h-[min(70vh,28rem)] w-64 overflow-y-auto">
+                              <DropdownMenuItem
+                                className="text-xs"
+                                disabled={!(lead.client_email || lead.email)}
+                                onClick={() => {
+                                  setEmailLeadDefaultOptionId(null);
+                                  setEmailLead(lead);
+                                }}
+                              >
+                                <Mail className="h-4 w-4" /> Email lead
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-xs"
+                                disabled={!(lead.client_email || lead.email)}
+                                onClick={() => {
+                                  setEmailLeadDefaultOptionId("outside_service_area");
+                                  setEmailLead(lead);
+                                }}
+                              >
+                                <MapPin className="h-4 w-4" /> Outside service area email
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-xs"
+                                onClick={() => setExpandedLeadId(expandedLeadId === lead.id ? null : lead.id)}
+                              >
+                                {expandedLeadId === lead.id ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                {expandedLeadId === lead.id ? "Hide lead details" : "Show lead details"}
+                              </DropdownMenuItem>
+                              {!links.orderId && !["open_quote_draft", "convert_to_order", "send_quote"].includes(suggestion.kind) && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  {links.quoteCount === 0 ? (
                                     <DropdownMenuItem
-                                      onClick={() => router.push(withSlug(`/admin/quotes/new?leadId=${lead.id}`))}
-                                      className="border-t border-slate-200 mt-1 pt-2 text-brand-primary font-medium"
+                                      className="text-xs"
+                                      onClick={() => {
+                                        void flipLeadToQuoted(lead);
+                                        router.push(withSlug(`/admin/quotes/new?leadId=${lead.id}`));
+                                      }}
                                     >
-                                      <Plus className="w-3.5 h-3.5 mr-1" />
-                                      Start a new quote
+                                      <FileText className="h-4 w-4" /> Start a new quote
                                     </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              );
-                            })()}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              title="Delete lead"
-                              onClick={() => setDeleteTarget(lead)}
-                              className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
+                                  ) : links.quoteCount === 1 && links.latestQuoteId ? (
+                                    <DropdownMenuItem
+                                      className="text-xs"
+                                      onClick={() => router.push(withSlug(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`))}
+                                    >
+                                      <FileText className="h-4 w-4" /> Edit quote
+                                    </DropdownMenuItem>
+                                  ) : (
+                                    <>
+                                      {links.quotes.map((q) => (
+                                        <DropdownMenuItem
+                                          key={q.id}
+                                          className="text-xs"
+                                          onClick={() => router.push(withSlug(`/admin/quotes/new?fromQuoteId=${q.id}`))}
+                                        >
+                                          <FileText className="h-4 w-4" /> {formatQuoteLabel(q)}
+                                        </DropdownMenuItem>
+                                      ))}
+                                      <DropdownMenuItem
+                                        className="text-xs font-medium text-brand-primary"
+                                        onClick={() => router.push(withSlug(`/admin/quotes/new?leadId=${lead.id}`))}
+                                      >
+                                        <Plus className="h-4 w-4" /> Start a new quote
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-xs text-rose-700 focus:text-rose-700"
+                                onClick={() => setDeleteTarget(lead)}
+                              >
+                                <Trash2 className="h-4 w-4" /> Delete lead
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                       {expandedLeadId === lead.id && (
-                        <div id={`lead-details-${lead.id}`} className="mt-4 pt-4 border-t border-slate-200 text-sm">
+                        <div id={`lead-details-${lead.id}`} className="mt-4 min-w-0 overflow-hidden break-words border-t border-slate-200 pt-4 text-xs sm:text-sm">
                           {/* Provenance caption - tells the operator
                               which underlying record we're reading
                               from. Keeps drift bugs visible: if a
                               booked lead reads the lead row, the team
                               knows immediately. */}
-                          <p className="text-xs text-slate-500 mb-3">
+                          <div className="mb-3 flex min-w-0 flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white text-slate-500">
+                              {links.resolved.source === "order" ? <ShoppingCart className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Record source</p>
+                              <p className="break-words text-xs font-medium leading-4 text-slate-800">
                             {links.resolved.source === "order"
                               // Wave 70.32 - caption verb reflects
                               // the order's real status. "Booked" only
@@ -1855,31 +1815,45 @@ function AdminLeadsInner() {
                             {links.resolved.source !== "lead" && links.resolved.venueName && (
                               <> · {links.resolved.venueName}</>
                             )}
-                          </p>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          <div>
-                            <p className="text-slate-500 text-xs mb-1">Event Date</p>
-                            <p className="text-slate-900 font-medium">
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                              {links.resolved.source === "quote" && links.latestQuoteId && (
+                                <Link href={withSlug(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`)} className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-brand-primary/20 bg-white px-2.5 text-xs font-medium text-brand-primary hover:bg-brand-primary/5">
+                                  <FileText className="h-3.5 w-3.5" /> Open quote
+                                </Link>
+                              )}
+                              {links.resolved.source === "order" && links.orderId && (
+                                <Link href={withSlug(staffOrderHref(links.orderId, "admin"))} className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-100">
+                                  <ShoppingCart className="h-3.5 w-3.5" /> Open order
+                                </Link>
+                              )}
+                            </div>
+                          </div>
+                          <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">
+                          <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-2.5 sm:p-3">
+                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Event date</p>
+                            <p className="break-words text-xs font-semibold tabular-nums text-slate-900 sm:text-sm">
                               {links.resolved.eventDate
                                 ? formatLocalDate(links.resolved.eventDate)
                                 : "TBD"}
                             </p>
                           </div>
-                          <div>
-                            <p className="text-slate-500 text-xs mb-1">Guests</p>
-                            <p className="text-slate-900 font-medium">
-                              {links.resolved.guestCount || "TBD"}
+                          <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-2.5 sm:p-3">
+                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Guests</p>
+                            <p className="break-words text-xs font-semibold tabular-nums text-slate-900 sm:text-sm">
+                              {links.resolved.guestCount ?? "TBD"}
                             </p>
                           </div>
-                          <div>
-                            <p className="text-slate-500 text-xs mb-1">Event Type</p>
-                            <p className="text-slate-900 font-medium">
+                          <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-2.5 sm:p-3">
+                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Event type</p>
+                            <p className="break-words text-xs font-semibold text-slate-900 sm:text-sm">
                               {links.resolved.eventType || "Not specified"}
                             </p>
                           </div>
-                          <div>
-                            <p className="text-slate-500 text-xs mb-1">Estimated Value</p>
-                            <p className="text-slate-900 font-medium">
+                          <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-2.5 sm:p-3">
+                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Estimated value</p>
+                            <p className="break-words text-xs font-semibold tabular-nums text-slate-900 sm:text-sm">
                               {typeof links.resolved.estimatedValue === "number" && links.resolved.estimatedValue > 0
                                 ? formatZAR(links.resolved.estimatedValue, { decimals: 0 })
                                 : "TBD"}
@@ -1887,9 +1861,9 @@ function AdminLeadsInner() {
                           </div>
                           </div>
                           {lead.notes && (
-                            <div className="mt-4">
-                              <p className="text-slate-500 text-xs mb-1">Notes</p>
-                              <p className="text-slate-700">{lead.notes}</p>
+                            <div className="mt-3 min-w-0 rounded-lg border border-slate-200 bg-white p-3">
+                              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Notes</p>
+                              <p className="whitespace-pre-wrap break-words text-xs leading-5 text-slate-700">{lead.notes}</p>
                             </div>
                           )}
                           {/*
@@ -1899,44 +1873,59 @@ function AdminLeadsInner() {
                             spine of the formal quote.
                           */}
                           {Array.isArray(lead.requested_items) && lead.requested_items.length > 0 && (
-                            <div className="mt-4">
-                              <p className="text-slate-500 text-xs mb-1.5 flex items-center gap-1.5">
-                                Items requested by client
-                                <span className="text-[10px] font-medium text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded px-1.5 py-0.5">
-                                  client portal
+                            <section className="mt-4 min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                              <div className="flex min-w-0 flex-col gap-2 border-b border-slate-200 bg-slate-50 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="min-w-0">
+                                  <h4 className="text-xs font-semibold text-slate-900">Items requested by client</h4>
+                                  <p className="mt-0.5 text-[11px] leading-4 text-slate-500">Requested menu choices to use when building the quote.</p>
+                                </div>
+                                <span className="inline-flex w-fit shrink-0 items-center rounded-full border border-brand-primary/20 bg-brand-primary/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-brand-primary">
+                                  Client portal
                                 </span>
-                              </p>
-                              <ul className="rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
-                                {lead.requested_items.map((it: any, i: number) => (
-                                  <li
-                                    key={`${it.menu_item_id || i}-${i}`}
-                                    className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
-                                  >
-                                    <div className="min-w-0 flex-1">
-                                      <span className="font-medium text-slate-900 truncate">
-                                        {it.item_name}
+                              </div>
+                              <ul className="divide-y divide-slate-100">
+                                {lead.requested_items.map((it: any, i: number) => {
+                                  const dietaryTags = Array.isArray(it.dietary_tags)
+                                    ? it.dietary_tags
+                                    : typeof it.dietary_tags === "string"
+                                      ? it.dietary_tags.split(",").map((tag: string) => tag.trim()).filter(Boolean)
+                                      : [];
+                                  return (
+                                    <li
+                                      key={`${it.menu_item_id || i}-${i}`}
+                                      className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-3 px-3 py-3"
+                                    >
+                                      <div className="min-w-0">
+                                        <p className="break-words text-xs font-semibold leading-4 text-slate-900">
+                                          {it.item_name || "Requested menu item"}
+                                        </p>
+                                        {(it.category || dietaryTags.length > 0) && (
+                                          <div className="mt-1.5 flex min-w-0 flex-wrap gap-1">
+                                            {it.category && (
+                                              <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium capitalize leading-4 text-slate-600">
+                                                {it.category}
+                                              </span>
+                                            )}
+                                            {dietaryTags.slice(0, 3).map((tag: string, tagIndex: number) => (
+                                              <span key={`${tag}-${tagIndex}`} className="rounded-md border border-emerald-100 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium capitalize leading-4 text-emerald-800">
+                                                {tag}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <span className="inline-flex h-7 min-w-12 items-center justify-center rounded-md bg-slate-100 px-2 text-xs font-semibold tabular-nums text-slate-700">
+                                        × {it.quantity ?? 1}
                                       </span>
-                                      {it.category && (
-                                        <span className="ml-2 text-xs text-slate-400">
-                                          {it.category}
-                                        </span>
-                                      )}
-                                      {Array.isArray(it.dietary_tags) && it.dietary_tags.length > 0 && (
-                                        <span className="ml-2 text-[11px] text-slate-500 capitalize">
-                                          {it.dietary_tags.slice(0, 3).join(", ")}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <span className="text-sm font-semibold text-slate-700 flex-shrink-0">
-                                      x{it.quantity}
-                                    </span>
-                                  </li>
-                                ))}
+                                    </li>
+                                  );
+                                })}
                               </ul>
-                              <p className="text-[11px] text-slate-400 mt-1.5">
-                                Pricing not set yet. Use these as the starting line items when you build the quote.
-                              </p>
-                            </div>
+                              <div className="border-t border-amber-200 bg-amber-50 px-3 py-2.5">
+                                <p className="text-xs font-semibold text-amber-900">Pricing not set yet</p>
+                                <p className="mt-0.5 text-[11px] leading-4 text-amber-800">Use these quantities as the starting line items when you build the quote.</p>
+                              </div>
+                            </section>
                           )}
                           {/*
                             Provenance: link back to the past order this
@@ -1945,16 +1934,14 @@ function AdminLeadsInner() {
                             ordered last time.
                           */}
                           {lead.source_order_id && (
-                            <div className="mt-4">
-                              <p className="text-[11px] text-slate-500">
-                                Rebooked from past order
-                                <Link
-                                  href={withSlug(staffOrderHref(lead.source_order_id, "admin"))}
-                                  className="ml-1.5 text-slate-600 hover:underline font-medium"
-                                >
-                                  view original
-                                </Link>
-                              </p>
+                            <div className="mt-3 flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+                              <p className="min-w-0 text-xs font-medium text-slate-700">Rebooked from a past order</p>
+                              <Link
+                                href={withSlug(staffOrderHref(lead.source_order_id, "admin"))}
+                                className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                              >
+                                <ShoppingCart className="h-3.5 w-3.5" /> View original order
+                              </Link>
                             </div>
                           )}
                         </div>

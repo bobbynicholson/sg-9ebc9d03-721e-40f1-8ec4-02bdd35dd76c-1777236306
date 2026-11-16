@@ -52,7 +52,7 @@ async function handler(
     let ordersQuery = db
       .from("orders")
       .select(
-        "id, order_number, event_name, client_name, event_date, total_amount, quote_id, status",
+        "id, order_number, event_name, client_name, event_date, total_amount, quote_id, status, order_items(quantity, unit_cost, line_total)",
       )
       .eq("company_id", companyId)
       .is("deleted_at", null)

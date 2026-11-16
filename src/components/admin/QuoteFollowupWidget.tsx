@@ -90,27 +90,27 @@ export function QuoteFollowupWidget({ companyId }: { companyId: string | null })
   if (!loading && quotes.length === 0) return null;
 
   return (
-    <Card collapsible defaultOpen={false} collapseLabel="Quotes to chase" className="mb-6 border-amber-200 bg-amber-50/40">
-      <CardHeader className="pb-3 min-w-0 flex-wrap">
+    <Card collapsible defaultOpen={false} collapseLabel="Quotes to chase" className="mb-6 min-w-0 max-w-full overflow-hidden border-amber-200 bg-amber-50/40">
+      <CardHeader className="min-w-0 flex-wrap px-3 py-3 sm:p-5">
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <CardTitle className="flex min-w-0 flex-wrap items-center gap-2 text-base">
-              <Clock className="w-4 h-4 text-amber-600" />
+            <CardTitle className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm leading-5 sm:gap-2 sm:text-base">
+              <Clock className="h-4 w-4 shrink-0 text-amber-600" />
               Quotes to chase
               {!loading && <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700" aria-label={`${quotes.length} items`}>{quotes.length}</span>}
             </CardTitle>
-            <CardDescription className="line-clamp-1 text-xs">
+            <CardDescription className="line-clamp-1 text-[10px] leading-4 sm:text-xs">
               In-play quotes sent more than 3 days ago without a reply. Oldest first.
             </CardDescription>
           </div>
-          <Link href={withSlug("/admin/quotes")}>
-            <Button variant="ghost" size="sm" className="text-amber-700">
-              All quotes <ArrowRight className="w-3.5 h-3.5 ml-1" />
+          <Link href={withSlug("/admin/quotes")} aria-label="View all quotes" title="All quotes" className="shrink-0">
+            <Button variant="ghost" size="sm" className="h-9 w-9 shrink-0 px-0 text-amber-700 sm:h-8 sm:w-auto sm:px-2">
+              <span className="sr-only sm:not-sr-only">All quotes</span><ArrowRight className="ml-0 h-3.5 w-3.5 sm:ml-1" />
             </Button>
           </Link>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0 px-3 py-3 sm:p-5">
         {loading ? (
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (

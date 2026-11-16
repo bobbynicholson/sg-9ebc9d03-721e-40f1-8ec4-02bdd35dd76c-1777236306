@@ -2,7 +2,7 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowUpRight, ChevronDown,
-  Download, Info, Loader2, Settings2,
+  Download, Info, Loader2, RefreshCw, Settings2,
 } from "lucide-react";
 import type { Quote } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -286,8 +286,8 @@ export default function QuoteOptimizationWorkbench({ companyId, currency, region
         <p className="text-sm text-slate-600">Loading the calendar…</p>
         <div className="animate-pulse space-y-3" aria-hidden="true"><div className="h-10 rounded-md bg-slate-100" /><div className="h-80 rounded-md bg-slate-100" /></div>
       </div>}
-      {error && !ready && <div role="alert" className="m-6 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"><span>{error}</span><Button variant="outline" onClick={() => setRefresh((value) => value + 1)}>Try again</Button></div>}
-      {error && ready && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-950 sm:px-6"><span>Showing the last loaded plan. Live data could not refresh.</span><Button size="sm" variant="outline" onClick={() => setRefresh((value) => value + 1)}>Try again</Button></div>}
+      {error && !ready && <div role="alert" className="m-6 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"><span>{error}</span><Button size="sm" variant="outline" className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3" onClick={() => setRefresh((value) => value + 1)} aria-label="Try loading the quote plan again" title="Try loading the quote plan again"><RefreshCw className="h-4 w-4" /><span className="hidden sm:inline">Try again</span></Button></div>}
+      {error && ready && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-950 sm:px-6"><span>Showing the last loaded plan. Live data could not refresh.</span><Button size="sm" variant="outline" className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3" onClick={() => setRefresh((value) => value + 1)} aria-label="Try loading the quote plan again" title="Try loading the quote plan again"><RefreshCw className="h-4 w-4" /><span className="hidden sm:inline">Try again</span></Button></div>}
 
       {ready && plan && <>
         <QuotePipelineBoard entries={pipeline} orders={data.orders} undatedEntries={undated} commitments={data.commitments} capacity={data.capacity}
@@ -321,11 +321,11 @@ export default function QuoteOptimizationWorkbench({ companyId, currency, region
                 <NumberField label="Minimum contribution margin (%)" value={assumptions.minimumMargin} min={0} max={100} onChange={(value) => changeAssumption("minimumMargin", value)} />
               </div>
               <p className="mt-4 text-xs text-slate-600">Capacity: <strong>{data.capacity.maxConcurrentEvents} events / day</strong> · <strong>{data.capacity.maxKitchenLoadPerDay == null ? "Kitchen guest limit not set" : `${data.capacity.maxKitchenLoadPerDay} kitchen guests / day`}</strong> · {data.capacity.maxGuestsPerEvent == null ? "No per-event guest limit" : `${data.capacity.maxGuestsPerEvent} guests / event`}. <Link className="font-medium text-brand-primary underline underline-offset-4" href={withSlug("/admin/settings")}>Company settings</Link></p>
-              <div className="mt-5 border-t border-slate-200 pt-4"><Button size="sm" variant="outline" onClick={exportPlan} disabled={!plan.selected.length || !!plan.conflicts.length || assumptions !== deferredAssumptions}><Download />Export plan</Button><span className="ml-3 text-xs text-slate-500">{plan.selected.length} quotes · {compactMoney(plan.profit)} estimated contribution · {plan.hours.toFixed(1)} prep h</span></div>
+              <div className="mt-5 border-t border-slate-200 pt-4"><Button size="sm" variant="outline" className="h-11 w-11 px-0 sm:h-9 sm:w-auto sm:px-3" onClick={exportPlan} disabled={!plan.selected.length || !!plan.conflicts.length || assumptions !== deferredAssumptions} aria-label="Export selected quote plan" title="Export selected quote plan"><Download /><span className="hidden sm:inline">Export plan</span></Button><span className="ml-3 text-xs text-slate-500">{plan.selected.length} quotes · {compactMoney(plan.profit)} estimated contribution · {plan.hours.toFixed(1)} prep h</span></div>
             </div>
             <div className="border-t border-slate-200 bg-slate-50/50 p-4 sm:p-6 lg:border-l lg:border-t-0">
               <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-semibold">Cost stress</h3><span className="text-sm font-semibold tabular-nums">+{assumptions.costShockPercent}%</span></div>
-              <Slider aria-label="Increase modeled costs by percent" value={[assumptions.costShockPercent]} min={0} max={50} step={1} onValueChange={([value]) => changeAssumption("costShockPercent", value)} />
+              <Slider className="mt-5" aria-label="Increase modeled costs by percent" value={[assumptions.costShockPercent]} min={0} max={50} step={1} onValueChange={([value]) => changeAssumption("costShockPercent", value)} />
               <div className="mt-2 flex justify-between text-xs text-slate-500"><span>0%</span><span>50%</span></div>
             </div>
           </div>

@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatClock } from "@/lib/portalTime";
+import { formatDate } from "@/lib/formatters";
 import { emitOrderUpdated } from "@/lib/events/orderEvents";
 import { useToast } from "@/hooks/use-toast";
 import { Check, ChevronDown, Search } from "lucide-react";
@@ -228,6 +229,9 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
   const edit = (id: string, patch: Partial<SittingOperations>) => { setRows(previous => previous.map(s => s.id === id ? { ...s, ...patch } : s)); setSaved(false); };
   const allocated = rows.reduce((sum, sitting) => sum + Number(sitting.guest_count || 0), 0);
   const mayEdit = canEdit && editableBooking;
+  const namesForDrivers = (ids: string[]) => ids
+    .map(id => drivers.find(driver => driver.id === id)?.full_name || "Assigned driver")
+    .join(", ");
   const addSitting = () => {
     setRows(previous => {
       const existing = previous.length === 1 ? [{ ...previous[0], guest_count: Math.ceil(totalGuests / 2) }] : previous;
@@ -281,19 +285,93 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
   if (loading && !rows.length) return <p className="text-sm text-slate-600" role="status">Loading service sittings…</p>;
   if (!canEdit && rows.length < 2 && !error) return null;
   return <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5" aria-labelledby={`${uid}-title`}>
-    <h2 id={`${uid}-title`} className="text-lg font-semibold text-slate-950">Service sittings &amp; trips</h2>
-    <p className="mt-1 text-sm leading-6 text-slate-600">One booking and one invoice. Your team sets the guest split, service times, kitchen batches, drivers and equipment collections.</p>
+    <h2 id={`${uid}-title`} className="text-base font-semibold text-slate-950 sm:text-lg">Service sittings &amp; trips</h2>
+    <p className="mt-1 text-xs leading-relaxed text-slate-600 sm:text-sm">{mayEdit ? "Manage guest splits, service times, drivers and equipment returns under one booking." : "Review sitting details, drivers and equipment returns for this booking."}</p>
     {mayEdit && <div className="mt-4 flex flex-wrap items-center gap-3">
       {rows.length < 12 && totalGuests > 1 && <Button type="button" variant="outline" disabled={saving || loading} onClick={addSitting}>{rows.length === 1 ? "Split into two sittings" : "Add sitting"}</Button>}
       <p role="status" className={`text-sm ${allocated === totalGuests ? "text-slate-600" : "font-medium text-red-800"}`}>{allocated} of {totalGuests} guests allocated</p>
     </div>}
-    {!mayEdit && rows.length > 0 && <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
+    {!mayEdit && rows.length > 0 && <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900 sm:text-sm" role="status">
       {!canEdit
         ? "This schedule is read-only. Switch to an administrator role to change sittings or addresses."
         : "This booking is closed or not active, so its sitting schedule is read-only."}
     </p>}
     {error && <div role="alert" className="mt-3 text-sm text-red-800">{error} <button type="button" className="underline underline-offset-4" onClick={() => void load()}>Reload saved schedule</button></div>}
-    {!!rows.length && <>
+    {!mayEdit && !!rows.length && (
+      <div className="mt-3 space-y-3">
+        {rows.length > 1 && <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 sm:px-4">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Equipment return plan</p>
+          <p className="mt-0.5 text-xs font-medium text-slate-900 sm:text-sm">
+            {returnPlan === "final_collection" ? "One collection after the final sitting" : returnPlan === "per_sitting_collection" ? "Separate collection after each sitting" : returnPlan === "on_site_return" ? "On-site team brings equipment back" : "Client returns equipment / nothing to collect"}
+          </p>
+        </div>}
+        {rows.map((s, index) => {
+          const collection = returnPlan === "per_sitting_collection" || (returnPlan === "final_collection" && index === rows.length - 1);
+          const venueAddress = s.venue_address === "" ? "Separate address not set" : s.venue_address || parentVenue.address || "Venue not set";
+          const contentsCount = (s.menuItems?.length || 0) + (s.equipmentItems?.length || 0);
+          return (
+            <article key={s.id} className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 sm:p-4">
+              <div className="flex min-w-0 flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-slate-900">Sitting {s.sequence_number}</h3>
+                  <p className="mt-0.5 text-xs text-slate-600">{s.guest_count} guests · {s.service_time ? formatClock(s.service_time.slice(0, 5)) : "Service time not set"}</p>
+                </div>
+                <p className="text-right text-xs tabular-nums text-slate-600">
+                  Delivery R {Number(s.delivery_fee || 0).toFixed(2)}<br />Collection R {Number(s.collection_fee || 0).toFixed(2)}
+                </p>
+              </div>
+              <div className="mt-3 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Venue</p>
+                  <p className="mt-0.5 break-words text-xs font-medium text-slate-800">{s.venue_name || parentVenue.name || "Primary venue"}</p>
+                  <p className="mt-0.5 break-words text-xs leading-relaxed text-slate-600">{venueAddress}</p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Kitchen and service</p>
+                  <dl className="mt-1 grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
+                    <dt className="text-slate-500">Kitchen ready</dt><dd className="font-medium text-slate-800">{s.kitchenReadyTime ? formatClock(s.kitchenReadyTime) : "Not set"}</dd>
+                    <dt className="text-slate-500">Depart kitchen</dt><dd className="font-medium text-slate-800">{s.dispatchTime ? formatClock(s.dispatchTime) : "Not set"}</dd>
+                  </dl>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Delivery drivers</p>
+                  <p className="mt-0.5 break-words text-xs text-slate-700">{s.deliveryDriverIds.length ? namesForDrivers(s.deliveryDriverIds) : "Not assigned"}</p>
+                </div>
+                {collection && rows.length > 1 && (
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Equipment collection</p>
+                    <p className="mt-0.5 text-xs text-slate-700">{s.returnDate ? formatDate(s.returnDate, { year: true }) : "Date not set"}{s.returnTime ? ` · ${formatClock(s.returnTime)}` : " · Time not set"}</p>
+                    <p className="mt-0.5 break-words text-xs text-slate-700">{s.collectionDriverIds.length ? namesForDrivers(s.collectionDriverIds) : "No collection driver assigned"}</p>
+                  </div>
+                )}
+              </div>
+              {contentsCount > 0 && (
+                <details className="mt-3 rounded-md border border-slate-200 bg-slate-50">
+                  <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs font-medium text-slate-700">
+                    <span>Food and equipment ({contentsCount})</span>
+                    <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform open:rotate-180" />
+                  </summary>
+                  <div className="grid min-w-0 grid-cols-1 gap-3 border-t border-slate-200 px-3 py-2.5 sm:grid-cols-2">
+                    {!!s.menuItems?.length && <div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Food</p><ul className="mt-1 space-y-0.5 text-xs text-slate-700">{s.menuItems.map(item => <li key={item.id} className="break-words">{item.quantity} × {item.name}</li>)}</ul></div>}
+                    {!!s.equipmentItems?.length && <div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Equipment</p><ul className="mt-1 space-y-0.5 text-xs text-slate-700">{s.equipmentItems.map(item => <li key={item.id} className="break-words">{item.quantity} × {item.name}</li>)}</ul></div>}
+                  </div>
+                </details>
+              )}
+              {(s.cleaningResetRequired || s.packingNotes) && (
+                <details className="mt-2 rounded-md border border-slate-200">
+                  <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs font-medium text-slate-700">Reset and packing notes<ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform open:rotate-180" /></summary>
+                  <div className="space-y-2 border-t border-slate-200 px-3 py-2.5 text-xs text-slate-700">
+                    <p>{s.cleaningResetRequired ? "Venue or equipment reset is required." : "No reset marked."}</p>
+                    {s.packingNotes && <p className="break-words whitespace-pre-wrap">{s.packingNotes}</p>}
+                  </div>
+                </details>
+              )}
+            </article>
+          );
+        })}
+      </div>
+    )}
+    {mayEdit && !!rows.length && <>
       {rows.some(row => row.equipmentItems?.length) && <p className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">Equipment listed on each sitting is the load for that stop. Shared equipment without a sitting assignment remains at the main venue; assign it to a sitting in the quote when it needs another address.</p>}
       <label className="mt-4 block text-sm font-medium text-slate-900">Equipment returns
         <select value={returnPlan} disabled={!mayEdit || saving} onChange={e => { setReturnPlan(e.target.value); setSaved(false); }} className="mt-1 block min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-base">

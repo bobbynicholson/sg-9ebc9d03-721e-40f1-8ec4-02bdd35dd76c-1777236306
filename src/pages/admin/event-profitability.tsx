@@ -173,7 +173,7 @@ function EventProfitabilityPageInner() {
         let ordersQuery = (supabase as any)
           .from("orders")
           .select(
-            "id, order_number, event_name, client_name, event_date, total_amount, quote_id, status",
+            "id, order_number, event_name, client_name, event_date, total_amount, quote_id, status, order_items(quantity, unit_cost, line_total)",
           )
           .eq("company_id", companyId)
           .is("deleted_at", null)
@@ -249,6 +249,7 @@ function EventProfitabilityPageInner() {
       const foodByOrder = new Map<string, number>();
       for (const item of shoppingData) {
         if (!item.source_order_id || item.removed_at) continue;
+        if (item.actual_cost == null && item.estimated_cost == null) continue;
         const value =
           item.actual_cost != null
             ? n(item.actual_cost)
@@ -257,6 +258,20 @@ function EventProfitabilityPageInner() {
           item.source_order_id,
           (foodByOrder.get(item.source_order_id) || 0) + value,
         );
+      }
+      // Use the accepted menu-cost snapshot when shopping lines have not
+      // yet been priced. unit_cost is per item; multiply by quantity.
+      for (const order of orderRows) {
+        if (foodByOrder.has(order.id)) continue;
+        const items = Array.isArray(order.order_items) ? order.order_items : [];
+        let orderFoodCost = 0;
+        let hasUnitCost = false;
+        for (const item of items) {
+          if (item.unit_cost == null || n(item.quantity) <= 0) continue;
+          orderFoodCost += n(item.quantity) * n(item.unit_cost);
+          hasUnitCost = true;
+        }
+        if (hasUnitCost) foodByOrder.set(order.id, orderFoodCost);
       }
       const equipmentByOrder = new Map<string, number>();
       for (const item of hireData) {
@@ -268,10 +283,9 @@ function EventProfitabilityPageInner() {
       }
       const driverByOrder = new Map<string, number>();
       for (const item of driverData) {
-        const value =
-          item.total_earnings != null
-            ? n(item.total_earnings)
-            : n(item.base_fee) + n(item.distance_fee);
+        const savedTotal = n(item.total_earnings);
+        const componentTotal = n(item.base_fee) + n(item.distance_fee);
+        const value = savedTotal > 0 ? savedTotal : componentTotal;
         driverByOrder.set(
           item.order_id,
           (driverByOrder.get(item.order_id) || 0) + value,
@@ -327,7 +341,10 @@ function EventProfitabilityPageInner() {
           acc.quoted += row.quoted;
           acc.revenue += row.revenue;
           acc.cost += cost;
-          acc.profit += row.revenue - cost;
+          if (cost > 0) {
+            acc.costedRevenue += row.revenue;
+            acc.profit += row.revenue - cost;
+          }
           acc.food += row.food;
           acc.equipment += row.equipment;
           acc.driver += row.driver;
@@ -338,6 +355,7 @@ function EventProfitabilityPageInner() {
           quoted: 0,
           revenue: 0,
           cost: 0,
+          costedRevenue: 0,
           profit: 0,
           food: 0,
           equipment: 0,
@@ -368,6 +386,7 @@ function EventProfitabilityPageInner() {
       const cost =
         row.food + row.equipment + row.driver + row.staff + row.paymentFees;
       const profit = row.revenue - cost;
+      const hasCostData = cost > 0;
       return [
         row.orderNumber,
         row.eventName,
@@ -380,8 +399,8 @@ function EventProfitabilityPageInner() {
         row.driver,
         row.staff,
         row.paymentFees,
-        profit,
-        row.revenue ? (profit / row.revenue) * 100 : 0,
+        hasCostData ? profit : "N/A - no cost data",
+        hasCostData && row.revenue ? (profit / row.revenue) * 100 : "N/A - no cost data",
       ]
         .map((value) => `"${String(value).replaceAll('"', '""')}"`)
         .join(",");
@@ -398,7 +417,12 @@ function EventProfitabilityPageInner() {
   };
 
   const fmt = (value: number) => money(value, currency.format);
-  const margin = summary.revenue ? (summary.profit / summary.revenue) * 100 : 0;
+  const costedEventCount = rows.filter(
+    (row) => row.food + row.equipment + row.driver + row.staff + row.paymentFees > 0,
+  ).length;
+  const margin = summary.costedRevenue
+    ? (summary.profit / summary.costedRevenue) * 100
+    : null;
 
   return (
     <>
@@ -414,35 +438,39 @@ function EventProfitabilityPageInner() {
             subtitle="Compare completed event revenue with recorded operating costs."
             icon={BarChart3}
             actions={
-              <div className="flex flex-wrap gap-2">
+              <div className="flex w-full items-center justify-end gap-2 xl:w-auto">
                 <Button
                   onClick={exportCsv}
                   disabled={!rows.length}
                   variant="outline"
-                  className="gap-2 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+                  title="Export event profitability as CSV"
+                  aria-label="Export event profitability as CSV"
+                  className="h-11 w-11 justify-self-end p-0 bg-white/10 text-white hover:bg-white/20 hover:text-white sm:h-9 sm:w-auto sm:px-3"
                 >
-                  <Download className="h-4 w-4" />
-                  Export CSV
+                  <Download className="h-4 w-4 sm:mr-2" aria-hidden="true" />
+                  <span className="sr-only sm:not-sr-only">Export CSV</span>
                 </Button>
                 <Button
                   onClick={() => void load()}
                   disabled={loading}
                   variant="outline"
-                  className="gap-2 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+                  title="Refresh event profitability"
+                  aria-label="Refresh event profitability"
+                  className="h-11 w-11 justify-self-end p-0 bg-white/10 text-white hover:bg-white/20 hover:text-white sm:h-9 sm:w-auto sm:px-3"
                 >
                   {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
                   ) : (
-                    <RefreshCw className="h-4 w-4" />
+                    <RefreshCw className="h-4 w-4 sm:mr-2" />
                   )}
-                  Refresh
+                  <span className="sr-only sm:not-sr-only">Refresh</span>
                 </Button>
               </div>
             }
           />
           <PageWorkbench />
           <PortalCard className="mb-5 border-brand-primary/20 bg-brand-primary/5">
-            <div className="grid gap-3 sm:grid-cols-[180px_180px_auto_1fr] sm:items-end">
+            <div className="grid gap-3 sm:grid-cols-2 sm:items-end xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_minmax(13rem,1.2fr)]">
               <div>
                 <Label htmlFor="profit-from">From</Label>
                 <Input
@@ -467,7 +495,7 @@ function EventProfitabilityPageInner() {
                 type="button"
                 onClick={() => setAppliedRange({ from, to })}
                 disabled={loading || !from || !to || from > to}
-                className="w-fit gap-2 bg-brand-primary text-white hover:bg-brand-primary/90"
+                className="h-11 w-full gap-2 bg-brand-primary text-white hover:bg-brand-primary/90 sm:w-fit"
               >
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -484,7 +512,7 @@ function EventProfitabilityPageInner() {
                   onChange={(e) =>
                     setViewMode(e.target.value as "completed" | "all")
                   }
-                  className="mt-1.5 h-10 w-full rounded-md border border-brand-primary/20 bg-white px-3 text-sm text-slate-800 shadow-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
+                  className="mt-1.5 h-11 w-full rounded-md border border-brand-primary/20 bg-white px-3 text-sm text-slate-800 shadow-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
                 >
                   <option value="completed">Completed & delivered</option>
                   <option value="all">All non-cancelled events</option>
@@ -494,8 +522,7 @@ function EventProfitabilityPageInner() {
                 {viewMode === "completed"
                   ? "Completed and delivered events only."
                   : "Includes confirmed, preparing, ready, in-transit, delivered, and completed events."}{" "}
-                Shopping and hire costs use actual values where recorded;
-                estimates are used when no actual shopping total exists.
+                Priced shopping totals take priority; menu item cost snapshots fill gaps.
               </p>
             </div>
           </PortalCard>
@@ -510,27 +537,73 @@ function EventProfitabilityPageInner() {
               </div>
             </PortalCard>
           )}
-          <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mb-5 grid min-w-0 grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-5">
             <SummaryCard label="Quoted" value={fmt(summary.quoted)} />
             <SummaryCard label="Revenue" value={fmt(summary.revenue)} />
             <SummaryCard label="Recorded cost" value={fmt(summary.cost)} />
             <SummaryCard
-              label="Profit"
-              value={fmt(summary.profit)}
-              tone={summary.profit >= 0 ? "positive" : "negative"}
+              label="Profit on costed events"
+              value={costedEventCount > 0 ? fmt(summary.profit) : "Awaiting cost data"}
+              tone={costedEventCount === 0 ? undefined : summary.profit >= 0 ? "positive" : "negative"}
             />
             <SummaryCard
-              label="Profit %"
-              value={`${margin.toFixed(1)}%`}
-              tone={margin >= 0 ? "positive" : "negative"}
+              label="Margin on costed events"
+              value={margin != null ? `${margin.toFixed(1)}%` : "Awaiting cost data"}
+              tone={margin == null ? undefined : margin >= 0 ? "positive" : "negative"}
             />
           </div>
           <p className="mb-4 flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400">
             <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-primary" />
-            Costs include shopping, equipment hire and delivery. Staff labour and payment fees are left out until they can be linked to an order.
+            Food costs use recorded shopping totals, or menu cost snapshots when shopping is not priced. Profit and margin exclude events with no recorded costs ({costedEventCount} of {rows.length} costed); staff labour is not linked to individual events yet.
           </p>
           <PortalCard className="overflow-hidden p-0">
-            <div className="overflow-x-auto">
+            <div className="space-y-3 p-3 xl:hidden">
+              {loading ? (
+                <div className="py-8 text-center text-sm text-slate-500">
+                  <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />
+                  Loading events…
+                </div>
+              ) : rows.length === 0 ? (
+                <p className="py-8 text-center text-sm text-slate-500">
+                  {viewMode === "completed"
+                    ? "No completed or delivered events in this date range. Try All non-cancelled events if this booking is still in progress."
+                    : "No non-cancelled events in this date range."}
+                </p>
+              ) : rows.map((row) => {
+                const cost = row.food + row.equipment + row.driver + row.staff + row.paymentFees;
+                const profit = row.revenue - cost;
+                const hasCostData = cost > 0;
+                return (
+                  <article key={row.id} className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
+                    <div className="mb-3 min-w-0">
+                      <Link
+                        href={withSlug(`/admin/orders?orderId=${encodeURIComponent(row.id)}`)}
+                        className="font-semibold text-brand-primary hover:underline"
+                      >
+                        {row.orderNumber}
+                      </Link>
+                      <p className="mt-0.5 break-words text-sm font-medium text-slate-900">{row.eventName}</p>
+                      <p className="break-words text-xs text-slate-500">{row.clientName} · {row.eventDate}</p>
+                    </div>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                      <div><dt className="text-xs text-slate-500">Quoted</dt><dd className="break-words font-medium tabular-nums">{fmt(row.quoted)}</dd></div>
+                      <div><dt className="text-xs text-slate-500">Revenue</dt><dd className="break-words font-medium tabular-nums">{fmt(row.revenue)}</dd></div>
+                      <div><dt className="text-xs text-slate-500">Food</dt><dd className="break-words tabular-nums">{fmt(row.food)}</dd></div>
+                      <div><dt className="text-xs text-slate-500">Hire</dt><dd className="break-words tabular-nums">{fmt(row.equipment)}</dd></div>
+                      <div><dt className="text-xs text-slate-500">Driver</dt><dd className="break-words tabular-nums">{fmt(row.driver)}</dd></div>
+                      <div><dt className="text-xs text-slate-500">Staff</dt><dd className="tabular-nums text-slate-400" title="Staff labor is not currently linked to individual orders">—</dd></div>
+                      <div><dt className="text-xs text-slate-500">Fees</dt><dd className="break-words tabular-nums">{row.paymentFeesLinked ? fmt(row.paymentFees) : <span className="text-slate-400" title="No gateway fee recorded">—</span>}</dd></div>
+                      <div><dt className="text-xs text-slate-500">Margin</dt><dd className={`font-semibold tabular-nums ${profit >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{hasCostData && row.revenue ? `${((profit / row.revenue) * 100).toFixed(1)}%` : <span className="text-slate-400" title="Margin is shown after at least one event cost is recorded">—</span>}</dd></div>
+                      <div className="col-span-2 border-t border-slate-100 pt-2">
+                        <dt className="text-xs text-slate-500">Profit</dt>
+                        <dd className={`text-base font-semibold tabular-nums ${profit >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{hasCostData ? fmt(profit) : <span className="text-slate-400" title="No event costs are recorded yet">—</span>}</dd>
+                      </div>
+                    </dl>
+                  </article>
+                );
+              })}
+            </div>
+            <div className="hidden overflow-x-auto xl:block">
               <table className="w-full min-w-[1120px] text-left text-sm">
                 <thead className="border-b border-brand-primary/20 bg-brand-primary/5 text-xs uppercase tracking-wide text-brand-primary dark:border-slate-800 dark:bg-slate-950">
                   <tr>
@@ -577,6 +650,7 @@ function EventProfitabilityPageInner() {
                         row.staff +
                         row.paymentFees;
                       const profit = row.revenue - cost;
+                      const hasCostData = cost > 0;
                       return (
                         <tr
                           key={row.id}
@@ -632,12 +706,12 @@ function EventProfitabilityPageInner() {
                           <td
                             className={`px-3 py-3 text-right font-semibold tabular-nums ${profit >= 0 ? "text-emerald-700" : "text-rose-700"}`}
                           >
-                            {fmt(profit)}
+                            {hasCostData ? fmt(profit) : <span className="text-slate-400" title="No event costs are recorded yet">—</span>}
                           </td>
                           <td
                             className={`px-4 py-3 text-right font-semibold tabular-nums ${profit >= 0 ? "text-emerald-700" : "text-rose-700"}`}
                           >
-                            {row.revenue
+                            {hasCostData && row.revenue
                               ? `${((profit / row.revenue) * 100).toFixed(1)}%`
                               : "—"}
                           </td>
@@ -674,7 +748,7 @@ function SummaryCard({
         {label}
       </p>
       <p
-        className={`mt-2 text-xl font-bold tabular-nums ${tone === "positive" ? "text-brand-primary" : tone === "negative" ? "text-rose-700" : "text-slate-900 dark:text-white"}`}
+        className={`mt-2 break-words text-lg font-bold leading-tight tabular-nums sm:text-xl ${tone === "positive" ? "text-brand-primary" : tone === "negative" ? "text-rose-700" : "text-slate-900 dark:text-white"}`}
       >
         {value}
       </p>

@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle , CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrendingUp, Banknote, AlertTriangle, Calendar, Users, Package, CreditCard, ArrowUpRight, ArrowDownRight, Trophy, Download, RefreshCw } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TrendingUp, Banknote, AlertTriangle, Calendar, Users, Package, CreditCard, ArrowUpRight, ArrowDownRight, Trophy, Download, RefreshCw, LayoutDashboard } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
@@ -38,6 +38,8 @@ import { UserRole } from "@/types/app";
 import { canAccessFinance } from "@/lib/authGuards";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 import { PageLoader } from "@/components/ui/loading-skeleton";
+
+type FinancialSection = "overview" | "projections" | "expenses" | "orders" | "branches";
 
 interface FinancialMetrics {
   currentCashFlow: number;
@@ -93,6 +95,7 @@ function FinancialDashboardInner() {
   // Pre-FIN-C the page aggregated company-wide with no way to focus.
   const { regionFilterId } = useRegionFilter();
   const [loading, setLoading] = useState(true);
+  const [activeFinancialSection, setActiveFinancialSection] = useState<FinancialSection>("overview");
   const [metrics, setMetrics] = useState<FinancialMetrics | null>(null);
   const [alerts, setAlerts] = useState<CashFlowAlert[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -127,6 +130,8 @@ function FinancialDashboardInner() {
   const { kitchens } = useCompanyKitchens(user?.company_id ?? null);
   const branches = kitchens.filter((k) => k.source === "region");
   const showBranchesTab = branches.length > 1;
+  const selectedFinancialSection: FinancialSection =
+    activeFinancialSection === "branches" && !showBranchesTab ? "overview" : activeFinancialSection;
 
   const loadFinancialData = useCallback(async () => {
     if (!user) return;
@@ -749,7 +754,7 @@ function FinancialDashboardInner() {
               meta={
                 metrics ? (
                   <>
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       <span className={`h-1.5 w-1.5 rounded-full ${
                         metrics.healthScore >= 70 ? "bg-emerald-400" :
                         metrics.healthScore >= 55 ? "bg-amber-400" :
@@ -761,10 +766,10 @@ function FinancialDashboardInner() {
                         content={"A score out of 100 that blends cash flow, the next 30 days of bookings, what you owe staff, and profit margin into one quick health check.\n\nHigher is better. Caps at 80 until a full COGS pipeline lands."}
                       />
                     </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       {formatCurrency(metrics.cashReceived)} received
                     </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       {formatCurrency(metrics.pendingPayments)} outstanding
                     </span>
                   </>
@@ -780,6 +785,9 @@ function FinancialDashboardInner() {
                     <Button
                       variant="outline"
                       size="sm"
+                      aria-label="Export financial snapshot as CSV"
+                      title="Export financial snapshot as CSV"
+                      className="h-11 w-11 justify-self-end p-0 sm:h-9 sm:w-auto sm:px-3"
                       onClick={() => {
                       const esc = (v: any) => {
                         if (v == null) return "";
@@ -833,8 +841,8 @@ function FinancialDashboardInner() {
                       URL.revokeObjectURL(url);
                     }}
                   >
-                      <Download className="w-4 h-4 mr-2" />
-                      Export snapshot CSV
+                      <Download className="h-4 w-4 sm:mr-2" aria-hidden="true" />
+                      <span className="sr-only sm:not-sr-only">Export snapshot CSV</span>
                     </Button>
                   )}
                 </>
@@ -887,10 +895,10 @@ function FinancialDashboardInner() {
             {alerts.length > 0 && (
               <div className="space-y-2 mb-6">
                 {alerts.map((alert, index) => (
-                  <Card key={index} className={`border-l-4 ${
-                    alert.severity === "high" ? "border-l-red-500 bg-rose-50" :
-                    alert.severity === "medium" ? "border-l-yellow-500 bg-yellow-50" :
-                    "border-l-blue-500 bg-blue-50"
+                  <Card key={index} className={`border ${
+                    alert.severity === "high" ? "border-rose-200 bg-rose-50" :
+                    alert.severity === "medium" ? "border-amber-200 bg-amber-50" :
+                    "border-blue-200 bg-blue-50"
                   }`}>
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
@@ -981,7 +989,7 @@ function FinancialDashboardInner() {
                   const noActivity = position.noActivity;
                   return (
                     <>
-                      <div className={`text-2xl font-bold ${net < 0 ? "text-rose-700" : "text-slate-900"}`}>
+                      <div className={`break-words text-lg font-bold leading-tight tabular-nums sm:text-2xl ${net < 0 ? "text-rose-700" : "text-slate-900"}`}>
                         {formatCurrency(net)}
                       </div>
                       <div className="mt-2 space-y-0.5 text-xs">
@@ -1040,7 +1048,7 @@ function FinancialDashboardInner() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-slate-900">
+                <div className="break-words text-lg font-bold leading-tight tabular-nums text-slate-900 sm:text-2xl">
                   {formatCurrency(metrics?.projectedRevenue30Days || 0)}
                 </div>
                 <p className="text-sm text-slate-600 mt-2">
@@ -1066,7 +1074,7 @@ function FinancialDashboardInner() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-slate-900">
+                <div className="break-words text-lg font-bold leading-tight tabular-nums text-slate-900 sm:text-2xl">
                   {formatCurrency(metrics?.pendingPayments || 0)}
                 </div>
                 <p className="text-sm text-slate-600 mt-2">
@@ -1088,14 +1096,14 @@ function FinancialDashboardInner() {
               <CardContent>
                 {metrics?.profitMargin != null ? (
                   <>
-                    <div className="text-2xl font-bold text-slate-900">
+                    <div className="break-words text-lg font-bold leading-tight tabular-nums text-slate-900 sm:text-2xl">
                       {metrics.profitMargin.toFixed(1)}%
                     </div>
                     <p className="text-sm text-slate-600 mt-2">
                       Gross margin (90 days)
                     </p>
                     {(metrics?.ordersMissingCost || 0) > 0 && (
-                      <p className="text-[11px] text-amber-700 mt-1 flex items-center gap-1">
+                      <p className="mt-1 flex items-center gap-1 text-xs text-amber-700">
                         <AlertTriangle className="w-3 h-3" />
                         {metrics.ordersMissingCost} order{metrics.ordersMissingCost === 1 ? "" : "s"} missing cost data
                       </p>
@@ -1103,7 +1111,7 @@ function FinancialDashboardInner() {
                   </>
                 ) : (
                   <>
-                    <div className="text-2xl font-bold text-slate-400">
+                    <div className="text-lg font-bold leading-tight text-slate-400 sm:text-xl">
                       No data yet
                     </div>
                     <p className="text-sm text-slate-500 mt-2">
@@ -1129,18 +1137,33 @@ function FinancialDashboardInner() {
             </Card>
           </div>
 
-          {/* Detailed Tabs */}
-          <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList className={`grid w-full h-auto grid-cols-2 ${showBranchesTab ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-4"}`}>
-              <TabsTrigger id="financial-overview" data-chat-section="admin.financial-dashboard.overview" data-chat-section-label="Financial overview" value="overview">Overview</TabsTrigger>
-              <TabsTrigger id="financial-projections" data-chat-section="admin.financial-dashboard.projections" data-chat-section-label="Financial projections" value="projections">Projections</TabsTrigger>
-              <TabsTrigger id="financial-expenses" data-chat-section="admin.financial-dashboard.expenses" data-chat-section-label="Financial expenses" value="expenses">Expenses</TabsTrigger>
-              <TabsTrigger id="financial-orders" data-chat-section="admin.financial-dashboard.orders" data-chat-section-label="Financial order analysis" value="orders">Order Analysis</TabsTrigger>
-              {showBranchesTab && <TabsTrigger id="financial-branches" data-chat-section="admin.financial-dashboard.branches" data-chat-section-label="Financial branches" value="branches">Branches</TabsTrigger>}
-            </TabsList>
+          {/* A single section picker keeps finance navigation compact at
+              every width while leaving each analysis view one tap away. */}
+          <div className="mb-4 max-w-full rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:flex sm:items-center sm:gap-3 sm:p-3">
+            <div className="mb-2 flex min-w-0 items-center gap-2 sm:mb-0 sm:w-36 sm:shrink-0">
+              <LayoutDashboard className="h-4 w-4 shrink-0 text-brand-primary" aria-hidden="true" />
+              <label htmlFor="financial-section-select" className="text-sm font-semibold text-slate-700">Finance view</label>
+            </div>
+            <Select
+              value={selectedFinancialSection}
+              onValueChange={(value) => setActiveFinancialSection(value as FinancialSection)}
+            >
+              <SelectTrigger id="financial-section-select" aria-label="Choose a finance view" className="h-11 w-full min-w-0 bg-white text-sm sm:max-w-sm">
+                <SelectValue placeholder="Choose a finance view" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="overview">Overview</SelectItem>
+                <SelectItem value="projections">Projections</SelectItem>
+                <SelectItem value="expenses">Expenses</SelectItem>
+                <SelectItem value="orders">Order analysis</SelectItem>
+                {showBranchesTab && <SelectItem value="branches">Branches</SelectItem>}
+              </SelectContent>
+            </Select>
+          </div>
 
-            <TabsContent value="overview" className="space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
+          {selectedFinancialSection === "overview" && (
+            <section id="financial-overview" data-chat-section="admin.financial-dashboard.overview" data-chat-section-label="Financial overview" className="space-y-4">
+              <div className="grid gap-4 xl:grid-cols-2">
                 <Card collapsible defaultOpen={true} collapseLabel="Financial Summary">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">Financial Summary <InfoTooltip content={"Quick snapshot of money in, money out, and what is still owed.\n\nPulled together from your orders and staff wage ledger."} /></CardTitle>
@@ -1158,19 +1181,19 @@ function FinancialDashboardInner() {
                         same source as the KPI tile. Label renamed to
                         match the new semantics (it's cash actually
                         received, not "total paid orders revenue"). */}
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-600 flex items-center gap-1">Cash Received <InfoTooltip content={"Sum of amount_paid across every non-cancelled order. Matches the Current Cash Flow tile up top."} /></span>
-                      <span className="font-semibold">{formatCurrency(metrics?.cashReceived || 0)}</span>
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="flex min-w-0 items-center gap-1 text-sm text-slate-600">Cash Received <InfoTooltip content={"Sum of amount_paid across every non-cancelled order. Matches the Current Cash Flow tile up top."} /></span>
+                      <span className="break-words font-semibold tabular-nums">{formatCurrency(metrics?.cashReceived || 0)}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-600 flex items-center gap-1">Pending Payments <InfoTooltip content={"Balance still owed on orders that are pending or only partly paid."} /></span>
-                      <span className="font-semibold text-yellow-600">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="flex min-w-0 items-center gap-1 text-sm text-slate-600">Pending Payments <InfoTooltip content={"Balance still owed on orders that are pending or only partly paid."} /></span>
+                      <span className="break-words font-semibold tabular-nums text-yellow-600">
                         {formatCurrency(metrics?.pendingPayments || 0)}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-600 flex items-center gap-1">Staff Payments Owed <InfoTooltip content={"Wages already logged for staff that you have not paid out yet."} /></span>
-                      <span className="font-semibold text-rose-600">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="flex min-w-0 items-center gap-1 text-sm text-slate-600">Staff Payments Owed <InfoTooltip content={"Wages already logged for staff that you have not paid out yet."} /></span>
+                      <span className="break-words font-semibold tabular-nums text-rose-600">
                         {formatCurrency(metrics?.staffPaymentsOwed || 0)}
                       </span>
                     </div>
@@ -1178,26 +1201,26 @@ function FinancialDashboardInner() {
                         the forecast chart already subtracts so the
                         summary's Net line ties out with the projected
                         balance trend instead of contradicting it. */}
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-600 flex items-center gap-1">Fixed Costs (next 30d) <InfoTooltip content={"Recurring rent / software / vehicle costs falling due in the next 30 days. Pulled from the Fixed Costs page. Subtracted from Net Cash Flow."} /></span>
-                      <span className="font-semibold text-rose-600">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="flex min-w-0 items-center gap-1 text-sm text-slate-600">Fixed Costs (next 30d) <InfoTooltip content={"Recurring rent / software / vehicle costs falling due in the next 30 days. Pulled from the Fixed Costs page. Subtracted from Net Cash Flow."} /></span>
+                      <span className="break-words font-semibold tabular-nums text-rose-600">
                         {formatCurrency(metrics?.fixedCostsNext30 || 0)}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-600 flex items-center gap-1">Supplier Payables (next 30d) <InfoTooltip content={"Unpaid supplier invoices with a due date in the next 30 days. Pulled from the Payables page. Subtracted from Net Cash Flow."} /></span>
-                      <span className="font-semibold text-rose-600">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="flex min-w-0 items-center gap-1 text-sm text-slate-600">Supplier Payables (next 30d) <InfoTooltip content={"Unpaid supplier invoices with a due date in the next 30 days. Pulled from the Payables page. Subtracted from Net Cash Flow."} /></span>
+                      <span className="break-words font-semibold tabular-nums text-rose-600">
                         {formatCurrency(metrics?.supplierPayablesNext30 || 0)}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-600 flex items-center gap-1">Inventory Costs <InfoTooltip content={"Sum of ingredient cost on PAID orders in the last 90 days (quantity * unit_cost on usage transactions). Supplier invoices / payroll not yet folded in."} /></span>
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="flex min-w-0 items-center gap-1 text-sm text-slate-600">Inventory Costs <InfoTooltip content={"Sum of ingredient cost on PAID orders in the last 90 days (quantity * unit_cost on usage transactions). Supplier invoices / payroll not yet folded in."} /></span>
                       {metrics?.inventoryCosts != null ? (
-                        <span className="font-semibold">
+                        <span className="break-words font-semibold tabular-nums">
                           {formatCurrency(metrics.inventoryCosts)}
                         </span>
                       ) : (
-                        <span className="font-semibold text-slate-400">
+                        <span className="text-sm font-semibold text-slate-400">
                           No usage data yet
                         </span>
                       )}
@@ -1217,9 +1240,9 @@ function FinancialDashboardInner() {
                         inventoryCosts: metrics?.inventoryCosts ?? null,
                       }).net;
                       return (
-                        <div className="border-t pt-4 flex justify-between items-center">
-                          <span className="font-semibold flex items-center gap-1">Net Cash Flow (30d) <InfoTooltip content={"Cash received less wages owed, fixed costs, supplier payables due in the next 30 days, and 90-day inventory cost.\n\nSame number as the Current Cash Flow tile above and the Cashflow Dashboard summary."} /></span>
-                          <span className={`font-bold text-lg ${net > 0 ? "text-brand-primary" : "text-rose-600"}`}>
+                        <div className="flex flex-col gap-1 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                          <span className="flex items-center gap-1 font-semibold">Net Cash Flow (30d) <InfoTooltip content={"Cash received less wages owed, fixed costs, supplier payables due in the next 30 days, and 90-day inventory cost.\n\nSame number as the Current Cash Flow tile above and the Cashflow Dashboard summary."} /></span>
+                          <span className={`break-words text-base font-bold leading-tight tabular-nums sm:text-lg ${net > 0 ? "text-brand-primary" : "text-rose-600"}`}>
                             {formatCurrency(net)}
                           </span>
                         </div>
@@ -1275,9 +1298,12 @@ function FinancialDashboardInner() {
                   </CardContent>
                 </Card>
               </div>
-            </TabsContent>
+            </section>
 
-            <TabsContent value="projections">
+          )}
+
+          {selectedFinancialSection === "projections" && (
+            <section id="financial-projections" data-chat-section="admin.financial-dashboard.projections" data-chat-section-label="Financial projections" className="space-y-4">
               <Card collapsible defaultOpen={false} collapseLabel="Revenue Projections">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">Revenue Projections <InfoTooltip content={"Revenue you can expect across upcoming booked events, grouped by event date.\n\nIncludes everything booked, paid or not."} /></CardTitle>
@@ -1286,9 +1312,9 @@ function FinancialDashboardInner() {
                 <CardContent>
                   <div className="space-y-6">
                     <div>
-                      <div className="flex justify-between items-center mb-2">
+                      <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span className="text-slate-600">Next 30 Days</span>
-                        <span className="font-semibold text-xl">
+                        <span className="break-words text-base font-semibold leading-tight tabular-nums sm:text-lg">
                           {formatCurrency(metrics?.projectedRevenue30Days || 0)}
                         </span>
                       </div>
@@ -1301,9 +1327,9 @@ function FinancialDashboardInner() {
                     </div>
 
                     <div>
-                      <div className="flex justify-between items-center mb-2">
+                      <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span className="text-slate-600">Next 90 Days</span>
-                        <span className="font-semibold text-xl">
+                        <span className="break-words text-base font-semibold leading-tight tabular-nums sm:text-lg">
                           {formatCurrency(metrics?.projectedRevenue90Days || 0)}
                         </span>
                       </div>
@@ -1352,9 +1378,11 @@ function FinancialDashboardInner() {
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
+            </section>
+          )}
 
-            <TabsContent value="expenses">
+          {selectedFinancialSection === "expenses" && (
+            <section id="financial-expenses" data-chat-section="admin.financial-dashboard.expenses" data-chat-section-label="Financial expenses" className="space-y-4">
               <Card collapsible defaultOpen={false} collapseLabel="Expense Tracking">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">Expense Tracking <InfoTooltip content={"Two cost lines side by side: real wages owed to staff, plus a rough inventory cost estimate based on in-flight orders.\n\nIngredient costs become accurate once recipes and live stock data are wired in."} /></CardTitle>
@@ -1362,8 +1390,8 @@ function FinancialDashboardInner() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center p-4 bg-slate-50 rounded-lg">
-                      <div>
+                    <div className="flex flex-col gap-2 rounded-lg bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+                      <div className="min-w-0">
                         <h4 className="font-semibold">Staff Payments</h4>
                         <p className="text-sm text-slate-600">
                           {(metrics?.unpaidSessionsCount ?? 0) === 0
@@ -1371,24 +1399,24 @@ function FinancialDashboardInner() {
                             : `${metrics?.unpaidSessionsCount} unpaid session${metrics?.unpaidSessionsCount === 1 ? "" : "s"} across ${metrics?.unpaidStaffCount ?? 0} staff member${(metrics?.unpaidStaffCount ?? 0) === 1 ? "" : "s"}`}
                         </p>
                       </div>
-                      <span className="font-bold text-lg">
+                      <span className="break-words text-base font-bold leading-tight tabular-nums sm:text-lg">
                         {formatCurrency(metrics?.staffPaymentsOwed || 0)}
                       </span>
                     </div>
 
-                    <div className="flex justify-between items-center p-4 bg-slate-50 rounded-lg">
-                      <div>
+                    <div className="flex flex-col gap-2 rounded-lg bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+                      <div className="min-w-0">
                         <h4 className="font-semibold">Inventory Costs (90 days)</h4>
                         <p className="text-sm text-slate-600">
                           Real ingredient cost on paid orders. Supplier + payroll feeds still pending.
                         </p>
                       </div>
                       {metrics?.inventoryCosts != null ? (
-                        <span className="font-bold text-lg">
+                        <span className="break-words text-base font-bold leading-tight tabular-nums sm:text-lg">
                           {formatCurrency(metrics.inventoryCosts)}
                         </span>
                       ) : (
-                        <span className="font-bold text-lg text-slate-400">
+                        <span className="text-sm font-semibold leading-tight text-slate-400 sm:text-base">
                           No usage data yet
                         </span>
                       )}
@@ -1403,26 +1431,26 @@ function FinancialDashboardInner() {
                         moving them here doesn't remove them from
                         Overview (the operator gets the full picture
                         on both surfaces). */}
-                    <div className="flex justify-between items-center p-4 bg-slate-50 rounded-lg">
-                      <div>
+                    <div className="flex flex-col gap-2 rounded-lg bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+                      <div className="min-w-0">
                         <h4 className="font-semibold">Fixed Costs (next 30 days)</h4>
                         <p className="text-sm text-slate-600">
                           Recurring rent / software / vehicle costs expanded from the Fixed Costs page.
                         </p>
                       </div>
-                      <span className="font-bold text-lg">
+                      <span className="break-words text-base font-bold leading-tight tabular-nums sm:text-lg">
                         {formatCurrency(metrics?.fixedCostsNext30 || 0)}
                       </span>
                     </div>
 
-                    <div className="flex justify-between items-center p-4 bg-slate-50 rounded-lg">
-                      <div>
+                    <div className="flex flex-col gap-2 rounded-lg bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+                      <div className="min-w-0">
                         <h4 className="font-semibold">Supplier Payables (next 30 days)</h4>
                         <p className="text-sm text-slate-600">
                           Unpaid supplier invoices due in the window. From /admin/payables.
                         </p>
                       </div>
-                      <span className="font-bold text-lg">
+                      <span className="break-words text-base font-bold leading-tight tabular-nums sm:text-lg">
                         {formatCurrency(metrics?.supplierPayablesNext30 || 0)}
                       </span>
                     </div>
@@ -1432,7 +1460,7 @@ function FinancialDashboardInner() {
                         - pure decoration since at least the May 2026
                         audit) with two deep-links to the actual
                         sources. */}
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <Button asChild variant="outline" className="flex-1">
                         <Link href={withSlug("/admin/fixed-costs")}>
                           Open Fixed Costs
@@ -1447,9 +1475,11 @@ function FinancialDashboardInner() {
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
+            </section>
+          )}
 
-            <TabsContent value="orders">
+          {selectedFinancialSection === "orders" && (
+            <section id="financial-orders" data-chat-section="admin.financial-dashboard.orders" data-chat-section-label="Financial order analysis" className="space-y-4">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1468,18 +1498,18 @@ function FinancialDashboardInner() {
                         const orderNumber = (order as { order_number?: string }).order_number;
                         const status = order.status || "pending";
                         return (
-                          <div key={order.id} className="border rounded-lg p-3 flex items-center justify-between gap-3">
+                          <div key={order.id} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <p className="font-semibold text-slate-900 truncate">
                                   {order.client_name || "Unknown client"}
                                 </p>
                                 {orderNumber && (
-                                  <span className="font-mono text-[10px] text-slate-500 tabular-nums">
+                                  <span className="font-mono text-xs text-slate-500 tabular-nums">
                                     #{orderNumber}
                                   </span>
                                 )}
-                                <Badge variant="outline" className="text-[10px] capitalize">
+                                <Badge variant="outline" className="text-xs capitalize">
                                   {String(status).replace(/_/g, " ")}
                                 </Badge>
                               </div>
@@ -1487,11 +1517,11 @@ function FinancialDashboardInner() {
                                 {formatLocalDate(order.event_date)}
                               </p>
                             </div>
-                            <div className="text-right shrink-0">
+                            <div className="flex shrink-0 items-baseline justify-between gap-3 text-left sm:flex-col sm:items-end sm:text-right">
                               <p className="text-sm font-bold text-amber-700 tabular-nums">
                                 {formatCurrency(outstanding)}
                               </p>
-                              <p className="text-[10px] text-slate-500 tabular-nums">
+                              <p className="text-xs text-slate-500 tabular-nums">
                                 {formatCurrency(paid)} paid of {formatCurrency(total)}
                               </p>
                             </div>
@@ -1502,10 +1532,11 @@ function FinancialDashboardInner() {
                   )}
                 </CardContent>
               </Card>
-            </TabsContent>
+            </section>
+          )}
 
-            {showBranchesTab && (
-              <TabsContent value="branches" className="space-y-4">
+            {showBranchesTab && selectedFinancialSection === "branches" && (
+              <section id="financial-branches" data-chat-section="admin.financial-dashboard.branches" data-chat-section-label="Financial branches" className="space-y-4">
                 <Card collapsible defaultOpen={false} collapseLabel="Per-branch P&L">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -1574,7 +1605,37 @@ function FinancialDashboardInner() {
                       );
 
                       return (
-                        <div className="overflow-x-auto">
+                        <>
+                        <div className="space-y-3 md:hidden">
+                          {rows.length === 0 ? (
+                            <p className="rounded-lg border border-slate-200 p-4 text-center text-sm text-slate-500">No orders to break down yet.</p>
+                          ) : rows.map((r) => (
+                            <article key={r.regionId || "__unassigned__"} className="rounded-lg border border-slate-200 p-3">
+                              <div className="mb-3 min-w-0">
+                                <h3 className="break-words text-sm font-semibold text-slate-900">{r.name}</h3>
+                                {r.address && <p className="mt-0.5 break-words text-xs text-slate-500">{r.address}</p>}
+                              </div>
+                              <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                <div><dt className="text-xs text-slate-500">Orders</dt><dd className="font-medium tabular-nums">{r.count}</dd></div>
+                                <div><dt className="text-xs text-slate-500">Revenue</dt><dd className="break-words font-semibold tabular-nums">{formatCurrency(r.revenue)}</dd></div>
+                                <div><dt className="text-xs text-slate-500">Paid</dt><dd className="break-words font-medium tabular-nums text-brand-primary">{formatCurrency(r.paid)}</dd></div>
+                                <div><dt className="text-xs text-slate-500">Outstanding</dt><dd className="break-words font-medium tabular-nums text-amber-700">{formatCurrency(r.outstanding)}</dd></div>
+                              </dl>
+                            </article>
+                          ))}
+                          {rows.length > 0 && (
+                            <article className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                              <h3 className="mb-3 text-sm font-semibold text-slate-900">All branches</h3>
+                              <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                <div><dt className="text-xs text-slate-500">Orders</dt><dd className="font-medium tabular-nums">{totals.count}</dd></div>
+                                <div><dt className="text-xs text-slate-500">Revenue</dt><dd className="break-words font-semibold tabular-nums">{formatCurrency(totals.revenue)}</dd></div>
+                                <div><dt className="text-xs text-slate-500">Paid</dt><dd className="break-words font-medium tabular-nums text-brand-primary">{formatCurrency(totals.paid)}</dd></div>
+                                <div><dt className="text-xs text-slate-500">Outstanding</dt><dd className="break-words font-medium tabular-nums text-amber-700">{formatCurrency(totals.outstanding)}</dd></div>
+                              </dl>
+                            </article>
+                          )}
+                        </div>
+                        <div className="hidden overflow-x-auto md:block">
                           <table className="w-full text-sm">
                             <thead>
                               <tr className="border-b text-left text-xs uppercase tracking-wide text-slate-500">
@@ -1619,13 +1680,13 @@ function FinancialDashboardInner() {
                             )}
                           </table>
                         </div>
+                        </>
                       );
                     })()}
                   </CardContent>
                 </Card>
-              </TabsContent>
+              </section>
             )}
-          </Tabs>
         </PortalShell>
       </div>
 

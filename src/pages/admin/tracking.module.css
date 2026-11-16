@@ -1,0 +1,39 @@
+/* Keep the live operations workspace compact on phones while preserving
+   the existing desktop type scale. This scope includes the order details
+   panel and map cards rendered inside the page shell. */
+@media (max-width: 639px) {
+  .compactTypography :global(.text-xs) {
+    font-size: 0.6875rem;
+    line-height: 1rem;
+  }
+
+  .compactTypography :global(.text-sm) {
+    font-size: 0.8125rem;
+    line-height: 1.2rem;
+  }
+
+  .compactTypography :global(.text-base) {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
+  .compactTypography :global(.text-lg) {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+
+  .compactTypography :global(.text-xl) {
+    font-size: 1.125rem;
+    line-height: 1.5rem;
+  }
+
+  .compactTypography :global(.text-2xl) {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+  }
+
+  .compactTypography :global(.text-3xl) {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+}

@@ -16,11 +16,11 @@ import {
 } from "@/components/ui/dialog";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-  DropdownMenuSeparator,
+  DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, Truck, Clock, Users, Search, RefreshCw, Sparkles, ChevronDown, ChevronRight, X, CheckCircle2, MapPin, ArrowUpRight, ExternalLink, User as UserIcon, Truck as TruckIcon, Snowflake as SnowflakeIcon, Users as UsersIcon, Download, Printer, Star } from "lucide-react";
+import { AlertTriangle, Truck, Clock, Users, Search, RefreshCw, Loader2, SlidersHorizontal, Sparkles, ChevronDown, ChevronRight, X, CheckCircle2, MapPin, ArrowUpRight, ExternalLink, User as UserIcon, Truck as TruckIcon, Snowflake as SnowflakeIcon, Users as UsersIcon, Download, Printer, Star } from "lucide-react";
 import Link from "next/link";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -894,6 +894,7 @@ function DispatchQueuePage() {
   };
 
   const assignInterestedDrivers = assignTarget ? interestByOrder[assignTarget.id] || [] : [];
+  const activeFilterCount = Number(daysAhead !== 30) + Number(statusFilter !== "all");
 
   return (
     <>
@@ -1016,7 +1017,7 @@ function DispatchQueuePage() {
           {/* KPIs. Kept as custom tiles (not StatTile) because the
               first two are click-to-filter buttons; grid recipe
               matches the command-centre standard. */}
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 gap-3 mb-5 sm:gap-4 sm:mb-6 xl:grid-cols-4">
             <div
               role="button"
               tabIndex={0}
@@ -1027,18 +1028,18 @@ function DispatchQueuePage() {
                   setStatusFilter("at_risk");
                 }
               }}
-              className={`text-left rounded-lg border bg-white p-4 shadow-sm hover:shadow transition-all ${
+              className={`min-w-0 text-left rounded-lg border bg-white p-3 shadow-sm hover:shadow transition-all sm:p-4 ${
                 (kpis?.unassignedAtRisk ?? 0) > 0 ? "ring-2 ring-rose-200 border-rose-300" : "border-slate-200"
               } ${statusFilter === "at_risk" ? "ring-2 ring-rose-200" : ""}`}
             >
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                <p className="min-w-0 text-[10px] leading-4 font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1 sm:text-xs sm:gap-1.5">
                   At risk (SLA)
                   <InfoTooltip content={"Unassigned orders whose event is within the SLA window. The number that should be zero by end of day."} />
                 </p>
                 <AlertTriangle className={`w-4 h-4 ${(kpis?.unassignedAtRisk ?? 0) > 0 ? "text-rose-500" : "text-slate-300"}`} />
               </div>
-              <p className={`text-2xl font-semibold ${(kpis?.unassignedAtRisk ?? 0) > 0 ? "text-rose-700" : "text-slate-900"}`}>
+              <p className={`text-xl font-semibold sm:text-2xl ${(kpis?.unassignedAtRisk ?? 0) > 0 ? "text-rose-700" : "text-slate-900"}`}>
                 {kpis?.unassignedAtRisk ?? "-"}
               </p>
               <p className="text-xs text-slate-500 mt-1">
@@ -1056,28 +1057,28 @@ function DispatchQueuePage() {
                   setStatusFilter("unassigned");
                 }
               }}
-              className={`text-left rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:shadow transition-all ${statusFilter === "unassigned" ? "ring-2 ring-slate-300" : ""}`}
+              className={`min-w-0 text-left rounded-lg border border-slate-200 bg-white p-3 shadow-sm hover:shadow transition-all sm:p-4 ${statusFilter === "unassigned" ? "ring-2 ring-slate-300" : ""}`}
             >
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                <p className="min-w-0 text-[10px] leading-4 font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1 sm:text-xs sm:gap-1.5">
                   No driver
                   <InfoTooltip content={"Confirmed orders with no driver assigned yet. Sort by event date."} />
                 </p>
                 <Truck className="w-4 h-4 text-amber-500" />
               </div>
-              <p className="text-2xl font-semibold text-slate-900">{kpis?.unassignedTotal ?? "-"}</p>
+              <p className="text-xl font-semibold sm:text-2xl text-slate-900">{kpis?.unassignedTotal ?? "-"}</p>
               <p className="text-xs text-slate-500 mt-1">click to filter</p>
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                <p className="min-w-0 text-[10px] leading-4 font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1 sm:text-xs sm:gap-1.5">
                   Median time to assign
                   <InfoTooltip content={"From order confirmed to driver assigned. Last 14 days. Shorter is better."} />
                 </p>
                 <Clock className="w-4 h-4 text-blue-500" />
               </div>
-              <p className="text-2xl font-semibold text-slate-900">
+              <p className="break-words text-xl font-semibold sm:text-2xl text-slate-900">
                 {kpis?.medianTimeToAssignMinutes != null
                   // Wave 70.59: clamp to 0 instead of strip-sign.
                   // The math in dispatchService already filters
@@ -1088,19 +1089,19 @@ function DispatchQueuePage() {
                   ? formatMinutesAsCountdown(Math.max(0, kpis.medianTimeToAssignMinutes))
                   : "-"}
               </p>
-              <p className="text-xs text-slate-500 mt-1">last 14 days</p>
+              <p className="text-[11px] text-slate-500 mt-1 sm:text-xs">last 14 days</p>
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                <p className="min-w-0 text-[10px] leading-4 font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1 sm:text-xs sm:gap-1.5">
                   Drivers on shift
                   <InfoTooltip content={"Drivers actively on a scheduled shift right now. Falls back to drivers with a GPS ping in the last hour on tenants who haven't set up shift schedules yet."} />
                 </p>
                 <Users className="w-4 h-4 text-brand-primary" />
               </div>
-              <p className="text-2xl font-semibold text-slate-900">{kpis?.onShiftDrivers ?? "-"}</p>
-              <p className="text-xs text-slate-500 mt-1">last hour</p>
+              <p className="text-xl font-semibold sm:text-2xl text-slate-900">{kpis?.onShiftDrivers ?? "-"}</p>
+              <p className="text-[11px] text-slate-500 mt-1 sm:text-xs">last hour</p>
             </div>
           </div>
 
@@ -1124,25 +1125,77 @@ function DispatchQueuePage() {
           {/* Search + filters: one toolbar card. */}
           <PortalCard className="mb-4" padded={false}>
             <div className="p-3">
-            <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-slate-100 pb-3">
-              <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Queue tools</span>
+            <div className="mb-3 flex min-w-0 flex-nowrap items-center gap-2 border-b border-slate-100 pb-3">
+              <span className="mr-1 hidden shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-500 lg:inline">Queue tools</span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 shrink-0 gap-2 px-3 lg:hidden"
+                    aria-label={activeFilterCount ? `Filters, ${activeFilterCount} active` : "Filters"}
+                    title="Filter dispatch queue"
+                  >
+                    <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+                    <span className="text-sm">Filters</span>
+                    {activeFilterCount > 0 && (
+                      <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-primary/10 px-1 text-[11px] font-semibold text-brand-primary">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" sideOffset={6} className="w-[calc(100vw-2rem)] max-w-[19rem] p-2">
+                  <p className="px-2 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Date range</p>
+                  <DropdownMenuRadioGroup
+                    value={String(daysAhead)}
+                    onValueChange={(value) => setDaysAhead(Number(value) as 14 | 30 | 90)}
+                  >
+                    {([14, 30, 90] as const).map((days) => (
+                      <DropdownMenuRadioItem key={days} value={String(days)} className="min-h-10">
+                        Next {days} days
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                  <DropdownMenuSeparator />
+                  <p className="px-2 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Queue status</p>
+                  <DropdownMenuRadioGroup value={statusFilter} onValueChange={setStatusFilter}>
+                    {STATUSES.map((status) => (
+                      <DropdownMenuRadioItem key={status.value} value={status.value} className="min-h-10">
+                        {status.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                  {activeFilterCount > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onSelect={() => { setDaysAhead(30); setStatusFilter("all"); }}
+                        className="min-h-10 text-sm text-slate-600"
+                      >
+                        Clear filters
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <select
                 value={daysAhead}
                 onChange={(e) => setDaysAhead(Number(e.target.value) as 14 | 30 | 90)}
-                className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+                className="hidden h-9 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 lg:block"
                 aria-label="Date window"
               >
                 <option value={14}>Next 14 days</option>
                 <option value={30}>Next 30 days</option>
                 <option value={90}>Next 90 days</option>
               </select>
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={exportVisibleQueue}>
-                <Download className="h-4 w-4" />
-                Export CSV
+              <Button variant="outline" size="sm" className="h-11 w-11 shrink-0 px-0 lg:h-9 lg:w-auto lg:gap-1.5 lg:px-3" onClick={exportVisibleQueue} aria-label="Export queue as CSV" title="Export queue as CSV">
+                <Download className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden lg:inline">Export CSV</span>
               </Button>
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={printVisibleQueue}>
-                <Printer className="h-4 w-4" />
-                Print run sheet
+              <Button variant="outline" size="sm" className="h-11 w-11 shrink-0 px-0 lg:h-9 lg:w-auto lg:gap-1.5 lg:px-3" onClick={printVisibleQueue} aria-label="Print dispatch run sheet" title="Print dispatch run sheet">
+                <Printer className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden lg:inline">Print run sheet</span>
               </Button>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
@@ -1165,7 +1218,7 @@ function DispatchQueuePage() {
                   dispatch lead actually uses; the disabled button
                   just signalled "broken" to the operator. */}
             </div>
-            <div className="flex items-center gap-2 mt-3 flex-wrap">
+            <div className="mt-3 hidden flex-wrap items-center gap-2 lg:flex">
               {STATUSES.map(s => (
                 <button
                   key={s.value}
@@ -1192,20 +1245,24 @@ function DispatchQueuePage() {
                 <button
                   type="button"
                   onClick={() => setSelected(new Set())}
+                  aria-label="Clear selected orders"
+                  title="Clear selected orders"
                   className="text-xs text-slate-300 hover:text-white inline-flex items-center gap-1"
                 >
                   <X className="w-3.5 h-3.5" />
-                  Clear
+                  <span className="hidden sm:inline">Clear</span>
                 </button>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={openBulk}
-                className="text-white hover:bg-slate-800 gap-1.5 h-8"
+                aria-label="Assign selected orders to a driver"
+                title="Assign selected orders to a driver"
+                className="h-11 w-11 shrink-0 px-0 text-white hover:bg-slate-800 sm:h-8 sm:w-auto sm:gap-1.5 sm:px-3"
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                Assign to driver
+                <Truck className="w-4 h-4" />
+                <span className="hidden sm:inline">Assign to driver</span>
               </Button>
             </div>
           )}
@@ -1259,17 +1316,18 @@ function DispatchQueuePage() {
             </div>
 
             {loading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin w-6 h-6 border-2 border-brand-primary border-t-transparent rounded-full mx-auto mb-3" />
-                <p className="text-sm text-slate-500">Loading queue...</p>
+              <div role="status" aria-live="polite" className="flex flex-col items-center px-4 py-10 text-center sm:py-12">
+                <Loader2 className="mb-3 h-6 w-6 animate-spin text-brand-primary" aria-hidden="true" />
+                <p className="text-[13px] text-slate-600 sm:text-sm">Loading dispatch queue…</p>
               </div>
             ) : loadError ? (
               <div className="text-center py-12 px-4">
                 <AlertTriangle className="w-8 h-8 text-rose-600 mx-auto mb-3" />
                 <p className="text-sm font-semibold text-rose-900">Couldn't load the dispatch queue</p>
                 <p className="text-xs text-slate-600 mt-1 mb-4">{loadError}</p>
-                <Button size="sm" onClick={loadAll} className="bg-brand-primary hover:bg-brand-primary/90">
-                  <RefreshCw className="w-4 h-4 mr-2" /> Retry
+                <Button size="sm" onClick={loadAll} className="h-11 w-11 shrink-0 px-0 bg-brand-primary hover:bg-brand-primary/90 sm:h-9 sm:w-auto sm:px-3" aria-label="Retry loading dispatch queue" title="Retry loading dispatch queue">
+                  <RefreshCw className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Retry</span>
                 </Button>
               </div>
             ) : filtered.length === 0 ? (

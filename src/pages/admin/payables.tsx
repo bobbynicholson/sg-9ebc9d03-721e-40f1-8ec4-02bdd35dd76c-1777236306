@@ -504,15 +504,15 @@ function PayablesPage() {
             meta={
               !loading && !loadError ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {pendingRows.length} pending invoice{pendingRows.length === 1 ? "" : "s"}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     {fmt(totalPendingCents / 100, currency)} owed
                   </span>
                   {overdueCount > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                       {overdueCount} overdue
                     </span>
@@ -521,16 +521,16 @@ function PayablesPage() {
               ) : undefined
             }
             actions={
-              <>
-                <Button onClick={openBulk} variant="outline">
-                  <Upload className="w-4 h-4 mr-1.5" />
-                  Bulk import
+              <div className="flex w-full items-center justify-end gap-2 xl:w-auto">
+                <Button onClick={openBulk} variant="outline" title="Import payables from CSV" aria-label="Import payables from CSV" className="h-11 w-11 justify-self-end p-0 sm:h-9 sm:w-auto sm:px-3">
+                  <Upload className="h-4 w-4 sm:mr-1.5" />
+                  <span className="sr-only sm:not-sr-only">Bulk import</span>
                 </Button>
-                <Button onClick={() => setDialogOpen(true)} className="bg-brand-primary hover:bg-brand-primary/90">
-                  <Plus className="w-4 h-4 mr-1.5" />
-                  Add payable
+                <Button onClick={() => setDialogOpen(true)} title="Add a supplier payable" aria-label="Add a supplier payable" className="h-11 w-11 justify-self-end bg-brand-primary p-0 hover:bg-brand-primary/90 sm:h-9 sm:w-auto sm:px-3">
+                  <Plus className="h-4 w-4 sm:mr-1.5" />
+                  <span className="sr-only sm:not-sr-only">Add payable</span>
                 </Button>
-              </>
+              </div>
             }
           />
           <PageWorkbench />
@@ -556,7 +556,7 @@ function PayablesPage() {
                 <CardTitle className="text-sm text-slate-600">Pending total</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tabular-nums text-slate-900">
+                <div className="break-words text-lg font-bold leading-tight tabular-nums text-slate-900 sm:text-2xl">
                   {fmt(totalPendingCents / 100, currency)}
                 </div>
                 <p className="text-xs text-slate-500 mt-1">Across {pendingRows.length} invoice{pendingRows.length === 1 ? "" : "s"}</p>
@@ -569,7 +569,7 @@ function PayablesPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className={`text-2xl font-bold tabular-nums ${overdueCount > 0 ? "text-amber-700" : "text-slate-900"}`}>
+                <div className={`text-lg font-bold leading-tight tabular-nums sm:text-2xl ${overdueCount > 0 ? "text-amber-700" : "text-slate-900"}`}>
                   {overdueCount}
                 </div>
                 <p className="text-xs text-slate-500 mt-1">Past their due date</p>
@@ -587,7 +587,7 @@ function PayablesPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tabular-nums text-slate-900">
+                <div className="break-words text-lg font-bold leading-tight tabular-nums text-slate-900 sm:text-2xl">
                   {fmt(dueNext30Cents / 100, currency)}
                 </div>
                 <p className="text-xs text-slate-500 mt-1">Feeds the cashflow forecast outflow</p>
@@ -605,12 +605,12 @@ function PayablesPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search supplier, invoice ref or notes..."
-                  className="pl-9"
+                  className="h-11 pl-9"
                   aria-label="Search payables"
                 />
               </div>
               <Select value={filter} onValueChange={(v) => setFilter(v as "pending" | "paid")}>
-                <SelectTrigger className="w-full sm:w-44" aria-label="Filter by status">
+                <SelectTrigger className="h-11 w-full sm:h-9 sm:w-44" aria-label="Filter by status">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -649,8 +649,8 @@ function PayablesPage() {
                   {visibleRows.map((r) => {
                     const isOverdue = r.status === "pending" && r.due_date < todayISO;
                     return (
-                      <div key={r.id} className="flex flex-wrap items-center gap-3 p-4 hover:bg-slate-50 sm:flex-nowrap sm:gap-4">
-                        <div className="flex-1 min-w-[10rem]">
+                      <div key={r.id} className="flex flex-col gap-3 p-3 hover:bg-slate-50 sm:flex-row sm:items-center sm:gap-4 sm:p-4">
+                        <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-slate-900">
                               {r.supplier?.supplier_name || "Unknown supplier"}
@@ -673,7 +673,8 @@ function PayablesPage() {
                             Due {r.due_date}{r.notes ? ` - ${r.notes}` : ""}
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="flex flex-wrap items-center justify-between gap-2 sm:ml-auto sm:flex-nowrap sm:justify-start">
+                        <div className="text-left sm:text-right">
                           <div className="font-semibold tabular-nums text-slate-900">
                             {fmt(r.amount_cents / 100, currency)}
                           </div>
@@ -685,6 +686,7 @@ function PayablesPage() {
                               variant="outline"
                               onClick={() => handleMarkPaid(r.id)}
                               title="Mark this payable as paid"
+                              className="h-11 shrink-0 sm:h-9"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
                               Mark paid
@@ -697,9 +699,11 @@ function PayablesPage() {
                           onClick={() => setDeleteId(r.id)}
                           title="Remove this payable"
                           aria-label={`Remove payable from ${r.supplier?.supplier_name || "unknown supplier"}`}
+                          className="h-11 w-11 shrink-0 p-0 sm:h-9 sm:w-9"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
+                        </div>
                       </div>
                     );
                   })}
@@ -852,7 +856,7 @@ function PayablesPage() {
                         <td className="px-2 py-1.5 tabular-nums text-slate-400">{r.line}</td>
                         <td className="px-2 py-1.5">
                           <div className="font-medium text-slate-900">{r.supplier_name || <span className="text-slate-400 italic">missing</span>}</div>
-                          {r.supplier_id && <div className="text-[10px] text-brand-primary">matched</div>}
+                          {r.supplier_id && <div className="text-xs text-brand-primary">matched</div>}
                         </td>
                         <td className="px-2 py-1.5 tabular-nums text-right">
                           {r.amount_cents > 0 ? fmt(r.amount_cents / 100, currency) : <span className="text-rose-600">-</span>}
@@ -863,10 +867,10 @@ function PayablesPage() {
                         <td className="px-2 py-1.5 text-slate-600">{r.invoice_ref || ""}</td>
                         <td className="px-2 py-1.5">
                           {r.error
-                            ? <span className="text-rose-700 text-[11px]">{r.error}</span>
+                            ? <span className="text-xs text-rose-700">{r.error}</span>
                             : r.warning
-                              ? <span className="text-amber-700 text-[11px]">Ready, but {r.warning}</span>
-                              : <span className="text-brand-primary text-[11px]">Ready</span>}
+                              ? <span className="text-xs text-amber-700">Ready, but {r.warning}</span>
+                              : <span className="text-xs text-brand-primary">Ready</span>}
                         </td>
                       </tr>
                     ))}

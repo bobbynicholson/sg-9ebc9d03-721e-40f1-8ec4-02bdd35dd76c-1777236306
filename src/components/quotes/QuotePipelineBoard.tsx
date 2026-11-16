@@ -5,6 +5,7 @@ import {
   ChevronRight, Clock3, ExternalLink, Loader2, MapPin, Pin, RotateCcw, Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,7 @@ const stateClass = {
   review: "bg-amber-50 text-amber-900",
   closed: "bg-slate-100 text-slate-700",
 } as const;
+const GAP_QUOTE_STATUSES = new Set(["draft", "sent"]);
 
 export function PipelineActivity({ entries, heading = "Needs attention" }: { entries: PipelineEntry[]; heading?: string }) {
   const { withSlug } = useTenantHref();
@@ -54,7 +56,7 @@ export function PipelineActivity({ entries, heading = "Needs attention" }: { ent
             <span className="block break-words text-sm font-semibold text-slate-900">{entry.label}</span>
             <span className="mt-1 block text-xs text-slate-600">{entry.guests ? `${entry.guests} guests` : "Guests to confirm"} · {entry.order?.order_number || entry.quotes[0]?.quote_number || "No quote yet"}</span>
           </span>
-          <span className={cn("shrink-0 rounded px-2 py-1 text-[11px] font-medium", stateClass[entry.state])}>{stateLabel[entry.state]}</span>
+          <span className={cn("shrink-0 rounded px-2 py-1 text-xs font-medium", stateClass[entry.state])}>{stateLabel[entry.state]}</span>
         </summary>
         <div className="pl-1">
           {entry.reasons.length > 0 && <p className="mt-2 text-xs leading-relaxed text-slate-600">{entry.reasons.join(" ")}</p>}
@@ -112,10 +114,10 @@ export function PipelineDateSummary({ day, commitments, capacity, selected, oppo
     </div>
     <div className="mt-3 flex items-center gap-3">
       <CapacityBar booked={load.booked} proposed={selected.length} limit={capacity.maxConcurrentEvents} />
-      <span className="shrink-0 text-[11px] tabular-nums text-slate-600">{load.afterPlanEvents} slot{load.afterPlanEvents === 1 ? "" : "s"} free</span>
+      <span className="shrink-0 text-xs tabular-nums text-slate-600">{load.afterPlanEvents} slot{load.afterPlanEvents === 1 ? "" : "s"} free</span>
     </div>
     <div className="mt-3 border-t border-slate-100 pt-2.5">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-[11px]">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-xs">
         <strong className="text-slate-800">Weekly prep · {weeklyLabel}</strong>
         <span className="tabular-nums text-slate-600">{weeklyBookedHours.toFixed(1)} h booked + {weeklyPlannedHours.toFixed(1)} h planned</span>
       </div>
@@ -247,7 +249,7 @@ function OpportunityRows({ opportunities, selected, plan, pinnedIds, excludedIds
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <Link href={withSlug(`/admin/quotes/new?fromQuoteId=${opportunity.id}`)} className="break-words text-sm font-semibold text-slate-900 underline-offset-4 hover:text-brand-primary hover:underline">{hasAlternatives ? opportunity.quote.quote_number : opportunity.quote.client_name || opportunity.quote.quote_name || opportunity.quote.quote_number}</Link>
-              <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-relaxed text-slate-600">
+              <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs leading-relaxed text-slate-600">
                 {!hasAlternatives && <span>{opportunity.quote.quote_number}</span>}<span>{opportunity.guests} guests</span>
                 {opportunity.quote.event_type && <span>{opportunity.quote.event_type}</span>}
                 {opportunity.quote.event_time && <span>{opportunity.quote.event_time.slice(0, 5)}</span>}
@@ -256,10 +258,10 @@ function OpportunityRows({ opportunities, selected, plan, pinnedIds, excludedIds
               </div>
               <p className="mt-1 text-[10px] leading-relaxed text-slate-500">Prep: {assumptions.setupHours.toFixed(1)} h setup + {opportunity.guests} guests x {assumptions.minutesPerGuest.toFixed(1)} min = {opportunity.hours.toFixed(1)} h; menu complexity excluded.</p>
             </div>
-            <div className="shrink-0 text-right"><strong className={cn("block text-sm tabular-nums", opportunity.profit < 0 ? "text-rose-700" : "text-slate-900")}>{compactMoney(opportunity.profit)}</strong><span className="text-[11px] text-slate-500">est. contribution</span></div>
+            <div className="shrink-0 text-right"><strong className="block text-sm tabular-nums text-slate-900">{compactMoney(Number(opportunity.quote.total_amount ?? opportunity.quote.total ?? opportunity.revenue))}</strong><span className="text-xs text-slate-500">requested total</span></div>
           </div>
           <div className="mt-2 grid grid-cols-3 divide-x divide-slate-200 border-y border-slate-200 py-1.5 text-xs">
-            <div className="min-w-0 pr-2"><span className="block text-[10px] text-slate-500">Quote value</span><strong className="block truncate tabular-nums text-slate-900">{compactMoney(opportunity.revenue)}</strong></div>
+            <div className="min-w-0 pr-2"><span className="block text-[10px] text-slate-500">Ex-tax revenue</span><strong className="block truncate tabular-nums text-slate-900">{compactMoney(opportunity.revenue)}</strong></div>
             <div className="min-w-0 px-2"><span className="block text-[10px] text-slate-500">Est. costs</span><strong className="block truncate tabular-nums text-slate-900">{compactMoney(opportunity.cost)}</strong></div>
             <div className="min-w-0 pl-2"><span className="block text-[10px] text-slate-500">Margin</span><strong className="block truncate tabular-nums text-slate-900">{opportunity.margin.toFixed(0)}%</strong></div>
           </div>
@@ -275,7 +277,7 @@ function OpportunityRows({ opportunities, selected, plan, pinnedIds, excludedIds
           <details open={compactAlternative} className="mt-2 rounded-md border border-slate-200 bg-white">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-md px-2.5 py-2 text-xs font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary">
               <span className="min-w-0"><span className="block">Food and event needs</span><span className="block max-w-56 truncate text-[10px] font-normal text-slate-500" title={`${foodLines.map((line) => line.name).join(", ") || "No menu specified"} | Menu tags: ${dietaryTags.join(", ") || "none recorded"}`}>{foodLines.length ? foodLines.slice(0, 2).map((line) => line.name).join(", ") : "No menu specified"} | Menu tags: {dietaryTags.length ? dietaryTags.join(", ") : "none recorded"}</span></span>
-              <span className="flex items-center gap-2 text-[11px] font-normal text-slate-500"><span>{foodLines.length} food | {equipmentLines.length} equipment</span><ChevronDown className="h-3.5 w-3.5" /></span>
+              <span className="flex items-center gap-2 text-xs font-normal text-slate-500"><span>{foodLines.length} food | {equipmentLines.length} equipment</span><ChevronDown className="h-3.5 w-3.5" /></span>
             </summary>
             <div className="space-y-3 border-t border-slate-100 px-2.5 py-3 text-xs">
               <div className="grid grid-cols-2 gap-2 text-slate-600">
@@ -291,7 +293,7 @@ function OpportunityRows({ opportunities, selected, plan, pinnedIds, excludedIds
                   {line.description && <p className="mt-1 leading-relaxed text-slate-600">{line.description}</p>}
                   {line.dietaryTags.length > 0 && <p className="mt-1 text-slate-700">Menu catalogue tags: {line.dietaryTags.join(", ")}</p>}
                 </li>)}</ul> : <p className="mt-1 text-slate-500">No menu items recorded on this quote.</p>}
-                <p className="mt-2 rounded bg-amber-50 px-2 py-1.5 text-[11px] leading-relaxed text-amber-900"><strong>Client dietary needs:</strong> Menu tags describe catalogue items; they do not confirm the client&apos;s requirements. {enquiryNotes.length || opportunity.quote.notes ? "Review the notes below and verify with the client." : "No separate client requirement is recorded; confirm with the client."}</p>
+                <p className="mt-2 rounded bg-amber-50 px-2 py-1.5 text-xs leading-relaxed text-amber-900"><strong>Client dietary needs:</strong> Menu tags describe catalogue items; they do not confirm the client&apos;s requirements. {enquiryNotes.length || opportunity.quote.notes ? "Review the notes below and verify with the client." : "No separate client requirement is recorded; confirm with the client."}</p>
               </div>
               <div>
                 <p className="font-semibold text-slate-700">Equipment</p>
@@ -299,7 +301,7 @@ function OpportunityRows({ opportunities, selected, plan, pinnedIds, excludedIds
               </div>
               {opportunity.quote.notes && <div><p className="font-semibold text-slate-700">Quote notes</p><p className="mt-1 whitespace-pre-wrap leading-relaxed text-slate-600">{opportunity.quote.notes}</p></div>}
               {enquiryNotes.map((note, index) => <div key={`${opportunity.id}-note-${index}`}><p className="font-semibold text-slate-700">Enquiry notes</p><p className="mt-1 whitespace-pre-wrap leading-relaxed text-slate-600">{note}</p></div>)}
-              <p className="border-t border-slate-100 pt-2 text-[11px] leading-relaxed text-slate-500">Prep uses guest count and planning assumptions. Menu complexity may require extra kitchen time.</p>
+              <p className="border-t border-slate-100 pt-2 text-xs leading-relaxed text-slate-500">Prep uses guest count and planning assumptions. Menu complexity may require extra kitchen time.</p>
             </div>
           </details>
           {opportunity.warnings.length > 0 && <div className="mt-2 rounded-md bg-amber-50 px-2.5 py-2 text-xs leading-relaxed text-amber-950"><span className="font-semibold">Cost note:</span> {opportunity.warnings.join(" ")}</div>}
@@ -309,12 +311,12 @@ function OpportunityRows({ opportunities, selected, plan, pinnedIds, excludedIds
                 {excluded ? "Held out" : inPlan ? "Recommended" : "Alternative"}
               </span>
               {pinned && <span className="rounded bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-700">Kept by you</span>}
-              <Button size="sm" variant={pinned ? "default" : "outline"} aria-pressed={pinned} aria-label={pinned ? "Remove this manual pin" : inPlan ? "Keep this quote in the plan" : "Add this quote to the plan"} title={pinned ? "Remove this manual pin" : inPlan ? "Keep this quote in the plan" : "Add this quote to the plan"} onClick={() => onTogglePin(opportunity.id)}><Pin className={pinned ? "fill-current" : ""} />{pinned ? "Pinned" : inPlan ? "Keep" : "Add to plan"}</Button>
-              <Button size="sm" variant="ghost" aria-pressed={excluded} onClick={() => onToggleExclude(opportunity.id)}><Ban />{excluded ? "Restore" : "Hold out"}</Button>
+              <Button size="sm" variant={pinned ? "default" : "outline"} className="h-11 w-11 px-0 sm:h-9 sm:w-auto sm:px-3" aria-pressed={pinned} aria-label={pinned ? "Remove this manual pin" : inPlan ? "Keep this quote in the plan" : "Add this quote to the plan"} title={pinned ? "Remove this manual pin" : inPlan ? "Keep this quote in the plan" : "Add this quote to the plan"} onClick={() => onTogglePin(opportunity.id)}><Pin className={pinned ? "fill-current" : ""} /><span className="hidden sm:inline">{pinned ? "Pinned" : inPlan ? "Keep" : "Add to plan"}</span></Button>
+              <Button size="sm" variant="ghost" className="h-11 w-11 px-0 sm:h-9 sm:w-auto sm:px-3" aria-pressed={excluded} aria-label={excluded ? "Restore this quote" : "Hold out this quote"} title={excluded ? "Restore this quote" : "Hold out this quote"} onClick={() => onToggleExclude(opportunity.id)}><Ban /><span className="hidden sm:inline">{excluded ? "Restore" : "Hold out"}</span></Button>
             </>}
             <details open={compactAlternative} className={cn("text-xs", !compactAlternative && "ml-auto")}>
               <summary className="cursor-pointer rounded-sm py-2 font-medium text-slate-600 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary">Why / costs</summary>
-              <div className="mt-2 w-full min-w-64 space-y-2 rounded-md border border-slate-200 bg-white p-3">
+              <div className="mt-2 w-full min-w-0 space-y-2 break-words rounded-md border border-slate-200 bg-white p-3">
                 <p className="leading-relaxed text-slate-600">{reasonFor(opportunity)}</p>
                 <dl className="grid grid-cols-2 gap-x-3 gap-y-1 border-y border-slate-100 py-2 text-xs"><dt className="text-slate-500">Verified costs</dt><dd className="text-right tabular-nums text-slate-800">{compactMoney(opportunity.knownCost)}</dd><dt className="text-slate-500">Cost allowance</dt><dd className="text-right tabular-nums text-slate-800">{compactMoney(opportunity.estimatedCost)}</dd><dt className="text-slate-500">Operations allowance</dt><dd className="text-right tabular-nums text-slate-800">{compactMoney(opportunity.operatingCost)}</dd><dt className="text-slate-500">Cost coverage</dt><dd className="text-right tabular-nums text-slate-800">{Math.round(opportunity.coverage * 100)}%</dd></dl>
                 {opportunity.warnings.map((warning) => <p key={warning} className="leading-relaxed text-amber-900">{warning}</p>)}
@@ -330,7 +332,7 @@ function OpportunityRows({ opportunities, selected, plan, pinnedIds, excludedIds
         return <div key={opportunity.id} className="rounded-lg border border-slate-200 bg-white p-2.5">
           <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-1.5"><Link href={withSlug(`/admin/quotes/new?fromQuoteId=${opportunity.id}`)} className="text-xs font-semibold text-brand-primary underline-offset-4 hover:underline">{opportunity.quote.quote_number}</Link><span className={cn("rounded px-1.5 py-0.5 text-[9px] font-medium", pinned ? "bg-brand-primary/10 text-brand-primary" : excluded ? "bg-rose-50 text-rose-800" : "bg-slate-100 text-slate-600")}>{pinned ? "Kept by you" : excluded ? "Held out" : "Alternative"}</span></div>
+              <div className="flex flex-wrap items-center gap-1.5"><Link href={withSlug(`/admin/quotes/new?fromQuoteId=${opportunity.id}`)} className="text-xs font-semibold text-brand-primary underline-offset-4 hover:underline">{opportunity.quote.quote_number}</Link><span className={cn("rounded px-1.5 py-0.5 text-[10px] font-medium", pinned ? "bg-brand-primary/10 text-brand-primary" : excluded ? "bg-rose-50 text-rose-800" : "bg-slate-100 text-slate-600")}>{pinned ? "Kept by you" : excluded ? "Held out" : "Alternative"}</span></div>
               <p className="mt-0.5 text-[10px] text-slate-600">{opportunity.guests} guests · {opportunity.hours.toFixed(1)} h prep{opportunity.quote.event_time ? ` · ${opportunity.quote.event_time.slice(0, 5)}` : ""}</p>
               <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
                 <span className="text-slate-500">Quote value <strong className="ml-1 tabular-nums text-slate-800">{compactMoney(opportunity.revenue)}</strong></span>
@@ -342,8 +344,8 @@ function OpportunityRows({ opportunities, selected, plan, pinnedIds, excludedIds
               {expiry && <span className={cn("mt-1 inline-block rounded px-1.5 py-0.5 text-[10px]", expiry.expired ? "bg-rose-50 text-rose-800" : expiry.urgent ? "bg-amber-50 text-amber-900" : "bg-slate-100 text-slate-600")}>{expiry.label}</span>}
             </div>
             <div className="flex shrink-0 gap-1">
-              <Button size="sm" variant={pinned ? "default" : "outline"} aria-label={`${pinned ? "Remove pin for" : "Add"} ${opportunity.quote.quote_number} ${pinned ? "from plan" : "to plan"}`} title={pinned ? "Remove this manual pin" : "Add this quote to the plan"} aria-pressed={pinned} onClick={() => onTogglePin(opportunity.id)}><Pin />{pinned ? "Unpin" : "Add"}</Button>
-              <Button size="sm" variant="ghost" aria-label={`${excluded ? "Restore" : "Hold out"} ${opportunity.quote.quote_number}`} title={excluded ? "Restore this quote" : "Hold out this quote"} aria-pressed={excluded} onClick={() => onToggleExclude(opportunity.id)}><Ban />{excluded ? "Restore" : "Hold"}</Button>
+              <Button size="sm" variant={pinned ? "default" : "outline"} className="h-11 w-11 px-0 sm:h-9 sm:w-auto sm:px-3" aria-label={`${pinned ? "Remove pin for" : "Add"} ${opportunity.quote.quote_number} ${pinned ? "from plan" : "to plan"}`} title={pinned ? "Remove this manual pin" : "Add this quote to the plan"} aria-pressed={pinned} onClick={() => onTogglePin(opportunity.id)}><Pin /><span className="hidden sm:inline">{pinned ? "Unpin" : "Add"}</span></Button>
+              <Button size="sm" variant="ghost" className="h-11 w-11 px-0 sm:h-9 sm:w-auto sm:px-3" aria-label={`${excluded ? "Restore" : "Hold out"} ${opportunity.quote.quote_number}`} title={excluded ? "Restore this quote" : "Hold out this quote"} aria-pressed={excluded} onClick={() => onToggleExclude(opportunity.id)}><Ban /><span className="hidden sm:inline">{excluded ? "Restore" : "Hold"}</span></Button>
             </div>
           </div>
           <details className="mt-1.5 border-t border-slate-100 pt-1.5">
@@ -374,7 +376,19 @@ export default function QuotePipelineBoard({ entries, orders, undatedEntries, co
 }) {
   const { withSlug } = useTenantHref();
   const [calendarMonth, setCalendarMonth] = useState(`${selectedDate.slice(0, 7)}-01`);
+  const [mobileDetailsOpen, setMobileDetailsOpen] = useState(false);
   useEffect(() => { setCalendarMonth(`${selectedDate.slice(0, 7)}-01`); }, [selectedDate]);
+  useEffect(() => {
+    const closeMobileDetailsOnWideScreen = () => {
+      if (window.innerWidth >= 1280) setMobileDetailsOpen(false);
+    };
+    window.addEventListener("resize", closeMobileDetailsOnWideScreen);
+    return () => window.removeEventListener("resize", closeMobileDetailsOnWideScreen);
+  }, []);
+  const selectDate = (date: string) => {
+    onSelectDate(date);
+    if (typeof window !== "undefined" && window.innerWidth < 1280) setMobileDetailsOpen(true);
+  };
   const firstOfMonth = new Date(`${calendarMonth}T12:00:00`);
   const monthName = new Intl.DateTimeFormat("en-ZA", { month: "long", year: "numeric" }).format(firstOfMonth);
   const monthFirst = dateKey(firstOfMonth);
@@ -395,6 +409,50 @@ export default function QuotePipelineBoard({ entries, orders, undatedEntries, co
   const monthBooked = commitments.filter((entry) => entry.date >= start && entry.date <= end && entry.date >= monthFirst && entry.date <= monthLast).length;
   const monthReview = monthEntries.filter((entry) => entry.state === "review").length;
   const monthSelected = selected.filter((opportunity) => opportunity.date >= monthFirst && opportunity.date <= monthLast).length;
+  const monthGapDays = Array.from({ length: monthDays }, (_, index) => shiftPlanningDate(monthFirst, index))
+    .filter((date) => date >= start && date <= end)
+    .map((date) => {
+      const pipelineDay = summarizePipelineDay(entries, date);
+      const load = pipelineCapacity(pipelineDay, commitments, capacity);
+      const quotesById = new Map(pipelineDay.entries.flatMap((entry) => entry.quotes)
+        .filter((quote) => GAP_QUOTE_STATUSES.has(String(quote.status)))
+        .map((quote) => [quote.id, quote]));
+      const openQuotes = [...quotesById.values()].sort((a, b) =>
+        (a.client_name || a.quote_name || a.quote_number).localeCompare(b.client_name || b.quote_name || b.quote_number));
+      const bookedOrders = orders.filter((order) => {
+        if (!isBookedPlanningOrder(order) || !order.event_date) return false;
+        const eventStart = order.event_date.slice(0, 10);
+        const eventEnd = order.event_end_date?.slice(0, 10) || eventStart;
+        return eventStart <= date && eventEnd >= date;
+      });
+      const seenAssignments = new Map<string, string>();
+      const assignmentReasons: string[] = [];
+      for (const order of bookedOrders) {
+        const label = order.client_name || order.event_name || order.order_number || "Event";
+        for (const [resource, id] of [["Driver", order.assigned_driver_id], ["Vehicle", order.assigned_vehicle_id], ["Chef", order.assigned_chef_id]] as const) {
+          if (!id) continue;
+          const key = `${resource}:${id}`;
+          const previous = seenAssignments.get(key);
+          if (previous) assignmentReasons.push(`${resource} assigned to both ${previous} and ${label}`);
+          else seenAssignments.set(key, label);
+        }
+      }
+      const continuingBookings = bookedOrders.filter((order) => order.event_date?.slice(0, 10) !== date).length;
+      const booked = load.booked + continuingBookings;
+      return { date, booked, openQuotes, assignmentReasons,
+        atCapacity: booked >= capacity.maxConcurrentEvents };
+    });
+  const gapDaysByDate = new Map(monthGapDays.map((gapDay) => [gapDay.date, gapDay]));
+  const monthGapStats = {
+    booked: monthGapDays.filter((gapDay) => gapDay.booked > 0).length,
+    winnable: monthGapDays.filter((gapDay) => gapDay.booked === 0 && gapDay.openQuotes.length > 0).length,
+    empty: monthGapDays.filter((gapDay) => gapDay.booked === 0 && gapDay.openQuotes.length === 0).length,
+    competing: monthGapDays.filter((gapDay) => gapDay.booked === 0 && gapDay.openQuotes.length > 1).length,
+    capacity: monthGapDays.filter((gapDay) => gapDay.atCapacity).length,
+    assignments: monthGapDays.filter((gapDay) => gapDay.assignmentReasons.length > 0).length,
+  };
+  const monthWinnableDays = monthGapDays.filter((gapDay) => gapDay.booked === 0 && gapDay.openQuotes.length > 0);
+  const selectedGapDay = gapDaysByDate.get(selectedDate);
   const canGoPrevious = shiftMonth(monthFirst, -1) >= `${start.slice(0, 7)}-01`;
   const canGoNext = nextMonth <= `${end.slice(0, 7)}-01`;
   const day = summarizePipelineDay(entries, selectedDate);
@@ -429,6 +487,82 @@ export default function QuotePipelineBoard({ entries, orders, undatedEntries, co
   }, 0);
   const weeklyLabel = `${dateLabel(selectedWeekStart, { day: "numeric", month: "short" })} - ${dateLabel(selectedWeekEnd, { day: "numeric", month: "short" })}`;
   const dateLabelText = dateLabel(selectedDate, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const selectedGapLabel = !selectedGapDay ? "Outside plan window"
+    : selectedGapDay.booked > capacity.maxConcurrentEvents ? "Over capacity"
+      : selectedGapDay.atCapacity ? "At capacity"
+        : selectedGapDay.assignmentReasons.length > 0 ? "Assignment check"
+          : selectedGapDay.booked > 0 && selectedGapDay.openQuotes.length > 0 ? "Booked + extra quotes"
+            : selectedGapDay.booked > 0 ? "Booked"
+              : selectedGapDay.openQuotes.length > 0 ? "Winnable date" : "Open date";
+  const selectedGapTone = selectedGapLabel === "Over capacity" ? "border-rose-200 bg-rose-50 text-rose-900"
+    : ["At capacity", "Assignment check", "Booked + extra quotes", "Winnable date"].includes(selectedGapLabel)
+      ? "border-amber-200 bg-amber-50 text-amber-950"
+      : selectedGapLabel === "Booked" ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+        : "border-slate-200 bg-white text-slate-700";
+
+  const selectedDateContent = (surface: "inline" | "dialog") => <>
+    <div className={cn(
+      "z-10 -mx-4 -mt-4 border-b border-slate-200 px-4 pb-3 pt-4",
+      surface === "inline" && "xl:sticky xl:top-0 xl:bg-slate-50/95 xl:backdrop-blur",
+      surface === "dialog" && "sticky top-0 bg-white/95",
+    )}>
+      <div className="flex flex-col gap-2 pr-10 sm:flex-row sm:items-start sm:justify-between sm:pr-10 xl:pr-0">
+        <div className="min-w-0"><span className="text-xs font-semibold uppercase tracking-wide text-brand-primary">Selected day</span><h3 className="mt-0.5 break-words text-base font-semibold tracking-tight text-slate-950 sm:text-lg">{dateLabelText}</h3><span className="mt-1 inline-flex items-center gap-1 text-xs text-slate-500"><CalendarDays className="h-3.5 w-3.5" />Orders, quotes & capacity</span></div>
+        <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 sm:justify-end">
+          <Button size="sm" variant="outline" className="h-11 w-11 px-0 sm:h-9 sm:w-auto sm:px-3" onClick={onExplainDate} disabled={!canExplain || reviewLoading} aria-label={reviewLoading ? "Reviewing recommendations" : "Explain picks"} title="Explain these recommendations using verified quotes, costs and capacity">
+            {reviewLoading ? <Loader2 className="animate-spin motion-reduce:animate-none" /> : <BrainCircuit />}
+            <span className="hidden sm:inline">{reviewLoading ? "Reviewing" : "Explain picks"}</span>
+          </Button>
+          {selectedDate !== todayKey && <Button size="sm" variant="outline" className="h-11 w-11 px-0 sm:h-9 sm:w-auto sm:px-3" onClick={() => selectDate(todayKey)} aria-label="Select today" title="Select today"><CalendarDays className="h-4 w-4" /><span className="hidden sm:inline">Today</span></Button>}
+        </div>
+      </div>
+    </div>
+    <div role="status" className={cn("mt-3 rounded-lg border px-3 py-2 text-xs", selectedGapTone)}>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <strong>{selectedGapLabel}</strong>
+        {selectedGapDay && <span className="tabular-nums">{selectedGapDay.booked}/{capacity.maxConcurrentEvents} booked · {selectedGapDay.openQuotes.length} open quote{selectedGapDay.openQuotes.length === 1 ? "" : "s"}</span>}
+      </div>
+      {selectedGapDay?.assignmentReasons.length ? <p className="mt-1 leading-relaxed">{selectedGapDay.assignmentReasons[0]}{selectedGapDay.assignmentReasons.length > 1 ? ` (+${selectedGapDay.assignmentReasons.length - 1} more)` : ""}</p> : null}
+    </div>
+    <PipelineDateSummary day={day} commitments={commitments} capacity={capacity} selected={daySelected} opportunityCount={dayOpportunities.length} compactMoney={compactMoney}
+      weeklyBookedHours={weeklyBookedHours} weeklyPlannedHours={weeklyPlannedHours} weeklyBudgetHours={weeklyBudgetHours} weeklyTeamHours={weeklyTeamHours}
+      weeklyReservePercent={weeklyReservePercent} weeklyLabel={weeklyLabel} weeklyUnknownGuests={weeklyUnknownGuests} />
+    {selectedGapDay && selectedGapDay.openQuotes.length > 0 && <section className="mt-4 min-w-0" aria-labelledby={`gap-day-quotes-title-${surface}`}>
+      <h4 id={`gap-day-quotes-title-${surface}`} className="flex items-center justify-between gap-3 text-sm font-semibold text-slate-900">
+        <span>Open quote requests</span><span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs tabular-nums text-amber-900">{selectedGapDay.openQuotes.length}</span>
+      </h4>
+      <p className="mt-1 text-xs text-slate-500">Draft and sent quotes for this date, including requests not yet priced for the plan.</p>
+      <ul className="mt-2 divide-y divide-slate-200 border-y border-slate-200">
+        {selectedGapDay.openQuotes.map((quote) => {
+          const requestedTotal = Number(quote.total_amount ?? quote.total);
+          return <li key={quote.id}>
+            <Link href={withSlug(`/admin/quotes/new?fromQuoteId=${quote.id}`)} className="flex min-h-11 items-center justify-between gap-3 rounded-md px-2 py-1.5 text-xs hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary">
+              <span className="min-w-0"><span className="block truncate font-medium text-slate-800">{quote.client_name || quote.quote_name || quote.quote_number}</span><span className="block truncate text-xs text-slate-500">{quote.quote_number} · {quote.status}</span></span>
+              <span className="shrink-0 whitespace-nowrap tabular-nums text-slate-700">{Number.isFinite(requestedTotal) && requestedTotal > 0 ? money(requestedTotal, quote.currency || currencyCode) : "Not priced"}</span>
+            </Link>
+          </li>;
+        })}
+      </ul>
+    </section>}
+    {plan.conflicts.length > 0 && <div role="alert" className="mt-4 flex items-center justify-between gap-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900"><span>{plan.conflicts.length} plan capacity conflict{plan.conflicts.length === 1 ? "" : "s"}.</span><Button variant="outline" size="sm" className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3" onClick={onReleaseAll} aria-label="Release all manual pins" title="Release all manual pins"><RotateCcw className="h-4 w-4" /><span className="hidden sm:inline">Release all</span></Button></div>}
+    {reviewError && <p role="alert" className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{reviewError}</p>}
+    <div className="mt-4 space-y-4">
+      <OrderRows orders={dayOrders} acceptedQuotes={acceptedQuotes} money={money} withSlug={withSlug} />
+      <OpportunityRows opportunities={dayOpportunities} selected={daySelected} plan={plan} assumptions={assumptions} leadNotesByQuote={leadNotesByQuote} pinnedIds={pinnedIds} excludedIds={excludedIds}
+        costOverrides={costOverrides} currencyCode={currencyCode} compactMoney={compactMoney} reasonFor={reasonFor}
+        onTogglePin={onTogglePin} onToggleExclude={onToggleExclude} onCostOverrideChange={onCostOverrideChange} withSlug={withSlug} />
+      {attention.length > 0 && <PipelineActivity entries={attention} />}
+      {closed.length > 0 && <details className="border-t border-slate-200 pt-4">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-sm text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"><span>Closed</span><span className="text-xs tabular-nums text-slate-500">{closed.length}</span></summary>
+        <div className="mt-2"><PipelineActivity entries={closed} heading="Closed records" /></div>
+      </details>}
+      <details className="border-t border-slate-200 pt-4">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-sm text-xs font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"><span>AI explanation & risks</span><BrainCircuit className="h-4 w-4 text-brand-primary" /></summary>
+        <p className="mt-2 text-xs text-slate-500">Advice from verified quotes, costs, pipeline records and capacity.</p>
+        {review && <div className="mt-3 space-y-2" aria-live="polite"><p className="text-xs leading-relaxed text-slate-700">{review.summary}</p>{review.risks.length > 0 && <ul className="list-disc space-y-1 pl-4 text-xs text-amber-900">{review.risks.map((risk) => <li key={risk}>{risk}</li>)}</ul>}<p className="text-xs text-slate-500">{reviewTotal > 20 ? `Covers the first 20 of ${reviewTotal} quotes.` : "Based on verified planning data."}</p></div>}
+      </details>
+    </div>
+  </>;
 
   return <section className="grid min-w-0 border-b border-slate-200 xl:items-start xl:grid-cols-[minmax(0,1fr)_minmax(400px,0.46fr)] 2xl:grid-cols-[minmax(0,1fr)_minmax(440px,0.5fr)]" aria-label="Quote calendar">
     <div className="min-w-0 p-4 sm:p-6">
@@ -445,6 +579,38 @@ export default function QuotePipelineBoard({ entries, orders, undatedEntries, co
         <span><strong className="tabular-nums text-slate-900">{monthSelected}</strong><span className="ml-1.5 text-slate-600">in plan</span></span>
         <span><strong className="tabular-nums text-amber-900">{monthReview}</strong><span className="ml-1.5 text-slate-600">need review</span></span>
       </div>
+      <section className="mt-3 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-3" aria-label={`${monthName} gap finder`}>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <h4 className="text-sm font-semibold text-slate-900">Gap finder · {monthName}</h4>
+          <p className="text-xs text-slate-500">Days inside this plan window</p>
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-3 xl:grid-cols-6">
+          {[
+            ["Booked days", monthGapStats.booked, "Days with confirmed work."],
+            ["Winnable days", monthGapStats.winnable, "Open draft or sent quotes, with no booked work."],
+            ["Empty days", monthGapStats.empty, "No booked work or open quote requests."],
+            ["Competing", monthGapStats.competing, "More than one open quote on an unbooked day."],
+            ["At capacity", monthGapStats.capacity, `Booked work at the ${capacity.maxConcurrentEvents}-event daily limit.`],
+            ["Assignment checks", monthGapStats.assignments, "A driver, vehicle, or chef appears on multiple bookings."],
+          ].map(([label, value, hint]) => <div key={String(label)} className="min-w-0 border-t border-slate-200 pt-1.5" title={String(hint)}>
+            <p className="truncate text-xs font-medium text-slate-500">{label}</p>
+            <p className="text-sm font-semibold tabular-nums text-slate-900">{value} <span className="text-[10px] font-normal text-slate-500">days</span></p>
+          </div>)}
+        </div>
+        {monthWinnableDays.length > 0 && <div className="mt-2 border-t border-slate-200 pt-2">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-900">Winnable dates</p>
+          <div className="flex flex-wrap gap-1.5">
+            {monthWinnableDays.slice(0, 4).map((gapDay) => <button key={gapDay.date} type="button" onClick={() => selectDate(gapDay.date)}
+              className="min-h-11 rounded-md border border-amber-200 bg-white px-2.5 py-1 text-left text-xs text-slate-700 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+              aria-label={`Open ${dateLabel(gapDay.date, { weekday: "long", day: "numeric", month: "long" })}, ${gapDay.openQuotes.length} quotes`}>
+              <span className="font-semibold">{dateLabel(gapDay.date, { day: "numeric", month: "short" })}</span>
+              <span className="ml-1.5 text-slate-500">{gapDay.openQuotes.length} quote{gapDay.openQuotes.length === 1 ? "" : "s"}</span>
+            </button>)}
+            {monthWinnableDays.length > 4 && <span className="self-center text-xs text-slate-500">+{monthWinnableDays.length - 4} more on the calendar</span>}
+          </div>
+        </div>}
+        {monthGapDays.length === 0 && <p className="mt-2 border-t border-slate-200 pt-2 text-xs text-slate-600">No dates from this month fall inside the current plan window.</p>}
+      </section>
       {monthOrders === 0 && monthBooked === 0 && monthOpportunities.length === 0 && monthReview === 0 && monthSelected === 0 &&
         <p role="status" className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600">No upcoming bookings or quote opportunities this month.</p>}
       <div className="mt-3 flex items-center justify-center gap-2">
@@ -452,29 +618,41 @@ export default function QuotePipelineBoard({ entries, orders, undatedEntries, co
         <h4 aria-live="polite" className="min-w-40 text-center text-sm font-semibold">{monthName}</h4>
         <Button size="icon" variant="ghost" aria-label="Next month" disabled={!canGoNext} onClick={() => setCalendarMonth(nextMonth)}><ChevronRight /></Button>
       </div>
-      <div className="mt-2 grid grid-cols-7 gap-1 sm:gap-1.5" role="grid" aria-label={`${monthName} quote and order calendar`}>
-        {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((name) => <div key={name} role="columnheader" className="py-1 text-center text-[10px] font-medium text-slate-500 sm:text-xs">{name.slice(0, 3)}</div>)}
+      <div className="mt-2 grid min-w-0 grid-cols-7 gap-0.5 sm:gap-1.5" role="grid" aria-label={`${monthName} quote and order calendar`}>
+        {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((name) => <div key={name} role="columnheader" aria-label={name} className="min-w-0 py-1 text-center text-[10px] font-medium text-slate-500 sm:text-xs">{name.slice(0, 3)}</div>)}
         {Array.from({ length: gridLength }, (_, index) => {
           const date = shiftPlanningDate(gridStart, index);
           const inMonth = date >= monthFirst && date <= monthLast;
           const inWindow = date >= start && date <= end;
           const dayEntry = summarizePipelineDay(entries, date);
           const load = pipelineCapacity(dayEntry, commitments, capacity);
+          const gapDay = gapDaysByDate.get(date);
           const orderCount = orders.filter((order) => !order.deleted_at && order.event_date === date).length;
           const dayOptions = opportunities.filter((opportunity) => opportunity.date === date);
           const picks = selected.filter((opportunity) => opportunity.date === date);
           const enabled = inMonth && inWindow;
-          const label = `${dateLabel(date, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}: ${orderCount} orders, ${load.booked} booked work, ${dayOptions.length} quote opportunities, ${picks.length} in plan, ${dayEntry.review} needing review${date === selectedDate ? ", selected" : ""}`;
-          return <button key={date} type="button" role="gridcell" disabled={!enabled} aria-pressed={date === selectedDate} aria-label={label} onClick={() => onSelectDate(date)}
-            className={cn("flex min-h-[74px] min-w-0 flex-col rounded-md border p-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50 sm:min-h-[112px] sm:p-2", !inMonth && "border-transparent bg-transparent", inMonth && !inWindow && "border-slate-100 bg-slate-50/60 text-slate-400", enabled && date === selectedDate && "border-brand-primary bg-brand-primary/5 ring-1 ring-brand-primary/20", enabled && date !== selectedDate && "border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50")}>
+          const label = `${dateLabel(date, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}: ${orderCount} orders, ${load.booked} booked work, ${gapDay?.openQuotes.length || 0} open quote requests, ${dayOptions.length} priced opportunities, ${picks.length} in plan, ${dayEntry.review} needing review${gapDay?.atCapacity ? ", at capacity" : ""}${gapDay?.assignmentReasons.length ? ", assignment check needed" : ""}${date === selectedDate ? ", selected" : ""}`;
+          return <button key={date} type="button" role="gridcell" disabled={!enabled} aria-pressed={date === selectedDate} aria-label={label} title={label} onClick={() => selectDate(date)}
+            className={cn("flex min-h-[72px] min-w-0 flex-col rounded-md border p-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50 sm:min-h-[112px] sm:p-2", !inMonth && "border-transparent bg-transparent", inMonth && !inWindow && "border-slate-100 bg-slate-50/60 text-slate-400", enabled && date === selectedDate && "border-brand-primary bg-brand-primary/5 ring-1 ring-brand-primary/20", enabled && date !== selectedDate && "border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50")}>
             {inMonth && <>
               <span className="flex w-full items-center justify-between gap-0.5"><span className={cn("text-xs font-semibold tabular-nums sm:text-sm", date === todayKey && "text-brand-primary")}>{dateLabel(date, { day: "numeric" })}</span>{date === todayKey && <span className="hidden text-[10px] font-medium text-brand-primary sm:inline">Today</span>}</span>
               {enabled && <>
-                <div className="mt-2 flex flex-col gap-1 text-[10px] tabular-nums sm:text-[11px]">
-                  {orderCount > 0 && <span className="inline-flex items-center gap-1 text-slate-700"><span className="h-1.5 w-1.5 shrink-0 rounded-full bg-slate-500" /><span className="truncate"><span className="sm:hidden">O </span><span className="hidden sm:inline">Orders </span>{orderCount}</span></span>}
-                  {dayOptions.length > 0 && <span className="inline-flex items-center gap-1 text-brand-primary"><span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-primary" /><span className="truncate"><span className="sm:hidden">Q </span><span className="hidden sm:inline">Quotes </span>{dayOptions.length}</span></span>}
-                  {dayEntry.review > 0 && <span className="inline-flex items-center gap-1 text-amber-900"><span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-700" /><span className="truncate"><span className="sm:hidden">! </span><span className="hidden sm:inline">Review </span>{dayEntry.review}</span></span>}
-                  {picks.length > 0 && <span className="inline-flex items-center gap-1 font-semibold text-slate-800"><Check className="h-3 w-3 shrink-0 text-brand-primary" /><span className="truncate"><span className="sm:hidden">Plan </span><span className="hidden sm:inline">In plan </span>{picks.length} · {compactMoney(picks.reduce((sum, opportunity) => sum + opportunity.profit, 0))}</span></span>}
+                <div className="mt-1 grid min-w-0 grid-cols-2 gap-x-0.5 gap-y-0 text-[10px] leading-3 tabular-nums sm:hidden">
+                  {orderCount > 0 && <span title={`${orderCount} orders`} className="min-w-0 truncate text-slate-700">O {orderCount}</span>}
+                  {dayOptions.length > 0 && <span title={`${dayOptions.length} priced opportunities`} className="min-w-0 truncate text-brand-primary">Q {dayOptions.length}</span>}
+                  {gapDay && gapDay.openQuotes.length > 0 && <span title={`${gapDay.openQuotes.length} open quote requests`} className="min-w-0 truncate text-amber-900">W {gapDay.openQuotes.length}</span>}
+                  {dayEntry.review > 0 && <span title={`${dayEntry.review} needing review`} className="min-w-0 truncate font-medium text-amber-900">R {dayEntry.review}</span>}
+                  {picks.length > 0 && <span title={`${picks.length} in plan · ${compactMoney(picks.reduce((sum, opportunity) => sum + opportunity.profit, 0))}`} className="min-w-0 truncate font-semibold text-slate-800">P {picks.length}</span>}
+                  {(gapDay?.atCapacity || (gapDay?.assignmentReasons.length || 0) > 0) && <span title={[gapDay?.atCapacity ? `At capacity: ${gapDay.booked}/${capacity.maxConcurrentEvents}` : "", gapDay?.assignmentReasons.length ? "Assignment check needed" : ""].filter(Boolean).join(" · ")} className="min-w-0 truncate font-medium text-amber-900">! Check</span>}
+                </div>
+                <div className="mt-2 hidden min-w-0 flex-col gap-1 text-[10px] tabular-nums sm:flex sm:text-xs">
+                  {orderCount > 0 && <span className="inline-flex items-center gap-1 text-slate-700"><span className="h-1.5 w-1.5 shrink-0 rounded-full bg-slate-500" /><span className="min-w-0 truncate"><span className="hidden sm:inline">Orders </span>{orderCount}</span></span>}
+                  {dayOptions.length > 0 && <span className="inline-flex items-center gap-1 text-brand-primary"><span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-primary" /><span className="min-w-0 truncate"><span className="hidden sm:inline">Quotes </span>{dayOptions.length}</span></span>}
+                  {gapDay && gapDay.openQuotes.length > 0 && <span className="inline-flex items-center gap-1 text-amber-900" title={gapDay.booked === 0 ? "Open quotes on an unbooked date" : "Open quotes on a date that already has bookings"}><span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-600" /><span className="min-w-0 truncate">{gapDay.booked === 0 ? "Winnable" : "Extra quotes"} · {gapDay.openQuotes.length}</span></span>}
+                  {gapDay?.atCapacity && <span className="inline-flex items-center gap-1 text-amber-900"><AlertCircle className="h-3 w-3 shrink-0" /><span className="min-w-0 truncate">At cap · {gapDay.booked}/{capacity.maxConcurrentEvents}</span></span>}
+                  {gapDay && gapDay.assignmentReasons.length > 0 && <span className="inline-flex items-center gap-1 text-amber-900"><AlertCircle className="h-3 w-3 shrink-0" /><span className="min-w-0 truncate">Assignment check</span></span>}
+                  {dayEntry.review > 0 && <span className="inline-flex items-center gap-1 text-amber-900"><span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-700" /><span className="min-w-0 truncate"><span className="hidden sm:inline">Review </span>{dayEntry.review}</span></span>}
+                  {picks.length > 0 && <span className="inline-flex items-center gap-1 font-semibold text-slate-800"><Check className="h-3 w-3 shrink-0 text-brand-primary" /><span className="min-w-0 truncate"><span className="hidden sm:inline">In plan </span>{picks.length} · {compactMoney(picks.reduce((sum, opportunity) => sum + opportunity.profit, 0))}</span></span>}
                 </div>
                 <span className="mt-auto block w-full pt-1.5"><CapacityBar booked={load.booked} proposed={picks.length} limit={capacity.maxConcurrentEvents} /></span>
               </>}
@@ -483,10 +661,17 @@ export default function QuotePipelineBoard({ entries, orders, undatedEntries, co
           </button>;
         })}
       </div>
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-slate-600" aria-label="Calendar key">
+      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-slate-600 sm:hidden" aria-label="Calendar key">
+        <span><strong className="text-slate-700">O</strong> Orders</span><span><strong className="text-brand-primary">Q</strong> Opportunities</span>
+        <span><strong className="text-amber-800">W</strong> Open quote requests</span><span><strong className="text-amber-800">R</strong> Need review</span>
+        <span><strong className="text-slate-800">P</strong> In plan</span><span><strong className="text-amber-800">!</strong> Capacity / assignment check</span>
+      </div>
+      <div className="mt-3 hidden flex-wrap gap-x-4 gap-y-2 text-xs text-slate-600 sm:flex" aria-label="Calendar key">
         <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-slate-500" />Orders</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-brand-primary" />Opportunities</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-600" />Open quote requests</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-700" />Need review</span>
+        <span className="inline-flex items-center gap-1.5"><Check className="h-3 w-3 text-brand-primary" />In plan</span>
       </div>
       {undatedEntries.length > 0 && <details className="mt-5 border-t border-slate-200 pt-4">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-sm text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"><span>Without an event date</span><span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs tabular-nums text-amber-900">{undatedEntries.length}</span></summary>
@@ -494,22 +679,47 @@ export default function QuotePipelineBoard({ entries, orders, undatedEntries, co
       </details>}
     </div>
 
-    <aside className="min-w-0 border-t border-slate-200 bg-slate-50/50 p-4 sm:p-6 xl:rounded-tr-xl xl:border-l xl:border-t-0 xl:p-4" aria-label="Selected date details">
+    <aside className="hidden min-w-0 border-t border-slate-200 bg-slate-50/50 p-4 sm:p-6 xl:block xl:rounded-tr-xl xl:border-l xl:border-t-0 xl:p-4" aria-label="Selected date details">
       <div className="xl:sticky xl:top-0 xl:z-10 xl:-mx-4 xl:-mt-4 xl:border-b xl:border-slate-200 xl:bg-slate-50/95 xl:px-4 xl:pb-3 xl:pt-4 xl:backdrop-blur">
-      <div className="flex items-start justify-between gap-3">
-        <div><span className="text-[11px] font-semibold uppercase tracking-wide text-brand-primary">Selected day</span><h3 className="mt-0.5 text-lg font-semibold tracking-tight text-slate-950">{dateLabelText}</h3><span className="mt-1 inline-flex items-center gap-1 text-xs text-slate-500"><CalendarDays className="h-3.5 w-3.5" />Orders, quotes & capacity</span></div>
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-          <Button size="sm" variant="outline" onClick={onExplainDate} disabled={!canExplain || reviewLoading} title="Explain these recommendations using verified quotes, costs and capacity">
-            {reviewLoading ? <><Loader2 className="animate-spin motion-reduce:animate-none" />Reviewing</> : <><BrainCircuit />Explain picks</>}
+        <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0"><span className="text-xs font-semibold uppercase tracking-wide text-brand-primary">Selected day</span><h3 className="mt-0.5 break-words text-lg font-semibold tracking-tight text-slate-950">{dateLabelText}</h3><span className="mt-1 inline-flex items-center gap-1 text-xs text-slate-500"><CalendarDays className="h-3.5 w-3.5" />Orders, quotes & capacity</span></div>
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+          <Button size="sm" variant="outline" className="h-11 w-11 px-0 sm:h-9 sm:w-auto sm:px-3" onClick={onExplainDate} disabled={!canExplain || reviewLoading} aria-label={reviewLoading ? "Reviewing recommendations" : "Explain picks"} title="Explain these recommendations using verified quotes, costs and capacity">
+            {reviewLoading ? <Loader2 className="animate-spin motion-reduce:animate-none" /> : <BrainCircuit />}
+            <span className="hidden sm:inline">{reviewLoading ? "Reviewing" : "Explain picks"}</span>
           </Button>
-          {selectedDate !== todayKey && <Button size="sm" variant="outline" onClick={() => onSelectDate(todayKey)}>Today</Button>}
+          {selectedDate !== todayKey && <Button size="sm" variant="outline" className="h-11 w-11 px-0 sm:h-9 sm:w-auto sm:px-3" onClick={() => onSelectDate(todayKey)} aria-label="Select today" title="Select today"><CalendarDays className="h-4 w-4" /><span className="hidden sm:inline">Today</span></Button>}
         </div>
       </div>
+      </div>
+      <div role="status" className={cn("mt-3 rounded-lg border px-3 py-2 text-xs", selectedGapTone)}>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <strong>{selectedGapLabel}</strong>
+          {selectedGapDay && <span className="tabular-nums">{selectedGapDay.booked}/{capacity.maxConcurrentEvents} booked · {selectedGapDay.openQuotes.length} open quote{selectedGapDay.openQuotes.length === 1 ? "" : "s"}</span>}
+        </div>
+        {selectedGapDay?.assignmentReasons.length ? <p className="mt-1 leading-relaxed">{selectedGapDay.assignmentReasons[0]}{selectedGapDay.assignmentReasons.length > 1 ? ` (+${selectedGapDay.assignmentReasons.length - 1} more)` : ""}</p> : null}
       </div>
       <PipelineDateSummary day={day} commitments={commitments} capacity={capacity} selected={daySelected} opportunityCount={dayOpportunities.length} compactMoney={compactMoney}
         weeklyBookedHours={weeklyBookedHours} weeklyPlannedHours={weeklyPlannedHours} weeklyBudgetHours={weeklyBudgetHours} weeklyTeamHours={weeklyTeamHours}
         weeklyReservePercent={weeklyReservePercent} weeklyLabel={weeklyLabel} weeklyUnknownGuests={weeklyUnknownGuests} />
-      {plan.conflicts.length > 0 && <div role="alert" className="mt-4 flex items-center justify-between gap-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900"><span>{plan.conflicts.length} plan capacity conflict{plan.conflicts.length === 1 ? "" : "s"}.</span><Button variant="outline" size="sm" onClick={onReleaseAll}>Release all</Button></div>}
+      {selectedGapDay && selectedGapDay.openQuotes.length > 0 && <section className="mt-4 min-w-0" aria-labelledby="gap-day-quotes-title">
+        <h4 id="gap-day-quotes-title" className="flex items-center justify-between gap-3 text-sm font-semibold text-slate-900">
+          <span>Open quote requests</span><span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs tabular-nums text-amber-900">{selectedGapDay.openQuotes.length}</span>
+        </h4>
+        <p className="mt-1 text-xs text-slate-500">Draft and sent quotes for this date, including requests not yet priced for the plan.</p>
+        <ul className="mt-2 divide-y divide-slate-200 border-y border-slate-200">
+          {selectedGapDay.openQuotes.map((quote) => {
+            const requestedTotal = Number(quote.total_amount ?? quote.total);
+            return <li key={quote.id}>
+              <Link href={withSlug(`/admin/quotes/new?fromQuoteId=${quote.id}`)} className="flex min-h-11 items-center justify-between gap-3 rounded-md px-2 py-1.5 text-xs hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary">
+                <span className="min-w-0"><span className="block truncate font-medium text-slate-800">{quote.client_name || quote.quote_name || quote.quote_number}</span><span className="block truncate text-xs text-slate-500">{quote.quote_number} · {quote.status}</span></span>
+                <span className="shrink-0 whitespace-nowrap tabular-nums text-slate-700">{Number.isFinite(requestedTotal) && requestedTotal > 0 ? money(requestedTotal, quote.currency || currencyCode) : "Not priced"}</span>
+              </Link>
+            </li>;
+          })}
+        </ul>
+      </section>}
+      {plan.conflicts.length > 0 && <div role="alert" className="mt-4 flex items-center justify-between gap-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900"><span>{plan.conflicts.length} plan capacity conflict{plan.conflicts.length === 1 ? "" : "s"}.</span><Button variant="outline" size="sm" className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3" onClick={onReleaseAll} aria-label="Release all manual pins" title="Release all manual pins"><RotateCcw className="h-4 w-4" /><span className="hidden sm:inline">Release all</span></Button></div>}
       {reviewError && <p role="alert" className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{reviewError}</p>}
 
       <div className="mt-4 space-y-4">
@@ -525,9 +735,20 @@ export default function QuotePipelineBoard({ entries, orders, undatedEntries, co
         <details className="border-t border-slate-200 pt-4">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-sm text-xs font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"><span>AI explanation & risks</span><BrainCircuit className="h-4 w-4 text-brand-primary" /></summary>
           <p className="mt-2 text-xs text-slate-500">Advice from verified quotes, costs, pipeline records and capacity.</p>
-          {review && <div className="mt-3 space-y-2" aria-live="polite"><p className="text-xs leading-relaxed text-slate-700">{review.summary}</p>{review.risks.length > 0 && <ul className="list-disc space-y-1 pl-4 text-xs text-amber-900">{review.risks.map((risk) => <li key={risk}>{risk}</li>)}</ul>}<p className="text-[11px] text-slate-500">{reviewTotal > 20 ? `Covers the first 20 of ${reviewTotal} quotes.` : "Based on verified planning data."}</p></div>}
+          {review && <div className="mt-3 space-y-2" aria-live="polite"><p className="text-xs leading-relaxed text-slate-700">{review.summary}</p>{review.risks.length > 0 && <ul className="list-disc space-y-1 pl-4 text-xs text-amber-900">{review.risks.map((risk) => <li key={risk}>{risk}</li>)}</ul>}<p className="text-xs text-slate-500">{reviewTotal > 20 ? `Covers the first 20 of ${reviewTotal} quotes.` : "Based on verified planning data."}</p></div>}
         </details>
       </div>
     </aside>
+    <Dialog open={mobileDetailsOpen} onOpenChange={setMobileDetailsOpen}>
+      <DialogContent className="xl:hidden max-w-3xl gap-0 overflow-hidden p-0 [&>button:last-child]:z-20 [&>button:last-child]:border-slate-200 [&>button:last-child]:bg-white [&>button:last-child]:shadow-sm">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Selected date details for {dateLabelText}</DialogTitle>
+          <DialogDescription>Bookings, quote requests, planning and capacity for this date.</DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[calc(100dvh-1.5rem)] min-w-0 overflow-y-auto overscroll-contain p-4 sm:p-6">
+          {selectedDateContent("dialog")}
+        </div>
+      </DialogContent>
+    </Dialog>
   </section>;
 }

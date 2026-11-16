@@ -321,32 +321,33 @@ export function InventoryLowStockWidget({ companyId }: Props) {
   if (!loading && rows.length === 0) return null;
 
   return (
-    <Card collapsible defaultOpen={false} collapseLabel="Stock running low" className={`mb-6 border-orange-200 ${shortfallCount > 0 ? "bg-rose-50/40" : "bg-orange-50/40"}`}>
-      <CardHeader className="pb-3 min-w-0 flex-wrap">
+    <Card collapsible defaultOpen={false} collapseLabel="Stock running low" className={`mb-6 min-w-0 max-w-full overflow-hidden border-orange-200 ${shortfallCount > 0 ? "bg-rose-50/40" : "bg-orange-50/40"}`}>
+      <CardHeader className="min-w-0 flex-wrap px-3 py-3 sm:p-5">
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <CardTitle className="flex min-w-0 flex-wrap items-center gap-2 text-base">
-              <AlertTriangle className={`w-4 h-4 ${shortfallCount > 0 ? "text-rose-600" : "text-orange-600"}`} />
+            <CardTitle className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm leading-5 sm:gap-2 sm:text-base">
+              <AlertTriangle className={`h-4 w-4 shrink-0 ${shortfallCount > 0 ? "text-rose-600" : "text-orange-600"}`} />
               Stock running low
               {shortfallCount > 0 && (
-                <Badge className="bg-rose-100 text-rose-800 border-rose-200 text-[10px]">
-                  {shortfallCount} short for upcoming orders
+                <Badge className="shrink-0 border-rose-200 bg-rose-100 px-1.5 text-[9px] text-rose-800 sm:text-[10px]">
+                  <span className="sm:hidden">{shortfallCount} short</span>
+                  <span className="hidden sm:inline">{shortfallCount} short for upcoming orders</span>
                 </Badge>
               )}
               {!loading && <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700" aria-label={`${rows.length} items`}>{rows.length}</span>}
             </CardTitle>
-            <CardDescription className="line-clamp-1 text-xs">
+            <CardDescription className="line-clamp-1 text-[10px] leading-4 sm:text-xs">
               Items short of stock right now. Each line shows what you have, what confirmed orders need it in the next 7 days, and which specific bookings will run short.
             </CardDescription>
           </div>
-          <Link href={withSlug("/admin/shopping?tab=buy_now")}>
-            <Button variant="ghost" size="sm" className="text-orange-700">
-              Buy now <ShoppingCart className="w-3.5 h-3.5 ml-1" />
+          <Link href={withSlug("/admin/shopping?tab=buy_now")} aria-label="Buy now" title="Buy now" className="shrink-0">
+            <Button variant="ghost" size="sm" className="h-9 w-9 shrink-0 px-0 text-orange-700 sm:h-8 sm:w-auto sm:px-2">
+              <span className="sr-only sm:not-sr-only">Buy now</span><ShoppingCart className="ml-0 h-3.5 w-3.5 sm:ml-1" />
             </Button>
           </Link>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0 px-3 py-3 sm:p-5">
         {loading ? (
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (

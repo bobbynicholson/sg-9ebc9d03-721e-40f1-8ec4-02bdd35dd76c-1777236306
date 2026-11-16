@@ -2279,6 +2279,7 @@ function OrderProcessDashboard() {
           <div className="space-y-6">
             <PortalHeader
               variant="hero"
+              className="mb-3 px-3 py-3 sm:px-4 sm:py-3"
               title="Orders"
               icon={ShoppingCart}
               subtitle="Review booked events, check their progress and open an order to manage it."
@@ -2342,13 +2343,11 @@ function OrderProcessDashboard() {
                   two rows at common viewport widths - dumping
                   "New Quote" below where nobody looked for it.
                   New layout: macOS-style segmented control for the
-                  view toggle (subtle slate background, white card +
-                  shadow for active state), an icon-button group for
-                  refresh / overflow, then the primary CTA. All
-                  buttons land at the same h-9 height so the row
-                  reads as one unit. flex-nowrap + ml-auto pushes the
-                  whole cluster to the right edge without wrapping at
-                  the awkward in-between widths. */
+                  view toggle, a secondary action menu, and the
+                  primary CTA. Controls share a consistent height;
+                  compact icon targets suit phones and labels return
+                  on wider screens. */
+                <div className="col-span-full flex w-full min-w-0 flex-wrap items-center justify-start gap-2 sm:justify-end xl:col-auto xl:w-auto">
                 <>
                   {/* Segmented view toggle - glass track on the hero
                     band, active state reads as a single elevated
@@ -2366,7 +2365,7 @@ function OrderProcessDashboard() {
                           : "text-slate-300 hover:text-white"
                       }`}
                     >
-                      <LayoutGrid className="w-3.5 h-3.5" />
+                      <LayoutGrid className="h-4 w-4" />
                       <span className="hidden sm:inline">Kanban</span>
                     </button>
                     <button
@@ -2381,7 +2380,7 @@ function OrderProcessDashboard() {
                           : "text-slate-300 hover:text-white"
                       }`}
                     >
-                      <List className="w-3.5 h-3.5" />
+                      <List className="h-4 w-4" />
                       <span className="hidden sm:inline">Timeline</span>
                     </button>
                   </div>
@@ -2394,9 +2393,9 @@ function OrderProcessDashboard() {
                           size="sm"
                           title="More actions"
                           aria-label="More actions"
-                          className="h-9 w-9 p-0"
+                          className="h-11 w-11 p-0 sm:h-9 sm:w-9"
                         >
-                          <MoreHorizontal className="w-4 h-4" />
+                          <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48">
@@ -2437,18 +2436,20 @@ function OrderProcessDashboard() {
                       </Link>
                     </Button>
                   )}
-                  <Link href={withSlug("/admin/quotes/new")}>
-                    <Button
-                      size="sm"
-                      className="h-11 w-11 gap-0 bg-brand-primary p-0 shadow-md transition-all hover:opacity-90 hover:shadow-lg active:scale-[0.98] sm:h-9 sm:w-auto sm:gap-2 sm:px-3"
-                      title="Create a new quote"
-                      aria-label="New quote"
-                    >
+                  <Button
+                    asChild
+                    size="sm"
+                    className="h-11 w-11 gap-0 bg-brand-primary p-0 shadow-md transition-all hover:opacity-90 hover:shadow-lg active:scale-[0.98] sm:h-9 sm:w-auto sm:gap-2 sm:px-3"
+                    title="Create a new quote"
+                    aria-label="New quote"
+                  >
+                    <Link href={withSlug("/admin/quotes/new")}>
                       <FilePlus className="h-4 w-4" />
                       <span className="hidden sm:inline">New Quote</span>
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                 </>
+                </div>
               }
             />
             <PageWorkbench />

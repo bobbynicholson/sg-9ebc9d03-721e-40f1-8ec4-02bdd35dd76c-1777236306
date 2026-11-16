@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   MapPin, Plus, Edit, Trash2, Globe, CheckCircle, XCircle,
-  AlertCircle, Loader2, Truck, ChefHat, Users, Clock, Download, RefreshCw,
+  AlertCircle, Loader2, Truck, ChefHat, Users, Clock, Download, RefreshCw, Search, X,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -170,6 +170,8 @@ function RegionsPage() {
 
   const { toast } = useToast();
   const [regions, setRegions] = useState<Region[]>([]);
+  const [regionSearch, setRegionSearch] = useState("");
+  const [regionStatusFilter, setRegionStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [loading, setLoading] = useState(true);
   // Command-centre audit: persist load failures so the page shows a
   // Retry card instead of only a transient toast over an empty list.
@@ -702,6 +704,25 @@ function RegionsPage() {
     openQuotes: regions.reduce((s, r) => s + (r.open_quote_count || 0), 0),
   }), [regions]);
 
+  const filteredRegions = useMemo(() => {
+    const term = regionSearch.trim().toLowerCase();
+    return regions.filter((region) => {
+      if (regionStatusFilter === "active" && !region.is_active) return false;
+      if (regionStatusFilter === "inactive" && region.is_active) return false;
+      if (!term) return true;
+      const haystack = [
+        region.name,
+        region.code,
+        region.city,
+        region.province_state,
+        getCountry(region.country).name,
+        region.manager?.full_name,
+        region.manager?.email,
+      ].filter(Boolean).join(" ").toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [regions, regionSearch, regionStatusFilter]);
+
   // REG-D (regions follow-ups): unlinked-staff banner. The migration
   // trigger auto-assigns single-region tenants, but a multi-region
   // tenant whose staff predate the multi-branch feature needs to
@@ -779,6 +800,7 @@ function RegionsPage() {
 
           <PortalHeader
             variant="hero"
+            className="mb-3 px-3 py-3 sm:px-5 sm:py-4"
             title="Branches"
             icon={Globe}
             subtitle="Manage branches, their teams and delivery settings."
@@ -798,7 +820,7 @@ function RegionsPage() {
               </>
             }
             actions={
-            <>
+            <div className="col-span-full flex w-full items-center justify-end gap-1.5 sm:flex-wrap xl:w-auto">
               {/* Phase 21 #4: per-branch performance CSV. Multi-
                   branch operators run quarterly reviews comparing
                   regions on revenue + order count + open quote
@@ -806,6 +828,9 @@ function RegionsPage() {
                   numbers on screen. */}
               <Button
                 variant="outline"
+                size="sm"
+                title="Export branches to CSV"
+                aria-label="Export branches to CSV"
                 onClick={() => {
                   if (regions.length === 0) {
                     toast({ title: "Nothing to export", description: "No regions on file yet." });
@@ -845,21 +870,21 @@ function RegionsPage() {
                   document.body.removeChild(a);
                   URL.revokeObjectURL(url);
                 }}
-                className="gap-0 px-2.5 sm:gap-2 sm:px-3"
+                className="h-10 w-10 shrink-0 gap-0 p-0 md:w-auto md:gap-2 md:px-3"
               >
-                <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Export CSV</span>
+                <Download className="h-4 w-4" />
+                <span className="sr-only md:not-sr-only">Export CSV</span>
               </Button>
               {/* REG-D (regions follow-ups): role gating. Hide the
                   "Add Branch" affordance for REGION_ADMIN since they
                   can only edit branches they already manage. */}
               {canCreateBranch && (
-                <Button onClick={openCreateDialog} className="bg-brand-primary gap-0 px-2.5 hover:opacity-90 sm:gap-2 sm:px-3">
+                <Button onClick={openCreateDialog} title="Add branch" aria-label="Add branch" className="h-10 w-10 shrink-0 gap-0 bg-brand-primary p-0 hover:opacity-90 md:w-auto md:gap-2 md:px-3">
                   <Plus className="w-4 h-4" />
-                  <span className="hidden sm:inline">Add Branch</span>
+                  <span className="sr-only md:not-sr-only">Add Branch</span>
                 </Button>
               )}
-            </>
+            </div>
             }
           />
           <PageWorkbench />
@@ -935,14 +960,14 @@ function RegionsPage() {
               skeleton renders inside the shell so the tiles never
               show zeros while the enrichment queries are in flight. */}
           {loading ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" aria-hidden="true">
+            <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" aria-hidden="true">
               {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white/70 dark:border-slate-800 dark:bg-slate-900/60" />
+                <div key={i} className="h-24 animate-pulse rounded-xl border border-slate-200/90 bg-white/70 dark:border-slate-800 dark:bg-slate-900/60 sm:h-28" />
               ))}
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                 <StatTile label="Active branches" icon={Globe} value={stats.active} tooltip={"Branches that are currently switched on and accepting work."} />
                 <StatTile label="Open quotes" icon={ChefHat} value={stats.openQuotes} tooltip={"Quotes in draft or sent state across every branch."} />
                 {/* REG-B (regions audit, REG-3): label clarification. The
@@ -962,6 +987,48 @@ function RegionsPage() {
                 />
               </div>
             </>
+          )}
+
+          {!loading && regions.length > 0 && (
+            <Card className="mb-3 sm:mb-4">
+              <CardContent className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 p-2.5 sm:grid-cols-[minmax(0,1fr)_190px_auto] sm:items-center sm:gap-3 sm:p-3">
+                <div className="relative col-span-full min-w-0 sm:col-span-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                  <Input
+                    value={regionSearch}
+                    onChange={(event) => setRegionSearch(event.target.value)}
+                    placeholder="Search branch, city, manager..."
+                    aria-label="Search branches"
+                    className="h-9 pr-9 pl-9 text-xs sm:text-sm"
+                  />
+                  {regionSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setRegionSearch("")}
+                      title="Clear branch search"
+                      aria-label="Clear branch search"
+                      className="absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                <Select value={regionStatusFilter} onValueChange={(value) => setRegionStatusFilter(value as typeof regionStatusFilter)}>
+                  <SelectTrigger aria-label="Filter branches by status" className="h-9 w-full min-w-0 text-xs sm:h-10 sm:text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All branches</SelectItem>
+                    <SelectItem value="active">Active branches</SelectItem>
+                    <SelectItem value="inactive">Inactive branches</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="whitespace-nowrap text-right text-[11px] text-slate-500 sm:text-xs">
+                  <span className="sm:hidden"><span className="font-semibold text-slate-700">{filteredRegions.length}</span> / {regions.length}</span>
+                  <span className="hidden sm:inline">Showing <span className="font-semibold text-slate-700">{filteredRegions.length}</span> of {regions.length} branch{regions.length === 1 ? "" : "es"}</span>
+                </p>
+              </CardContent>
+            </Card>
           )}
 
           {loading ? (
@@ -986,16 +1053,31 @@ function RegionsPage() {
               </CardContent>
             </Card>
             )
+          ) : filteredRegions.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center py-10 text-center sm:py-12">
+                <Search className="mb-3 h-9 w-9 text-slate-300" aria-hidden="true" />
+                <p className="text-sm font-medium text-slate-700">No branches match these filters</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => { setRegionSearch(""); setRegionStatusFilter("all"); }}
+                >
+                  Clear filters
+                </Button>
+              </CardContent>
+            </Card>
           ) : (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              {regions.map((region) => (
-                <Card key={region.id} className="group overflow-hidden border-slate-200/90 bg-gradient-to-br from-white via-white to-slate-50/80 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
-                  <CardHeader className="border-b border-slate-100 bg-white/80 pb-4">
+            <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
+              {filteredRegions.map((region) => (
+                <Card key={region.id} className="group min-w-0 overflow-hidden border-slate-200/90 bg-gradient-to-br from-white via-white to-slate-50/80 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+                  <CardHeader className="border-b border-slate-100 bg-white/80 p-3 sm:p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="mb-1 flex flex-wrap items-center gap-2">
-                          <CardTitle className="text-lg text-slate-900 sm:text-xl">{region.name}</CardTitle>
-                          <Badge variant="outline" className="font-mono text-xs">{region.code}</Badge>
+                          <CardTitle className="break-words text-base text-slate-900 sm:text-lg">{region.name}</CardTitle>
+                          <Badge variant="outline" className="font-mono text-[11px]">{region.code}</Badge>
                           {region.is_active ? (
                             <Badge className="bg-brand-primary/15 text-brand-primary border-brand-primary/20 gap-1">
                               <CheckCircle className="w-3 h-3" />
@@ -1008,27 +1090,27 @@ function RegionsPage() {
                             </Badge>
                           )}
                         </div>
-                        <CardDescription className="flex items-center gap-1 text-sm">
+                        <CardDescription className="flex min-w-0 items-start gap-1 text-xs sm:text-sm">
                           <MapPin className="w-3 h-3" />
-                          {[region.city, region.province_state, getCountry(region.country).name]
+                          <span className="min-w-0 break-words">{[region.city, region.province_state, getCountry(region.country).name]
                             .filter(Boolean)
-                            .join(", ") || "Location not set"}
+                            .join(", ") || "Location not set"}</span>
                         </CardDescription>
                       </div>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => openEditDialog(region)} title="Edit branch">
+                      <div className="flex shrink-0 gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => openEditDialog(region)} title="Edit branch" aria-label={`Edit ${region.name}`} className="h-10 w-10 p-0 sm:h-9 sm:w-9">
                           <Edit className="w-4 h-4" />
                         </Button>
                         {canDeleteBranch(region) && (
-                          <Button variant="ghost" size="sm" onClick={() => handleDelete(region)} title="Delete branch">
+                          <Button variant="ghost" size="sm" onClick={() => handleDelete(region)} title="Delete branch" aria-label={`Delete ${region.name}`} className="h-10 w-10 p-0 sm:h-9 sm:w-9">
                             <Trash2 className="w-4 h-4 text-rose-600" />
                           </Button>
                         )}
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="pt-4">
-                    <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2 2xl:grid-cols-4">
+                  <CardContent className="min-w-0 px-3 pb-3 pt-3 sm:p-4">
+                    <div className="mb-3 grid grid-cols-2 gap-2 2xl:grid-cols-4">
                       <MiniStat icon={Truck} label="Events this month" value={region.mtd_order_count || 0} tooltip={"Orders for this branch with an event_date in the current calendar month. Cancelled excluded."} />
                       <MiniStat
                         icon={Users}
@@ -1045,15 +1127,15 @@ function RegionsPage() {
                       <button
                         type="button"
                         onClick={() => setAssignStaffRegion(region)}
-                        className="rounded-xl text-left transition hover:ring-2 hover:ring-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                        className="min-w-0 rounded-xl text-left transition hover:ring-2 hover:ring-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300"
                       >
                         <MiniStat icon={Users} label="Staff" value={region.staff_count || 0} tooltip={"Staff members linked to this branch. Click to assign."} />
                       </button>
                     </div>
                     <details className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50/70">
-                      <summary className="flex cursor-pointer items-center justify-between gap-3 bg-white/80 px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">
+                      <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-x-2 gap-y-1 bg-white/80 px-3 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 sm:text-sm">
                         <span>Branch details and settings</span>
-                        <span className="text-xs font-medium text-slate-400">Manager, hours &amp; delivery</span>
+                        <span className="hidden text-xs font-medium text-slate-400 sm:inline">Manager, hours &amp; delivery</span>
                       </summary>
                       <div className="border-t border-slate-200 px-3 pb-3 pt-3">
                     <div className="grid grid-cols-1 gap-2 mb-3 text-xs text-slate-500 sm:grid-cols-2">
@@ -1063,7 +1145,7 @@ function RegionsPage() {
                         <InfoTooltip content={"New orders remain unassigned until an admin chooses a driver from the order CTA or Dispatch queue."} />
                       </div>
                     </div>
-                    <div className="text-sm text-slate-600 space-y-1.5">
+                    <div className="space-y-1.5 break-words text-[13px] text-slate-600 sm:text-sm">
                       {region.manager?.full_name ? (
                         <div><span className="font-medium text-slate-700">Manager:</span> {region.manager.full_name} ({region.manager.email})</div>
                       ) : (
@@ -1230,16 +1312,16 @@ function RegionsPage() {
       />
 
       <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) { setEditing(null); setForm(emptyForm()); } }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-2xl overflow-y-auto p-3 sm:max-h-[90vh] sm:p-6">
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit branch" : "Add new branch"}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-base sm:text-lg">{editing ? "Edit branch" : "Add new branch"}</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
               Run a fulfillment region with its own kitchen, drivers, and operating hours. Staff and orders can be assigned to a region for clean reporting.
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label htmlFor="region-name">Region name *</Label>
                 <Input id="region-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Johannesburg" />
@@ -1250,7 +1332,7 @@ function RegionsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label>Country</Label>
                 <Select value={form.country} onValueChange={(v) => onCountryChange(v as CountryCode)}>
@@ -1318,7 +1400,7 @@ function RegionsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label>Regional manager</Label>
                 <Select value={form.manager_user_id} onValueChange={(v) => setForm({ ...form, manager_user_id: v })}>
@@ -1339,7 +1421,7 @@ function RegionsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label htmlFor="region-email">Email</Label>
                 <Input id="region-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="region@company.com" />
@@ -1365,7 +1447,7 @@ function RegionsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label htmlFor="region-radius">Delivery radius (km)</Label>
                 <Input
@@ -1420,7 +1502,7 @@ function RegionsPage() {
                   onCheckedChange={(checked) => setForm({ ...form, vat_registered: checked })}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="region-vat" className="text-xs">VAT rate (%)</Label>
                   <Input
@@ -1545,21 +1627,23 @@ function StatTile({ label, value, tooltip, icon }: { label: string; value: numbe
           {tooltip && <InfoTooltip content={tooltip} />}
         </span>
       }
-      value={value}
+      value={typeof value === "string" ? <span className="text-sm sm:text-base">{value}</span> : value}
       icon={icon}
+      compact
+      className="px-3 py-3 sm:px-4 sm:py-3.5"
     />
   );
 }
 
 function MiniStat({ icon: Icon, label, value, tooltip }: { icon: any; label: string; value: number | string; tooltip?: string }) {
   return (
-    <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm">
-      <div className="mb-1 flex items-center gap-1 text-[11px] font-medium text-slate-500">
+    <div className="min-w-0 rounded-xl border border-slate-100 bg-white px-2.5 py-2 shadow-sm sm:px-3 sm:py-2.5">
+      <div className="mb-1 flex min-w-0 items-center gap-1 text-[10px] font-medium leading-4 text-slate-500 sm:text-[11px]">
         <Icon className="h-3.5 w-3.5 text-brand-primary" />
-        {label}
+        <span className="min-w-0">{label}</span>
         {tooltip && <InfoTooltip content={tooltip} />}
       </div>
-      <div className="text-base font-semibold tabular-nums text-slate-900">{value}</div>
+      <div className="break-words text-sm font-semibold leading-tight tabular-nums text-slate-900 sm:text-base">{value}</div>
     </div>
   );
 }
@@ -1646,20 +1730,20 @@ function AssignStaffDialog({
 
   return (
     <Dialog open={!!region} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-2xl overflow-y-auto p-3 sm:max-h-[90vh] sm:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Users className="w-5 h-5 text-slate-600" />
             Assign staff to {region.name}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             Pick a branch for each staff profile. Clients are excluded
             from the list; they don&apos;t belong to any branch.
           </DialogDescription>
         </DialogHeader>
 
         {unlinkedCount > 0 && (
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 flex items-center justify-between gap-3 text-sm">
+          <div className="flex flex-col items-stretch justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs sm:flex-row sm:items-center sm:gap-3 sm:text-sm">
             <span className="text-amber-900">
               <strong>{unlinkedCount}</strong> staff member{unlinkedCount === 1 ? "" : "s"} not assigned to any branch.
             </span>
@@ -1669,7 +1753,7 @@ function AssignStaffDialog({
           </div>
         )}
 
-        <div className="space-y-1 max-h-[50vh] overflow-y-auto rounded-md border border-slate-200">
+        <div className="max-h-[45dvh] space-y-1 overflow-y-auto rounded-md border border-slate-200 sm:max-h-[50vh]">
           {staffNoClient.length === 0 ? (
             <div className="text-center py-8 text-sm text-slate-500">
               No staff profiles on this company yet. Add staff under /admin/users.
@@ -1678,9 +1762,9 @@ function AssignStaffDialog({
             const cur = currentRegionFor(s);
             const isHere = cur === region.id;
             return (
-              <div key={s.id} className={`flex items-center gap-3 px-3 py-2 border-b border-slate-100 last:border-0 ${isHere ? "bg-slate-50/40" : ""}`}>
+              <div key={s.id} className={`flex flex-col items-stretch gap-2 border-b border-slate-100 px-3 py-2 last:border-0 sm:flex-row sm:items-center sm:gap-3 ${isHere ? "bg-slate-50/40" : ""}`}>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-slate-900 truncate">{s.full_name || s.email}</p>
+                  <p className="truncate text-xs font-medium text-slate-900 sm:text-sm">{s.full_name || s.email}</p>
                   <p className="text-[11px] text-slate-500">
                     {s.email}
                     {s.role && <> · <span className="capitalize">{s.role.replace(/_/g, " ")}</span></>}
@@ -1689,7 +1773,7 @@ function AssignStaffDialog({
                 <select
                   value={cur ?? "__none__"}
                   onChange={(e) => setRegionFor(s.id, e.target.value === "__none__" ? null : e.target.value)}
-                  className="text-xs border border-slate-200 rounded px-2 py-1 bg-white"
+                  className="h-9 w-full rounded border border-slate-200 bg-white px-2 text-xs sm:w-auto sm:max-w-[48%]"
                   disabled={saving}
                 >
                   <option value="__none__">Unassigned</option>

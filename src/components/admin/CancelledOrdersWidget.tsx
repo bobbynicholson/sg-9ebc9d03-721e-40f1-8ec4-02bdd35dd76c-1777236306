@@ -16,7 +16,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { XCircle, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
@@ -98,36 +97,35 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
   if (!loading && rows.length === 0) return null;
 
   return (
-    <Card className="mb-6 border-slate-200 bg-slate-50/30">
-      <CardHeader className="pb-3">
-        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+    <Card className="mb-6 min-w-0 max-w-full overflow-hidden border-slate-200 bg-slate-50/30">
+      <CardHeader className="min-w-0 px-3 py-3 sm:p-5">
+        <div className="flex min-w-0 items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <CardTitle className="flex min-w-0 flex-wrap items-center gap-2 text-base">
-              <XCircle className="w-4 h-4 shrink-0 text-slate-500" />
-              Cancellations (last 30 days)
+            <CardTitle className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm leading-5 sm:gap-2 sm:text-base">
+              <XCircle className="h-4 w-4 shrink-0 text-slate-500" />
+              <span className="sm:hidden">Cancellations</span>
+              <span className="hidden sm:inline">Cancellations (last 30 days)</span>
               {totalLost > 0 && (
-                <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-300 text-slate-700 text-xs px-2 py-0.5">
-                  <span className="opacity-70">lost</span>
-                  <span className="font-semibold">{tenantCurrency.format(totalLost, 0)}</span>
+                <span className="inline-flex max-w-full shrink-0 items-center gap-1 rounded-full border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-700 sm:ml-1 sm:px-2 sm:text-xs">
+                  <span className="opacity-70">Lost</span>
+                  <span className="font-semibold tabular-nums">{tenantCurrency.format(totalLost, 0)}</span>
                 </span>
               )}
             </CardTitle>
-            <CardDescription className="text-xs">
+            <CardDescription className="mt-1 text-[10px] leading-4 sm:text-xs">
               Orders cancelled in the last 30 days, newest first. Watch for repeat reasons.
             </CardDescription>
           </div>
-          <Link href={withSlug("/admin/orders")} className="shrink-0 self-start">
-            <Button variant="ghost" size="sm" className="text-slate-700">
-              All orders <ArrowRight className="w-3.5 h-3.5 ml-1" />
-            </Button>
+          <Link href={withSlug("/admin/orders")} aria-label="View all orders" title="All orders" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-700 hover:bg-slate-200 sm:h-8 sm:w-auto sm:gap-1 sm:px-2">
+            <span className="sr-only sm:not-sr-only">All orders</span><ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0 px-3 py-3 sm:p-5">
         {loading ? (
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="min-w-0 divide-y divide-slate-100">
             {rows.map((r) => (
               // Phase 23 #1: full-row link, same pattern as the
               // overdue / refunds / leads chase widgets from
@@ -135,25 +133,26 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
               <li key={r.id}>
                 <Link
                   href={withSlug(staffOrderHref(r.id, "admin"))}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-2 hover:bg-slate-100/60 rounded transition sm:flex sm:gap-3"
+                  className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1.5 rounded px-1 py-2.5 hover:bg-slate-100/60 sm:flex sm:items-center sm:gap-3 sm:px-2"
                 >
-                  <Badge className="row-start-1 max-w-full whitespace-normal break-words text-[10px] uppercase tracking-wide font-semibold bg-slate-100 text-slate-700 border-slate-200 sm:shrink-0">
+                  <Badge className="row-start-1 w-fit shrink-0 whitespace-nowrap border-slate-200 bg-slate-100 px-1.5 text-[9px] font-semibold uppercase tracking-wide text-slate-700 sm:text-[10px]">
                     {fmtAge(r.cancelled_at)}
                   </Badge>
                   <div className="row-start-2 min-w-0 sm:row-auto sm:flex-1">
-                    <p className="break-words text-sm font-medium text-slate-900">
+                    <p className="break-words text-xs font-medium leading-4 text-slate-900 sm:text-sm">
                       {r.client_name || "Unknown client"}
                       {r.order_number && (
-                        <span className="ml-2 text-[11px] font-normal text-slate-500 tabular-nums">
+                        <span className="text-[10px] font-normal text-slate-500 tabular-nums sm:ml-1 sm:text-[11px]">
+                          {" · "}
                           {r.order_number}
                         </span>
                       )}
                     </p>
-                    <p className="break-words text-[11px] text-slate-500">
+                    <p className="mt-0.5 break-words text-[10px] leading-4 text-slate-500 sm:text-[11px]">
                       {r.cancellation_reason || "No reason recorded"}
                     </p>
                   </div>
-                  <span className="col-start-2 row-start-1 row-span-2 max-w-full text-right text-sm font-bold tabular-nums text-slate-700 sm:row-auto sm:shrink-0 sm:whitespace-nowrap">
+                  <span className="col-start-2 row-start-1 row-span-2 max-w-28 break-words text-right text-xs font-bold tabular-nums text-slate-700 sm:row-auto sm:shrink-0 sm:whitespace-nowrap sm:text-sm">
                     {tenantCurrency.format(Number(r.total_amount || 0), 0)}
                   </span>
                 </Link>

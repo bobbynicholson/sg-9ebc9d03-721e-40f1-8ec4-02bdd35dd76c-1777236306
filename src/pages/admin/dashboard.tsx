@@ -1136,9 +1136,9 @@ function AdminDashboardPage() {
             </Card>
           )}
 
-<Card collapsible lazyContent defaultOpen={false} collapseLabel="Needs attention" className="mb-6 min-w-0 max-w-full" id="dashboard-needs-attention">
-  <CardHeader className="min-w-0"><CardTitle className="text-base">Needs attention</CardTitle><CardDescription className="min-w-0 break-words">Follow-ups, shortages, dispatch gaps and unresolved financial or delivery issues.</CardDescription></CardHeader>
-  <CardContent className="min-w-0 max-w-full"><div className="grid min-w-0 grid-cols-1 items-start gap-3 [&>div]:mb-0 [&>div]:min-w-0 [&>div]:max-w-full"><WidgetErrorBoundary label="Quote follow-up"><QuoteFollowupWidget companyId={companyId} /></WidgetErrorBoundary>
+<Card collapsible lazyContent defaultOpen={false} collapseLabel="Needs attention" className="mb-6 min-w-0 max-w-full overflow-hidden" id="dashboard-needs-attention">
+  <CardHeader className="min-w-0 px-3 py-3 sm:p-5"><CardTitle className="text-sm sm:text-base">Needs attention</CardTitle><CardDescription className="min-w-0 break-words text-xs leading-4 sm:text-sm">Follow-ups, shortages, dispatch gaps and unresolved financial or delivery issues.</CardDescription></CardHeader>
+  <CardContent className="min-w-0 max-w-full px-3 py-3 sm:p-5"><div className="grid min-w-0 grid-cols-1 items-start gap-2.5 sm:gap-3 [&>div]:mb-0 [&>div]:min-w-0 [&>div]:max-w-full"><WidgetErrorBoundary label="Quote follow-up"><QuoteFollowupWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Low stock"><InventoryLowStockWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Inventory expiry"><InventoryExpiryWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Vehicle service due"><VehicleServiceDueWidget companyId={companyId} /></WidgetErrorBoundary>
@@ -1166,9 +1166,9 @@ function AdminDashboardPage() {
 <WidgetErrorBoundary label="Recent activity"><RecentActivityWidget companyId={companyId} /></WidgetErrorBoundary></div></CardContent>
 </Card>
 
-<Card collapsible lazyContent defaultOpen={false} collapseLabel="Performance and trends" className="mb-6 min-w-0 max-w-full" id="dashboard-performance-and-trends">
-  <CardHeader className="min-w-0"><CardTitle className="text-base">Performance and trends</CardTitle><CardDescription className="min-w-0 break-words">Delivery performance, weekly bookings, quote response times and comparisons.</CardDescription></CardHeader>
-  <CardContent className="min-w-0 max-w-full"><div className="grid min-w-0 w-full items-start gap-4 xl:grid-cols-2 [&>div]:mb-0 [&>div]:min-w-0 [&>div]:max-w-full"><WidgetErrorBoundary label="Delivery SLA"><DeliverySlaWidget companyId={companyId} /></WidgetErrorBoundary>
+<Card collapsible lazyContent defaultOpen={false} collapseLabel="Performance and trends" className="mb-6 min-w-0 max-w-full overflow-hidden" id="dashboard-performance-and-trends">
+  <CardHeader className="min-w-0 px-3 py-3 sm:p-5"><CardTitle className="text-sm sm:text-base">Performance and trends</CardTitle><CardDescription className="min-w-0 break-words text-xs leading-4 sm:text-sm">Delivery performance, weekly bookings, quote response times and comparisons.</CardDescription></CardHeader>
+  <CardContent className="min-w-0 max-w-full px-3 py-3 sm:p-5"><div className="grid min-w-0 w-full items-start gap-2.5 sm:gap-4 xl:grid-cols-2 [&>div]:mb-0 [&>div]:min-w-0 [&>div]:max-w-full"><WidgetErrorBoundary label="Delivery SLA"><DeliverySlaWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Weekly orders chart"><WeeklyOrdersChart companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Quote response time"><QuoteResponseTimeWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Region performance"><RegionPerformanceWidget companyId={companyId} /></WidgetErrorBoundary>
@@ -1315,21 +1315,21 @@ function AdminDashboardPage() {
           
 
           {/* Quick Actions */}
-          <Card collapsible defaultOpen={false} collapseLabel="Quick Actions" id="quick-actions" data-chat-section="admin.dashboard.quick-actions" data-chat-section-label="Dashboard quick actions" className="mb-6 scroll-mt-20">
-            <CardHeader>
-              <CardTitle className="text-base sm:text-lg">Quick Actions</CardTitle>
-<CardDescription>Shortcuts to create work or open the related working page.</CardDescription>
+          <Card collapsible defaultOpen={false} collapseLabel="Quick Actions" id="quick-actions" data-chat-section="admin.dashboard.quick-actions" data-chat-section-label="Dashboard quick actions" className="mb-6 min-w-0 max-w-full overflow-hidden scroll-mt-20">
+            <CardHeader className="min-w-0 px-3 py-3 sm:p-5">
+              <CardTitle className="text-sm sm:text-base">Quick Actions</CardTitle>
+              <CardDescription className="mt-1 text-[10px] leading-4 sm:text-xs">Shortcuts to create work or open the related working page.</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4">
+            <CardContent className="min-w-0 px-3 py-3 sm:p-5">
+              <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-5 xl:gap-4">
                 <Link
                   href={withSlug("/admin/orders")}
-                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10 rounded-lg hover:shadow-md transition-all"
+                  className="flex min-h-24 min-w-0 flex-col items-start gap-2 rounded-lg bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10 p-3 transition-all hover:shadow-md sm:min-h-0 sm:flex-row sm:items-center sm:gap-3 sm:p-4"
                 >
-                  <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary flex-shrink-0" />
-                  <div>
-                    <div className="font-semibold text-sm sm:text-base text-slate-900">Manage Orders</div>
-                    <div className="text-xs text-slate-600">{stats.activeOrders} active in range</div>
+                  <ShoppingCart className="h-4 w-4 shrink-0 text-brand-primary sm:h-6 sm:w-6" />
+                  <div className="min-w-0 w-full sm:flex-1">
+                    <div className="line-clamp-2 break-words text-xs font-semibold leading-4 text-slate-900 sm:text-sm xl:text-base">Manage Orders</div>
+                    <div className="mt-0.5 break-words text-[10px] leading-4 text-slate-600 sm:text-xs">{stats.activeOrders} active in range</div>
                   </div>
                 </Link>
                 {/* AD-2 (admin-dashboard audit) + Bobby's brief:
@@ -1341,19 +1341,19 @@ function AdminDashboardPage() {
                     urgency is visible at a glance. */}
                 <Link
                   href={withSlug("/admin/shopping?tab=buy_now")}
-                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg hover:shadow-md transition-all"
+                  className="flex min-h-24 min-w-0 flex-col items-start gap-2 rounded-lg bg-gradient-to-br from-amber-50 to-orange-50 p-3 transition-all hover:shadow-md sm:min-h-0 sm:flex-row sm:items-center sm:gap-3 sm:p-4"
                 >
                   <div className="relative flex-shrink-0">
-                    <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600" />
+                    <ShoppingCart className="h-4 w-4 text-amber-600 sm:h-6 sm:w-6" />
                     {stats.lowStockItems > 0 && (
                       <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 rounded-full text-[9px] text-white flex items-center justify-center font-bold leading-none">
                         {stats.lowStockItems > 9 ? "9+" : stats.lowStockItems}
                       </span>
                     )}
                   </div>
-                  <div>
-                    <div className="font-semibold text-sm sm:text-base text-slate-900">Today&apos;s Shopping</div>
-                    <div className="text-xs text-slate-600">
+                  <div className="min-w-0 w-full sm:flex-1">
+                    <div className="line-clamp-2 break-words text-xs font-semibold leading-4 text-slate-900 sm:text-sm xl:text-base">Today&apos;s Shopping</div>
+                    <div className="mt-0.5 break-words text-[10px] leading-4 text-slate-600 sm:text-xs">
                       {unavailableMetrics.includes("lowStockItems")
                         ? "Inventory count unavailable"
                         : stats.lowStockItems > 0
@@ -1364,12 +1364,12 @@ function AdminDashboardPage() {
                 </Link>
                 <Link
                   href={withSlug("/admin/users")}
-                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-blue-50 to-brand-secondary/10 rounded-lg hover:shadow-md transition-all"
+                  className="flex min-h-24 min-w-0 flex-col items-start gap-2 rounded-lg bg-gradient-to-br from-blue-50 to-brand-secondary/10 p-3 transition-all hover:shadow-md sm:min-h-0 sm:flex-row sm:items-center sm:gap-3 sm:p-4"
                 >
-                  <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 flex-shrink-0" />
-                  <div>
-                    <div className="font-semibold text-sm sm:text-base text-slate-900">Team Management</div>
-                    <div className="text-xs text-slate-600">
+                  <Users className="h-4 w-4 shrink-0 text-blue-600 sm:h-6 sm:w-6" />
+                  <div className="min-w-0 w-full sm:flex-1">
+                    <div className="line-clamp-2 break-words text-xs font-semibold leading-4 text-slate-900 sm:text-sm xl:text-base">Team Management</div>
+                    <div className="mt-0.5 break-words text-[10px] leading-4 text-slate-600 sm:text-xs">
                       {unavailableMetrics.includes("activeUsers") ? "Team count unavailable" : `${stats.activeUsers} members`}
                     </div>
                   </div>
@@ -1377,30 +1377,30 @@ function AdminDashboardPage() {
                 {canSeeFinance ? (
                   <Link
                     href={withSlug("/admin/financial-dashboard")}
-                    className="flex items-center gap-3 p-4 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10 rounded-lg hover:shadow-md transition-all"
+                    className="flex min-h-24 min-w-0 flex-col items-start gap-2 rounded-lg bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10 p-3 transition-all hover:shadow-md sm:min-h-0 sm:flex-row sm:items-center sm:gap-3 sm:p-4"
                   >
-                    <Banknote className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary flex-shrink-0" />
-                    <div>
-                      <div className="font-semibold text-sm sm:text-base text-slate-900">Financial Reports</div>
-                      <div className="text-xs text-slate-600">Deeper analytics</div>
+                    <Banknote className="h-4 w-4 shrink-0 text-brand-primary sm:h-6 sm:w-6" />
+                    <div className="min-w-0 w-full sm:flex-1">
+                      <div className="line-clamp-2 break-words text-xs font-semibold leading-4 text-slate-900 sm:text-sm xl:text-base">Financial Reports</div>
+                      <div className="mt-0.5 break-words text-[10px] leading-4 text-slate-600 sm:text-xs">Deeper analytics</div>
                     </div>
                   </Link>
                 ) : null}
                 <Link
                   href={withSlug("/admin/inventory")}
-                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10 rounded-lg hover:shadow-md transition-all"
+                  className="flex min-h-24 min-w-0 flex-col items-start gap-2 rounded-lg bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10 p-3 transition-all hover:shadow-md sm:min-h-0 sm:flex-row sm:items-center sm:gap-3 sm:p-4"
                 >
                   <div className="relative flex-shrink-0">
-                    <Package className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary" />
+                    <Package className="h-4 w-4 text-brand-primary sm:h-6 sm:w-6" />
                     {stats.lowStockItems > 0 && (
                       <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 rounded-full text-[9px] text-white flex items-center justify-center font-bold leading-none">
                         {stats.lowStockItems > 9 ? "9+" : stats.lowStockItems}
                       </span>
                     )}
                   </div>
-                  <div>
-                    <div className="font-semibold text-sm sm:text-base text-slate-900">Inventory</div>
-                    <div className="text-xs text-slate-600">
+                  <div className="min-w-0 w-full sm:flex-1">
+                    <div className="line-clamp-2 break-words text-xs font-semibold leading-4 text-slate-900 sm:text-sm xl:text-base">Inventory</div>
+                    <div className="mt-0.5 break-words text-[10px] leading-4 text-slate-600 sm:text-xs">
                       {unavailableMetrics.includes("lowStockItems")
                         ? "Inventory count unavailable"
                         : stats.lowStockItems > 0

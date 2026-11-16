@@ -269,8 +269,8 @@ export function TimelineRow({
                 />
               </div>
             </div>
-            <div className="col-span-2 flex min-w-0 flex-wrap items-center justify-start gap-2 pt-1 lg:col-span-1 lg:max-w-sm lg:justify-end lg:pt-0.5">
-              <OrderWhatsAppButton order={order} />
+            <div className="col-span-2 flex min-w-0 flex-nowrap items-center justify-start gap-1.5 pt-1 lg:col-span-1 lg:max-w-sm lg:justify-end lg:gap-2 lg:pt-0.5">
+              <OrderWhatsAppButton order={order} compactOnMobile />
               {onEmail && (
                 <Button
                   type="button"
@@ -280,7 +280,7 @@ export function TimelineRow({
                     e.stopPropagation();
                     onEmail(order);
                   }}
-                  className="gap-1.5"
+                  className="h-11 w-11 shrink-0 justify-center px-0 sm:h-9 sm:w-auto sm:px-2"
                   aria-label="Tell client we're fully booked"
                   disabled={!clientEmail}
                   title={clientEmail
@@ -288,8 +288,7 @@ export function TimelineRow({
                     : "Add the client's email address to this order to email them"}
                 >
                   <Mail className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Tell client we're full</span>
-                  <span className="sm:hidden">Fully booked</span>
+                  <span className="sr-only sm:not-sr-only">Fully booked</span>
                 </Button>
               )}
               {onOutsideAreaEmail && canEmailOutsideArea && (
@@ -301,7 +300,7 @@ export function TimelineRow({
                     e.stopPropagation();
                     onOutsideAreaEmail(order);
                   }}
-                  className="gap-1.5"
+                  className="h-11 w-11 shrink-0 justify-center px-0 sm:h-9 sm:w-auto sm:px-2"
                   aria-label="Email client about service area"
                   disabled={!clientEmail}
                   title={clientEmail
@@ -309,7 +308,7 @@ export function TimelineRow({
                     : "Open the editable template; add the client's email before sending"}
                 >
                   <MapPin className="h-3.5 w-3.5" />
-                  Outside area
+                  <span className="sr-only sm:not-sr-only">Outside area</span>
                 </Button>
               )}
               <Button
@@ -321,11 +320,11 @@ export function TimelineRow({
                   setSelectedOrder(order);
                   setIsModalOpen(true);
                 }}
-                className="gap-1.5"
+                className="h-11 w-11 shrink-0 justify-center px-0 sm:h-9 sm:w-9 sm:px-0"
                 title="Open order management controls"
+                aria-label="Manage order"
               >
                 <Eye className="w-3.5 h-3.5" />
-                Manage
               </Button>
             </div>
           </div>

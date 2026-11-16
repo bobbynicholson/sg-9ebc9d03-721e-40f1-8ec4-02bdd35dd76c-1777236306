@@ -19,6 +19,14 @@ import type { WhatsAppOrder } from "@/lib/whatsappContexts";
  * jumping to invoices are admin functions. Staff don't need them.
  */
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -27,6 +35,7 @@ import { staffOrderHref } from "@/lib/orderUrls";
 import { UserRole } from "@/types/app";
 import {
   FileText, Eye, Copy, Receipt, Phone, Mail, UserPlus, Truck, ChefHat,
+  Users, UserRound, FolderOpen, ChevronDown,
 } from "lucide-react";
 
 interface Props {
@@ -107,69 +116,96 @@ export function OrderQuickActions({ order }: Props) {
     }
   };
 
-  // One action bar, three labelled groups. Every chip shares one neutral
-  // style; colour lives only in the icon so the row reads calmly.
-  const chip = "inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary";
-  const groupLabel = "mr-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400";
+  const triggerClass = "h-11 w-11 shrink-0 p-0 sm:h-9 sm:w-auto sm:gap-2 sm:px-3";
+  const menuIconClass = "mr-2 h-4 w-4 shrink-0 text-slate-500";
 
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm print:hidden">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className={groupLabel}>Team</span>
-        <Link href={withSlug(`/admin/order-assignments?orderId=${order.id}`)} className={chip} title="Choose the driver for this order">
-          <Truck className="h-3.5 w-3.5 text-blue-600" />
-          {order.assigned_driver_id ? "Change driver" : "Assign driver"}
-        </Link>
-        <Link href={withSlug(`/admin/orders/${order.id}/ticket`)} className={chip} title="Open the kitchen working screen to start, complete and hand over this order">
-          <ChefHat className="h-3.5 w-3.5 text-orange-600" />
-          Open kitchen
-        </Link>
-        <Link href={withSlug(`${staffOrderHref(order.id, "admin")}#section-waiter`)} className={chip} title="Open the Service team section to assign or remove waiters">
-          <UserPlus className="h-3.5 w-3.5 text-amber-600" />
-          Assign waiter
-        </Link>
-      </div>
+    <div className="mb-3 flex min-w-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white p-2 shadow-sm print:hidden sm:gap-2">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className={triggerClass} aria-label="Team actions" title="Team actions">
+            <Users className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Team</span>
+            <ChevronDown className="hidden h-4 w-4 sm:inline" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-52">
+          <DropdownMenuItem asChild>
+            <Link href={withSlug(`/admin/order-assignments?orderId=${order.id}`)}>
+              <Truck className={menuIconClass} />{order.assigned_driver_id ? "Change driver" : "Assign driver"}
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href={withSlug(`/admin/orders/${order.id}/ticket`)}>
+              <ChefHat className={menuIconClass} />Open kitchen
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href={withSlug(`${staffOrderHref(order.id, "admin")}#section-waiter`)}>
+              <UserPlus className={menuIconClass} />Assign waiter
+            </Link>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className={groupLabel}>Client</span>
-        {phone && (
-          <>
-            <a href={`tel:${phone.replace(/[^+\d]/g, "")}`} className={chip} title={`Call ${phone}`}>
-              <Phone className="h-3.5 w-3.5 text-slate-500" />
-              Call
-            </a>
-          </>
-        )}
-        <OrderWhatsAppButton order={order} className={chip} />
-        {email && (
-          <a href={`mailto:${email}?subject=${encodeURIComponent(emailSubject)}`} className={chip} title={`Email ${email}`}>
-            <Mail className="h-3.5 w-3.5 text-slate-500" />
-            Email
-          </a>
-        )}
-        <button type="button" onClick={openClientPreview} className={chip} title="Open the page the client sees in a new tab">
-          <Eye className="h-3.5 w-3.5 text-slate-500" />
-          Client view
-        </button>
-        <button type="button" onClick={copyClientLink} className={chip} title="Copy a tokenised client-view link">
-          <Copy className="h-3.5 w-3.5 text-slate-500" />
-          Copy link
-        </button>
-      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className={triggerClass} aria-label="Client actions" title="Client actions">
+            <UserRound className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Client</span>
+            <ChevronDown className="hidden h-4 w-4 sm:inline" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-56">
+          {phone && (
+            <DropdownMenuItem asChild>
+              <a href={`tel:${phone.replace(/[^+\d]/g, "")}`}>
+                <Phone className={menuIconClass} />Call client
+              </a>
+            </DropdownMenuItem>
+          )}
+          {email && (
+            <DropdownMenuItem asChild>
+              <a href={`mailto:${email}?subject=${encodeURIComponent(emailSubject)}`}>
+                <Mail className={menuIconClass} />Email client
+              </a>
+            </DropdownMenuItem>
+          )}
+          {(phone || email) && <DropdownMenuSeparator />}
+          <DropdownMenuItem onSelect={() => void openClientPreview()}>
+            <Eye className={menuIconClass} />Client view
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void copyClientLink()}>
+            <Copy className={menuIconClass} />Copy link
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className={groupLabel}>Documents</span>
-        {order.quote_id && (
-          <Link href={withSlug(`/admin/quotes/${order.quote_id}`)} className={chip} title="Open the source quote">
-            <FileText className="h-3.5 w-3.5 text-slate-500" />
-            Quote
-          </Link>
-        )}
-        <Link href={withSlug(`/admin/invoices?orderId=${order.id}`)} className={chip} title="Open the invoice list filtered to this order">
-          <Receipt className="h-3.5 w-3.5 text-slate-500" />
-          Invoice
-        </Link>
-      </div>
+      <OrderWhatsAppButton order={order} compactOnMobile />
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className={triggerClass} aria-label="Order documents" title="Order documents">
+            <FolderOpen className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Documents</span>
+            <ChevronDown className="hidden h-4 w-4 sm:inline" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          {order.quote_id && (
+            <DropdownMenuItem asChild>
+              <Link href={withSlug(`/admin/quotes/${order.quote_id}`)}>
+                <FileText className={menuIconClass} />Quote
+              </Link>
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem asChild>
+            <Link href={withSlug(`/admin/invoices?orderId=${order.id}`)}>
+              <Receipt className={menuIconClass} />Invoice
+            </Link>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

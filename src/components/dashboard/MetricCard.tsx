@@ -80,7 +80,7 @@ export function MetricCard({
         {loading ? (
           <div className="h-7 sm:h-8 md:h-9 w-24 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
         ) : (
-          <div className="text-xl sm:text-2xl xl:text-3xl font-bold text-slate-900 dark:text-slate-100 tabular-nums break-words">
+          <div className="text-sm font-bold text-slate-900 dark:text-slate-100 tabular-nums break-words sm:text-xl xl:text-2xl">
             {unavailable ? "Unavailable" : value}
           </div>
         )}

@@ -31,6 +31,9 @@
  *     loadOrders();
  *   }, [companyId, refreshSignal]);
  *
+ * Pass `{ refreshOnFocus: false }` to keep realtime order / quote updates
+ * while avoiding a refetch whenever a dashboard tab regains focus.
+ *
  * The hook is a no-op when companyId is null, so it's safe to mount
  * before auth resolves.
  *
@@ -46,8 +49,10 @@ import { supabase } from "@/integrations/supabase/client";
 
 export function useOrderRefreshSignal(
   companyId: string | null | undefined,
+  options: { refreshOnFocus?: boolean } = {},
 ): number {
   const [tick, setTick] = useState(0);
+  const refreshOnFocus = options.refreshOnFocus ?? true;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -85,15 +90,19 @@ export function useOrderRefreshSignal(
     const onVisibility = () => {
       if (document.visibilityState === "visible") bump();
     };
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibility);
+    if (refreshOnFocus) {
+      window.addEventListener("focus", onFocus);
+      document.addEventListener("visibilitychange", onVisibility);
+    }
 
     return () => {
       supabase.removeChannel(channel);
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibility);
+      if (refreshOnFocus) {
+        window.removeEventListener("focus", onFocus);
+        document.removeEventListener("visibilitychange", onVisibility);
+      }
     };
-  }, [companyId]);
+  }, [companyId, refreshOnFocus]);
 
   return tick;
 }

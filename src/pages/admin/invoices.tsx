@@ -12,6 +12,7 @@ import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { BulkRemindDialog } from "@/components/admin/financial/BulkRemindDialog";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PwaLoadingScreen } from "@/components/pwa/PwaLoadingScreen";
 import { AdminControlGroup, AdminFilterChip, AdminSavedViewChips, AdminSearchField } from "@/components/admin/AdminControlSurface";
 import { PortalShell, PortalHeader,
   PageWorkbench, StatTile,
@@ -56,7 +57,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { CURRENCY_CONFIG } from "@/lib/currencyUtils";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
-import { FileText, Send, RefreshCw, AlertCircle, Eye, X, Download, Clock, Copy, ExternalLink, CloudUpload, Phone, MessageCircle, CheckCircle2, Calendar as CalendarIcon } from "lucide-react";
+import { FileText, Send, RefreshCw, AlertCircle, Eye, X, Download, Clock, Copy, ExternalLink, CloudUpload, Phone, MessageCircle, CheckCircle2, Calendar as CalendarIcon, Bell } from "lucide-react";
 import { emitOrderUpdated, onOrderUpdated } from "@/lib/events/orderEvents";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -1602,10 +1603,7 @@ function InvoicesPageInner() {
         <NoIndexMeta />
         <AdminNav />
         <div className="admin-page-shell admin-page-shell--center">
-          <div className="text-center">
-            <RefreshCw className="h-8 w-8 mx-auto animate-spin text-slate-400" />
-            <p className="mt-2 text-sm text-slate-500">Loading invoices...</p>
-          </div>
+          <PwaLoadingScreen message="Loading invoices" variant="inline" />
         </div>
       </>
     );
@@ -1701,18 +1699,18 @@ function InvoicesPageInner() {
           meta={
             <>
               {!loading && !loadError && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2 py-1 text-xs font-semibold text-white sm:px-2.5">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                   {tenantMoney.format(moneySummary.outstandingCents / 100)} outstanding
                 </span>
               )}
               {!loading && !loadError && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                   {moneySummary.unpaidCount} unpaid invoice{moneySummary.unpaidCount === 1 ? "" : "s"}
                 </span>
               )}
               {!loading && !loadError && statusCounts.overdue > 0 && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                   <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
                   {statusCounts.overdue} overdue
                 </span>
@@ -1721,6 +1719,7 @@ function InvoicesPageInner() {
           }
           actions={
             <>
+            <div className="col-span-full flex w-full items-center justify-end gap-1.5 sm:flex-wrap xl:w-auto">
           {/* Phase 10 #6: invoice CSV export. Lets the bookkeeping
               team pull the current filtered invoice set into Sheets
               / Excel for VAT reconciliation, age analysis or
@@ -1729,8 +1728,10 @@ function InvoicesPageInner() {
               the operator sees on screen. */}
           <Button
             variant="outline"
-            className="px-2.5 sm:px-3"
+            size="sm"
+            className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3"
             title="Export the visible invoices to CSV"
+            aria-label="Export visible invoices to CSV"
             onClick={() => {
               const rows = filteredInvoices as any[];
               if (!rows || rows.length === 0) {
@@ -1795,28 +1796,32 @@ function InvoicesPageInner() {
               URL.revokeObjectURL(url);
             }}
           >
-            <Download className="w-4 h-4 sm:mr-2" />
-            <span className="hidden sm:inline">Export CSV</span>
+            <Download className="h-4 w-4 sm:mr-2" />
+            <span className="sr-only sm:not-sr-only">Export CSV</span>
           </Button>
           {/* Wave 68 - recurring invoices entry point. */}
           <Button
             variant="outline"
+            size="sm"
             onClick={() => router.push(withSlug("/admin/recurring-invoices"))}
             title="Set up weekly / monthly / quarterly invoices that generate themselves"
-            className="px-2.5 sm:px-3"
+            aria-label="Manage recurring invoices"
+            className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3"
           >
             <Clock className="w-4 h-4 sm:mr-2" />
-            <span className="hidden sm:inline">Recurring</span>
+            <span className="sr-only sm:not-sr-only">Recurring</span>
           </Button>
           {/* Wave 69 - manual invoice creation (no order required).
               For deposits, retainers, late fees, damage charges, ad-hoc. */}
           <Button
+            size="sm"
             onClick={() => setManualInvoiceOpen(true)}
-            className="bg-brand-primary px-2.5 hover:opacity-90 sm:px-3"
+            className="h-11 w-11 shrink-0 bg-brand-primary px-0 hover:opacity-90 sm:h-9 sm:w-auto sm:px-3"
             title="Create an invoice not tied to a specific order (deposits, retainers, late fees, etc)"
+            aria-label="Create new invoice"
           >
             <FileText className="w-4 h-4 sm:mr-2" />
-            <span className="sm:hidden">New</span><span className="hidden sm:inline">New invoice</span>
+            <span className="sr-only sm:not-sr-only">New invoice</span>
           </Button>
           {/* Phase 6 #9: bulk reminder button. Sends a per-tenant
               branded reminder for every overdue invoice in one
@@ -1825,11 +1830,16 @@ function InvoicesPageInner() {
               who's still inside their payment terms. */}
           <Button
             variant="outline"
+            size="sm"
             onClick={() => setRemindDialogOpen(true)}
-            className="px-2.5 text-xs sm:px-3 sm:text-sm"
+            className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3"
+            title="Send overdue invoice reminders"
+            aria-label="Send overdue invoice reminders"
           >
-            <span className="sm:hidden">Remind</span><span className="hidden sm:inline">Send overdue reminders</span>
+            <Bell className="h-4 w-4 sm:mr-2" />
+            <span className="sr-only sm:not-sr-only">Reminders</span>
           </Button>
+            </div>
             </>
           }
         />
@@ -1944,31 +1954,39 @@ function InvoicesPageInner() {
             (cents-summed, shared with the hero chips) so the identity
             Total invoiced = Collected + Outstanding still holds.
             Semantic colours stay semantic: amber = money owed. */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           <StatTile
-            label={<span className="inline-flex items-center gap-1">Total invoices <InfoTooltip content={"Every invoice on file for your company, across every status."} /></span>}
+            label={<span className="inline-flex items-center gap-1 text-xs sm:text-sm">Total invoices <InfoTooltip content={"Every invoice on file for your company, across every status."} /></span>}
             value={invoices.length}
             icon={FileText}
+            compact
+            className="px-3 py-3 sm:px-4 sm:py-3.5"
           />
           <StatTile
-            label={<span className="inline-flex items-center gap-1">Outstanding <InfoTooltip content={"Total rand value of invoices that have been sent but are not yet paid in full. Includes sent / partially paid / overdue."} /></span>}
-            value={<span className="text-amber-700 dark:text-amber-400">{tenantMoney.format(moneySummary.outstandingCents / 100)}</span>}
+            label={<span className="inline-flex items-center gap-1 text-xs sm:text-sm">Outstanding <InfoTooltip content={"Total rand value of invoices that have been sent but are not yet paid in full. Includes sent / partially paid / overdue."} /></span>}
+            value={<span className="whitespace-nowrap text-xs text-amber-700 dark:text-amber-400 sm:text-sm lg:text-base">{tenantMoney.format(moneySummary.outstandingCents / 100)}</span>}
             hint={`${moneySummary.unpaidCount} unpaid`}
             icon={Clock}
+            compact
+            className="px-3 py-3 sm:px-4 sm:py-3.5"
           />
           <StatTile
-            label={<span className="inline-flex items-center gap-1">Collected <InfoTooltip content={"Money actually received across every issued invoice, including part payments and deposits on invoices that still carry a balance."} /></span>}
-            value={tenantMoney.format(moneySummary.collectedCents / 100)}
+            label={<span className="inline-flex items-center gap-1 text-xs sm:text-sm">Collected <InfoTooltip content={"Money actually received across every issued invoice, including part payments and deposits on invoices that still carry a balance."} /></span>}
+            value={<span className="whitespace-nowrap text-xs sm:text-sm lg:text-base">{tenantMoney.format(moneySummary.collectedCents / 100)}</span>}
             hint={`${moneySummary.paidCount} paid in full`}
             icon={CheckCircle2}
+            compact
+            className="px-3 py-3 sm:px-4 sm:py-3.5"
           />
           <StatTile
-            label={<span className="inline-flex items-center gap-1">Total invoiced <InfoTooltip content={"Sum of every ISSUED invoice (sent, partially paid, paid, overdue).\n\nDrafts and written-off invoices are excluded - a draft has not been billed yet, and a write-off is closed out."} /></span>}
-            value={tenantMoney.format(moneySummary.totalInvoicedCents / 100)}
+            label={<span className="inline-flex items-center gap-1 text-xs sm:text-sm">Total invoiced <InfoTooltip content={"Sum of every ISSUED invoice (sent, partially paid, paid, overdue).\n\nDrafts and written-off invoices are excluded - a draft has not been billed yet, and a write-off is closed out."} /></span>}
+            value={<span className="whitespace-nowrap text-xs sm:text-sm lg:text-base">{tenantMoney.format(moneySummary.totalInvoicedCents / 100)}</span>}
             hint={moneySummary.vatPaidCents > 0
               ? `Output VAT (paid): ${tenantMoney.format(moneySummary.vatPaidCents / 100)}`
               : undefined}
             icon={Send}
+            compact
+            className="px-3 py-3 sm:px-4 sm:py-3.5"
           />
         </div>
 
@@ -2030,7 +2048,7 @@ function InvoicesPageInner() {
 
         {/* Filters */}
         <Card id="invoice-filters" data-chat-section="admin.invoices.filters" data-chat-section-label="Invoice filters" className="mb-4">
-          <CardContent className="space-y-2 p-3 sm:space-y-3 sm:px-4 sm:py-4">
+          <CardContent className="space-y-1.5 p-2.5 sm:space-y-3 sm:px-4 sm:py-4">
             <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_190px] sm:items-start lg:grid-cols-[minmax(0,560px)_240px]">
               <AdminSearchField
                 inputRef={searchRef}
@@ -2041,7 +2059,7 @@ function InvoicesPageInner() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
+                className="hidden h-10 rounded-md border border-slate-300 bg-white px-3 text-sm lg:block"
               >
                 {/* Wave 61 - options now match the actual enum:
                     {draft|sent|paid|partially_paid|overdue|written_off}.
@@ -2067,7 +2085,9 @@ function InvoicesPageInner() {
                 label="Payment status"
                 helpText="Quickly show invoices by payment state. The full status selector above includes draft, voided, and written-off invoices."
                 data-print-hidden="true"
+                className="p-2 sm:p-3"
                 compactLabel="Filter invoices by payment status"
+                compactSelectClassName="h-10 text-sm"
                 compactValue={statusFilter}
                 onCompactValueChange={setStatusFilter}
                 compactOptions={[
@@ -2077,6 +2097,9 @@ function InvoicesPageInner() {
                   { value: "partially_paid", label: "Part paid", count: statusCounts.partially_paid },
                   { value: "overdue", label: "Overdue", count: statusCounts.overdue },
                   { value: "paid", label: "Paid", count: statusCounts.paid },
+                  { value: "draft", label: "Draft", count: statusCounts.draft },
+                  { value: "written_off", label: "Written off", count: statusCounts.written_off },
+                  { value: "voided", label: "Voided", count: statusCounts.voided },
                 ]}
               >
                 {([
@@ -2125,7 +2148,7 @@ function InvoicesPageInner() {
                     {includeWrittenOff ? "Including" : "Hiding"} {writtenOffCount} closed invoice{writtenOffCount === 1 ? "" : "s"}
                   </button>
                   {includeWrittenOff && (
-                    <span className="text-[11px] text-slate-500">
+                    <span className="text-xs text-slate-500">
                       Faded rows below are closed-loop and don't count toward Outstanding.
                     </span>
                   )}
@@ -2144,6 +2167,7 @@ function InvoicesPageInner() {
               label="Advanced filters"
               collapsible
               defaultOpen={Boolean(dateFrom || dateTo || amountMin || amountMax || groupByClient)}
+              className="p-2 sm:p-3"
               summary={(() => {
                 const active = [dateFrom, dateTo, amountMin, amountMax, groupByClient].filter(Boolean).length;
                 return active ? `${active} active` : "Dates, amounts, group by client";
@@ -2211,6 +2235,8 @@ function InvoicesPageInner() {
               onRemove={removeSavedInvoiceView}
               onSave={saveCurrentInvoiceView}
               getTitle={(v) => `Apply: ${v.statusFilter}${v.searchTerm ? ` + '${v.searchTerm}'` : ""}`}
+              defaultOpen={false}
+              className="p-2 sm:p-3"
             />
           </CardContent>
         </Card>
@@ -2222,10 +2248,7 @@ function InvoicesPageInner() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="text-center py-12">
-                <RefreshCw className="h-8 w-8 mx-auto animate-spin text-slate-400" />
-                <p className="text-slate-600 mt-2">Loading invoices...</p>
-              </div>
+              <PwaLoadingScreen message="Loading invoices" variant="inline" />
             ) : filteredInvoices.length === 0 ? (
               <div className="text-center py-12">
                 <FileText className="h-12 w-12 mx-auto text-slate-300 mb-3" />
@@ -2365,14 +2388,14 @@ function InvoicesPageInner() {
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-slate-900 truncate">{g.clientName}</div>
                         <div className="text-xs text-slate-500 truncate">{g.clientEmail}</div>
-                        <div className="text-[11px] text-slate-500 mt-0.5">
+                        <div className="mt-0.5 text-xs text-slate-500">
                           {g.invoices.length} invoice{g.invoices.length === 1 ? "" : "s"}
                         </div>
                       </div>
                       <div className="text-right tabular-nums flex-shrink-0">
                         <div className="text-xs text-slate-500">Outstanding</div>
-                        <div className="text-lg font-bold text-amber-700">{tenantMoney.format(g.outstanding / 100)}</div>
-                        <div className="text-[11px] text-slate-500 mt-0.5">
+                        <div className="text-xs font-bold text-amber-700 sm:text-sm">{tenantMoney.format(g.outstanding / 100)}</div>
+                        <div className="mt-0.5 text-xs text-slate-500">
                           Total: {tenantMoney.format(g.total / 100)}
                         </div>
                       </div>
@@ -2431,9 +2454,9 @@ function InvoicesPageInner() {
                     }
                   }
                   const overdueBorder = isOverdue
-                    ? "border-l-4 border-l-rose-500 bg-rose-50/30"
+                    ? "border-rose-200 bg-rose-50/30"
                     : isDueSoon
-                      ? "border-l-4 border-l-amber-500 bg-amber-50/30"
+                      ? "border-amber-200 bg-amber-50/30"
                       : "";
                   return (
                   <div
@@ -2443,7 +2466,7 @@ function InvoicesPageInner() {
                     // via "Fix it" from /admin/orders. Also drives
                     // the temporary highlight ring below.
                     id={`invoice-row-${invoice.id}`}
-                    className={`flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 border rounded-lg hover:bg-slate-50 transition-colors ${overdueBorder} ${
+                    className={`flex flex-col md:flex-row md:items-center md:justify-between gap-2.5 p-3 border rounded-lg hover:bg-slate-50 transition-colors sm:gap-3 sm:p-4 ${overdueBorder} ${
                       bulkMarkPaidIds.has(invoice.id) ? "ring-2 ring-brand-primary/20 bg-brand-primary/10" : ""
                     } ${
                       /* Wave 66.7 - closed rows fade to 60% so
@@ -2484,9 +2507,9 @@ function InvoicesPageInner() {
                           aria-label={`Select invoice ${invoice.invoice_number}`}
                         />
                       )}
-                    <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
-                      <div>
-                        <div className="font-medium flex items-center gap-1.5">
+                    <div className="grid min-w-0 flex-1 grid-cols-2 gap-2.5 sm:gap-3 md:gap-4 xl:grid-cols-4">
+                      <div className="min-w-0">
+                        <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium sm:text-sm">
                           {/* Phase 21 #2: row-level click-to-copy
                               for the invoice number. Bookkeeping
                               pastes refs into payment-reference
@@ -2505,11 +2528,11 @@ function InvoicesPageInner() {
                                 toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
                               }
                             }}
-                            className="inline-flex items-center gap-1 font-mono hover:underline"
+                            className="inline-flex min-w-0 max-w-full items-center gap-1 font-mono hover:underline"
                             title="Copy invoice number"
                           >
                             <Copy className="w-3 h-3 opacity-60" />
-                            {invoice.invoice_number}
+                            <span className="truncate">{invoice.invoice_number}</span>
                           </button>
                           {/* Phase 16 #6: notes-present indicator.
                               When invoices.notes is non-empty (the
@@ -2519,7 +2542,7 @@ function InvoicesPageInner() {
                               attribute previews the note on hover. */}
                           {invoice.notes && String(invoice.notes).trim() && (
                             <span
-                              className="hidden text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200"
+                              className="hidden text-xs uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200"
                               title={String(invoice.notes).slice(0, 200)}
                             >
                               Note
@@ -2627,12 +2650,12 @@ function InvoicesPageInner() {
                                 <CalendarIcon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                                 <span>{format(evt, "dd MMM yyyy")}</span>
                                 {(invoice as any).orders?.event_time ? (
-                                  <span className="text-[11px] text-slate-600">at {formatClock((invoice as any).orders.event_time)}</span>
+                                  <span className="text-xs text-slate-600">at {formatClock((invoice as any).orders.event_time)}</span>
                                 ) : null}
-                                <span className={`text-[11px] ${tone}`}>· {relative}</span>
+                                <span className={`text-xs ${tone}`}>· {relative}</span>
                               </div>
                               {gapLine && (
-                                <div className="text-[11px] text-slate-500 mt-0.5">
+                                <div className="mt-0.5 text-xs text-slate-500">
                                   {gapLine}
                                 </div>
                               )}
@@ -2640,7 +2663,7 @@ function InvoicesPageInner() {
                           );
                         })()}
                         </div>
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-1 min-w-0 break-words text-xs text-slate-500">
                           {(invoice as any).orders?.event_date
                             ? `Event ${format(new Date((invoice as any).orders.event_date), "dd MMM yyyy")}${(invoice as any).orders?.event_time ? ` · ${formatClock((invoice as any).orders.event_time)}` : ""}`
                             : invoice.invoice_date
@@ -2649,7 +2672,7 @@ function InvoicesPageInner() {
                         </p>
                       </div>
                       <div className="min-w-0">
-                        <div className="text-sm font-medium text-slate-900 truncate" title={invoice.orders?.clients?.client_name || "Unknown client"}>
+                        <div className="truncate text-xs font-medium text-slate-900 sm:text-sm" title={invoice.orders?.clients?.client_name || "Unknown client"}>
                           {invoice.orders?.clients?.client_name || "Unknown client"}
                         </div>
                         {/* Wave 62 - contact strip. Click-to-call,
@@ -2697,7 +2720,7 @@ function InvoicesPageInner() {
                           <a
                             href={withSlug(staffOrderHref(invoice.order_id, "admin"))}
                             onClick={(e) => e.stopPropagation()}
-                            className="hidden inline-flex items-center gap-0.5 text-[11px] text-blue-700 hover:text-blue-900 mt-0.5"
+                            className="hidden inline-flex items-center gap-0.5 text-xs text-blue-700 hover:text-blue-900 mt-0.5"
                             title="Open the order this invoice belongs to"
                           >
                             <ExternalLink className="w-2.5 h-2.5" />
@@ -2705,20 +2728,20 @@ function InvoicesPageInner() {
                           </a>
                         )}
                       </div>
-                      <div>
-                        <div className="font-medium">{formatInvoiceRowMoney(invoice.total_amount || 0, invoice.currency || tenantMoney.code)}</div>
+                      <div className="min-w-0">
+                        <div className="break-words text-xs font-semibold tabular-nums sm:text-sm">{formatInvoiceRowMoney(invoice.total_amount || 0, invoice.currency || tenantMoney.code)}</div>
                         {Number(invoice.amount_paid || 0) > 0 && (
                           <div className="hidden text-sm text-emerald-700">
                             Paid to date: {formatInvoiceRowMoney(invoice.amount_paid, invoice.currency || tenantMoney.code)}
                           </div>
                         )}
                         {invoice.balance_due > 0 && (
-                          <div className={`text-sm ${isOverdue ? "text-rose-700 font-semibold" : "text-yellow-700"}`}>
+                          <div className={`break-words text-xs tabular-nums ${isOverdue ? "text-rose-700 font-semibold" : "text-yellow-700"}`}>
                             Balance: {formatInvoiceRowMoney(invoice.balance_due, invoice.currency || tenantMoney.code)}
                           </div>
                         )}
                       </div>
-                      <div className="space-y-1">
+                      <div className="min-w-0 space-y-1">
                         {/* Wave 66.8 - overdue + due-soon badges win
                             over the generic status badge so the
                             bookkeeper's eye lands on the chase target
@@ -2742,21 +2765,21 @@ function InvoicesPageInner() {
                             this. Pulses to draw the eye. */}
                         {eventIsToday && (
                           <span
-                            className="hidden inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-100 text-orange-800 border border-orange-300 animate-pulse"
+                            className="hidden inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-800 border border-orange-300 animate-pulse"
                             title="The event is today and the balance is still outstanding. Highest-priority chase target."
                           >
                             Event today, unpaid
                           </span>
                         )}
                         {invoice.due_date && (isOverdue || isDueSoon) && (
-                          <div className="hidden text-[10px] text-slate-500 tabular-nums">
+                          <div className="hidden text-xs text-slate-500 tabular-nums">
                             Was due {format(new Date(invoice.due_date), "dd MMM")}
                           </div>
                         )}
                       </div>
                     </div>
                     </div>
-                    <div className="flex flex-wrap items-center justify-start md:justify-end gap-2 md:gap-1 shrink-0 border-t md:border-t-0 pt-2 md:pt-0">
+                    <div className="flex w-full min-w-0 flex-nowrap items-center justify-start gap-1.5 overflow-x-auto border-t pt-2 md:w-auto md:shrink-0 md:justify-end md:gap-1 md:border-t-0 md:pt-0">
                       {/* Wave 66.5 - per-row Mark paid. Surfaced as
                           a coloured pill rather than a ghost icon so
                           it reads as the primary affordance on the
@@ -2769,10 +2792,10 @@ function InvoicesPageInner() {
                           onClick={() => setMarkPaidInvoice(invoice as MarkPaidDialogInvoice)}
                           title="Record a partial or full payment for this invoice"
                           aria-label="Record payment for this invoice"
-                          className="text-brand-primary border-brand-primary/20 hover:bg-brand-primary/10 hover:text-brand-primary gap-1.5"
+                          className="h-11 w-11 shrink-0 px-0 text-brand-primary border-brand-primary/20 hover:bg-brand-primary/10 hover:text-brand-primary gap-1.5 md:h-9 md:w-auto md:px-3"
                         >
                           <CheckCircle2 className="h-4 w-4" />
-                          <span className="hidden sm:inline">Record payment</span>
+                          <span className="hidden md:inline">Record payment</span>
                         </Button>
                       )}
                       {/* Paid invoices can still receive money on top (paid
@@ -2785,10 +2808,10 @@ function InvoicesPageInner() {
                           onClick={() => setMarkPaidInvoice(invoice as MarkPaidDialogInvoice)}
                           title="The client sent money after this invoice was paid - keep it as credit or refund it"
                           aria-label="Record extra payment for this paid invoice"
-                          className="gap-1.5 text-slate-600"
+                          className="h-11 w-11 shrink-0 px-0 gap-1.5 text-slate-600 md:h-9 md:w-9 md:px-0"
                         >
                           <CheckCircle2 className="h-4 w-4" />
-                          <span className="hidden sm:inline">Record extra payment</span>
+                          <span className="sr-only">Record extra payment</span>
                         </Button>
                       )}
                       <Button
@@ -2797,6 +2820,7 @@ function InvoicesPageInner() {
                         onClick={() => handlePreviewInvoice(invoice.id)}
                         title="Preview the invoice exactly as your client will see it"
                         aria-label="Preview invoice"
+                        className="h-11 w-11 shrink-0 px-0 md:h-9 md:w-9 md:px-0"
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -2806,6 +2830,7 @@ function InvoicesPageInner() {
                         onClick={() => handleSendInvoice(invoice.id)}
                         title="Email this invoice to the client (PDF attached)"
                         aria-label="Send invoice to client"
+                        className="h-11 w-11 shrink-0 px-0 md:h-9 md:w-9 md:px-0"
                       >
                         <Send className="h-4 w-4" />
                       </Button>
@@ -2818,7 +2843,7 @@ function InvoicesPageInner() {
                           ? `Already synced to accounting${invoice.last_synced_at ? ` on ${format(new Date(invoice.last_synced_at), "dd MMM yyyy")}` : ""}. Click to push again (will create a duplicate).`
                           : "Push this invoice to your linked accounting tool (Xero / QuickBooks)"}
                         aria-label="Sync invoice to accounting"
-                        className={invoice.synced_to_accounting ? "text-slate-400" : ""}
+                        className={`h-11 w-11 shrink-0 px-0 md:h-9 md:w-9 md:px-0 ${invoice.synced_to_accounting ? "text-slate-400" : ""}`}
                       >
                         <CloudUpload className="h-4 w-4" />
                       </Button>
@@ -2833,6 +2858,7 @@ function InvoicesPageInner() {
                         onClick={() => setActivityInvoice(invoice)}
                         title="View activity log for this invoice"
                         aria-label="Activity log"
+                        className="h-11 w-11 shrink-0 px-0 md:h-9 md:w-9 md:px-0"
                       >
                         <Clock className="h-4 w-4" />
                       </Button>

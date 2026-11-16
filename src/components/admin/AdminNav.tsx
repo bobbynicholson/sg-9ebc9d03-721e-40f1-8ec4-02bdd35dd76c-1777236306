@@ -190,6 +190,7 @@ export function AdminNav(_: AdminNavProps = {}) {
           href: "/admin/exceptions",
           icon: AlertTriangle,
           description: "Items needing action",
+          loading: () => liveCounts.loading && liveCounts.refreshedAt === null,
           badge: () => (liveCounts.dispatchGaps + liveCounts.quotesOverdue + liveCounts.alertsTotal) > 0
             ? { text: `${liveCounts.dispatchGaps + liveCounts.quotesOverdue + liveCounts.alertsTotal}`, tone: "critical" as const, pulse: portalMode.mode === "ops" }
             : null,
@@ -199,6 +200,7 @@ export function AdminNav(_: AdminNavProps = {}) {
           href: "/admin/order-assignments",
           icon: ClipboardList,
           description: "Driver assignments",
+          loading: () => liveCounts.loading && liveCounts.refreshedAt === null,
           badge: () => liveCounts.dispatchGaps > 0
             ? { text: `${liveCounts.dispatchGaps} gap${liveCounts.dispatchGaps === 1 ? "" : "s"}`, tone: "critical" as const, pulse: portalMode.mode === "ops" }
             : null,

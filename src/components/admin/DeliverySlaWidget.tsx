@@ -133,45 +133,45 @@ export function DeliverySlaWidget({ companyId }: { companyId: string | null }) {
       : "bg-amber-50 border-amber-200";
 
   return (
-    <Card className={`mb-6 ${tone}`}>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Clock className="w-4 h-4 text-blue-600" />
+    <Card className={`mb-6 min-w-0 max-w-full overflow-hidden ${tone}`}>
+      <CardHeader className="min-w-0 px-3 py-3 sm:p-5">
+        <CardTitle className="flex flex-wrap items-center gap-1.5 text-sm leading-5 sm:gap-2 sm:text-base">
+          <Clock className="h-4 w-4 shrink-0 text-blue-600" />
           Delivery on-time, last 30 days
         </CardTitle>
-        <CardDescription className="text-xs">
+        <CardDescription className="mt-1 text-[10px] leading-4 sm:text-xs">
           delivered_at within {GRACE_MIN} minutes of the booked event_time.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0 px-3 py-3 sm:p-5">
         {loading ? (
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
-          <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="min-w-0 rounded-lg bg-white border border-slate-200 p-3">
-              <p className="text-xs text-slate-500">On time</p>
-              <p className="text-2xl font-bold tabular-nums text-brand-primary">{onTimePct}%</p>
-              <p className="text-[11px] text-slate-500 tabular-nums">{stats.onTime} of {stats.total}</p>
+          <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+            <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-2.5 sm:p-3">
+              <p className="text-[10px] text-slate-500 sm:text-xs">On time</p>
+              <p className="text-base font-bold tabular-nums text-brand-primary sm:text-xl">{onTimePct}%</p>
+              <p className="text-[10px] text-slate-500 tabular-nums sm:text-[11px]">{stats.onTime} of {stats.total}</p>
             </div>
-            <div className="min-w-0 rounded-lg bg-white border border-slate-200 p-3">
-              <p className="text-xs text-slate-500">Late</p>
-              <p className="text-2xl font-bold tabular-nums text-amber-700">{stats.late}</p>
-              <p className="text-[11px] text-slate-500 inline-flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" /> &gt; {GRACE_MIN}m past
+            <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-2.5 sm:p-3">
+              <p className="text-[10px] text-slate-500 sm:text-xs">Late</p>
+              <p className="text-base font-bold tabular-nums text-amber-700 sm:text-xl">{stats.late}</p>
+              <p className="inline-flex items-center gap-1 text-[10px] text-slate-500 sm:text-[11px]">
+                <AlertCircle className="h-3 w-3 shrink-0" /> &gt; {GRACE_MIN}m past
               </p>
             </div>
-            <div className="min-w-0 rounded-lg bg-white border border-slate-200 p-3">
-              <p className="text-xs text-slate-500">No record</p>
-              <p className="text-2xl font-bold tabular-nums text-slate-700">{stats.missing}</p>
-              <p className="text-[11px] text-slate-500">delivered_at empty</p>
+            <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-2.5 sm:p-3">
+              <p className="text-[10px] text-slate-500 sm:text-xs">No record</p>
+              <p className="text-base font-bold tabular-nums text-slate-700 sm:text-xl">{stats.missing}</p>
+              <p className="break-words text-[10px] text-slate-500 sm:text-[11px]">delivered_at empty</p>
             </div>
-            <div className="min-w-0 rounded-lg bg-white border border-slate-200 p-3">
-              <p className="text-xs text-slate-500">Avg early arrival</p>
-              <p className="text-2xl font-bold tabular-nums text-blue-700">
+            <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-2.5 sm:p-3">
+              <p className="text-[10px] text-slate-500 sm:text-xs">Avg early arrival</p>
+              <p className="text-base font-bold tabular-nums text-blue-700 sm:text-xl">
                 {stats.medianMinutesEarly > 0 ? `${stats.medianMinutesEarly.toFixed(0)}m` : "-"}
               </p>
-              <p className="text-[11px] text-slate-500 inline-flex items-center gap-1">
-                <CheckCircle className="w-3 h-3" /> median when early
+              <p className="inline-flex items-center gap-1 text-[10px] text-slate-500 sm:text-[11px]">
+                <CheckCircle className="h-3 w-3 shrink-0" /> median when early
               </p>
             </div>
           </div>

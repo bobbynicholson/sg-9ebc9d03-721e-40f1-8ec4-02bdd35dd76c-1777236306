@@ -31,11 +31,19 @@ import { configuredPaymentTerms } from "@/lib/paymentTerms";
 import { captureException } from "@/lib/observability";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Loader2, Printer, ArrowLeft, RefreshCw,
   FileText, Activity, ChefHat, ShoppingCart, Truck, Sparkles, Droplets, Wallet, History, Star,
   MessageSquare, MessageCircle, Paperclip, ArrowRight, Utensils,
+  MoreHorizontal, ChevronDown, List,
 } from "lucide-react";
 import { computeOrderTimeline, type OrderTimelineStage } from "@/services/order/orderTimeline";
 import { OrderHeaderSection } from "./sections/OrderHeaderSection";
@@ -395,17 +403,17 @@ function OrderTrackingOverview({
   return (
     <section className="mb-3 sm:mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm print:border-slate-300">
       <div className="h-1 bg-gradient-to-r from-brand-primary via-brand-primary/70 to-brand-secondary" aria-hidden="true" />
-      <div className="p-4 sm:p-5">
+      <div className="p-3.5 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className="flex flex-wrap items-center gap-x-2 text-xs font-medium text-slate-500">
               {order.order_number && <span className="font-mono">#{order.order_number}</span>}
               {order.client_name && order.event_name && <span>· {order.client_name}</span>}
             </p>
-            <h1 className="mt-1 text-2xl font-semibold leading-tight tracking-tight text-slate-950 sm:text-[1.75rem]">
+            <h1 className="mt-1 text-xl font-semibold leading-tight tracking-tight text-slate-950 sm:text-2xl">
               {title}
             </h1>
-            <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-600 sm:gap-x-3 sm:gap-y-1 sm:text-sm">
               <span>{eventLabel}</span>
               {order.guest_count ? <span>· {order.guest_count} guests</span> : null}
               {(order.venue_name || order.venue_address) && (
@@ -418,44 +426,48 @@ function OrderTrackingOverview({
           </Badge>
         </div>
 
-        <div className={`mt-4 flex flex-wrap items-center gap-3 rounded-xl border px-3.5 py-3 ${nowTone}`}>
+        <div className={`mt-3 flex min-w-0 items-center gap-2.5 rounded-lg border px-3 py-2.5 ${nowTone}`}>
           <span
             aria-hidden="true"
-            className={`h-2.5 w-2.5 shrink-0 rounded-full ${cancelled || isBlocked ? "bg-rose-500" : postponed ? "bg-amber-500" : "animate-pulse bg-orange-500 motion-reduce:animate-none"}`}
+            className={`h-2 w-2 shrink-0 rounded-full ${cancelled || isBlocked ? "bg-rose-500" : postponed ? "bg-amber-500" : "animate-pulse bg-orange-500 motion-reduce:animate-none"}`}
           />
-          <div className="min-w-[13rem] flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
               {cancelled ? "Order cancelled" : postponed ? "Order postponed" : isBlocked ? "Needs attention" : "Now"}
             </p>
-            <p className="text-sm font-semibold text-slate-950">
+            <p className="text-xs font-semibold text-slate-950 sm:text-sm">
               {displayLabel}
-              <span className="font-normal text-slate-600"> · {ownerLabel}{lastStamp ? ` · last update ${lastStamp}` : ""}</span>
+              <span className="font-normal text-slate-600"> · {ownerLabel}{lastStamp ? ` · Updated ${lastStamp}` : lastLoadedAt ? ` · Checked ${lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}` : ""}</span>
             </p>
             {nextStage && (
-              <p className="mt-0.5 text-xs text-slate-600">
-                Then: <span className="font-medium text-slate-800">{nextStage.label}</span> ({stageOwner(nextStage, isClient)})
+              <p className="mt-0.5 text-[11px] text-slate-600">
+                Next: <span className="font-medium text-slate-800">{nextStage.label}</span>
               </p>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2 print:hidden">
-            <Button size="sm" onClick={() => scrollToSection(currentSectionId)} className="h-8 gap-1.5">
-              Go to this step <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => scrollToSection("section-timeline")} className="h-8 gap-1.5 bg-white">
-              <Activity className="h-3.5 w-3.5" /> Timeline
-            </Button>
-            {canJumpToMySection && (
-              <Button size="sm" variant="outline" onClick={() => scrollToSection(mySectionId)} className="h-8 bg-white">
-                My section
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="h-10 w-10 shrink-0 bg-white p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3" aria-label="Navigate to order section" title="Navigate to order section">
+                <ArrowRight className="h-4 w-4" />
+                <span className="hidden sm:inline">Go to</span>
+                <ChevronDown className="hidden h-4 w-4 sm:inline" />
               </Button>
-            )}
-          </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onSelect={() => scrollToSection(currentSectionId)}>
+                <ArrowRight className="mr-2 h-4 w-4" />Current step: {displayLabel}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => scrollToSection("section-timeline")}>
+                <Activity className="mr-2 h-4 w-4" />Status timeline
+              </DropdownMenuItem>
+              {canJumpToMySection && (
+                <DropdownMenuItem onSelect={() => scrollToSection(mySectionId)}>
+                  <List className="mr-2 h-4 w-4" />My section
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-        {lastLoadedAt && (
-          <p className="mt-2 text-right text-[11px] text-slate-400 print:hidden">
-            Updated {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
-          </p>
-        )}
       </div>
     </section>
   );
@@ -830,27 +842,28 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
   }
 
   const forceAll = mode === "print";
+  const activeNavLabel = navItems.find((item) => item.id === activeSectionId)?.label || "Choose a section";
 
   return (
     <div className={mode === "print" ? "order-print-document max-w-5xl mx-auto px-4 py-8 print:px-0 print:py-0" : "mx-auto max-w-[90rem] px-3 sm:px-4 md:px-6 py-4 sm:py-6"}>
       {!isClient && mode !== "print" && <ImportReadinessBanner orderId={order.id} />}
       {/* Toolbar - hidden in print mode */}
       {mode !== "print" && (
-        <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
-          <div className="flex items-center gap-2 min-w-0">
-            <Button variant="ghost" size="sm" onClick={() => router.back()} className="h-8">
-              <ArrowLeft className="w-3.5 h-3.5 mr-1" />Back
+        <div className="mb-3 flex min-w-0 items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+            <Button variant="ghost" size="sm" onClick={() => router.back()} className="h-10 w-10 shrink-0 p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3" aria-label="Back" title="Back">
+              <ArrowLeft className="h-4 w-4" /><span className="hidden sm:inline">Back</span>
             </Button>
             {lastLoadedAt && (
-              <span className="text-[11px] text-slate-500 tabular-nums hidden sm:inline" title={lastLoadedAt.toLocaleString("en-ZA")}>
+              <span className="hidden text-[11px] tabular-nums text-slate-500 md:inline" title={lastLoadedAt.toLocaleString("en-ZA")}>
                 As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
               </span>
             )}
-            <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+            <Badge variant="outline" className="shrink-0 text-[10px] uppercase tracking-wider">
               {primary}
             </Badge>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             {/* ODOC Wave F: live presence pill - avatar stack of other
                 staff currently viewing this order. */}
             <OrderPresence orderId={order.id} />
@@ -858,25 +871,32 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
               <Button
                 size="sm"
                 onClick={() => setChatOpen(true)}
-                className="h-8 gap-1.5 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white shadow-sm shadow-blue-600/20 hover:bg-blue-700"
+                className="h-10 w-10 shrink-0 rounded-lg bg-blue-600 p-0 text-white shadow-sm shadow-blue-600/20 hover:bg-blue-700 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3"
+                aria-label={chatLabel}
                 title={chatLabel}
               >
-                <MessageCircle className="w-3.5 h-3.5" />
+                <MessageCircle className="h-4 w-4" />
                 <span className="hidden sm:inline">{chatLabel}</span>
-                <span className="sm:hidden">Chat</span>
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => load()} className="h-8" title="Refresh">
-              <RefreshCw className="w-3.5 h-3.5" />
-            </Button>
-            <Link
-              href={{ pathname: router.pathname, query: { ...router.query, print: "1" } }}
-              target="_blank"
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border text-xs font-medium hover:bg-slate-50"
-              title="Open print view in a new tab"
-            >
-              <Printer className="w-3.5 h-3.5" />Print
-            </Link>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-10 w-10 shrink-0 p-0 sm:h-9 sm:w-9" aria-label="More order actions" title="More order actions">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onSelect={() => void load()}>
+                  <RefreshCw className="mr-2 h-4 w-4" />Refresh order
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href={{ pathname: router.pathname, query: { ...router.query, print: "1" } }} target="_blank">
+                    <Printer className="mr-2 h-4 w-4" />Print order
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       )}
@@ -888,46 +908,34 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
       {mode !== "print" && (
         <nav
           aria-label="Jump to section"
-          className="sticky top-0 z-20 -mx-3 sm:-mx-4 md:-mx-6 px-3 sm:px-4 md:px-6 py-2 mb-3 sm:mb-4 bg-white/90 backdrop-blur border-b border-slate-200 print:hidden"
+          className="sticky top-0 z-20 -mx-3 mb-3 border-b border-slate-200 bg-white/95 px-3 py-2 backdrop-blur sm:-mx-4 sm:mb-4 sm:px-4 md:-mx-6 md:px-6 print:hidden"
         >
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isPrimary = `section-${primary}` === item.id;
-              const isActive = activeSectionId === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => scrollToSection(item.id)}
-                  aria-current={isActive ? "location" : undefined}
-                  className={
-                    "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 " +
-                    (isActive
-                      ? "bg-slate-900 text-white shadow-sm"
-                      : isPrimary
-                        ? "bg-white text-slate-900 ring-1 ring-slate-300"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200")
-                  }
-                  title={`Jump to ${item.label}`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {item.label}
-                </button>
-              );
-            })}
-            {user?.id && (
-              <button
-                type="button"
-                onClick={() => setChatOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex-shrink-0 bg-blue-600 text-white shadow-sm shadow-blue-600/20 hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
-                title={chatLabel}
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                Chat
-              </button>
-            )}
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-10 max-w-full justify-start gap-2">
+                <List className="h-4 w-4 shrink-0 text-slate-500" />
+                <span className="shrink-0 font-medium">Sections</span>
+                <span className="min-w-0 truncate text-slate-500">{activeNavLabel}</span>
+                <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-slate-500" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="max-h-[min(70dvh,28rem)] w-64 overflow-y-auto">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeSectionId === item.id;
+                return (
+                  <DropdownMenuItem
+                    key={item.id}
+                    onSelect={() => scrollToSection(item.id)}
+                    aria-current={isActive ? "location" : undefined}
+                    className={isActive ? "font-semibold text-brand-primary" : undefined}
+                  >
+                    <Icon className="mr-2 h-4 w-4 shrink-0" />{item.label}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </nav>
       )}
 
@@ -989,7 +997,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
 
           {/* Who brings the equipment back (quote "Equipment return"
               choice). Everyone sees it; admins can change it. */}
-          {(order.service_sittings?.length || 0) < 2 && <EquipmentReturnCard order={order} canEdit={canSeeFinance} onChanged={load} />}
+          {(order.service_sittings?.length || 0) < 2 && (!canManageServicePlan || !!order.delivered_at || ["delivered", "completed"].includes(order.status)) && <EquipmentReturnCard order={order} canEdit={canSeeFinance} onChanged={load} />}
           {!isClient && (canManageServicePlan || (order.service_sittings?.length || 0) > 1) && <ServiceSittingsOperations orderId={order.id} companyId={order.company_id} canEdit={canManageServicePlan} onSaved={load} />}
 
             <OrderTimelineSection
