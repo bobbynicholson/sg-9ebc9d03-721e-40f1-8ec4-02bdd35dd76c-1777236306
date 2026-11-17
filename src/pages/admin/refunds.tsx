@@ -40,6 +40,7 @@ import { AdminControlGroup, AdminFilterChip, AdminSavedViewChips } from "@/compo
 import { PortalShell, PortalHeader,
   PageWorkbench, StatTile,
 } from "@/components/portal/ui";
+import { PageLoader } from "@/components/ui/loading-skeleton";
 import { UserRole } from "@/types/app";
 import {
   Receipt, CheckCircle2, Clock, RefreshCw, XCircle, Zap, Download,
@@ -685,19 +686,19 @@ function RefundsPage() {
     return (
       <div
         id={`refund-row-${r.id}`}
-        className={`flex flex-col gap-3 rounded-xl border bg-white p-4 sm:flex-row sm:items-start ${
+        className={`grid min-w-0 grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 gap-y-3 rounded-xl border bg-white p-3 sm:grid-cols-[2.25rem_minmax(0,1fr)_auto] sm:items-start sm:gap-x-4 sm:p-4 ${
           focusedRefundId === r.id
             ? "border-amber-400 ring-2 ring-amber-300 ring-inset bg-amber-50 animate-pulse"
             : "border-slate-200"
         }`}
       >
-        <div className={`p-2 rounded-full ${iconBg}`}>
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${iconBg}`}>
           <Icon className="w-4 h-4" />
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <strong className={amountColor}>{fmtAmount(r.amount)}</strong>
-            <span className="text-sm text-slate-700">{kindLabel}</span>
+            <strong className={`text-sm font-semibold tabular-nums sm:text-base ${amountColor}`}>{fmtAmount(r.amount)}</strong>
+            <span className="text-[13px] text-slate-700">{kindLabel}</span>
             {r.order_number ? (
               <Link
                 href={r.order_id ? withSlug(staffOrderHref(r.order_id, "admin")) : "#"}
@@ -739,34 +740,34 @@ function RefundsPage() {
                 gateway bounced the refund and the operator needs to
                 retry or fall back to EFT. */}
             {isFailed && (
-              <Badge variant="outline" className="text-[10px] border-rose-300 text-rose-800 bg-rose-50">
-                <AlertCircle className="w-2.5 h-2.5 mr-0.5" />
+              <Badge variant="outline" className="border-rose-300 bg-rose-50 text-[11px] text-rose-800">
+                <AlertCircle className="mr-1 h-3 w-3 shrink-0" />
                 Failed, retry or refund by EFT
               </Badge>
             )}
             {isProcessing && (
-              <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-800 bg-blue-50">
+              <Badge variant="outline" className="border-blue-300 bg-blue-50 text-[11px] text-blue-800">
                 Check provider outcome before another payout
               </Badge>
             )}
             {/* REF-A: pending-aging chip. Surfaces refunds we've
                 owed the client for more than a week. */}
             {isAgingPending && (
-              <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-800 bg-amber-50 animate-pulse">
+              <Badge variant="outline" className="border-amber-300 bg-amber-50 text-[11px] text-amber-800 animate-pulse">
                 Pending {ageDays}d - chase
               </Badge>
             )}
           </div>
-          <div className="text-xs text-slate-500 mt-0.5">
+          <div className="mt-1 text-xs leading-5 text-slate-500">
             Raised {new Date(r.created_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
             {r.event_date ? `, event was ${new Date(r.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}
             {r.processed_at ? `, paid ${new Date(r.processed_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}` : ""}
           </div>
-          {r.reason ? <p className="text-xs text-slate-600 mt-1">{r.reason}</p> : null}
+          {r.reason ? <p className="mt-1 break-words text-xs leading-5 text-slate-600">{r.reason}</p> : null}
           {/* Quick drilldowns - so an operator working a refund row can
               jump to the source order, the client's contact record, or
               the original invoice without backing out and searching. */}
-          <div className="flex items-center gap-3 mt-1.5 flex-wrap text-xs">
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
             {r.order_id ? (
               <Link
                 href={withSlug(staffOrderHref(r.order_id, "admin"))}
@@ -797,29 +798,39 @@ function RefundsPage() {
           </div>
         </div>
         {(r.kind === "refund" && isProcessing) || showMarkPaid || showRetry ? (
-          <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
+          <div className="col-span-2 flex flex-wrap justify-end gap-2 sm:col-span-1">
             {r.kind === "refund" && isProcessing && <Button size="sm" variant="outline"
-              onClick={() => setReconcilingId(r.id)} disabled={busy === r.id}>Reconcile outcome</Button>}
+              className="h-11 w-11 shrink-0 p-0 sm:h-9 sm:w-auto sm:px-3"
+              onClick={() => setReconcilingId(r.id)} disabled={busy === r.id}
+              aria-label="Reconcile refund outcome" title="Reconcile outcome">
+              <RefreshCw className="h-4 w-4 sm:mr-2" /><span className="sr-only sm:not-sr-only">Reconcile outcome</span>
+            </Button>}
             {showMarkPaid ? (
               <Button
                 size="sm"
                 variant="outline"
-                className="border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
+                className="h-11 w-11 shrink-0 p-0 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10 sm:h-9 sm:w-auto sm:px-3"
                 onClick={() => markPaid(r)}
                 disabled={busy === r.id}
+                aria-label={parentIsPayFast ? "Record manual refund" : "Mark refund paid"}
+                title={parentIsPayFast ? "Record manual refund" : "Mark refund paid"}
               >
-                {busy === r.id ? "Marking..." : parentIsPayFast ? "Record manual refund" : "Mark refund paid"}
+                <CheckCircle2 className="h-4 w-4 sm:mr-2" />
+                <span className="sr-only sm:not-sr-only">{busy === r.id ? "Marking..." : parentIsPayFast ? "Record manual refund" : "Mark refund paid"}</span>
               </Button>
             ) : null}
             {showRetry ? (
               <Button
                 size="sm"
                 variant="outline"
-                className="border-blue-300 text-blue-800 hover:bg-blue-50"
+                className="h-11 w-11 shrink-0 p-0 border-blue-300 text-blue-800 hover:bg-blue-50 sm:h-9 sm:w-auto sm:px-3"
                 onClick={() => retryAuto(r)}
                 disabled={busy === r.id}
+                aria-label="Retry refund"
+                title="Retry refund"
               >
-                {busy === r.id ? "Retrying..." : "Retry refund"}
+                <RefreshCw className={`h-4 w-4 sm:mr-2 ${busy === r.id ? "animate-spin" : ""}`} />
+                <span className="sr-only sm:not-sr-only">{busy === r.id ? "Retrying..." : "Retry refund"}</span>
               </Button>
             ) : null}
           </div>
@@ -873,17 +884,17 @@ function RefundsPage() {
             meta={
               !loading && !loadError ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className={`h-1.5 w-1.5 rounded-full ${counts.pending > 0 ? "bg-amber-400" : "bg-emerald-400"}`} />
                     {counts.pending} pending refund{counts.pending === 1 ? "" : "s"}
                   </span>
                   {totals.pending > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       {fmtAmount(totals.pending / 100)} owed to clients
                     </span>
                   )}
                   {intel.creditLiabilityCents > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/90">
                       {fmtAmount(intel.creditLiabilityCents / 100)} credit liability
                     </span>
                   )}
@@ -896,6 +907,7 @@ function RefundsPage() {
                   reconciling refunds against the gateway / bank
                   statement needs an offline copy. Reads from the
                   filtered list so filter chip scope flows through. */}
+              <div className="flex w-full justify-end xl:w-auto">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -943,12 +955,14 @@ function RefundsPage() {
                   a.click();
                   URL.revokeObjectURL(url);
                 }}
-                className="gap-2"
+                className="h-11 w-11 justify-center gap-2 p-0 sm:h-10 sm:w-auto sm:px-3"
                 aria-label="Export refunds and credits CSV"
+                title="Export refunds and credits CSV"
               >
                 <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Export CSV</span>
+                <span className="sr-only sm:not-sr-only">Export CSV</span>
               </Button>
+              </div>
               </>
             }
           />
@@ -1008,24 +1022,28 @@ function RefundsPage() {
                 value={<span className="text-rose-700 dark:text-rose-400">{fmtAmount(intel.refundedYTDCents / 100)}</span>}
                 hint="Completed refunds since 1 Jan."
                 icon={Receipt}
+                compact
               />
               <StatTile
                 label="Pending refunds"
                 value={<span className={totals.pending > 0 ? "text-amber-700 dark:text-amber-400" : undefined}>{fmtAmount(totals.pending / 100)}</span>}
                 hint={`${counts.pending} still owed to clients.`}
                 icon={Clock}
+                compact
               />
               <StatTile
                 label="Credit liability outstanding"
                 value={fmtAmount(intel.creditLiabilityCents / 100)}
                 hint="Issued minus redeemed across all time. Money you owe clients in unspent credit."
                 icon={Wallet}
+                compact
               />
               <StatTile
                 label="Avg time to refund"
                 value={intel.avgDays > 0 ? `${intel.avgDays.toFixed(1)} days` : <span className="text-slate-400">-</span>}
                 hint="Raised to processed, rolling 90 days. Anything over 5 days is a manual-EFT queue backlog."
                 icon={TrendingUp}
+                compact
               />
             </div>
           )}
@@ -1088,7 +1106,12 @@ function RefundsPage() {
             </CardHeader>
             <CardContent className="space-y-3 px-3 pb-3 pt-0 sm:px-6 sm:pb-6">
               {loading ? (
-                <div className="text-sm text-slate-500 text-center py-8">Loading...</div>
+                <PageLoader
+                  label="Loading refunds and credits"
+                  detail="Pulling recent payouts and store-credit movements."
+                  brandName="Spit Braai Delivery"
+                  className="min-h-48 border-0 bg-transparent py-8 shadow-none"
+                />
               ) : filtered.length === 0 ? (
                 // REF-A: richer empty state. Pre-REF-A this was a
                 // four-word "Nothing here." Now: if the page genuinely

@@ -74,6 +74,7 @@ interface TaxRule {
   display_name: string;
   group_label: string;
   deductibility: "deductible" | "partial" | "non_deductible";
+  vat_input_claimable: "claimable" | "not_claimable" | "depends";
 }
 
 interface LineState {
@@ -133,6 +134,8 @@ export function ReconcileSlipDrawer({
   const [receiptDate, setReceiptDate] = useState("");
   const [receiptNumber, setReceiptNumber] = useState("");
   const [total, setTotal] = useState<string>("");
+  const [subtotal, setSubtotal] = useState<string>("");
+  const [receiptVat, setReceiptVat] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<LineState[]>([]);
   const [inventory, setInventory] = useState<InventoryRef[]>([]);
@@ -160,6 +163,8 @@ export function ReconcileSlipDrawer({
       setReceiptDate(toLocalISO(new Date()));
       setReceiptNumber("");
       setTotal("");
+      setSubtotal("");
+      setReceiptVat("");
       setNotes("");
       setLines([{ ...EMPTY_LINE }]);
       return;
@@ -168,6 +173,8 @@ export function ReconcileSlipDrawer({
     setReceiptDate(mappedData.receipt_date || toLocalISO(new Date()));
     setReceiptNumber(mappedData.receipt_number || "");
     setTotal(mappedData.total != null ? String(mappedData.total) : "");
+    setSubtotal(mappedData.subtotal != null ? String(mappedData.subtotal) : "");
+    setReceiptVat(mappedData.vat != null ? String(mappedData.vat) : "");
     setNotes("");
     setLines((mappedData.line_items || []).map((li) => {
       // The rescan API now returns three optional carryovers per line:
@@ -209,7 +216,7 @@ export function ReconcileSlipDrawer({
           .order("item_name"),
         supabase
           .from("sa_tax_deductibility_rules")
-          .select("id, category_code, display_name, group_label, deductibility, match_keywords")
+          .select("id, category_code, display_name, group_label, deductibility, vat_input_claimable, match_keywords")
           .eq("is_active", true)
           .order("display_order"),
         // Last 200 receipts - gives us the recent-vendor list so the
@@ -320,7 +327,14 @@ export function ReconcileSlipDrawer({
   }, [open, companyId, mappedData]);
 
   const setLine = (idx: number, patch: Partial<LineState>) =>
-    setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+    setLines((prev) => prev.map((l, i) => {
+      if (i !== idx) return l;
+      const next = { ...l, ...patch };
+      if ("quantity" in patch || "unit_price" in patch) {
+        next.amount = Math.round((Number(next.quantity || 0) * Number(next.unit_price || 0) + Number.EPSILON) * 100) / 100;
+      }
+      return next;
+    }));
 
   /** Local keyword match from description -> rule. Used in manual mode
    *  where there's no AI suggestion. Picks the rule with the most
@@ -427,7 +441,7 @@ export function ReconcileSlipDrawer({
       // they have one (or the slip's vat > 0) keep stripping, else
       // skip and leave the price as-is. No supplier match falls
       // back to the previous behaviour so legacy slips don't break.
-      const extractedVat = Number(mappedData?.vat || 0);
+      const extractedVat = Number(receiptVat || 0);
       if (stripVat && supplierId) {
         const { data: sup } = await supabase
           .from("suppliers")
@@ -460,11 +474,12 @@ export function ReconcileSlipDrawer({
         mode: manualMode ? "manual" : "ai",
         supplier: vendor.trim() || null,
         total: totalNum,
+        subtotal: subtotal !== "" ? Number(subtotal) : null,
+        vat: receiptVat !== "" ? Number(receiptVat) : null,
         receipt_date: receiptDate || null,
         receipt_number: receiptNumber.trim() || null,
         line_item_count: keptLineCount,
         source_filename: sourceData?.filename || null,
-        vat: mappedData?.vat ?? null,
       };
       const orderIdOrNull = orderId || null;
       // The order_id / scan_status / scan_result columns land in migration
@@ -708,6 +723,39 @@ export function ReconcileSlipDrawer({
   };
 
   const ruleOptions = useMemo(() => rules, [rules]);
+  const taxPreview = useMemo(() => {
+    const keptLines = lines.filter((line) => line.keep);
+    const lineTotal = keptLines.reduce((sum, line) => sum + Number(line.amount || 0), 0);
+    const deductibleMarked = keptLines
+      .filter((line) => line.is_deductible)
+      .reduce((sum, line) => sum + Number(line.amount || 0), 0);
+    const nonDeductibleMarked = keptLines
+      .filter((line) => !line.is_deductible)
+      .reduce((sum, line) => sum + Number(line.amount || 0), 0);
+    const potentialVatInput = keptLines.reduce((sum, line) => {
+      const rule = rules.find((candidate) => candidate.id === line.tax_rule_id);
+      if (!line.is_deductible || rule?.vat_input_claimable !== "claimable") return sum;
+      return sum + Number(line.amount || 0) * 15 / 115;
+    }, 0);
+    const linesNeedingTaxReview = keptLines.filter((line) => {
+      const rule = rules.find((candidate) => candidate.id === line.tax_rule_id);
+      return !rule || rule.vat_input_claimable === "depends" || rule.deductibility === "partial";
+    }).length;
+    const receiptTotal = Number(total) || 0;
+    const receiptSubtotal = Number(subtotal) || 0;
+    const slipVat = Number(receiptVat) || 0;
+    return {
+      lineTotal: Math.round((lineTotal + Number.EPSILON) * 100) / 100,
+      deductibleMarked: Math.round((deductibleMarked + Number.EPSILON) * 100) / 100,
+      nonDeductibleMarked: Math.round((nonDeductibleMarked + Number.EPSILON) * 100) / 100,
+      potentialVatInput: Math.round((potentialVatInput + Number.EPSILON) * 100) / 100,
+      linesNeedingTaxReview,
+      lineTotalGap: receiptTotal > 0 ? Math.round((receiptTotal - lineTotal + Number.EPSILON) * 100) / 100 : null,
+      slipBreakdownGap: receiptTotal > 0 && subtotal !== "" && receiptVat !== ""
+        ? Math.round((receiptTotal - receiptSubtotal - slipVat + Number.EPSILON) * 100) / 100
+        : null,
+    };
+  }, [lines, rules, total, subtotal, receiptVat]);
 
   return (
     <ComposeDrawerHost open={open} onClose={onClose}>
@@ -728,7 +776,7 @@ export function ReconcileSlipDrawer({
 
         {/* Receipt header */}
         <Card className="border-0 shadow-sm">
-          <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Vendor</label>
               <Input
@@ -754,6 +802,14 @@ export function ReconcileSlipDrawer({
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Total (R)</label>
               <Input type="number" inputMode="decimal" value={total} onChange={(e) => setTotal(e.target.value)} className="mt-1" />
             </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Subtotal (R)</label>
+              <Input type="number" inputMode="decimal" value={subtotal} onChange={(e) => setSubtotal(e.target.value)} className="mt-1" placeholder="Before VAT" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">VAT shown on slip (R)</label>
+              <Input type="number" inputMode="decimal" value={receiptVat} onChange={(e) => setReceiptVat(e.target.value)} className="mt-1" placeholder="Enter if scan missed it" />
+            </div>
             {/* Attach this slip to the order it was bought for (optional).
                 Surfaces the receipt + its scan outcome on that order's doc
                 for admins. Leave as "Not linked" for generic stock buys. */}
@@ -773,6 +829,55 @@ export function ReconcileSlipDrawer({
           </CardContent>
         </Card>
 
+        {/* Tax preview uses receipt values plus the currently selected line rules. */}
+        <Card className="border border-slate-200 bg-slate-50/80 shadow-none">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Tax breakdown</h3>
+                <p className="mt-0.5 text-xs leading-4 text-slate-600">Slip figures are captured as shown; VAT input is estimated from kept lines and their selected rules.</p>
+              </div>
+              <Badge variant="outline" className="border-slate-300 bg-white text-slate-600">15% VAT basis</Badge>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-3 lg:grid-cols-5">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-500">Receipt total</p>
+                <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-slate-900">{total !== "" ? fmtR(Number(total)) : "Not captured"}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-500">Subtotal</p>
+                <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-slate-900">{subtotal !== "" ? fmtR(Number(subtotal)) : "Not captured"}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-500">VAT on slip</p>
+                <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-slate-900">{receiptVat !== "" ? fmtR(Number(receiptVat)) : "Not captured"}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-500">Potential VAT input</p>
+                <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-brand-primary">{fmtR(taxPreview.potentialVatInput)}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-500">Kept line total</p>
+                <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-slate-900">{fmtR(taxPreview.lineTotal)}</p>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-200 pt-2 text-xs text-slate-600">
+              <span>Marked deductible: <strong className="tabular-nums text-slate-800">{fmtR(taxPreview.deductibleMarked)}</strong></span>
+              <span>Marked non-deductible: <strong className="tabular-nums text-slate-800">{fmtR(taxPreview.nonDeductibleMarked)}</strong></span>
+              {taxPreview.linesNeedingTaxReview > 0 && (
+                <span className="text-amber-800">{taxPreview.linesNeedingTaxReview} line{taxPreview.linesNeedingTaxReview === 1 ? "" : "s"} need tax review</span>
+              )}
+            </div>
+            {(taxPreview.lineTotalGap != null && Math.abs(taxPreview.lineTotalGap) >= 0.02 || taxPreview.slipBreakdownGap != null && Math.abs(taxPreview.slipBreakdownGap) >= 0.02) && (
+              <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs leading-4 text-amber-900">
+                Check the figures: receipt total minus kept lines {taxPreview.lineTotalGap != null ? fmtR(taxPreview.lineTotalGap) : "not available"}
+                {taxPreview.slipBreakdownGap != null ? `; total minus subtotal and VAT ${fmtR(taxPreview.slipBreakdownGap)}` : ""}.
+              </p>
+            )}
+            <p className="mt-2 text-xs leading-4 text-slate-500">Potential VAT input uses 15/115 only for lines marked deductible with a rule that allows VAT claims. Rules marked “depends” and lines without a rule are excluded until reviewed.</p>
+          </CardContent>
+        </Card>
+
         {/* Past-descriptions datalist for the line description Input */}
         <datalist id="past-descriptions">
           {pastDescriptions.map((d) => <option key={d} value={d} />)}
@@ -784,6 +889,9 @@ export function ReconcileSlipDrawer({
             <p className="text-sm text-slate-500 text-center py-6">No line items yet. Click &lsquo;Add line&rsquo; to start.</p>
           ) : lines.map((ln, idx) => {
             const matchedRule = rules.find((r) => r.id === ln.tax_rule_id) || null;
+            const lineVatInput = ln.is_deductible && matchedRule?.vat_input_claimable === "claimable"
+              ? Math.round((Number(ln.amount || 0) * 15 / 115 + Number.EPSILON) * 100) / 100
+              : 0;
             const filteredInventory = inventory.filter((it) =>
               !ln.inventory_query
                 ? true
@@ -796,7 +904,7 @@ export function ReconcileSlipDrawer({
               "bg-slate-100 text-slate-600 border-slate-200";
 
             return (
-              <Card key={idx} className={`border-l-4 ${ln.keep ? "border-l-brand-primary" : "border-l-slate-200 opacity-60"}`}>
+              <Card key={idx} className={`border border-slate-200 ${ln.keep ? "" : "bg-slate-50 opacity-60"}`}>
                 <CardContent className="pt-4 space-y-3">
                   <div className="flex items-start gap-2">
                     <div className="flex-1">
@@ -833,7 +941,7 @@ export function ReconcileSlipDrawer({
                     <>
                       {/* Tax rule */}
                       <div>
-                        <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-700 flex items-center gap-1">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-700 flex items-center gap-1">
                           <Sparkles className="w-3 h-3" /> Tax rule
                         </label>
                         <div className="mt-1 flex items-center gap-2 flex-wrap">
@@ -861,11 +969,35 @@ export function ReconcileSlipDrawer({
                             ))}
                           </select>
                         </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                          <label className="inline-flex items-center gap-1.5 text-slate-700">
+                            <input
+                              type="checkbox"
+                              checked={ln.is_deductible}
+                              onChange={(e) => setLine(idx, { is_deductible: e.target.checked })}
+                            />
+                            Include as deductible
+                          </label>
+                          {matchedRule?.deductibility === "partial" && <span className="text-amber-800">Partial deduction: confirm allowable share</span>}
+                          {matchedRule?.deductibility === "non_deductible" && ln.is_deductible && <span className="text-amber-800">Overrides the non-deductible rule; verify before filing</span>}
+                          {(matchedRule?.deductibility === "deductible" || matchedRule?.deductibility === "partial") && !ln.is_deductible && <span className="text-amber-800">Rule allows deduction, but this line is excluded</span>}
+                          {lineVatInput > 0 ? (
+                            <span className="font-medium text-blue-700">Potential VAT input: {fmtR(lineVatInput)}</span>
+                          ) : !matchedRule ? (
+                            <span className="text-amber-800">Choose a rule to review VAT treatment</span>
+                          ) : matchedRule.vat_input_claimable === "depends" ? (
+                            <span className="text-amber-800">VAT input needs review</span>
+                          ) : matchedRule.vat_input_claimable === "claimable" && !ln.is_deductible ? (
+                            <span className="text-slate-500">VAT input excluded while marked non-deductible</span>
+                          ) : (
+                            <span className="text-slate-500">No VAT input claim under this rule</span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Inventory match */}
                       <div>
-                        <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-700 flex items-center gap-1">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-700 flex items-center gap-1">
                           <Package className="w-3 h-3" /> Inventory item
                         </label>
                         <div className="relative mt-1">
@@ -905,7 +1037,7 @@ export function ReconcileSlipDrawer({
                           </div>
                         )}
                         {ln.create_new_name && !ln.inventory_item_id && (
-                          <p className="mt-1 text-[11px] text-brand-primary">
+                          <p className="mt-1 text-xs text-brand-primary">
                             Will create new inventory item: <strong>{ln.create_new_name}</strong>
                           </p>
                         )}
@@ -914,7 +1046,7 @@ export function ReconcileSlipDrawer({
                       {/* Add-to-stock + qty/unit/price */}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <div>
-                          <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">Qty</label>
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Qty</label>
                           <Input
                             type="number" inputMode="decimal"
                             value={ln.quantity}
@@ -923,7 +1055,7 @@ export function ReconcileSlipDrawer({
                           />
                         </div>
                         <div>
-                          <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">Unit</label>
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Unit</label>
                           <Input
                             value={ln.unit}
                             onChange={(e) => setLine(idx, { unit: e.target.value })}
@@ -931,7 +1063,7 @@ export function ReconcileSlipDrawer({
                           />
                         </div>
                         <div>
-                          <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">Unit price (R)</label>
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Unit price (R)</label>
                           <Input
                             type="number" inputMode="decimal"
                             value={ln.unit_price}

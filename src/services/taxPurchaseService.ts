@@ -38,6 +38,8 @@ export interface PurchaseReceipt {
   notes: string | null;
   image_path: string | null;
   image_url: string | null;
+  /** Scan-time receipt figures retained in the scan audit snapshot. */
+  scan_result?: { subtotal?: number | null; vat?: number | null } | null;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
@@ -52,6 +54,8 @@ export interface PurchaseReceiptItem {
   category: string | null;
   notes: string | null;
   created_at: string;
+  /** AI-extracted rows stay in draft state until an operator confirms them. */
+  is_draft?: boolean;
   /** TAX-B (tax-purchases deferred, 2026-05-24): FK to
    *  sa_tax_deductibility_rules. Lets the read path render an
    *  override badge when the line's is_deductible disagrees with
@@ -77,6 +81,8 @@ export interface TaxRule {
 
 export interface ReceiptWithItems extends PurchaseReceipt {
   items: PurchaseReceiptItem[];
+  confirmedItems: PurchaseReceiptItem[];
+  draftItems: PurchaseReceiptItem[];
   deductibleTotal: number;
   nonDeductibleTotal: number;
   /** TAX-B: VAT input that can be reclaimed on this slip. Sums the
@@ -254,7 +260,7 @@ export async function listForCompany(args: {
       *,
       items:purchase_receipt_items(
         *,
-        rule:sa_tax_deductibility_rules!suggested_rule_id(
+        rule:sa_tax_deductibility_rules!purchase_receipt_items_suggested_rule_id_fkey(
           id, category_code, display_name, deductibility, vat_input_claimable
         )
       )
@@ -270,29 +276,35 @@ export async function listForCompany(args: {
   const { data, error } = await q;
   if (error) {
     captureException(error, { tags: { service: "taxPurchase", area: "listForCompany", tenant: args.companyId } });
-    return [];
+    // Do not turn a failed read into an empty ledger. Callers need to
+    // distinguish a valid zero-receipt window from a query/RLS error.
+    throw error;
   }
   return (data || []).map((r: any) => {
     const items = (r.items || []) as PurchaseReceiptItem[];
-    const deductibleTotal = items
+    const draftItems = items.filter((it) => it.is_draft === true);
+    const confirmedItems = items.filter((it) => it.is_draft !== true);
+    const deductibleTotal = confirmedItems
       .filter((it) => it.is_deductible)
       .reduce((s, it) => s + Number(it.amount || 0), 0);
-    const nonDeductibleTotal = items
+    const nonDeductibleTotal = confirmedItems
       .filter((it) => !it.is_deductible)
       .reduce((s, it) => s + Number(it.amount || 0), 0);
     // TAX-B: VAT input claim. South Africa is 15% VAT (Schedule 1,
     // VAT Act). The VAT portion of a R 100 standard-rated line is
     // R 100 * 15 / 115 = R 13.04. We only count it when the rule
     // says 'claimable' - 'depends' is left to the accountant.
-    const vatClaimableTotal = items
+    const vatClaimableTotal = confirmedItems
       .filter((it) => it.is_deductible && it.rule?.vat_input_claimable === "claimable")
       .reduce((s, it) => s + (Number(it.amount || 0) * 15) / 115, 0);
-    const overrideCount = items.filter(
+    const overrideCount = confirmedItems.filter(
       (it) => it.is_deductible && it.rule?.deductibility === "non_deductible",
     ).length;
     return {
       ...r,
       items,
+      confirmedItems,
+      draftItems,
       deductibleTotal,
       nonDeductibleTotal,
       vatClaimableTotal,
@@ -334,13 +346,15 @@ export function buildCsvExport(receipts: ReceiptWithItems[]): string {
   };
   const rows: string[] = [header.join(",")];
   for (const r of receipts) {
-    if (r.items.length === 0) {
+    if (r.confirmedItems.length === 0) {
       rows.push([
         r.receipt_date || "",
         r.vendor || "",
         r.total ?? "",
-        "(no line items)",
-        r.total ?? "",
+        r.draftItems.length > 0
+          ? `(${r.draftItems.length} extracted line${r.draftItems.length === 1 ? "" : "s"} pending review - excluded from tax totals)`
+          : "(no confirmed line items)",
+        "",
         "",
         "",
         "",
@@ -352,7 +366,24 @@ export function buildCsvExport(receipts: ReceiptWithItems[]): string {
       ].map(escape).join(","));
       continue;
     }
-    for (const it of r.items) {
+    if (r.draftItems.length > 0) {
+      rows.push([
+        r.receipt_date || "",
+        r.vendor || "",
+        r.total ?? "",
+        `(${r.draftItems.length} extracted line${r.draftItems.length === 1 ? "" : "s"} pending review - excluded from tax totals)`,
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        r.notes || "",
+      ].map(escape).join(","));
+    }
+    for (const it of r.confirmedItems) {
       const ruleVerdict = it.rule?.deductibility || "";
       const ruleVat = it.rule?.vat_input_claimable || "";
       const vatRand =
@@ -420,7 +451,7 @@ export function summarise(receipts: ReceiptWithItems[]): PurchaseSummary {
     // Same drift rule the per-slip chip uses on the page.
     const itemsTotal = r.deductibleTotal + r.nonDeductibleTotal;
     const slipTotal = Number(r.total ?? 0);
-    if (slipTotal > 0) {
+    if (slipTotal > 0 && r.draftItems.length === 0) {
       const drift = Math.abs(itemsTotal - slipTotal);
       if (drift > slipTotal * 0.05 && drift > 1) mismatchCount += 1;
     }

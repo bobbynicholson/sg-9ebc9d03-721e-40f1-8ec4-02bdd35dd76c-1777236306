@@ -40,7 +40,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Receipt, Download, FileText, ShoppingCart, ExternalLink, AlertTriangle,
   Calendar as CalendarIcon, TrendingUp, TrendingDown, ChevronDown, ChevronRight,
-  ShieldCheck, Pencil, ArrowRight,
+  ShieldCheck, Pencil, ArrowRight, Eye,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -124,7 +124,9 @@ function TaxPurchasesPage() {
   const [receipts, setReceipts] = useState<ReceiptWithItems[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [windowKind, setWindowKind] = useState<WindowKind>("this_month");
+  // Start with the full ledger so an empty current month doesn't make
+  // the accountant view look like purchases were never recorded.
+  const [windowKind, setWindowKind] = useState<WindowKind>("all");
   // TAX-B: prior-year deductible total for the YoY delta. NULL =
   // not loaded yet / "all time" (which has no comparison window).
   const [priorYearDeductible, setPriorYearDeductible] = useState<number | null>(null);
@@ -259,6 +261,20 @@ function TaxPurchasesPage() {
   }, [companyId]);
 
   const summary = useMemo(() => summarise(receipts), [receipts]);
+  const pendingReviewLineCount = useMemo(
+    () => receipts.reduce((count, receipt) => count + receipt.draftItems.length, 0),
+    [receipts],
+  );
+  const ruleExcludedLineCount = useMemo(
+    () => receipts.reduce((count, receipt) => count + receipt.confirmedItems.filter(
+      (item) => !item.is_deductible && item.rule?.deductibility !== "non_deductible",
+    ).length, 0),
+    [receipts],
+  );
+  const receiptsToReview = useMemo(
+    () => receipts.filter((receipt) => receipt.confirmedItems.length === 0 || receipt.draftItems.length > 0).length,
+    [receipts],
+  );
 
   // TAX-B: SARS-readiness percentage. 100% = every slip has lines,
   // none mismatch, no rule overrides. Each shortcoming subtracts.
@@ -267,21 +283,22 @@ function TaxPurchasesPage() {
       return { score: null as number | null, color: "slate" as const };
     }
     let score = 100;
-    score -= (summary.unfiledCount / summary.receiptCount) * 60; // huge: no lines = nothing claimable
+    score -= (receiptsToReview / summary.receiptCount) * 60; // unresolved slips are not yet claimable
     score -= (summary.mismatchCount / summary.receiptCount) * 25;
     // overrides scale by lines, not receipts - one override on a big
     // slip is bigger trouble than three on tiny ones, but we don't
     // know total lines here so flat penalty.
     if (summary.overrideCount > 0) score -= Math.min(15, summary.overrideCount * 5);
+    if (ruleExcludedLineCount > 0) score -= Math.min(15, ruleExcludedLineCount * 5);
     score = Math.max(0, Math.round(score));
     const color = score >= 85 ? "emerald" : score >= 60 ? "amber" : "rose";
     return { score, color } as const;
-  }, [summary]);
+  }, [summary, receiptsToReview, ruleExcludedLineCount]);
 
   // TAX-B: oldest slip still without lines. Surfaces in SARS card.
   const oldestUnclassified = useMemo(() => {
     return receipts
-      .filter((r) => r.items.length === 0)
+      .filter((r) => r.confirmedItems.length === 0 || r.draftItems.length > 0)
       .sort((a, b) => (a.receipt_date || "").localeCompare(b.receipt_date || ""))[0] || null;
   }, [receipts]);
 
@@ -302,7 +319,7 @@ function TaxPurchasesPage() {
   const deductibleByCategory = useMemo(() => {
     const map = new Map<string, { count: number; totalCents: number }>();
     for (const r of receipts) {
-      for (const it of r.items) {
+      for (const it of r.confirmedItems) {
         if (!it.is_deductible) continue;
         const key = (it.category || "").trim() || "Uncategorised";
         const cur = map.get(key) || { count: 0, totalCents: 0 };
@@ -331,7 +348,7 @@ function TaxPurchasesPage() {
   const visibleReceipts = useMemo(() => {
     if (!categoryFilter) return receipts;
     return receipts.filter((r) =>
-      r.items.some((it) => it.is_deductible && (it.category || "Uncategorised") === categoryFilter),
+      r.confirmedItems.some((it) => it.is_deductible && (it.rule?.display_name || it.category || "Uncategorised") === categoryFilter),
     );
   }, [receipts, categoryFilter]);
 
@@ -351,6 +368,12 @@ function TaxPurchasesPage() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    if (pendingReviewLineCount > 0) {
+      toast({
+        title: "Export created with pending lines excluded",
+        description: `${pendingReviewLineCount} unconfirmed scan line${pendingReviewLineCount === 1 ? " was" : "s were"} not included in deductible totals. Review them in Shopping receipts before filing.`,
+      });
+    }
   };
 
   const toggleExpand = (id: string) => {
@@ -378,34 +401,51 @@ function TaxPurchasesPage() {
             meta={
               !loading && !loadError ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {summary.receiptCount} slip{summary.receiptCount === 1 ? "" : "s"} in window
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     {fmtR(summary.deductibleTotal)} deductible
                   </span>
                   {summary.vatClaimableTotal > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/90">
                       {fmtR(summary.vatClaimableTotal)} VAT claimable
+                    </span>
+                  )}
+                  {pendingReviewLineCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/30 bg-amber-300/15 px-2.5 py-1 text-xs font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-300" />
+                      {pendingReviewLineCount} scan line{pendingReviewLineCount === 1 ? "" : "s"} to review
                     </span>
                   )}
                 </>
               ) : undefined
             }
             actions={
-              <>
-                <Button variant="outline" size="sm" onClick={handleExportCsv} className="gap-1.5" disabled={receipts.length === 0}>
+              <div className="flex w-full items-center justify-end gap-2 xl:w-auto">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportCsv}
+                  className="h-11 w-11 justify-center gap-1.5 p-0 sm:h-9 sm:w-auto sm:px-3"
+                  disabled={receipts.length === 0}
+                  aria-label="Export tax purchases CSV"
+                  title="Export tax purchases CSV"
+                >
                   <Download className="w-4 h-4" />
-                  Export CSV
+                  <span className="sr-only sm:not-sr-only">Export CSV</span>
                 </Button>
-                <Link href={withSlug("/admin/shopping?tab=receipts")}>
-                  <Button size="sm" className="gap-1.5 bg-brand-primary hover:bg-brand-primary/90">
-                    <ShoppingCart className="w-4 h-4" />
-                    Manage receipts
-                  </Button>
+                <Link
+                  href={withSlug("/admin/shopping?tab=receipts")}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-md bg-brand-primary p-0 text-sm font-medium text-white transition-colors hover:bg-brand-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3"
+                  aria-label="Manage purchase receipts"
+                  title="Manage receipts"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  <span className="sr-only sm:not-sr-only">Manage receipts</span>
                 </Link>
-              </>
+              </div>
             }
           />
           <PageWorkbench />
@@ -434,9 +474,22 @@ function TaxPurchasesPage() {
                 gate. */}
             {!loadError && (
             <Card className="mb-4">
-              <CardContent className="py-3 px-4 flex flex-wrap items-center gap-3">
-                <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Window</span>
-                <div className="flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs">
+              <CardContent className="flex flex-wrap items-center gap-3 px-3 py-3 sm:px-4">
+                <span className="text-sm font-semibold text-slate-600">Window</span>
+                <label htmlFor="tax-purchase-window" className="sr-only">Report window</label>
+                <select
+                  id="tax-purchase-window"
+                  value={windowKind}
+                  onChange={(e) => setWindowKind(e.target.value as WindowKind)}
+                  className="h-11 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 sm:hidden"
+                >
+                  <option value="this_month">This month</option>
+                  <option value="this_quarter">This quarter</option>
+                  <option value="this_year">Calendar year</option>
+                  <option value="tax_year">SA tax year</option>
+                  <option value="all">All time</option>
+                </select>
+                <div className="hidden flex-wrap gap-1 rounded-lg border border-slate-200 bg-white p-1 text-sm sm:flex">
                   {([
                     { id: "this_month",   label: "This month" },
                     { id: "this_quarter", label: "This quarter" },
@@ -450,7 +503,7 @@ function TaxPurchasesPage() {
                       key={t.id}
                       type="button"
                       onClick={() => setWindowKind(t.id)}
-                      className={`px-3 py-1.5 rounded-md ${
+                      className={`min-h-10 rounded-md px-3 py-2 ${
                         windowKind === t.id
                           ? "bg-brand-primary text-white font-medium"
                           : "text-slate-600 hover:bg-slate-50"
@@ -464,7 +517,7 @@ function TaxPurchasesPage() {
                   <button
                     type="button"
                     onClick={() => setCategoryFilter(null)}
-                    className="ml-auto text-xs text-blue-700 hover:underline"
+                    className="min-h-10 w-full text-left text-sm text-blue-700 hover:underline sm:ml-auto sm:w-auto sm:text-right"
                   >
                     Clear category filter: {categoryFilter}
                   </button>
@@ -508,7 +561,7 @@ function TaxPurchasesPage() {
             {/* TAX-B: page-level mismatch + override banner. Promotes
                 the per-slip rose chip to a louder warning so the
                 accountant sees it before exporting. */}
-            {(summary.mismatchCount > 0 || summary.overrideCount > 0) && (
+            {(summary.mismatchCount > 0 || summary.overrideCount > 0 || pendingReviewLineCount > 0 || ruleExcludedLineCount > 0) && (
               <Card className="bg-amber-50 border-l-4 border-l-amber-500 mb-4">
                 <CardContent className="py-3 px-4 flex items-start gap-3 flex-wrap">
                   <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
@@ -527,6 +580,16 @@ function TaxPurchasesPage() {
                           {summary.overrideCount} line{summary.overrideCount === 1 ? "" : "s"} marked deductible despite a rule that says non-deductible (e.g. tobacco, alcohol for personal use). SARS may disallow these on audit.
                         </li>
                       )}
+                      {pendingReviewLineCount > 0 && (
+                        <li>
+                          {pendingReviewLineCount} extracted line{pendingReviewLineCount === 1 ? " is" : "s are"} still awaiting confirmation. These amounts are excluded from deductible totals until reviewed.
+                        </li>
+                      )}
+                      {ruleExcludedLineCount > 0 && (
+                        <li>
+                          {ruleExcludedLineCount} confirmed line{ruleExcludedLineCount === 1 ? " is" : "s are"} marked non-deductible even though the selected tax rule allows a deduction. Check whether that choice was intentional.
+                        </li>
+                      )}
                     </ul>
                   </div>
                 </CardContent>
@@ -543,25 +606,39 @@ function TaxPurchasesPage() {
             </p>
 
             {/* SUMMARY STRIP */}
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 mb-4">
+            <div className="mb-4 grid grid-cols-1 gap-3 min-[440px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
               <Card>
-                <CardContent className="py-4 px-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Slips logged</p>
-                  <p className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">{summary.receiptCount}</p>
+                <CardContent className="p-3.5 sm:p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Slips logged</p>
+                      <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{summary.receiptCount}</p>
+                    </div>
+                    <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-600">
+                      <FileText className="h-4 w-4" />
+                    </span>
+                  </div>
                   {topSupplier && (
-                    <p className="text-[10px] text-slate-500 mt-1 truncate" title={`Top supplier: ${topSupplier.vendor}`}>
+                    <p className="mt-1 truncate text-[11px] text-slate-500" title={`Top supplier: ${topSupplier.vendor}`}>
                       Top: {topSupplier.vendor} ({fmtR(topSupplier.totalCents / 100)})
                     </p>
                   )}
                 </CardContent>
               </Card>
               <Card className="bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
-                <CardContent className="py-4 px-4">
-                  <p className="text-xs uppercase tracking-wide text-brand-primary font-semibold">Deductible total</p>
-                  <p className="text-2xl font-bold text-brand-primary mt-1 tabular-nums">{fmtR(summary.deductibleTotal)}</p>
+                <CardContent className="p-3.5 sm:p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-brand-primary">Deductible total</p>
+                      <p className="mt-1 text-lg font-bold tabular-nums text-brand-primary sm:text-xl">{fmtR(summary.deductibleTotal)}</p>
+                    </div>
+                    <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-emerald-100 text-emerald-700">
+                      <Receipt className="h-4 w-4" />
+                    </span>
+                  </div>
                   {/* TAX-B: YoY delta sub-line. */}
                   {yoyDelta && yoyDelta.pct != null && (
-                    <p className={`text-[10px] mt-1 inline-flex items-center gap-0.5 ${
+                    <p className={`mt-1 inline-flex items-center gap-1 text-[11px] ${
                       yoyDelta.pct > 5 ? "text-brand-primary" : yoyDelta.pct < -5 ? "text-rose-700" : "text-brand-primary/70"
                     }`}>
                       {yoyDelta.pct >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
@@ -569,12 +646,12 @@ function TaxPurchasesPage() {
                     </p>
                   )}
                   {yoyDelta && yoyDelta.pct == null && priorYearDeductible === 0 && (
-                    <p className="text-[10px] text-brand-primary/70 mt-1">No comparable spend last year</p>
+                    <p className="mt-1 text-[11px] text-brand-primary/70">No comparable spend last year</p>
                   )}
                   {/* Surface a failed prior-year pull instead of
                       silently hiding the YoY line. */}
                   {priorYearError && (
-                    <p className="text-[10px] text-amber-700 mt-1">YoY comparison unavailable (last year&apos;s pull failed)</p>
+                    <p className="mt-1 text-[11px] text-amber-700">YoY comparison unavailable (last year&apos;s pull failed)</p>
                   )}
                 </CardContent>
               </Card>
@@ -582,28 +659,45 @@ function TaxPurchasesPage() {
                   the operator can claim back from SARS. Often the
                   single most useful number on the page. */}
               <Card className="bg-gradient-to-br from-blue-50 to-blue-100">
-                <CardContent className="py-4 px-4">
-                  <p className="text-xs uppercase tracking-wide text-blue-700 font-semibold">VAT input claim</p>
-                  <p className="text-2xl font-bold text-blue-900 mt-1 tabular-nums">{fmtR(summary.vatClaimableTotal)}</p>
-                  <p className="text-[10px] text-blue-700/80 mt-1">
-                    15/115 of standard-rated deductible spend
-                  </p>
+                <CardContent className="p-3.5 sm:p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">VAT input claim</p>
+                      <p className="mt-1 text-lg font-bold tabular-nums text-blue-900 sm:text-xl">{fmtR(summary.vatClaimableTotal)}</p>
+                    </div>
+                    <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-blue-100 text-blue-700">
+                      <ShieldCheck className="h-4 w-4" />
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[11px] leading-4 text-blue-700/80">15/115 of standard-rated deductible spend</p>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="py-4 px-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Non-deductible</p>
-                  <p className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">{fmtR(summary.nonDeductibleTotal)}</p>
+                <CardContent className="p-3.5 sm:p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Non-deductible</p>
+                      <p className="mt-1 text-lg font-bold tabular-nums text-slate-900 sm:text-xl">{fmtR(summary.nonDeductibleTotal)}</p>
+                    </div>
+                    <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-600">
+                      <AlertTriangle className="h-4 w-4" />
+                    </span>
+                  </div>
                 </CardContent>
               </Card>
-              <Card className={`${summary.unfiledCount > 0 ? "bg-amber-50" : ""}`}>
-                <CardContent className="py-4 px-4">
-                  <p className={`text-xs uppercase tracking-wide font-semibold ${summary.unfiledCount > 0 ? "text-amber-700" : "text-slate-500"}`}>
-                    Slips needing lines
-                  </p>
-                  <p className={`text-2xl font-bold mt-1 tabular-nums ${summary.unfiledCount > 0 ? "text-amber-900" : "text-slate-900"}`}>
-                    {summary.unfiledCount}
-                  </p>
+              <Card className={`${receiptsToReview > 0 ? "bg-amber-50" : ""}`}>
+                <CardContent className="p-3.5 sm:p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className={`text-xs font-semibold uppercase tracking-wide ${receiptsToReview > 0 ? "text-amber-700" : "text-slate-500"}`}>Slips to review</p>
+                      <p className={`mt-1 text-xl font-bold tabular-nums ${receiptsToReview > 0 ? "text-amber-900" : "text-slate-900"}`}>
+                        {receiptsToReview}
+                      </p>
+                    </div>
+                    <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-amber-100 text-amber-700">
+                      <Pencil className="h-4 w-4" />
+                    </span>
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -624,7 +718,7 @@ function TaxPurchasesPage() {
                       <ShieldCheck className="w-3.5 h-3.5" /> SARS-readiness
                     </p>
                     {sarsReadiness.score != null && (
-                      <span className={`text-2xl font-bold tabular-nums ${
+                      <span className={`text-xl font-bold tabular-nums ${
                         sarsReadiness.color === "emerald" ? "text-brand-primary"
                         : sarsReadiness.color === "amber" ? "text-amber-700"
                         : sarsReadiness.color === "rose" ? "text-rose-700"
@@ -641,7 +735,7 @@ function TaxPurchasesPage() {
                       <li className="flex items-center justify-between">
                         <span className="text-slate-600">Slips with lines</span>
                         <span className="tabular-nums font-medium">
-                          {summary.receiptCount - summary.unfiledCount} / {summary.receiptCount}
+                          {Math.max(0, summary.receiptCount - receiptsToReview)} / {summary.receiptCount}
                         </span>
                       </li>
                       <li className="flex items-center justify-between">
@@ -657,8 +751,8 @@ function TaxPurchasesPage() {
                         </span>
                       </li>
                       {oldestUnclassified && oldestUnclassified.receipt_date && (
-                        <li className="text-[10px] text-amber-800 mt-1">
-                          Oldest slip without lines: {new Date(oldestUnclassified.receipt_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}{oldestUnclassified.vendor ? ` (${oldestUnclassified.vendor})` : ""}
+                        <li className="mt-1 text-[11px] leading-4 text-amber-800">
+                          Oldest slip needing review: {new Date(oldestUnclassified.receipt_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}{oldestUnclassified.vendor ? ` (${oldestUnclassified.vendor})` : ""}
                         </li>
                       )}
                     </ul>
@@ -672,7 +766,7 @@ function TaxPurchasesPage() {
                     <p className="text-xs uppercase tracking-wide font-semibold text-slate-700 inline-flex items-center gap-1">
                       <CalendarIcon className="w-3.5 h-3.5" /> Deductible spend, last 6 months
                     </p>
-                    <span className="text-[10px] text-slate-400">Independent of window above</span>
+                    <span className="text-[11px] text-slate-500">Independent of window above</span>
                   </div>
                   {longRangeError ? (
                     // Distinguish "pull failed" from a genuinely quiet
@@ -699,14 +793,14 @@ function TaxPurchasesPage() {
                                 style={{ height: `${Math.max(3, h)}%` }}
                               />
                             </div>
-                            <span className="text-[10px] text-slate-500">{b.label}</span>
+                            <span className="text-[11px] text-slate-500">{b.label}</span>
                           </div>
                         );
                       })}
                     </div>
                   )}
                   {missingWeeks.length > 0 && (
-                    <p className="text-[10px] text-amber-700 mt-2 inline-flex items-center gap-1">
+                    <p className="mt-2 inline-flex items-center gap-1 text-[11px] leading-4 text-amber-700">
                       <AlertTriangle className="w-3 h-3" />
                       {missingWeeks.length} quiet week{missingWeeks.length === 1 ? "" : "s"} since {new Date(missingWeeks[0].weekStart).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} - check for missing slips
                     </p>
@@ -721,18 +815,18 @@ function TaxPurchasesPage() {
                 <h2 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
                   <FileText className="w-4 h-4 text-brand-primary" />
                   Deductible spend by category
-                  <span className="text-[10px] font-normal text-slate-400 ml-auto">Tap a category to filter slips</span>
+                  <span className="ml-auto text-[11px] font-normal text-slate-500">Tap a category to filter slips</span>
                 </h2>
                 {loading ? (
                   <p className="text-xs text-slate-500">Loading...</p>
                 ) : deductibleByCategory.length === 0 ? (
                   <p className="text-xs text-slate-500">
-                    No deductible lines in this window yet.
+                    No confirmed deductible lines in this window yet. Review any pending scan lines and check whether non-deductible choices match the receipt.
                   </p>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                      <thead className="border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-500">
                         <tr>
                           <th className="text-left py-2 pr-3">Category</th>
                           <th className="text-right py-2 px-3">Lines</th>
@@ -783,7 +877,7 @@ function TaxPurchasesPage() {
                   <Receipt className="w-4 h-4 text-brand-primary" />
                   Slips in this window
                   {categoryFilter && (
-                    <span className="text-[10px] font-normal text-blue-700 ml-2">
+                    <span className="ml-2 text-[11px] font-normal text-blue-700">
                       filtered: {categoryFilter}
                     </span>
                   )}
@@ -856,81 +950,96 @@ function SlipRow({
   withSlug: (path: string) => string;
 }) {
   const itemsTotal = r.deductibleTotal + r.nonDeductibleTotal;
+  const draftTotal = r.draftItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const slipTotal = Number(r.total ?? 0);
   const drift = slipTotal > 0 ? itemsTotal - slipTotal : 0;
-  const driftBig = slipTotal > 0 && Math.abs(drift) > slipTotal * 0.05 && Math.abs(drift) > 1;
+  const driftBig = r.draftItems.length === 0 && slipTotal > 0 && Math.abs(drift) > slipTotal * 0.05 && Math.abs(drift) > 1;
   const driftSign = drift > 0 ? "+" : "";
   return (
     <div className="border-b border-slate-100 last:border-b-0">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center gap-3 py-2 text-left hover:bg-slate-50 rounded-md px-1"
-      >
-        <span className="text-slate-400 shrink-0">
-          {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        </span>
-        {r.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={protectedCompanyFileUrl(r.image_url)} alt="" className="w-9 h-9 object-cover rounded border border-slate-200 shrink-0" />
-        ) : (
-          <div className="w-9 h-9 rounded border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center shrink-0">
-            <FileText className="w-3.5 h-3.5 text-slate-400" />
+      <div className="flex min-w-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={isOpen}
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-slate-50"
+        >
+          <span className="shrink-0 text-slate-400">
+            {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </span>
+          {r.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={protectedCompanyFileUrl(r.image_url)} alt="" className="h-9 w-9 shrink-0 rounded border border-slate-200 object-cover" />
+          ) : (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-dashed border-slate-200 bg-slate-50">
+              <FileText className="h-4 w-4 text-slate-400" />
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="truncate text-sm font-medium text-slate-900">
+                {r.vendor || "Untitled vendor"}
+              </p>
+              {r.receipt_date && (
+                <span className="text-xs text-slate-500">
+                  {new Date(r.receipt_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                </span>
+              )}
+              {r.draftItems.length > 0 ? (
+                <Badge className="border-0 bg-amber-100 text-[11px] text-amber-800">
+                  {r.draftItems.length} line{r.draftItems.length === 1 ? "" : "s"} to review
+                </Badge>
+              ) : r.items.length === 0 && (
+                <Badge className="border-0 bg-amber-100 text-[11px] text-amber-800">No lines yet</Badge>
+              )}
+              {/* TAX-B: drift magnitude on the badge, not just a
+                  generic "mismatch" label. */}
+              {driftBig && (
+                <Badge className="border-0 bg-rose-100 text-[11px] text-rose-800">
+                  Lines mismatch ({driftSign}{fmtR(Math.abs(drift))})
+                </Badge>
+              )}
+              {r.overrideCount > 0 && (
+                <Badge className="border-0 bg-amber-100 text-[11px] text-amber-800">
+                  {r.overrideCount} override{r.overrideCount === 1 ? "" : "s"}
+                </Badge>
+              )}
+            </div>
+            {/* TAX-B: stacked rand line on mobile, inline on sm+. */}
+            <div className="mt-0.5 flex flex-col gap-1 text-xs text-slate-600 sm:flex-row sm:items-center sm:gap-3">
+              {r.total != null && <span>Slip: <span className="font-medium text-slate-900">{fmtR(r.total)}</span></span>}
+              {r.scan_result?.subtotal != null && <span>Subtotal: <span className="font-medium text-slate-900">{fmtR(r.scan_result.subtotal)}</span></span>}
+              {r.scan_result?.vat != null && <span>Slip VAT: <span className="font-medium text-slate-900">{fmtR(r.scan_result.vat)}</span></span>}
+              <span className="text-brand-primary">Deductible: <span className="font-medium">{fmtR(r.deductibleTotal)}</span></span>
+              {r.vatClaimableTotal > 0 && (
+                <span className="text-blue-700">Input VAT est.: <span className="font-medium">{fmtR(r.vatClaimableTotal)}</span></span>
+              )}
+              {r.nonDeductibleTotal > 0 && (
+                <span className="text-slate-500">Non-ded: <span className="font-medium">{fmtR(r.nonDeductibleTotal)}</span></span>
+              )}
+              {draftTotal > 0 && (
+                <span className="font-medium text-amber-700">To review: {fmtR(draftTotal)}</span>
+              )}
+            </div>
           </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-medium text-slate-900 truncate">
-              {r.vendor || "Untitled vendor"}
-            </p>
-            {r.receipt_date && (
-              <span className="text-xs text-slate-500">
-                {new Date(r.receipt_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
-              </span>
-            )}
-            {r.items.length === 0 && (
-              <Badge className="bg-amber-100 text-amber-800 border-0 text-[10px]">No lines yet</Badge>
-            )}
-            {/* TAX-B: drift magnitude on the badge, not just a
-                generic "mismatch" label. */}
-            {driftBig && (
-              <Badge className="bg-rose-100 text-rose-800 border-0 text-[10px]">
-                Lines mismatch ({driftSign}{fmtR(Math.abs(drift))})
-              </Badge>
-            )}
-            {r.overrideCount > 0 && (
-              <Badge className="bg-amber-100 text-amber-800 border-0 text-[10px]">
-                {r.overrideCount} override{r.overrideCount === 1 ? "" : "s"}
-              </Badge>
-            )}
-          </div>
-          {/* TAX-B: stacked rand line on mobile, inline on sm+. */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-xs text-slate-600 mt-0.5">
-            {r.total != null && <span>Slip: <span className="font-medium text-slate-900">{fmtR(r.total)}</span></span>}
-            <span className="text-brand-primary">Deductible: <span className="font-medium">{fmtR(r.deductibleTotal)}</span></span>
-            {r.vatClaimableTotal > 0 && (
-              <span className="text-blue-700">VAT: <span className="font-medium">{fmtR(r.vatClaimableTotal)}</span></span>
-            )}
-            {r.nonDeductibleTotal > 0 && (
-              <span className="text-slate-500">Non-ded: <span className="font-medium">{fmtR(r.nonDeductibleTotal)}</span></span>
-            )}
-          </div>
-        </div>
+        </button>
         {r.image_url && (
           <a
             href={protectedCompanyFileUrl(r.image_url)}
             target="_blank"
-            rel="noopener"
-            onClick={(e) => e.stopPropagation()}
-            className="text-xs text-blue-600 hover:underline shrink-0 hidden sm:inline"
+            rel="noopener noreferrer"
+            aria-label={`Show receipt slip${r.vendor ? ` for ${r.vendor}` : ""}`}
+            title="Show receipt slip"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-slate-200 text-emerald-700 transition-colors hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary sm:h-9 sm:w-auto sm:gap-2 sm:px-3"
           >
-            View slip
+            <Eye className="h-4 w-4" />
+            <span className="text-xs font-medium sm:text-sm">Show</span>
           </a>
         )}
-      </button>
+      </div>
 
       {isOpen && (
-        <div className="px-2 sm:px-10 pb-3 pt-1">
+        <div className="px-2 pb-3 pt-1 sm:px-10">
           {r.items.length === 0 ? (
             <div className="text-xs text-slate-500 italic flex items-center justify-between gap-2 py-2">
               <span>No lines extracted yet.</span>
@@ -942,9 +1051,23 @@ function SlipRow({
               </Link>
             </div>
           ) : (
+            <>
+            {r.draftItems.length > 0 && (
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">
+                <span>
+                  {r.draftItems.length} extracted line{r.draftItems.length === 1 ? " is" : "s are"} awaiting confirmation ({fmtR(draftTotal)}). Pending lines do not count toward deductible totals yet.
+                </span>
+                <Link
+                  href={withSlug(`/admin/shopping?tab=receipts&receipt=${r.id}`)}
+                  className="inline-flex min-h-10 items-center gap-1 rounded-md border border-amber-300 bg-white px-3 font-semibold text-amber-900 hover:bg-amber-100"
+                >
+                  Review lines <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
-                <thead className="text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                <thead className="border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-500">
                   <tr>
                     <th className="text-left py-1.5 pr-2">Item</th>
                     <th className="text-left py-1.5 px-2 hidden sm:table-cell">Category</th>
@@ -956,11 +1079,12 @@ function SlipRow({
                 </thead>
                 <tbody>
                   {r.items.map((it) => (
-                    <LineRow key={it.id} item={it} receiptId={r.id} withSlug={withSlug} />
+                    <LineRow key={it.id} item={it} isDraft={it.is_draft === true} receiptId={r.id} withSlug={withSlug} />
                   ))}
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
       )}
@@ -974,17 +1098,20 @@ function SlipRow({
  * 'non_deductible', and a "Fix on Shopping" deep-link icon.
  */
 function LineRow({
-  item: it, receiptId, withSlug,
+  item: it, isDraft, receiptId, withSlug,
 }: {
   item: PurchaseReceiptItem;
+  isDraft: boolean;
   receiptId: string;
   withSlug: (path: string) => string;
 }) {
   const isOverride = it.is_deductible && it.rule?.deductibility === "non_deductible";
+  const ruleExcludesSuggestedDeduction = !isDraft && !it.is_deductible &&
+    (it.rule?.deductibility === "deductible" || it.rule?.deductibility === "partial");
   // 15/115 VAT back-out, computed on integer cents then rounded so
   // the displayed claim is a real money value, not a float tail.
   const vatClaim =
-    it.is_deductible && it.rule?.vat_input_claimable === "claimable"
+    !isDraft && it.is_deductible && it.rule?.vat_input_claimable === "claimable"
       ? Math.round(Math.round((Number(it.amount) || 0) * 100) * 15 / 115) / 100
       : 0;
   return (
@@ -993,18 +1120,32 @@ function LineRow({
         <div className="truncate" title={it.description}>{it.description}</div>
         {isOverride && (
           <div className="mt-0.5">
-            <Badge className="bg-amber-100 text-amber-800 border-0 text-[9px]" title={`Rule says ${it.rule?.display_name || it.category} is non-deductible (e.g. ITA s23). SARS may disallow.`}>
+            <Badge className="border-0 bg-amber-100 text-[11px] text-amber-800" title={`Rule says ${it.rule?.display_name || it.category} is non-deductible (e.g. ITA s23). SARS may disallow.`}>
               Override of non-deductible rule
+            </Badge>
+          </div>
+        )}
+        {isDraft && (
+          <div className="mt-1">
+            <Badge className="border-0 bg-amber-100 text-[11px] text-amber-800">Pending review</Badge>
+          </div>
+        )}
+        {ruleExcludesSuggestedDeduction && (
+          <div className="mt-1">
+            <Badge className="border border-amber-300 bg-amber-50 text-[11px] text-amber-900" title="The selected rule allows a deduction, but this line is currently excluded from deductible totals.">
+              Rule allows deduction — check this line
             </Badge>
           </div>
         )}
       </td>
       <td className="py-1.5 px-2 text-slate-600 hidden sm:table-cell">
-        {it.category || "-"}
+        {it.rule?.display_name || it.category || "-"}
       </td>
       <td className="py-1.5 px-2 text-right tabular-nums">{fmtR(it.amount)}</td>
       <td className="py-1.5 px-2 text-center">
-        {it.is_deductible ? (
+        {isDraft ? (
+          <Badge className="border-0 bg-amber-100 text-[11px] text-amber-800">Pending</Badge>
+        ) : it.is_deductible ? (
           <span className="text-brand-primary font-medium">Yes</span>
         ) : (
           <span className="text-slate-400">No</span>
@@ -1019,9 +1160,10 @@ function LineRow({
         <Link
           href={withSlug(`/admin/shopping?tab=receipts&receipt=${receiptId}`)}
           title="Edit this line on the Shopping dashboard"
-          className="inline-flex items-center text-blue-600 hover:text-blue-800"
+          aria-label="Edit this line on the Shopping dashboard"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md text-blue-600 hover:bg-blue-50 hover:text-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
         >
-          <Pencil className="w-3 h-3" />
+          <Pencil className="h-4 w-4" />
         </Link>
       </td>
     </tr>

@@ -186,6 +186,12 @@ export function ReceiptsTab({ companyId, userId }: Props) {
       const range = dateRangeFor(windowKind);
       const list = await listForCompany({ companyId, fromDate: range.from, toDate: range.to });
       setReceipts(list);
+    } catch (error: any) {
+      toast({
+        title: "Could not load purchase receipts",
+        description: error?.message || "Check your connection and try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
