@@ -451,7 +451,9 @@ export function summarise(receipts: ReceiptWithItems[]): PurchaseSummary {
     // Same drift rule the per-slip chip uses on the page.
     const itemsTotal = r.deductibleTotal + r.nonDeductibleTotal;
     const slipTotal = Number(r.total ?? 0);
-    if (slipTotal > 0 && r.draftItems.length === 0) {
+    // A missing or unconfirmed line list is incomplete, not a mismatch.
+    // Only compare totals once at least one confirmed line is available.
+    if (slipTotal > 0 && r.confirmedItems.length > 0 && r.draftItems.length === 0) {
       const drift = Math.abs(itemsTotal - slipTotal);
       if (drift > slipTotal * 0.05 && drift > 1) mismatchCount += 1;
     }

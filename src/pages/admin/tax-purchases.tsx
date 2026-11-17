@@ -276,8 +276,8 @@ function TaxPurchasesPage() {
     [receipts],
   );
 
-  // TAX-B: SARS-readiness percentage. 100% = every slip has lines,
-  // none mismatch, no rule overrides. Each shortcoming subtracts.
+  // Internal tax-record completeness estimate. This is not a SARS
+  // score: it summarizes unresolved slips, reconciliations and overrides.
   const sarsReadiness = useMemo(() => {
     if (summary.receiptCount === 0) {
       return { score: null as number | null, color: "slate" as const };
@@ -333,12 +333,14 @@ function TaxPurchasesPage() {
       .sort((a, b) => b.totalCents - a.totalCents);
   }, [receipts]);
 
-  // Top supplier rollup. Cents for the same reason as above.
+  // Top supplier by printed receipt total (not the deductible subset).
+  // Cents for the same reason as the category rollup above.
   const topSupplier = useMemo(() => {
     const map = new Map<string, number>();
     for (const r of receipts) {
       const key = (r.vendor || "Unnamed").trim();
-      map.set(key, (map.get(key) || 0) + Math.round((r.deductibleTotal || 0) * 100));
+      const receiptCents = Math.round((Number(r.total) || 0) * 100);
+      if (receiptCents > 0) map.set(key, (map.get(key) || 0) + receiptCents);
     }
     const top = [...map.entries()].sort((a, b) => b[1] - a[1])[0];
     return top ? { vendor: top[0], totalCents: top[1] } : null;
@@ -410,7 +412,7 @@ function TaxPurchasesPage() {
                   </span>
                   {summary.vatClaimableTotal > 0 && (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/90">
-                      {fmtR(summary.vatClaimableTotal)} VAT claimable
+                      {fmtR(summary.vatClaimableTotal)} estimated VAT input
                     </span>
                   )}
                   {pendingReviewLineCount > 0 && (
@@ -619,8 +621,8 @@ function TaxPurchasesPage() {
                     </span>
                   </div>
                   {topSupplier && (
-                    <p className="mt-1 truncate text-[11px] text-slate-500" title={`Top supplier: ${topSupplier.vendor}`}>
-                      Top: {topSupplier.vendor} ({fmtR(topSupplier.totalCents / 100)})
+                      <p className="mt-1 truncate text-[11px] text-slate-500" title={`Top supplier by receipt total: ${topSupplier.vendor}`}>
+                      Top supplier by slip value: {topSupplier.vendor} ({fmtR(topSupplier.totalCents / 100)})
                     </p>
                   )}
                 </CardContent>
@@ -662,14 +664,14 @@ function TaxPurchasesPage() {
                 <CardContent className="p-3.5 sm:p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">VAT input claim</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Estimated VAT input</p>
                       <p className="mt-1 text-lg font-bold tabular-nums text-blue-900 sm:text-xl">{fmtR(summary.vatClaimableTotal)}</p>
                     </div>
                     <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-blue-100 text-blue-700">
                       <ShieldCheck className="h-4 w-4" />
                     </span>
                   </div>
-                  <p className="mt-1 text-[11px] leading-4 text-blue-700/80">15/115 of standard-rated deductible spend</p>
+                  <p className="mt-1 text-[11px] leading-4 text-blue-700/80">15/115 estimate for confirmed eligible lines. Slip VAT is shown separately.</p>
                 </CardContent>
               </Card>
               <Card>
@@ -715,7 +717,7 @@ function TaxPurchasesPage() {
                 <CardContent className="py-4 px-4">
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <p className="text-xs uppercase tracking-wide font-semibold text-slate-700 inline-flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5" /> SARS-readiness
+                      <ShieldCheck className="w-3.5 h-3.5" /> Tax record readiness
                     </p>
                     {sarsReadiness.score != null && (
                       <span className={`text-xl font-bold tabular-nums ${
@@ -731,7 +733,9 @@ function TaxPurchasesPage() {
                   {sarsReadiness.score == null ? (
                     <p className="text-xs text-slate-500">No slips in this window yet.</p>
                   ) : (
-                    <ul className="text-xs space-y-1">
+                    <>
+                      <p className="mb-2 text-xs leading-4 text-slate-500">Internal completeness estimate from slips to review, line mismatches and rule overrides.</p>
+                      <ul className="text-xs space-y-1">
                       <li className="flex items-center justify-between">
                         <span className="text-slate-600">Slips with lines</span>
                         <span className="tabular-nums font-medium">
@@ -755,7 +759,8 @@ function TaxPurchasesPage() {
                           Oldest slip needing review: {new Date(oldestUnclassified.receipt_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}{oldestUnclassified.vendor ? ` (${oldestUnclassified.vendor})` : ""}
                         </li>
                       )}
-                    </ul>
+                      </ul>
+                    </>
                   )}
                 </CardContent>
               </Card>
@@ -778,7 +783,7 @@ function TaxPurchasesPage() {
                       </button>
                     </p>
                   ) : sparkline.every((b) => b.total === 0) ? (
-                    <p className="text-xs text-slate-500">No deductible spend in the last 6 months.</p>
+                    <p className="text-xs text-slate-500">No confirmed deductible lines in the last 6 months. Slips awaiting review are excluded.</p>
                   ) : (
                     <div className="flex items-end gap-2 h-20">
                       {sparkline.map((b, i) => {
@@ -953,7 +958,7 @@ function SlipRow({
   const draftTotal = r.draftItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const slipTotal = Number(r.total ?? 0);
   const drift = slipTotal > 0 ? itemsTotal - slipTotal : 0;
-  const driftBig = r.draftItems.length === 0 && slipTotal > 0 && Math.abs(drift) > slipTotal * 0.05 && Math.abs(drift) > 1;
+  const driftBig = r.confirmedItems.length > 0 && r.draftItems.length === 0 && slipTotal > 0 && Math.abs(drift) > slipTotal * 0.05 && Math.abs(drift) > 1;
   const driftSign = drift > 0 ? "+" : "";
   return (
     <div className="border-b border-slate-100 last:border-b-0">
