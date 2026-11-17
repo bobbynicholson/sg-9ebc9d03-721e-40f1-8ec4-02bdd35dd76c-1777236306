@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import {
   AlertTriangle,
   BookOpen,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -139,10 +141,13 @@ function flagClass(tone: "default" | "warning" | "critical") {
 export function CatalogueOperationsStrip({
   active,
   className = "",
+  navigationMode = "links",
 }: {
   active: CatalogueSurface;
   className?: string;
+  navigationMode?: "links" | "dropdown";
 }) {
+  const router = useRouter();
   const { user, profile } = useAuth() as {
     user?: { company_id?: string; user_metadata?: { company_id?: string } } | null;
     profile?: { company_id?: string } | null;
@@ -307,41 +312,86 @@ export function CatalogueOperationsStrip({
     return { label: `${totalProblems} to fix`, className: "border-rose-200 bg-rose-50 text-rose-700", icon: AlertTriangle };
   }, [counts]);
   const HealthIcon = health.icon;
+  const activeSurface = SURFACES.find((surface) => surface.key === active) || SURFACES[0];
+  const ActiveSurfaceIcon = activeSurface.icon;
 
   return (
-    // One compact tab row: section links with their warning flags, and the
-    // overall health + refresh on the right. Full counts show on hover.
+    // Section links, or a dropdown on constrained surfaces, with live health
+    // and recovery actions alongside.
     <section className={`mb-5 rounded-lg border border-slate-200 bg-white shadow-sm ${className}`} aria-label="Catalogue sections">
       <div className="flex flex-col gap-2 p-1.5 lg:flex-row lg:items-center">
-        <nav className="flex min-w-0 flex-1 flex-wrap gap-1">
-          {SURFACES.map((surface) => {
-            const Icon = surface.icon;
-            const activeSurface = surface.key === active;
-            const flag = flagFor(surface.key, counts);
-            const metric = loading ? "" : metricFor(surface.key, counts);
-            return (
-              <Link
-                key={surface.key}
-                href={withSlug(surface.href)}
-                title={metric ? `${surface.title}: ${metric}` : surface.title}
-                aria-current={activeSurface ? "page" : undefined}
-                className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
-                  activeSurface
-                    ? "bg-brand-primary/10 text-brand-primary"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                }`}
-              >
-                <Icon className={`h-4 w-4 flex-shrink-0 ${activeSurface ? "text-brand-primary" : "text-slate-400"}`} />
-                {surface.title}
-                {flag && !loading && (
-                  <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-none ${flagClass(flag.tone)}`}>
-                    {flag.text}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
+        {navigationMode === "dropdown" ? (
+          <div className="min-w-0 flex-1">
+            <Select
+              value={active}
+              onValueChange={(key) => {
+                const destination = SURFACES.find((surface) => surface.key === key);
+                if (destination) void router.push(withSlug(destination.href));
+              }}
+            >
+              <SelectTrigger aria-label="Choose catalogue section" className="h-10 w-full max-w-full border-slate-200 bg-white text-sm font-medium text-slate-800 sm:max-w-sm">
+                <ActiveSurfaceIcon aria-hidden="true" className="h-4 w-4 shrink-0 text-brand-primary" />
+                <SelectValue>{activeSurface.title}</SelectValue>
+              </SelectTrigger>
+              <SelectContent align="start" className="w-[min(22rem,calc(100vw-2rem))]">
+                {SURFACES.map((surface) => {
+                  const Icon = surface.icon;
+                  const flag = flagFor(surface.key, counts);
+                  const metric = loading ? "" : metricFor(surface.key, counts);
+                  return (
+                    <SelectItem
+                      key={surface.key}
+                      value={surface.key}
+                      textValue={[surface.title, metric, flag?.text].filter(Boolean).join(" ")}
+                      className="min-h-10 py-2"
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <Icon className={`h-4 w-4 shrink-0 ${surface.key === active ? "text-brand-primary" : "text-slate-400"}`} aria-hidden="true" />
+                        <span className="min-w-0 flex-1 truncate">{surface.title}</span>
+                        {metric && <span className="shrink-0 text-xs text-slate-500">{metric}</span>}
+                        {flag && !loading && (
+                          <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-xs font-medium leading-none ${flagClass(flag.tone)}`}>
+                            {flag.text}
+                          </span>
+                        )}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : (
+          <nav className="flex min-w-0 flex-1 flex-wrap gap-1">
+            {SURFACES.map((surface) => {
+              const Icon = surface.icon;
+              const activeSurface = surface.key === active;
+              const flag = flagFor(surface.key, counts);
+              const metric = loading ? "" : metricFor(surface.key, counts);
+              return (
+                <Link
+                  key={surface.key}
+                  href={withSlug(surface.href)}
+                  title={metric ? `${surface.title}: ${metric}` : surface.title}
+                  aria-current={activeSurface ? "page" : undefined}
+                  className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
+                    activeSurface
+                      ? "bg-brand-primary/10 text-brand-primary"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <Icon className={`h-4 w-4 flex-shrink-0 ${activeSurface ? "text-brand-primary" : "text-slate-400"}`} />
+                  {surface.title}
+                  {flag && !loading && (
+                    <span className={`rounded-full border px-1.5 py-0.5 text-xs font-medium leading-none ${flagClass(flag.tone)}`}>
+                      {flag.text}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+        )}
         <div className="flex shrink-0 items-center gap-1.5 border-t border-slate-100 px-1 pt-1.5 lg:border-l lg:border-t-0 lg:pl-2 lg:pt-0">
           <Badge
             variant="outline"

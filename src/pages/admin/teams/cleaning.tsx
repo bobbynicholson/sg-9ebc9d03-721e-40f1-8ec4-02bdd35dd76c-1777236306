@@ -622,17 +622,17 @@ function CleaningTeamPage() {
             meta={
               !loading && !error ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {stats.jobsToday} event{stats.jobsToday === 1 ? "" : "s"} today
                   </span>
                   {totalHandovers > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       {stats.handoversComplete}/{totalHandovers} handovers done
                     </span>
                   )}
                   {stats.handoversOverdue > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
                       {stats.handoversOverdue} overdue
                     </span>
@@ -641,32 +641,36 @@ function CleaningTeamPage() {
               ) : undefined
             }
             actions={
-              <Button asChild variant="outline" size="sm">
-                <Link href={withSlug(userRole === UserRole.CLEANING_MANAGER ? "/team-portal/cleaning/dashboard" : "/admin/teams")}>
-                  <ArrowLeft className="w-4 h-4 mr-1.5" />
-                  {userRole === UserRole.CLEANING_MANAGER ? "Cleaning desk" : "All teams"}
+              <Button asChild variant="outline" size="sm" className="h-10 w-10 shrink-0 justify-center p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3">
+                <Link
+                  href={withSlug(userRole === UserRole.CLEANING_MANAGER ? "/team-portal/cleaning/dashboard" : "/admin/teams")}
+                  aria-label={userRole === UserRole.CLEANING_MANAGER ? "Back to cleaning desk" : "Back to all teams"}
+                  title={userRole === UserRole.CLEANING_MANAGER ? "Cleaning desk" : "All teams"}
+                >
+                  <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                  <span className="sr-only sm:not-sr-only sm:inline">{userRole === UserRole.CLEANING_MANAGER ? "Cleaning desk" : "All teams"}</span>
                 </Link>
               </Button>
             }
           />
           <section
             aria-labelledby="cleaning-roster-action-title"
-            className="mb-4 flex flex-col gap-3 rounded-xl border border-brand-primary/20 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5"
+            className="mb-3 flex min-w-0 flex-col gap-3 rounded-xl border border-brand-primary/20 bg-white p-3 shadow-sm sm:mb-4 sm:flex-row sm:items-center sm:justify-between sm:p-4 sm:px-5"
           >
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
                 <ClipboardList className="h-5 w-5" aria-hidden="true" />
               </span>
               <div className="min-w-0">
-                <h2 id="cleaning-roster-action-title" className="font-semibold text-slate-900">
+                <h2 id="cleaning-roster-action-title" className="text-sm font-semibold text-slate-900 sm:text-base">
                   Cleaning shift roster
                 </h2>
-                <p className="text-sm text-slate-600">
+                <p className="text-xs leading-5 text-slate-600 sm:text-sm">
                   Assign cleaning staff, plan shifts and manage handovers.
                 </p>
               </div>
             </div>
-            <Button asChild size="default" className="w-full shrink-0 sm:w-auto">
+            <Button asChild size="default" className="min-h-10 w-full shrink-0 text-sm sm:w-auto">
               <Link href={withSlug("/admin/cleaning-schedule")}>
                 Open cleaning roster
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -675,17 +679,17 @@ function CleaningTeamPage() {
           </section>
           <PageWorkbench />
 
-          <TeamManagerWorkspace department="cleaning" />
+          <TeamManagerWorkspace department="cleaning" defaultRosterOpen={false} />
 
           {/* Command-centre audit (2026-07-02): visible load-failure
               state with Retry. captureException alone left the cards
               rendering zeros. */}
           {!loading && error && (
             <Card className="mb-4 border-rose-200 bg-rose-50 shadow-sm">
-              <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3 px-4">
-                <div className="flex items-center gap-2 text-sm text-rose-800">
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-4">
+                <div className="flex min-w-0 items-start gap-2 text-xs leading-5 text-rose-800 sm:text-sm">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>Could not load cleaning metrics: {error}</span>
+                  <span className="break-words">Could not load cleaning metrics: {error}</span>
                 </div>
                 <Button
                   size="sm"
@@ -706,15 +710,15 @@ function CleaningTeamPage() {
               never disappears. Conditional alert chips (overdue,
               supplies out, damages cost) stay as a chip row below. */}
           {loading ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" aria-hidden="true">
+            <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-4 lg:grid-cols-4" aria-hidden="true">
               {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white/70 dark:border-slate-800 dark:bg-slate-900/60" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-4 lg:grid-cols-4">
               <Link href={withSlug(staffHref)} className="block">
-                <StatTile
+                <StatTile compact
                   label="Active team"
                   value={stats.active}
                   icon={Users}
@@ -722,7 +726,7 @@ function CleaningTeamPage() {
                 />
               </Link>
               <Link href={withSlug(hoursHref)} className="block">
-                <StatTile
+                <StatTile compact
                   label="Hours this week"
                   value={`${stats.hoursWeek}h`}
                   icon={Clock}
@@ -730,14 +734,14 @@ function CleaningTeamPage() {
                 />
               </Link>
               <Link href={withSlug(eventsHref)} className="block">
-                <StatTile
+                <StatTile compact
                   label="Events today"
                   value={stats.jobsToday}
                   icon={ClipboardList}
                   hint={stats.tomorrowEvents > 0 ? `${stats.tomorrowEvents} tomorrow` : "Quiet day tomorrow"}
                 />
               </Link>
-              <StatTile
+              <StatTile compact
                 label="Clocked now"
                 value={stats.active > 0 ? `${stats.clockedNow} / ${stats.active}` : stats.clockedNow}
                 icon={Flame}
@@ -789,7 +793,7 @@ function CleaningTeamPage() {
               /admin/staff-hours filtered to the cleaner. */}
           {stats.topStaffHours.length > 0 && (
             <div className="mb-4">
-              <p className="text-[10px] uppercase tracking-wide font-semibold text-slate-500 mb-1.5">
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Hours this week
               </p>
               <div className="flex flex-wrap gap-2">
@@ -823,21 +827,21 @@ function CleaningTeamPage() {
 
           {/* CLN-A: 4-card intel grid. Today's handovers, today's
               jobs pipeline, tomorrow's load, fleet + damages. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
+          <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4">
 
             {/* Today's handover pipeline. */}
             <Link href={withSlug("/admin/cleaning-schedule")}>
               <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
+                <CardContent className="p-3 sm:p-5">
+                  <div className="mb-3 flex min-w-0 items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
                       <CheckCircle2 className="w-5 h-5 text-slate-600" />
-                      <p className="font-semibold text-slate-900">Today's handovers</p>
+                      <p className="text-sm font-semibold text-slate-900 sm:text-base">Today&apos;s handovers</p>
                     </div>
                     <ArrowRight className="w-4 h-4 text-slate-400" />
                   </div>
                   {totalHandovers === 0 && stats.handoversOverdue === 0 ? (
-                    <p className="text-sm text-slate-500">No handovers booked today.</p>
+                    <p className="text-xs leading-5 text-slate-500 sm:text-sm">No handovers booked today.</p>
                   ) : (
                     <>
                       <div className="flex flex-wrap gap-2 mb-2">
@@ -869,16 +873,16 @@ function CleaningTeamPage() {
             {/* Today's cleaning_jobs pipeline. */}
             <Link href={withSlug("/admin/cleaning-schedule")}>
               <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
+                <CardContent className="p-3 sm:p-5">
+                  <div className="mb-3 flex min-w-0 items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
                       <Droplets className="w-5 h-5 text-sky-600" />
-                      <p className="font-semibold text-slate-900">Wash-up jobs today</p>
+                      <p className="text-sm font-semibold text-slate-900 sm:text-base">Wash-up jobs today</p>
                     </div>
                     <ArrowRight className="w-4 h-4 text-slate-400" />
                   </div>
                   {totalJobs === 0 && stats.jobsOverdue === 0 ? (
-                    <p className="text-sm text-slate-500">No equipment cleaning jobs queued today.</p>
+                    <p className="text-xs leading-5 text-slate-500 sm:text-sm">No equipment cleaning jobs queued today.</p>
                   ) : (
                     <>
                       <div className="flex flex-wrap gap-2 mb-2">
@@ -913,16 +917,16 @@ function CleaningTeamPage() {
             {/* Tomorrow's load. */}
             <Link href={withSlug(isCleaningMgr ? "/team-portal/cleaning/dashboard" : `/admin/calendar?date=${toLocalISO(new Date(Date.now() + 24 * 3600 * 1000))}`)}>
               <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
+                <CardContent className="p-3 sm:p-5">
+                  <div className="mb-3 flex min-w-0 items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
                       <CalendarDays className="w-5 h-5 text-rose-600" />
-                      <p className="font-semibold text-slate-900">Tomorrow's load</p>
+                      <p className="text-sm font-semibold text-slate-900 sm:text-base">Tomorrow&apos;s load</p>
                     </div>
                     <ArrowRight className="w-4 h-4 text-slate-400" />
                   </div>
                   {stats.tomorrowEvents === 0 && stats.tomorrowHandovers === 0 ? (
-                    <p className="text-sm text-slate-500">Nothing scheduled. Quiet day ahead.</p>
+                    <p className="text-xs leading-5 text-slate-500 sm:text-sm">Nothing scheduled. Quiet day ahead.</p>
                   ) : (
                     <>
                       <p className="text-sm text-slate-700">
@@ -941,11 +945,11 @@ function CleaningTeamPage() {
             {/* Recent damages + supplies. */}
             <Link href={withSlug("/team-portal/cleaning/damage")}>
               <Card className={`border shadow-sm transition-colors hover:border-slate-300 ${stats.damagesThisWeek > 0 ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
+                <CardContent className="p-3 sm:p-5">
+                  <div className="mb-3 flex min-w-0 items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
                       <AlertTriangle className={`w-5 h-5 ${stats.damagesThisWeek > 0 ? "text-amber-600" : "text-slate-400"}`} />
-                      <p className="font-semibold text-slate-900">
+                      <p className="text-sm font-semibold text-slate-900 sm:text-base">
                         {stats.damagesThisWeek === 0 ? "No damages this week" : `${stats.damagesThisWeek} damage${stats.damagesThisWeek === 1 ? "" : "s"} this week`}
                       </p>
                     </div>
@@ -981,16 +985,16 @@ function CleaningTeamPage() {
           </div>
 
           {/* Tile shortcuts. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4">
             {tiles.map((t) => (
               <Link key={t.label} href={withSlug(t.href)}>
                 <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
-                  <CardContent className="p-5">
+                  <CardContent className="p-3 sm:p-5">
                     <div className="flex items-start gap-3">
-                      <t.icon className={`w-6 h-6 ${t.iconColor} flex-shrink-0`} />
-                      <div>
-                        <p className="font-semibold text-slate-900">{t.label}</p>
-                        <p className="text-xs text-slate-600 mt-0.5">{t.sub}</p>
+                      <t.icon className={`h-5 w-5 shrink-0 ${t.iconColor} sm:h-6 sm:w-6`} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 sm:text-base">{t.label}</p>
+                        <p className="mt-0.5 text-xs leading-5 text-slate-600">{t.sub}</p>
                       </div>
                     </div>
                   </CardContent>

@@ -365,6 +365,68 @@ export const kitchenDutyService = {
     return data;
   },
 
+  /** Correct a legacy clock from settlement with an explicit audit trail. */
+  async manualEditDutyShift(args: {
+    shiftId: string;
+    shiftStart: string;
+    shiftEnd: string;
+    totalBreakMin: number;
+    notes?: string;
+    overrideReason: string;
+    editedBy: string | null;
+  }): Promise<void> {
+    const startMs = new Date(args.shiftStart).getTime();
+    const endMs = new Date(args.shiftEnd).getTime();
+    const breakMin = Number(args.totalBreakMin);
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+      throw new Error("Enter a valid clock-in and a later clock-out.");
+    }
+    const grossMin = Math.floor((endMs - startMs) / 60_000);
+    if (grossMin > 24 * 60) throw new Error("A shift cannot exceed 24 hours.");
+    if (!Number.isFinite(breakMin) || breakMin < 0 || breakMin > grossMin) {
+      throw new Error("Break minutes must be between zero and the shift length.");
+    }
+    const reason = args.overrideReason.trim();
+    if (!reason) throw new Error("Add a reason for this manual correction.");
+
+    const { data: before, error: readError } = await (supabase as any)
+      .from("kitchen_duty_shifts")
+      .select("id, company_id, staff_id, shift_start, shift_end, total_break_min, is_active, end_note")
+      .eq("id", args.shiftId)
+      .maybeSingle();
+    if (readError) throw readError;
+    if (!before) throw new Error("Kitchen shift was not found.");
+
+    const patch: Record<string, unknown> = {
+      shift_start: new Date(startMs).toISOString(),
+      shift_end: new Date(endMs).toISOString(),
+      total_break_min: breakMin,
+      is_active: false,
+      updated_at: new Date().toISOString(),
+    };
+    if (args.notes !== undefined) patch.end_note = args.notes.trim() || null;
+    const { error: updateError } = await (supabase as any)
+      .from("kitchen_duty_shifts")
+      .update(patch)
+      .eq("id", args.shiftId);
+    if (updateError) throw updateError;
+
+    if (before.company_id) {
+      try {
+        await (supabase as any).from("audit_logs").insert({
+          company_id: before.company_id,
+          user_id: args.editedBy,
+          action: "kitchen_duty_shift_edited",
+          entity_type: "kitchen_duty_shift",
+          entity_id: args.shiftId,
+          details: { before, patch, override_reason: reason },
+        });
+      } catch (auditError) {
+        console.warn("[kitchenDutyService.manualEditDutyShift] audit insert failed:", auditError);
+      }
+    }
+  },
+
   // Get duty shift history
   async getDutyShiftHistory(
     filters?: {

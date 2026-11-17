@@ -762,11 +762,11 @@ export function ReconcileSlipDrawer({
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-2">
           <ReceiptIcon className="w-5 h-5 text-brand-primary" />
-          <h2 className="text-lg font-bold text-slate-900">
+          <h2 className="text-base font-bold text-slate-900 sm:text-lg">
             {manualMode ? "Manual shopping entry" : existingReceiptId ? "Rescan results" : "Reconcile slip"}
           </h2>
         </div>
-        <p className="text-sm text-slate-600 -mt-2">
+        <p className="-mt-2 text-xs leading-5 text-slate-600 sm:text-sm">
           {manualMode
             ? "Capture a shop run by hand. Tag each line for tax and, if you stock it, feed your inventory."
             : existingReceiptId

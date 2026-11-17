@@ -43,7 +43,7 @@ export function AdminSmartQuickActions({ onNavigate }: AdminSmartQuickActionsPro
       { href: "/admin/stock",      label: "Stock outlook",   sub: "Pressure feed",         icon: Package,   accent: BRAND_ACCENT },
     ],
     pipeline: [
-      { href: "/admin/quotes",     label: "Quotes to chase", sub: "> 48h overdue",         icon: FileSpreadsheet, accent: BRAND_ACCENT },
+      { href: "/admin/quotes",     label: "Quotes to chase", sub: "48h+ overdue",          icon: FileSpreadsheet, accent: BRAND_ACCENT },
       { href: "/admin/leads",      label: "Lead inbox",      sub: "New today",             icon: UserPlus,  accent: BRAND_ACCENT },
       { href: "/admin/calendar",   label: "Calendar",        sub: "What's coming",         icon: Calendar,  accent: BRAND_ACCENT },
     ],

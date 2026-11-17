@@ -37,6 +37,13 @@ export interface MoneyIssue {
   orderTotal: number;
   invoiceTotal: number;
   outstanding: number;
+  moneyView: {
+    orderPaid: number;
+    ledgerPaid: number;
+    orderBalance: number | null;
+    invoicePaid: number;
+    invoiceBalance: number;
+  };
 }
 
 export interface ReconciliationResult {
@@ -57,9 +64,18 @@ export interface ReconciliationResult {
 export async function findMoneyInconsistencies(
   sb: SupabaseClient,
   companyId: string,
-  opts?: { limit?: number },
+  opts?: { limit?: number; currencyCode?: string },
 ): Promise<ReconciliationResult> {
   const limit = Math.max(1, Math.min(opts?.limit ?? 500, 1000));
+  const currencyCode = opts?.currencyCode || "ZAR";
+  const formatMoney = (value: unknown) => {
+    const amount = r2(value);
+    try {
+      return new Intl.NumberFormat("en-ZA", { style: "currency", currency: currencyCode }).format(amount);
+    } catch {
+      return `${currencyCode} ${amount.toFixed(2)}`;
+    }
+  };
   const { data: orderRows, error: oErr } = await (sb as any)
     .from("orders")
     .select("id, order_number, client_name, status, total_amount, amount_paid, payment_opening_paid, balance_amount, balance_paid, deposit_paid, payment_status")
@@ -140,7 +156,15 @@ export async function findMoneyInconsistencies(
 
   const issues: MoneyIssue[] = [];
   const affected = new Set<string>();
-  const push = (o: any, kind: MoneyIssueKind, severity: "warning" | "error", detail: string, invTotal: number, outstanding: number) => {
+  const push = (
+    o: any,
+    kind: MoneyIssueKind,
+    severity: "warning" | "error",
+    detail: string,
+    invTotal: number,
+    outstanding: number,
+    moneyView: MoneyIssue["moneyView"],
+  ) => {
     issues.push({
       orderId: o.id,
       orderNumber: o.order_number ?? null,
@@ -152,6 +176,7 @@ export async function findMoneyInconsistencies(
       orderTotal: r2(o.total_amount),
       invoiceTotal: r2(invTotal),
       outstanding: r2(outstanding),
+      moneyView,
     });
     affected.add(o.id);
   };
@@ -162,42 +187,7 @@ export async function findMoneyInconsistencies(
     const orderBalance = o.balance_amount != null ? r2(o.balance_amount) : null;
     const invTotalSum = r2(invs.reduce((s, i) => s + Number(i.total_amount || 0), 0));
     const invBalanceSum = r2(invs.reduce((s, i) => s + Number(i.balance_due || 0), 0));
-
-    // 1. Each invoice internally consistent: balance_due == total - paid.
-    for (const inv of invs) {
-      // balance_due is never negative. An overpayment is surfaced below as a
-      // warning, not falsely reported as a broken invoice calculation too.
-      const expected = r2(Math.max(0, Number(inv.total_amount || 0) - Number(inv.amount_paid || 0)));
-      if (!near(inv.balance_due, expected)) {
-        push(o, "invoice_internal", "error",
-          `Invoice ${inv.invoice_number}: balance R${r2(inv.balance_due)} but total - paid = R${expected}.`,
-          invTotalSum, invBalanceSum);
-      }
-      // overpaid
-      if (Number(inv.amount_paid || 0) - Number(inv.total_amount || 0) > 0.02) {
-        push(o, "overpaid", "warning",
-          `Invoice ${inv.invoice_number}: paid R${r2(inv.amount_paid)} exceeds total R${r2(inv.total_amount)}.`,
-          invTotalSum, invBalanceSum);
-      }
-    }
-
-    // 2. Order total vs invoice total (only when an invoice exists).
-    if (invs.length > 0 && !near(orderTotal, invTotalSum)) {
-      push(o, "order_vs_invoice_total", "error",
-        `Order total R${orderTotal} != invoice total R${invTotalSum} (diff R${r2(orderTotal - invTotalSum)}).`,
-        invTotalSum, invBalanceSum);
-    }
-
-    // 3. Order outstanding vs invoice balance (only when an invoice exists).
-    if (invs.length > 0 && orderBalance != null && !near(orderBalance, invBalanceSum)) {
-      push(o, "order_vs_invoice_balance", "error",
-        `Order outstanding R${orderBalance} != invoice balance R${invBalanceSum}.`,
-        invTotalSum, invBalanceSum);
-    }
-
-    // 4. Order paid projection vs the actual settled ledger. Imported money
-    // predating payment rows lives in payment_opening_paid, so include it just
-    // as the database reconciliation function does.
+    const invPaidSum = r2(invs.reduce((s, i) => s + Number(i.amount_paid || 0), 0));
     const ledgerPaid = r2(Math.max(0,
       Number(o.payment_opening_paid || 0) + (paymentsByOrder.get(o.id) || []).reduce((sum, payment) => {
         const amount = Math.abs(Number(payment.amount || 0));
@@ -206,11 +196,54 @@ export async function findMoneyInconsistencies(
         return sum + Number(payment.amount || 0);
       }, 0),
     ));
+    const moneyView: MoneyIssue["moneyView"] = {
+      orderPaid: r2(o.amount_paid),
+      ledgerPaid,
+      orderBalance,
+      invoicePaid: invPaidSum,
+      invoiceBalance: invBalanceSum,
+    };
+
+    // 1. Each invoice internally consistent: balance_due == total - paid.
+    for (const inv of invs) {
+      // balance_due is never negative. An overpayment is surfaced below as a
+      // warning, not falsely reported as a broken invoice calculation too.
+      const expected = r2(Math.max(0, Number(inv.total_amount || 0) - Number(inv.amount_paid || 0)));
+      if (!near(inv.balance_due, expected)) {
+        push(o, "invoice_internal", "error",
+          `Invoice ${inv.invoice_number || inv.id.slice(0, 8)}: balance ${formatMoney(inv.balance_due)} but total - paid = ${formatMoney(expected)}.`,
+          invTotalSum, invBalanceSum, moneyView);
+      }
+      // overpaid
+      if (Number(inv.amount_paid || 0) - Number(inv.total_amount || 0) > 0.02) {
+        push(o, "overpaid", "warning",
+          `Invoice ${inv.invoice_number || inv.id.slice(0, 8)}: paid ${formatMoney(inv.amount_paid)} exceeds total ${formatMoney(inv.total_amount)}.`,
+          invTotalSum, invBalanceSum, moneyView);
+      }
+    }
+
+    // 2. Order total vs invoice total (only when an invoice exists).
+    if (invs.length > 0 && !near(orderTotal, invTotalSum)) {
+      push(o, "order_vs_invoice_total", "error",
+        `Order total ${formatMoney(orderTotal)} does not match invoice total ${formatMoney(invTotalSum)} (difference ${formatMoney(orderTotal - invTotalSum)}).`,
+        invTotalSum, invBalanceSum, moneyView);
+    }
+
+    // 3. Order outstanding vs invoice balance (only when an invoice exists).
+    if (invs.length > 0 && orderBalance != null && !near(orderBalance, invBalanceSum)) {
+      push(o, "order_vs_invoice_balance", "error",
+        `Order outstanding ${formatMoney(orderBalance)} does not match invoice balance ${formatMoney(invBalanceSum)}.`,
+        invTotalSum, invBalanceSum, moneyView);
+    }
+
+    // 4. Order paid projection vs the actual settled ledger. Imported money
+    // predating payment rows lives in payment_opening_paid, so include it just
+    // as the database reconciliation function does.
     const projectedPaid = r2(o.amount_paid);
     if (!near(projectedPaid, ledgerPaid)) {
       push(o, "order_vs_payment_ledger", "error",
-        `Order paid R${projectedPaid} != settled payment ledger R${ledgerPaid}.`,
-        invTotalSum, orderBalance ?? invBalanceSum);
+        `Order paid ${formatMoney(projectedPaid)} does not match the settled payment ledger ${formatMoney(ledgerPaid)}.`,
+        invTotalSum, orderBalance ?? invBalanceSum, moneyView);
     }
 
     // 5. Paid-flag sanity: balance_paid=true but money still owed, or false
@@ -219,9 +252,9 @@ export async function findMoneyInconsistencies(
     const owed = invs.length > 0 ? invBalanceSum : (orderBalance ?? 0);
     const shouldBePaid = orderTotal > 0.02 && owed <= 0.02;
     if (o.balance_paid === true && !shouldBePaid) {
-      push(o, "paid_flag_mismatch", "error", `Marked balance-paid but R${owed} is still outstanding.`, invTotalSum, owed);
+      push(o, "paid_flag_mismatch", "error", `Marked balance-paid but ${formatMoney(owed)} is still outstanding.`, invTotalSum, owed, moneyView);
     } else if (o.balance_paid === false && shouldBePaid) {
-      push(o, "paid_flag_mismatch", "error", "Balance is settled but the order is not marked balance-paid.", invTotalSum, owed);
+      push(o, "paid_flag_mismatch", "error", "Balance is settled but the order is not marked balance-paid.", invTotalSum, owed, moneyView);
     }
   }
 

@@ -242,7 +242,7 @@ export function NotificationsTab({ userId, companyId, activeRole, companyName, c
   );
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {devicePushPanel}
         <PortalCard className="flex items-center justify-center py-12">
           <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
@@ -256,7 +256,7 @@ export function NotificationsTab({ userId, companyId, activeRole, companyName, c
 
   if (loadError) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {devicePushPanel}
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-5 dark:border-rose-900/60 dark:bg-rose-950/40">
           <div className="flex items-start gap-3">
@@ -285,7 +285,7 @@ export function NotificationsTab({ userId, companyId, activeRole, companyName, c
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {devicePushPanel}
       <PortalCard>
         <PortalCardHeader
@@ -299,7 +299,7 @@ export function NotificationsTab({ userId, companyId, activeRole, companyName, c
         <p className="-mt-2 mb-5 text-sm text-slate-500 dark:text-slate-400">
           Choose which event types can send push and WhatsApp alerts. Enable push on each device above, then save once below to apply all changes.
         </p>
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
           {(["push", "whatsapp"] as const).map((channel) => (
             <section key={channel} aria-labelledby={`notification-${channel}-title`}>
               <div className="mb-2 flex items-center gap-2">
@@ -312,13 +312,14 @@ export function NotificationsTab({ userId, companyId, activeRole, companyName, c
                 {CATEGORIES.map(({ key, title, description }) => {
                   const id = `${channel}-${key}`;
                   return (
-                    <div key={key} className="flex min-h-[56px] items-center justify-between gap-4 px-4 py-3">
+                    <div key={key} className="flex min-h-[56px] items-center justify-between gap-3 px-3 py-3 sm:gap-4 sm:px-4">
                       <div className="min-w-0 space-y-0.5">
                         <Label htmlFor={id} className="cursor-pointer text-sm font-medium">{title}</Label>
                         <p className="text-xs text-slate-500 dark:text-slate-400">{description}</p>
                       </div>
                       <Switch
                         id={id}
+                        className="shrink-0"
                         checked={channels[channel][key]}
                         onCheckedChange={(checked) => setChannels((current) => ({
                           ...current,
@@ -346,7 +347,7 @@ export function NotificationsTab({ userId, companyId, activeRole, companyName, c
         Choose which events email you. These settings apply to your account.
       </p>
 
-        <div className="space-y-6">
+        <div className="space-y-5 sm:space-y-6">
         {GROUPS.map((group) => (
           <div key={group.title}>
             <div className="mb-2 flex items-center gap-2">
@@ -357,7 +358,7 @@ export function NotificationsTab({ userId, companyId, activeRole, companyName, c
             </div>
             <div className="divide-y divide-slate-100 rounded-lg border border-slate-200/90 dark:divide-slate-800 dark:border-slate-800">
               {group.rows.map((row) => (
-                <div key={row.field} className="flex min-h-[56px] items-center justify-between gap-4 px-4 py-3">
+                <div key={row.field} className="flex min-h-[56px] items-center justify-between gap-3 px-3 py-3 sm:gap-4 sm:px-4">
                   <div className="min-w-0 space-y-0.5">
                     <Label
                       htmlFor={`pref-${row.field}`}
@@ -369,6 +370,7 @@ export function NotificationsTab({ userId, companyId, activeRole, companyName, c
                   </div>
                   <Switch
                     id={`pref-${row.field}`}
+                    className="shrink-0"
                     checked={prefs[row.field]}
                     onCheckedChange={(checked) => setPrefs((prev) => ({ ...prev, [row.field]: checked }))}
                   />
@@ -379,11 +381,11 @@ export function NotificationsTab({ userId, companyId, activeRole, companyName, c
         ))}
       </div>
 
-      <div className="mt-6 flex justify-end border-t border-slate-200 pt-4 dark:border-slate-800">
+      <div className="mt-5 flex justify-end border-t border-slate-200 pt-4 dark:border-slate-800 sm:mt-6">
         <Button
           onClick={handleSave}
           disabled={saving}
-          className="min-h-[44px] bg-brand-primary text-white hover:bg-brand-primary/90"
+          className="min-h-11 w-full bg-brand-primary text-white hover:bg-brand-primary/90 sm:w-auto"
         >
           {saving ? (
             <>

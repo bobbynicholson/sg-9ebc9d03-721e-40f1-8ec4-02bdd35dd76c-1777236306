@@ -33,6 +33,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { PwaLoadingScreen } from "@/components/pwa/PwaLoadingScreen";
 
 interface ShortageFlag {
   id: string;
@@ -227,14 +228,7 @@ export function ShortagesPanel() {
     .reduce((sum, s) => sum + Number(s.financial_impact), 0);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3"></div>
-          <p className="text-sm text-gray-600">Loading shortage flags...</p>
-        </div>
-      </div>
-    );
+    return <PwaLoadingScreen message="Loading equipment shortages" variant="inline" />;
   }
 
   return (

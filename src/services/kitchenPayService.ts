@@ -38,7 +38,14 @@ const OT_RATE_MULTIPLIER = 1.5;
 
 export interface ShiftLine {
   shift_id: string;
-  shift_date: string;       // YYYY-MM-DD
+  shift_date: string | null; // YYYY-MM-DD; null when the source clock date is missing
+  source: "kitchen_staff_shifts" | "kitchen_duty_shifts";
+  shift_start: string | null;
+  shift_end: string | null;
+  total_break_min: number;
+  notes: string | null;
+  needs_review: boolean;
+  review_reason: string | null;
   hours: number;            // worked hours after break deduction
   rate_multiplier: number;  // 1, 1.5, 2
   base_hours: number;       // up to OT cutoff
@@ -62,6 +69,7 @@ export interface PaySummary {
   multiplierPay: number;
   totalPay: number;
   shifts: ShiftLine[];
+  shiftsNeedingReview: number;
   // Pay model this total was computed under. "hourly" = the shift-line
   // roll-up below; "monthly" = salary prorated to the period; "shift" =
   // flat rate x shift count. For monthly/shift the shifts[] array is
@@ -78,6 +86,8 @@ interface DutyShiftRow {
   shift_start: string | null;
   shift_end: string | null;
   total_break_min: number | null;
+  end_note?: string | null;
+  is_active?: boolean | null;
 }
 
 interface KitchenShiftRow {
@@ -95,6 +105,7 @@ interface KitchenStaffShiftRow {
   shift_start: string | null;
   shift_end: string | null;
   total_break_min: number | null;
+  notes?: string | null;
   standard_min: number | null;
   overtime_min: number | null;
   sunday_holiday_min: number | null;
@@ -214,7 +225,7 @@ export async function summariseStaffPay(
   const endIso = `${periodEnd}T23:59:59.999Z`;
   const { data: dutyShifts, error: dutyShiftsError } = await (supabase as any)
     .from("kitchen_duty_shifts")
-    .select("id, staff_id, shift_start, shift_end, total_break_min")
+    .select("id, staff_id, shift_start, shift_end, total_break_min, end_note, is_active")
     .eq("company_id", companyId)
     .eq("staff_id", staffId)
     .gte("shift_end", startIso)
@@ -223,13 +234,41 @@ export async function summariseStaffPay(
 ;
   if (dutyShiftsError) throw dutyShiftsError;
 
+  // Stale open clocks are surfaced as review-only rows. A current shift is
+  // normal while someone is working; after 14 hours it is more likely a
+  // missed clock-out and must be corrected before a payslip is issued.
+  const [openDutyResult, openStaffResult] = await Promise.all([
+    (supabase as any)
+      .from("kitchen_duty_shifts")
+      .select("id, staff_id, shift_start, shift_end, total_break_min, end_note, is_active")
+      .eq("company_id", companyId)
+      .eq("staff_id", staffId)
+      .eq("is_active", true)
+      .is("shift_end", null)
+      .gte("shift_start", startIso)
+      .lte("shift_start", endIso),
+    (ksm as any)?.id
+      ? (supabase as any)
+        .from("kitchen_staff_shifts")
+        .select("id, shift_start, shift_end, total_break_min, notes, standard_min, overtime_min, sunday_holiday_min")
+        .eq("company_id", companyId)
+        .eq("staff_member_id", (ksm as any).id)
+        .is("shift_end", null)
+        .gte("shift_start", startIso)
+        .lte("shift_start", endIso)
+        .is("deleted_at", null)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (openDutyResult.error) throw openDutyResult.error;
+  if (openStaffResult.error) throw openStaffResult.error;
+
   // kitchen_staff_shifts is the active roster/tablet clock. The legacy duty
   // source is retained below solely for historical records that predate it.
   let currentShiftRows: KitchenStaffShiftRow[] = [];
   if ((ksm as any)?.id) {
     const { data, error } = await (supabase as any)
       .from("kitchen_staff_shifts")
-      .select("id, shift_start, shift_end, total_break_min, standard_min, overtime_min, sunday_holiday_min")
+      .select("id, shift_start, shift_end, total_break_min, notes, standard_min, overtime_min, sunday_holiday_min")
       .eq("company_id", companyId)
       .eq("staff_member_id", (ksm as any).id)
       .gte("shift_end", startIso)
@@ -270,25 +309,44 @@ export async function summariseStaffPay(
   }
 
   const shifts: ShiftLine[] = [];
-  const useCurrentShiftSource = currentShiftRows.length > 0;
-  const rowsToSettle: DutyShiftRow[] = useCurrentShiftSource
-    ? currentShiftRows.map((shift) => ({
+  const legacyRows = ((dutyShifts || []) as DutyShiftRow[]).filter((legacy) => {
+    // Some records exist in both clock tables. Match both timestamps
+    // within two minutes so the same shift is never paid twice.
+    return !currentShiftRows.some((current) => {
+      if (!current.shift_start || !current.shift_end || !legacy.shift_start || !legacy.shift_end) return false;
+      return Math.abs(new Date(current.shift_start).getTime() - new Date(legacy.shift_start).getTime()) <= 2 * 60_000 &&
+        Math.abs(new Date(current.shift_end).getTime() - new Date(legacy.shift_end).getTime()) <= 2 * 60_000;
+    });
+  });
+  const rowsToSettle: DutyShiftRow[] = [
+    ...currentShiftRows.map((shift) => ({
       id: shift.id,
       staff_id: staffId,
       shift_start: shift.shift_start,
       shift_end: shift.shift_end,
       total_break_min: shift.total_break_min,
-    }))
-    : (dutyShifts || []) as DutyShiftRow[];
+    })),
+    ...legacyRows,
+  ];
   const currentShiftById = new Map(currentShiftRows.map((shift) => [shift.id, shift]));
 
   for (const ds of rowsToSettle) {
-    if (!ds.shift_start || !ds.shift_end) continue;
-    const startMs = new Date(ds.shift_start).getTime();
-    const endMs = new Date(ds.shift_end).getTime();
-    const grossMin = Math.max(0, Math.floor((endMs - startMs) / 60000));
-    const workedMin = Math.max(0, grossMin - (Number(ds.total_break_min) || 0));
-    const hours = Math.round((workedMin / 60) * 100) / 100;
+    const startMs = ds.shift_start ? new Date(ds.shift_start).getTime() : Number.NaN;
+    const endMs = ds.shift_end ? new Date(ds.shift_end).getTime() : Number.NaN;
+    const grossMin = Number.isFinite(startMs) && Number.isFinite(endMs)
+      ? Math.floor((endMs - startMs) / 60000)
+      : 0;
+    const breakMin = Number(ds.total_break_min) || 0;
+    const reasons: string[] = [];
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) reasons.push("Missing or invalid clock time");
+    else if (grossMin <= 0) reasons.push("Clock-out must be after clock-in");
+    else if (grossMin > 24 * 60) reasons.push("Shift is longer than 24 hours");
+    if (!Number.isFinite(breakMin) || breakMin < 0) reasons.push("Break minutes are invalid");
+    else if (grossMin > 0 && breakMin > grossMin) reasons.push("Break exceeds the clocked shift");
+    const workedMin = grossMin > 0 && breakMin >= 0 && breakMin <= grossMin
+      ? grossMin - breakMin
+      : 0;
+    let hours = Math.round((workedMin / 60) * 100) / 100;
 
     // Current rows already hold the BCEA split calculated when the person
     // clocked out (including the weekly cap and public-holiday bucket).
@@ -299,14 +357,50 @@ export async function summariseStaffPay(
       const standardHours = Math.max(0, Number(currentRow.standard_min) || 0) / 60;
       const overtimeHours = Math.max(0, Number(currentRow.overtime_min) || 0) / 60;
       const sundayHolidayHours = Math.max(0, Number(currentRow.sunday_holiday_min) || 0) / 60;
-      const recordedHours = standardHours + overtimeHours + sundayHolidayHours;
+      const recordedMin = Math.round((standardHours + overtimeHours + sundayHolidayHours) * 60);
+      if (recordedMin > 0 && Math.abs(recordedMin - workedMin) > 3) {
+        reasons.push("Recorded pay minutes do not match the clock interval");
+      }
+      if (recordedMin === 0 && workedMin > 0) {
+        reasons.push("Recorded pay minutes are missing");
+      }
+      const recordedHours = recordedMin > 0 ? recordedMin / 60 : workedMin / 60;
+      if (reasons.length > 0) {
+        shifts.push({
+          shift_id: ds.id,
+          shift_date: Number.isFinite(endMs) ? toZonedISO(new Date(endMs), tenantTz) : Number.isFinite(startMs) ? toZonedISO(new Date(startMs), tenantTz) : null,
+          source: "kitchen_staff_shifts",
+          shift_start: ds.shift_start,
+          shift_end: ds.shift_end,
+          total_break_min: breakMin,
+          notes: currentRow.notes || null,
+          needs_review: true,
+          review_reason: reasons.join("; "),
+          hours: 0,
+          rate_multiplier: 1,
+          base_hours: 0,
+          ot_hours: 0,
+          base_pay: 0,
+          ot_pay: 0,
+          multiplier_pay: 0,
+          line_total: 0,
+        });
+        continue;
+      }
       if (recordedHours > 0 || workedMin === 0) {
         const basePay = Math.round((standardHours + sundayHolidayHours) * hourlyRate * 100) / 100;
         const otPay = Math.round(overtimeHours * overtimeRate * 100) / 100;
         const multiplierPay = Math.round(sundayHolidayHours * (sundayHolidayRate - hourlyRate) * 100) / 100;
         shifts.push({
           shift_id: ds.id,
-          shift_date: toZonedISO(new Date(ds.shift_end), tenantTz),
+          shift_date: toZonedISO(new Date(endMs), tenantTz),
+          source: "kitchen_staff_shifts",
+          shift_start: ds.shift_start,
+          shift_end: ds.shift_end,
+          total_break_min: breakMin,
+          notes: currentRow.notes || null,
+          needs_review: false,
+          review_reason: null,
           hours: Math.round(recordedHours * 100) / 100,
           rate_multiplier: sundayHolidayHours > 0 && hourlyRate > 0 ? sundayHolidayRate / hourlyRate : 1,
           base_hours: standardHours + sundayHolidayHours,
@@ -322,11 +416,38 @@ export async function summariseStaffPay(
 
     // Resolve multiplier: prefer the explicit roster -> duty link.
     // Fall back to date match. Default 1x.
-    const shiftDate = toZonedISO(new Date(ds.shift_end), tenantTz);
+    const shiftDate = Number.isFinite(endMs)
+      ? toZonedISO(new Date(endMs), tenantTz)
+      : Number.isFinite(startMs)
+        ? toZonedISO(new Date(startMs), tenantTz)
+        : periodStart;
     const multiplier =
       multiplierByDuty.get(ds.id) ||
       multiplierByDate.get(shiftDate) ||
       1;
+
+    if (reasons.length > 0) {
+      shifts.push({
+        shift_id: ds.id,
+        shift_date: Number.isFinite(endMs) ? toZonedISO(new Date(endMs), tenantTz) : Number.isFinite(startMs) ? toZonedISO(new Date(startMs), tenantTz) : null,
+        source: "kitchen_duty_shifts",
+        shift_start: ds.shift_start,
+        shift_end: ds.shift_end,
+        total_break_min: breakMin,
+        notes: ds.end_note || null,
+        needs_review: true,
+        review_reason: reasons.join("; "),
+        hours: 0,
+        rate_multiplier: multiplier,
+        base_hours: 0,
+        ot_hours: 0,
+        base_pay: 0,
+        ot_pay: 0,
+        multiplier_pay: 0,
+        line_total: 0,
+      });
+      continue;
+    }
 
     const baseHours = Math.min(hours, overtimeAfter);
     const otHours = Math.max(0, hours - overtimeAfter);
@@ -341,6 +462,13 @@ export async function summariseStaffPay(
     shifts.push({
       shift_id: ds.id,
       shift_date: shiftDate,
+      source: "kitchen_duty_shifts",
+      shift_start: ds.shift_start,
+      shift_end: ds.shift_end,
+      total_break_min: breakMin,
+      notes: ds.end_note || null,
+      needs_review: false,
+      review_reason: null,
       hours,
       rate_multiplier: multiplier,
       base_hours: baseHours,
@@ -349,6 +477,60 @@ export async function summariseStaffPay(
       ot_pay: otPay,
       multiplier_pay: multiplierPay,
       line_total: Math.round((basePay + otPay + multiplierPay) * 100) / 100,
+    });
+  }
+
+  const openStaffRows = ((openStaffResult.data || []) as KitchenStaffShiftRow[]);
+  const staleThresholdMs = 14 * 60 * 60 * 1000;
+  const now = Date.now();
+  for (const row of openStaffRows) {
+    const startedAt = row.shift_start ? new Date(row.shift_start).getTime() : Number.NaN;
+    if (!Number.isFinite(startedAt) || now - startedAt <= staleThresholdMs) continue;
+    shifts.push({
+      shift_id: row.id,
+      shift_date: toZonedISO(new Date(startedAt), tenantTz),
+      source: "kitchen_staff_shifts",
+      shift_start: row.shift_start,
+      shift_end: null,
+      total_break_min: Number(row.total_break_min) || 0,
+      notes: row.notes || null,
+      needs_review: true,
+      review_reason: "Clock is still open more than 14 hours after starting",
+      hours: 0,
+      rate_multiplier: 1,
+      base_hours: 0,
+      ot_hours: 0,
+      base_pay: 0,
+      ot_pay: 0,
+      multiplier_pay: 0,
+      line_total: 0,
+    });
+  }
+  for (const row of (openDutyResult.data || []) as DutyShiftRow[]) {
+    const startedAt = row.shift_start ? new Date(row.shift_start).getTime() : Number.NaN;
+    if (!Number.isFinite(startedAt) || now - startedAt <= staleThresholdMs) continue;
+    const matchesCurrentOpen = openStaffRows.some((current) =>
+      current.shift_start && Math.abs(new Date(current.shift_start).getTime() - startedAt) <= 2 * 60_000,
+    );
+    if (matchesCurrentOpen) continue;
+    shifts.push({
+      shift_id: row.id,
+      shift_date: toZonedISO(new Date(startedAt), tenantTz),
+      source: "kitchen_duty_shifts",
+      shift_start: row.shift_start,
+      shift_end: null,
+      total_break_min: Number(row.total_break_min) || 0,
+      notes: row.end_note || null,
+      needs_review: true,
+      review_reason: "Clock is still open more than 14 hours after starting",
+      hours: 0,
+      rate_multiplier: 1,
+      base_hours: 0,
+      ot_hours: 0,
+      base_pay: 0,
+      ot_pay: 0,
+      multiplier_pay: 0,
+      line_total: 0,
     });
   }
 
@@ -373,7 +555,7 @@ export async function summariseStaffPay(
     // Roster count when available (matches the wage report); fall back
     // to the duty-clock actual count for staff clocked only on the
     // tablet with no roster rows.
-    basePay = computeShiftPeriodPay(shiftRate, rosterShiftCount ?? shifts.length);
+    basePay = computeShiftPeriodPay(shiftRate, rosterShiftCount ?? shifts.filter((shift) => !shift.needs_review).length);
     overtimePay = 0;
     multiplierPay = 0;
   }
@@ -393,6 +575,7 @@ export async function summariseStaffPay(
     multiplierPay,
     totalPay,
     shifts,
+    shiftsNeedingReview: shifts.filter((shift) => shift.needs_review).length,
     payType,
     monthlySalary,
     shiftRate,
@@ -415,6 +598,12 @@ export async function persistPayslip(
   },
 ): Promise<{ ok: boolean; payslipId?: string; error?: string }> {
   const { companyId, summary, actorUserId, status = "draft" } = args;
+  if (status !== "draft" && summary.shiftsNeedingReview > 0) {
+    return {
+      ok: false,
+      error: `Cannot issue a payslip while ${summary.shiftsNeedingReview} shift record${summary.shiftsNeedingReview === 1 ? " needs" : "s need"} review.`,
+    };
+  }
   try {
     const row = {
       company_id: companyId,

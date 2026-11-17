@@ -834,17 +834,17 @@ function WageDashboardPage() {
             meta={
               !isLoading && (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {fmtZAR(grandTotal)} {range.label === "Custom" ? "in range" : range.label.toLowerCase()}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     {isDriversTab
                       ? `${driverRows.length} driver${driverRows.length === 1 ? "" : "s"} in range`
                       : `${staffRows.length} staff in range`}
                   </span>
                   {!isDriversTab && staffRows.some((r) => r.open_shift) && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                       {staffRows.filter((r) => r.open_shift).length} on shift now
                     </span>
@@ -853,7 +853,7 @@ function WageDashboardPage() {
               )
             }
             actions={
-            <>
+            <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
               {activeRegion && (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-medium text-white">
                   <Building2 className="w-3 h-3" />
@@ -865,28 +865,45 @@ function WageDashboardPage() {
                   every other tab manages kitchen-style staff. Pre-
                   WAGE-A this always linked to /admin/kitchen-staff
                   which is the wrong place when looking at drivers. */}
-              <Link href={withSlug(department === "drivers" ? "/admin/driver-management" : "/admin/kitchen-staff")}>
-                <Button variant="outline" size="sm" className="gap-1.5">
-                  <Users className="w-4 h-4" />Manage staff
+              <Button asChild variant="outline" size="sm" aria-label="Manage staff" title="Manage staff" className="h-10 w-10 justify-center p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3">
+                <Link href={withSlug(department === "drivers" ? "/admin/driver-management" : "/admin/kitchen-staff")}>
+                  <Users className="h-4 w-4" /><span className="sr-only sm:not-sr-only sm:inline">Manage staff</span>
+                </Link>
                 </Button>
-              </Link>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={handleExportCsv}
+                aria-label="Export wages as CSV"
+                title="Export CSV"
                 disabled={isDriversTab ? driverRows.length === 0 : sortedByPerson.length === 0}
-                className="gap-1.5"
+                className="h-10 w-10 justify-center p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3"
               >
-                <Download className="w-4 h-4" />Export CSV
+                <Download className="h-4 w-4" /><span className="sr-only sm:not-sr-only sm:inline">Export CSV</span>
               </Button>
-            </>
+            </div>
             }
           />
           <PageWorkbench />
 
-          {/* Department tabs */}
-          <Tabs value={department} onValueChange={(v) => setDepartment(v as DepartmentKey)} className="mb-4">
-            <TabsList className="grid grid-cols-3 sm:grid-cols-5 h-auto w-full md:w-auto">
+          {/* Compact department selector on phones, full tabs on desktop. */}
+          <div className="mb-3 md:hidden">
+            <label htmlFor="wages-department" className="sr-only">Wage department</label>
+            <select
+              id="wages-department"
+              value={department}
+              onChange={(event) => setDepartment(event.target.value as DepartmentKey)}
+              className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+            >
+              <option value="all">All departments</option>
+              <option value="kitchen">Kitchen</option>
+              <option value="drivers">Drivers</option>
+              <option value="shopping">Shopping</option>
+              <option value="cleaning">Cleaning</option>
+            </select>
+          </div>
+          <Tabs value={department} onValueChange={(v) => setDepartment(v as DepartmentKey)} className="mb-4 hidden md:block">
+            <TabsList className="grid h-auto w-full grid-cols-5 md:w-auto">
               <TabsTrigger id="wages-all" data-chat-section="admin.wages.all" data-chat-section-label="All wages" value="all" className="gap-1.5 text-xs md:text-sm">
                 <Users className="w-3.5 h-3.5" />All
               </TabsTrigger>
@@ -906,8 +923,8 @@ function WageDashboardPage() {
           </Tabs>
 
           {/* Period selector */}
-          <Card className="mb-5">
-            <CardContent className="p-4">
+          <Card className="mb-4 sm:mb-5">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex flex-col gap-3">
                 <div className="flex flex-wrap gap-1.5">
                   {([
@@ -930,13 +947,13 @@ function WageDashboardPage() {
                   <div className="flex flex-wrap items-end gap-2">
                     <div className="space-y-1">
                       <Label className="text-xs">From</Label>
-                      <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="w-40" />
+                      <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="h-10 w-full min-w-0 sm:w-40" />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">To</Label>
-                      <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="w-40" />
+                      <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="h-10 w-full min-w-0 sm:w-40" />
                     </div>
-                    <Button size="sm" onClick={handleApplyCustom} className="bg-brand-primary hover:bg-brand-primary/90">Apply</Button>
+                    <Button size="sm" onClick={handleApplyCustom} className="min-h-10 bg-brand-primary hover:bg-brand-primary/90">Apply</Button>
                   </div>
                 )}
                 <div className="text-xs text-slate-500 inline-flex items-center gap-1">
@@ -953,40 +970,40 @@ function WageDashboardPage() {
           {isDriversTab ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
               <Card>
-                <CardContent className="p-4">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Hourly</div>
-                  <div className="text-xl sm:text-2xl font-bold text-slate-900 tabular-nums">{fmtZAR(driverTotals.hourly)}</div>
-                  <div className="text-[10px] text-slate-500 mt-1">On-shift hours x rate</div>
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-xs uppercase tracking-wider text-slate-500 mb-1">Hourly</div>
+                  <div className="text-lg font-bold text-slate-900 tabular-nums sm:text-xl">{fmtZAR(driverTotals.hourly)}</div>
+                  <div className="text-xs text-slate-500 mt-1">On-shift hours x rate</div>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="p-4">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Distance</div>
-                  <div className="text-xl sm:text-2xl font-bold text-slate-900 tabular-nums">{fmtZAR(driverTotals.distance)}</div>
-                  <div className="text-[10px] text-slate-500 mt-1">Per-km on completed runs</div>
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-xs uppercase tracking-wider text-slate-500 mb-1">Distance</div>
+                  <div className="text-lg font-bold text-slate-900 tabular-nums sm:text-xl">{fmtZAR(driverTotals.distance)}</div>
+                  <div className="text-xs text-slate-500 mt-1">Per-km on completed runs</div>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="p-4">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Callouts</div>
-                  <div className="text-xl sm:text-2xl font-bold text-slate-900 tabular-nums">{fmtZAR(driverTotals.callout)}</div>
-                  <div className="text-[10px] text-slate-500 mt-1">Flat fee per dispatch</div>
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-xs uppercase tracking-wider text-slate-500 mb-1">Callouts</div>
+                  <div className="text-lg font-bold text-slate-900 tabular-nums sm:text-xl">{fmtZAR(driverTotals.callout)}</div>
+                  <div className="text-xs text-slate-500 mt-1">Flat fee per dispatch</div>
                 </CardContent>
               </Card>
               <Card className="bg-brand-primary/10">
-                <CardContent className="p-4">
-                  <div className="text-[10px] uppercase tracking-wider text-brand-primary mb-1">Combined</div>
-                  <div className="text-xl sm:text-2xl font-bold text-brand-primary tabular-nums">{fmtZAR(driverTotals.combined)}</div>
-                  <div className="text-[10px] text-brand-primary mt-1">{driverRows.length} driver{driverRows.length === 1 ? "" : "s"}</div>
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-xs uppercase tracking-wider text-brand-primary mb-1">Combined</div>
+                  <div className="text-lg font-bold text-brand-primary tabular-nums sm:text-xl">{fmtZAR(driverTotals.combined)}</div>
+                  <div className="text-xs text-brand-primary mt-1">{driverRows.length} driver{driverRows.length === 1 ? "" : "s"}</div>
                 </CardContent>
               </Card>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
               <Card className="bg-brand-primary/10">
-                <CardContent className="p-4">
-                  <div className="text-[10px] uppercase tracking-wider text-brand-primary mb-1">Period total</div>
-                  <div className="text-2xl sm:text-3xl font-bold text-brand-primary tabular-nums">{fmtZAR(grandTotal)}</div>
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-xs uppercase tracking-wider text-brand-primary mb-1">Period total</div>
+                  <div className="text-lg font-bold text-brand-primary tabular-nums sm:text-xl">{fmtZAR(grandTotal)}</div>
                   {/* WAGE-A intel: trend vs same-length previous
                       period. Hidden while loading or when prev was
                       0 (would divide by zero). */}
@@ -994,12 +1011,12 @@ function WageDashboardPage() {
                     const diff = kitchenTotals.total_wage - prevPeriodTotal;
                     const pct = Math.round((diff / prevPeriodTotal) * 100);
                     if (Math.abs(pct) < 1) return (
-                      <div className="text-[10px] text-brand-primary mt-1">Flat vs previous period</div>
+                      <div className="text-xs text-brand-primary mt-1">Flat vs previous period</div>
                     );
                     const up = diff > 0;
                     return (
                       <div
-                        className={`text-[10px] mt-1 inline-flex items-center gap-0.5 ${up ? "text-rose-700" : "text-brand-primary"}`}
+                        className={`text-xs mt-1 inline-flex items-center gap-0.5 ${up ? "text-rose-700" : "text-brand-primary"}`}
                         // The previous-period query only covers the
                         // clocked-shift ledger, so compare kitchen-
                         // style vs kitchen-style. On the All tab the
@@ -1012,7 +1029,7 @@ function WageDashboardPage() {
                       </div>
                     );
                   })()}
-                  <div className="text-[10px] text-brand-primary mt-1">
+                  <div className="text-xs text-brand-primary mt-1">
                     {department === "all"
                       ? "Kitchen + drivers + shopping + cleaning"
                       : `${capitalise(department)} department`}
@@ -1020,23 +1037,23 @@ function WageDashboardPage() {
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="p-4">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                     <TrendingUp className="w-3 h-3" />Overtime split
                   </div>
-                  <div className="text-2xl sm:text-3xl font-bold text-amber-700 tabular-nums">{fmtZAR(kitchenTotals.overtime_wage)}</div>
-                  <div className="text-[10px] text-slate-500 mt-1">
+                  <div className="text-lg font-bold text-amber-700 tabular-nums sm:text-xl">{fmtZAR(kitchenTotals.overtime_wage)}</div>
+                  <div className="text-xs text-slate-500 mt-1">
                     {fmtHours(kitchenTotals.overtime_min)}, {overtimePct}% of total
                   </div>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="p-4">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                     <AlertTriangle className="w-3 h-3" />Public-holiday 2x
                   </div>
-                  <div className="text-2xl sm:text-3xl font-bold text-rose-700 tabular-nums">{fmtZAR(publicHolidayTotalPremium)}</div>
-                  <div className="text-[10px] text-slate-500 mt-1">
+                  <div className="text-lg font-bold text-rose-700 tabular-nums sm:text-xl">{fmtZAR(publicHolidayTotalPremium)}</div>
+                  <div className="text-xs text-slate-500 mt-1">
                     {publicHolidayShiftCount} shift{publicHolidayShiftCount === 1 ? "" : "s"} on holiday rows
                   </div>
                 </CardContent>
@@ -1046,14 +1063,14 @@ function WageDashboardPage() {
                   Sits next to the period total so "we paid X" and
                   "we owe Y" read as one picture. */}
               <Card className="bg-amber-50/60">
-                <CardContent className="p-4">
-                  <div className="text-[10px] uppercase tracking-wider text-amber-800 mb-1 inline-flex items-center gap-1">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-xs uppercase tracking-wider text-amber-800 mb-1 inline-flex items-center gap-1">
                     <Wallet className="w-3 h-3" />Owed to staff
                   </div>
-                  <div className="text-2xl sm:text-3xl font-bold text-amber-900 tabular-nums">
+                  <div className="text-lg font-bold text-amber-900 tabular-nums sm:text-xl">
                     {owedToStaff == null ? <span className="text-slate-300">-</span> : fmtZAR(owedToStaff)}
                   </div>
-                  <div className="text-[10px] text-amber-800/80 mt-1">
+                  <div className="text-xs text-amber-800/80 mt-1">
                     Unpaid clock-in sessions across every department
                   </div>
                 </CardContent>
@@ -1068,8 +1085,8 @@ function WageDashboardPage() {
           {!isDriversTab && staffRows.length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
               <Card>
-                <CardContent className="p-4">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                     <Trophy className="w-3 h-3" />Top earner
                   </div>
                   {topFive[0] ? (
@@ -1085,18 +1102,18 @@ function WageDashboardPage() {
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="p-4">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                     <ClockIcon className="w-3 h-3" />Cost per event
                   </div>
                   {eventCount == null || eventCount === 0 ? (
-                    <div className="text-2xl font-bold text-slate-300 tabular-nums">-</div>
+                    <div className="text-xl sm:text-2xl font-bold text-slate-300 tabular-nums">-</div>
                   ) : (
                     <>
-                      <div className="text-2xl font-bold text-slate-900 tabular-nums">
+                      <div className="text-lg sm:text-xl font-bold text-slate-900 tabular-nums">
                         {fmtZAR(grandTotal / eventCount)}
                       </div>
-                      <div className="text-[10px] text-slate-500 mt-1">
+                      <div className="text-xs text-slate-500 mt-1">
                         {eventCount} event{eventCount === 1 ? "" : "s"} in range
                       </div>
                     </>
@@ -1123,19 +1140,19 @@ function WageDashboardPage() {
                 }
                 return (
                   <Card className={`${tone}`}>
-                    <CardContent className="p-4">
-                      <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
+                    <CardContent className="p-3 sm:p-4">
+                      <div className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                         <Banknote className="w-3 h-3" />Wage % of revenue
                       </div>
                       {wagePct == null ? (
                         <>
-                          <div className="text-2xl font-bold text-slate-300 tabular-nums">-</div>
-                          <div className="text-[10px] text-slate-500 mt-1">No invoiced events in range</div>
+                          <div className="text-xl sm:text-2xl font-bold text-slate-300 tabular-nums">-</div>
+                          <div className="text-xs text-slate-500 mt-1">No invoiced events in range</div>
                         </>
                       ) : (
                         <>
-                          <div className={`text-2xl font-bold tabular-nums ${valueTone}`}>{wagePct.toFixed(1)}%</div>
-                          <div className="text-[10px] text-slate-500 mt-1">
+                          <div className={`text-xl sm:text-2xl font-bold tabular-nums ${valueTone}`}>{wagePct.toFixed(1)}%</div>
+                          <div className="text-xs text-slate-500 mt-1">
                             {fmtZAR(grandTotal)} on {fmtZAR(revenueInRange || 0)}. Benchmark 25-35%.
                           </div>
                         </>
@@ -1149,8 +1166,8 @@ function WageDashboardPage() {
                   to-clock-out. Pulled straight off the open_shift
                   flag that's already on every StaffWageSummary. */}
               <Card className={`${staffRows.some((r) => r.open_shift) ? "bg-amber-50/60" : ""}`}>
-                <CardContent className="p-4">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                     <AlertTriangle className="w-3 h-3" />Open shifts
                   </div>
                   {(() => {
@@ -1158,15 +1175,15 @@ function WageDashboardPage() {
                     if (open.length === 0) {
                       return (
                         <>
-                          <div className="text-2xl font-bold text-slate-900 tabular-nums">0</div>
-                          <div className="text-[10px] text-slate-500 mt-1">All shifts closed out</div>
+                          <div className="text-lg sm:text-xl font-bold text-slate-900 tabular-nums">0</div>
+                          <div className="text-xs text-slate-500 mt-1">All shifts closed out</div>
                         </>
                       );
                     }
                     return (
                       <>
-                        <div className="text-2xl font-bold text-amber-900 tabular-nums">{open.length}</div>
-                        <div className="text-[10px] text-amber-800/80 mt-1 truncate" title={open.map((r) => r.full_name).join(", ")}>
+                        <div className="text-xl sm:text-2xl font-bold text-amber-900 tabular-nums">{open.length}</div>
+                        <div className="text-xs text-amber-800/80 mt-1 truncate" title={open.map((r) => r.full_name).join(", ")}>
                           Check: {open.slice(0, 2).map((r) => r.full_name).join(", ")}{open.length > 2 ? ` + ${open.length - 2}` : ""}
                         </div>
                       </>
@@ -1177,9 +1194,21 @@ function WageDashboardPage() {
             </div>
           )}
 
-          {/* Sub-tabs */}
+          {/* Mobile dropdown keeps the two report modes compact. */}
+          <div className="mb-3 md:hidden">
+            <label htmlFor="wages-view" className="sr-only">Wage report view</label>
+            <select
+              id="wages-view"
+              value={subTab}
+              onChange={(event) => setSubTab(event.target.value as "summary" | "by-person")}
+              className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+            >
+              <option value="summary">Summary</option>
+              <option value="by-person">By person</option>
+            </select>
+          </div>
           <Tabs value={subTab} onValueChange={(v) => setSubTab(v as "summary" | "by-person")} className="w-full">
-            <TabsList className="grid grid-cols-2 w-full md:w-72 mb-4">
+            <TabsList className="mb-4 hidden w-full grid-cols-2 md:grid md:w-72">
               <TabsTrigger id="wages-summary" data-chat-section="admin.wages.summary" data-chat-section-label="Wage summary" value="summary">Summary</TabsTrigger>
               <TabsTrigger id="wages-by-person" data-chat-section="admin.wages.by-person" data-chat-section-label="Wages by person" value="by-person">By person</TabsTrigger>
             </TabsList>
@@ -1340,7 +1369,7 @@ function KitchenSummaryView({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <Card className="lg:col-span-2">
-        <CardContent className="p-4">
+        <CardContent className="p-3 sm:p-4">
           <div className="text-sm font-semibold text-slate-700 mb-3">Daily wage spend</div>
           {chartData.length === 0 ? (
             totalWage > 0 ? (
@@ -1379,7 +1408,7 @@ function KitchenSummaryView({
       </Card>
 
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-3 sm:p-4">
           <div className="text-sm font-semibold text-slate-700 mb-3">Top 5 cost drivers</div>
           {topFive.length === 0 ? (
             <div className="py-8 text-center text-sm text-slate-500">No data yet.</div>
@@ -1388,7 +1417,7 @@ function KitchenSummaryView({
               {topFive.map((r, i) => (
                 <li key={r.staff_id} className="flex items-center justify-between border-b border-slate-100 last:border-0 pb-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-5 h-5 rounded-full bg-brand-primary/10 text-brand-primary text-[10px] font-bold flex items-center justify-center">
+                    <span className="w-5 h-5 rounded-full bg-brand-primary/10 text-brand-primary text-xs font-bold flex items-center justify-center">
                       {i + 1}
                     </span>
                     <div className="min-w-0">
@@ -1398,9 +1427,9 @@ function KitchenSummaryView({
                           was shown - tenants entering "Other" for
                           everyone gave the owner no idea which team
                           a line belonged to. */}
-                      <div className="text-[10px] text-slate-500 truncate flex items-center gap-1 flex-wrap">
+                      <div className="text-xs text-slate-500 truncate flex items-center gap-1 flex-wrap">
                         {r.departments && r.departments.length > 0 && (
-                          <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 text-[9px] px-1 py-0">
+                          <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 text-xs px-1 py-0">
                             {deptChipText(r.departments)}
                           </Badge>
                         )}
@@ -1426,12 +1455,12 @@ function KitchenSummaryView({
                     </div>
                     <div className="text-right">
                       <div className="font-medium text-rose-700 tabular-nums">+{fmtZAR(p.premium)}</div>
-                      <div className="text-[10px] text-slate-500">{p.hours.toFixed(1)}h</div>
+                      <div className="text-xs text-slate-500">{p.hours.toFixed(1)}h</div>
                     </div>
                   </li>
                 ))}
                 {publicHolidayLines.length > 6 && (
-                  <li className="text-[11px] text-slate-500 pt-1">
+                  <li className="text-xs text-slate-500 pt-1">
                     + {publicHolidayLines.length - 6} more on the by-person tab
                   </li>
                 )}
@@ -1462,7 +1491,7 @@ function DriverSummaryView({ rows, totals, fmtZAR = fmtZARDefault, fmtZARDetaile
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <Card className="lg:col-span-2">
-        <CardContent className="p-4">
+        <CardContent className="p-3 sm:p-4">
           <div className="text-sm font-semibold text-slate-700 mb-3">Pay by component, top drivers</div>
           {data.length === 0 ? (
             <div className="py-12 text-center text-sm text-slate-500">No driver pay yet.</div>
@@ -1487,13 +1516,13 @@ function DriverSummaryView({ rows, totals, fmtZAR = fmtZARDefault, fmtZARDetaile
       </Card>
 
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-3 sm:p-4">
           <div className="text-sm font-semibold text-slate-700 mb-3">Top 5 drivers by total</div>
           <ul className="space-y-2">
             {[...rows].sort((a, b) => b.total - a.total).slice(0, 5).map((r, i) => (
               <li key={r.driver_id} className="flex items-center justify-between border-b border-slate-100 last:border-0 pb-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold flex items-center justify-center">
+                  <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-700 text-xs font-bold flex items-center justify-center">
                     {i + 1}
                   </span>
                   <div className="text-sm font-medium text-slate-900 truncate">{r.full_name}</div>
@@ -1518,7 +1547,7 @@ function DriverSummaryView({ rows, totals, fmtZAR = fmtZARDefault, fmtZARDetaile
 // over the last month. SVG sized to fit a narrow table column.
 function HoursSparkline({ values, title }: { values: number[]; title: string }) {
   if (!values || values.length === 0 || values.every((v) => v === 0)) {
-    return <span className="text-slate-300 text-[10px]">-</span>;
+    return <span className="text-slate-300 text-xs">-</span>;
   }
   const max = Math.max(1, ...values);
   const width = 56;
@@ -1536,6 +1565,15 @@ function HoursSparkline({ values, title }: { values: number[]; title: string }) 
         return <rect key={i} x={x} y={y} width={barW} height={h} rx={1} fill={fill} />;
       })}
     </svg>
+  );
+}
+
+function WageMiniMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-lg bg-slate-50 px-2.5 py-2">
+      <p className="text-xs leading-4 text-slate-600">{label}</p>
+      <p className="mt-0.5 break-words text-sm font-semibold tabular-nums text-slate-900">{value}</p>
+    </div>
   );
 }
 
@@ -1559,10 +1597,54 @@ function KitchenByPersonTable({
   return (
     <Card>
       <CardContent className="p-0">
-        <div className="overflow-x-auto">
+        <div className="space-y-2 p-3 lg:hidden">
+          {rows.map((r) => {
+            const totalHours = (r.standard_min + r.overtime_min + r.sunday_holiday_min) / 60;
+            const effectiveRate = totalHours > 0 ? r.total_wage / totalHours : 0;
+            const weekMins = weeklyByStaff.get(r.staff_id) || [0, 0, 0, 0];
+            const weekHours = weekMins.map((mins) => +(mins / 60).toFixed(1));
+            const weekTitle = `Hours by week, oldest to newest: ${weekHours.map((hours) => `${hours.toFixed(1)}h`).join(" / ")}`;
+            return (
+              <article key={`mobile-${r.staff_id}`} className="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-start gap-2">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600"><ChefHat className="h-4 w-4" /></span>
+                    <div className="min-w-0">
+                      <p className="break-words text-sm font-semibold text-slate-900">{r.full_name}</p>
+                      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1 text-xs text-slate-600">
+                        {r.departments?.length ? <Badge variant="outline" className="text-xs">{deptChipText(r.departments)}</Badge> : null}
+                        {r.role_title && <span className="break-words">{r.role_title}</span>}
+                        {r.open_shift && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-xs text-amber-800">On shift</Badge>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-xs text-slate-600">Wage</p>
+                    <p className="text-sm font-bold tabular-nums text-slate-900">{fmtZAR(r.total_wage)}</p>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <WageMiniMetric label="Shifts" value={String(r.shifts_count)} />
+                  <WageMiniMetric label="Standard hours" value={`${(r.standard_min / 60).toFixed(1)}h`} />
+                  <WageMiniMetric label="Overtime" value={`${(r.overtime_min / 60).toFixed(1)}h`} />
+                  <WageMiniMetric label="Effective rate" value={effectiveRate > 0 ? fmtZAR(effectiveRate) : "Not set"} />
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-2 text-xs text-slate-600">
+                  <span>Last 4 weeks</span>
+                  <HoursSparkline values={weekMins} title={weekTitle} />
+                </div>
+              </article>
+            );
+          })}
+          <div className="flex items-center justify-between gap-3 border-t-2 border-slate-200 px-1 pt-3 text-sm font-semibold">
+            <span className="text-slate-700">Period total</span>
+            <span className="tabular-nums text-brand-primary">{fmtZAR(totals.total_wage)}</span>
+          </div>
+        </div>
+        <div className="hidden overflow-x-auto lg:block">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200 bg-slate-50/50">
+              <tr className="text-left text-xs uppercase tracking-wider text-slate-500 border-b border-slate-200 bg-slate-50/50">
                 <th className="px-4 py-2.5 font-medium">Name</th>
                 <th className="px-2 py-2.5 font-medium text-right">Shifts</th>
                 <th className="px-2 py-2.5 font-medium text-right">Standard h</th>
@@ -1585,19 +1667,19 @@ function KitchenByPersonTable({
                         </div>
                         <div className="min-w-0">
                           <div className="font-medium text-slate-900 truncate">{r.full_name}</div>
-                          <div className="text-[10px] text-slate-500 flex items-center gap-1 flex-wrap">
+                          <div className="text-xs text-slate-500 flex items-center gap-1 flex-wrap">
                             {/* WAGE-A: department badge so the
                                 bookkeeper can tell Kitchen from
                                 Drivers etc when role_title is
                                 generic. */}
                             {r.departments && r.departments.length > 0 && (
-                              <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 text-[9px] px-1 py-0">
+                              <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 text-xs px-1 py-0">
                                 {deptChipText(r.departments)}
                               </Badge>
                             )}
                             {r.role_title && <span>{r.role_title}</span>}
                             {r.open_shift && (
-                              <Badge variant="outline" className="bg-brand-primary/10 text-brand-primary border-brand-primary/20 text-[9px] px-1 py-0">On shift now</Badge>
+                              <Badge variant="outline" className="bg-brand-primary/10 text-brand-primary border-brand-primary/20 text-xs px-1 py-0">On shift now</Badge>
                             )}
                           </div>
                         </div>
@@ -1679,10 +1761,35 @@ function DriverByPersonTable({ rows, fmtZAR = fmtZARDefault, withSlug = (p: stri
             .
           </span>
         </div>
-        <div className="overflow-x-auto">
+        <div className="space-y-2 p-3 lg:hidden">
+          {rows.map((r) => (
+            <article key={`mobile-${r.driver_id}`} className="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-2">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700"><Truck className="h-4 w-4" /></span>
+                  <div className="min-w-0">
+                    <p className="break-words text-sm font-semibold text-slate-900">{r.full_name}</p>
+                    <p className="mt-0.5 text-xs text-slate-600">{r.hours.toFixed(1)}h · {r.distance_km.toFixed(1)} km</p>
+                  </div>
+                </div>
+                <Link href={withSlug(`/admin/driver-settlement?driver=${r.driver_id}`)} className="min-h-10 shrink-0 inline-flex items-center rounded-lg border border-slate-200 px-2.5 text-xs font-medium text-blue-700 hover:bg-blue-50">
+                  Open settlement
+                </Link>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <WageMiniMetric label="Hourly pay" value={fmtZAR(r.hourly_pay)} />
+                <WageMiniMetric label="Distance pay" value={fmtZAR(r.distance_pay)} />
+                <WageMiniMetric label="Callouts" value={fmtZAR(r.callout_pay)} />
+                <WageMiniMetric label="Total" value={fmtZAR(r.total)} />
+              </div>
+            </article>
+          ))}
+          {rows.length === 0 && <p className="py-4 text-center text-sm text-slate-600">No drivers in range.</p>}
+        </div>
+        <div className="hidden overflow-x-auto lg:block">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200 bg-slate-50/50">
+              <tr className="text-left text-xs uppercase tracking-wider text-slate-500 border-b border-slate-200 bg-slate-50/50">
                 <th className="px-4 py-2.5 font-medium">Name</th>
                 <th className="px-2 py-2.5 font-medium text-right">Hours</th>
                 <th className="px-2 py-2.5 font-medium text-right">Hourly R</th>
@@ -1702,7 +1809,7 @@ function DriverByPersonTable({ rows, fmtZAR = fmtZARDefault, withSlug = (p: stri
                       </div>
                       <div className="min-w-0">
                         <div className="font-medium text-slate-900 truncate">{r.full_name}</div>
-                        <div className="text-[10px] text-slate-500">{r.distance_km.toFixed(1)} km</div>
+                        <div className="text-xs text-slate-500">{r.distance_km.toFixed(1)} km</div>
                       </div>
                     </div>
                   </td>
@@ -1719,7 +1826,7 @@ function DriverByPersonTable({ rows, fmtZAR = fmtZARDefault, withSlug = (p: stri
                         <a> dropped it and forced a full reload). */}
                     <Link
                       href={withSlug(`/admin/driver-settlement?driver=${r.driver_id}`)}
-                      className="text-[11px] text-blue-700 hover:underline whitespace-nowrap"
+                      className="text-xs text-blue-700 hover:underline whitespace-nowrap"
                     >
                       Open &rarr;
                     </Link>

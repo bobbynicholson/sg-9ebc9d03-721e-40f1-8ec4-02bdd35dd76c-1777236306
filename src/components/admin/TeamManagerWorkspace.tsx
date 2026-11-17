@@ -165,21 +165,21 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
 
   return (
     <section className="mb-8 space-y-4" aria-labelledby={`${department}-manager-workspace`}>
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:mt-8 dark:border-slate-800 dark:bg-slate-900">
-        <div>
+      <div className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:mt-8 sm:px-4 sm:py-4 dark:border-slate-800 dark:bg-slate-900">
+        <div className="min-w-0 flex-1">
           <p id={`${department}-manager-workspace`} className="text-sm font-semibold text-slate-900 dark:text-white">Live team controls</p>
           <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{onDuty} on duty · Manage the roster and keep today&apos;s handover notes in one place.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => setTick((value) => value + 1)} disabled={loading || !!saving} className="h-10 gap-1.5 bg-white dark:bg-slate-900">
-            <RefreshCw aria-hidden="true" className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh roster
+        <div className="flex shrink-0 items-center gap-2">
+          <Button type="button" variant="outline" size="sm" aria-label="Refresh roster" title="Refresh roster" onClick={() => setTick((value) => value + 1)} disabled={loading || !!saving} className="h-10 w-10 gap-1.5 bg-white p-0 dark:bg-slate-900 sm:w-auto sm:px-3">
+            <RefreshCw aria-hidden="true" className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /><span className="hidden sm:inline">Refresh roster</span>
           </Button>
-          <Button type="button" variant="outline" size="sm" aria-expanded={workspaceOpen} aria-controls={`${department}-team-controls-content`} aria-label={`${workspaceOpen ? "Collapse" : "Expand"} team controls`} onClick={() => setWorkspaceOpen(value => !value)} disabled={!!saving} className="min-h-10 gap-1.5 bg-white dark:bg-slate-900">
-            {workspaceOpen ? "Collapse" : "Expand"}<ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${workspaceOpen ? "rotate-180" : ""}`} />
+          <Button type="button" variant="outline" size="sm" aria-expanded={workspaceOpen} aria-controls={`${department}-team-controls-content`} aria-label={`${workspaceOpen ? "Collapse" : "Expand"} team controls`} title={`${workspaceOpen ? "Collapse" : "Expand"} team controls`} onClick={() => setWorkspaceOpen(value => !value)} disabled={!!saving} className="h-10 w-10 gap-1.5 bg-white p-0 dark:bg-slate-900 sm:w-auto sm:px-3">
+            <span className="hidden sm:inline">{workspaceOpen ? "Collapse" : "Expand"}</span><ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${workspaceOpen ? "rotate-180" : ""}`} />
           </Button>
         {error && (
-          <Button type="button" variant="outline" size="sm" onClick={() => setTick((value) => value + 1)} disabled={loading} className="h-9 gap-2 bg-white dark:bg-slate-900">
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Retry
+          <Button type="button" variant="outline" size="sm" aria-label="Retry loading team controls" title="Retry" onClick={() => setTick((value) => value + 1)} disabled={loading} className="h-10 w-10 gap-2 bg-white p-0 dark:bg-slate-900 sm:w-auto sm:px-3">
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /><span className="hidden sm:inline">Retry</span>
           </Button>
         )}
         </div>
@@ -188,10 +188,10 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
       {error && <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{error}</div>}
 
       <div id={`${department}-team-controls-content`} hidden={!workspaceOpen} style={workspaceOpen ? undefined : { display: "none" }} className="space-y-4">
-      {showSummaryStats && <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1">
-        <StatTile label="Team members" value={members.length} hint="On this team" icon={Users} />
-        <StatTile label="On duty now" value={<span className="text-emerald-700 dark:text-emerald-400">{onDuty}</span>} hint="Clocked in right now" icon={Clock} />
-        <StatTile label="Diary notes" value={notes.length} hint="Handovers and issues" icon={BookOpen} />
+      {showSummaryStats && <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1">
+        <StatTile compact label="Team members" value={members.length} hint="On this team" icon={Users} />
+        <StatTile compact label="On duty now" value={<span className="text-emerald-700 dark:text-emerald-400">{onDuty}</span>} hint="Clocked in right now" icon={Clock} />
+        <StatTile compact label="Diary notes" value={notes.length} hint="Handovers and issues" icon={BookOpen} />
       </div>}
 
       <div className="grid grid-cols-1 gap-4">
@@ -252,23 +252,23 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
 
       </div>
       <Dialog open={!!clockOutTarget} onOpenChange={(open) => { if (!open && !saving) { setClockOutTarget(null); setClockOutNote(""); } }}>
-        <DialogContent>
+        <DialogContent className="w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] max-w-md overflow-y-auto p-4 sm:w-[calc(100%-2rem)] sm:p-6">
           <DialogHeader>
-            <DialogTitle>Clock out {clockOutTarget?.full_name || "team member"}</DialogTitle>
-            <DialogDescription>What work did they complete during this {teamName} shift? Choose a quick answer or add a note. A blank note saves the default.</DialogDescription>
+            <DialogTitle className="break-words pr-12 text-base sm:text-lg">Clock out {clockOutTarget?.full_name || "team member"}</DialogTitle>
+            <DialogDescription className="text-sm leading-5">What work did they complete during this {teamName} shift? Choose a quick answer or add a note. A blank note saves the default.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quick answers</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               {["Completed the assigned work.", "Finished the current task and handed it over.", "No additional work to report.", "Clocked out by mistake; no work completed."].map((suggestion) => (
-                <Button key={suggestion} type="button" variant="outline" size="sm" onClick={() => setClockOutNote(suggestion)} className="text-left text-xs">{suggestion}</Button>
+                <Button key={suggestion} type="button" variant="outline" size="sm" onClick={() => setClockOutNote(suggestion)} className="h-auto min-h-10 w-full justify-start whitespace-normal text-left text-xs sm:w-auto">{suggestion}</Button>
               ))}
             </div>
           </div>
           <Textarea value={clockOutNote} onChange={(event) => setClockOutNote(event.target.value)} rows={4} placeholder="Describe the work completed or handover..." autoFocus />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setClockOutTarget(null); setClockOutNote(""); }} disabled={!!saving}>Cancel</Button>
-            <Button onClick={() => clockOutTarget && void submitClock(clockOutTarget, clockOutNote)} disabled={!!saving} variant="destructive">{saving ? "Saving..." : "Clock out"}</Button>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" className="min-h-10 w-full sm:w-auto" onClick={() => { setClockOutTarget(null); setClockOutNote(""); }} disabled={!!saving}>Cancel</Button>
+            <Button className="min-h-10 w-full sm:w-auto" onClick={() => clockOutTarget && void submitClock(clockOutTarget, clockOutNote)} disabled={!!saving} variant="destructive">{saving ? "Saving..." : "Clock out"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

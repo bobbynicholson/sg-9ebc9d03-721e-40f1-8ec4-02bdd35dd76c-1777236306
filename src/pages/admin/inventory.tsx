@@ -6,7 +6,9 @@ import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { AdminControlGroup } from "@/components/admin/AdminControlSurface";
 import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
+import { PwaLoadingScreen } from "@/components/pwa/PwaLoadingScreen";
 import { PortalShell, PortalHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
@@ -42,6 +44,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   MoreHorizontal,
+  Filter,
   X,
 } from "lucide-react";
 import Head from "next/head";
@@ -998,18 +1001,18 @@ function AdminInventory() {
             meta={
               !loading && !loadError ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {inventory.length} item{inventory.length === 1 ? "" : "s"}
                   </span>
                   {belowReorderCount > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
                       {belowReorderCount} below reorder
                     </span>
                   )}
                   {lastActivity && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/90">
                       Last movement {relativeTime(lastActivity.created_at)}
                     </span>
                   )}
@@ -1017,16 +1020,16 @@ function AdminInventory() {
               ) : undefined
             }
             actions={
-            <>
-              <Button variant="outline" size="sm" className="gap-2" onClick={openAdd}>
-                <Plus className="w-4 h-4" />
-                New item
+            <div className="flex w-full items-center justify-end gap-2 xl:w-auto">
+              <Button variant="outline" size="sm" className="h-10 w-10 shrink-0 justify-center gap-0 px-0 sm:h-9 sm:w-auto sm:gap-2 sm:px-3" onClick={openAdd} aria-label="Add inventory item" title="Add inventory item">
+                <Plus aria-hidden="true" className="h-4 w-4 shrink-0" />
+                <span className="sr-only sm:not-sr-only">New item</span>
               </Button>
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1.5">
-                    <MoreHorizontal className="w-4 h-4" />
-                    More
+                  <Button variant="outline" size="sm" className="h-10 w-10 shrink-0 justify-center gap-0 px-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3" aria-label="More inventory actions" title="More inventory actions">
+                    <MoreHorizontal aria-hidden="true" className="h-4 w-4 shrink-0" />
+                    <span className="sr-only sm:not-sr-only">More</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
@@ -1059,17 +1062,19 @@ function AdminInventory() {
               </DropdownMenu>
               <Button
                 size="sm"
-                className="bg-brand-primary hover:bg-brand-primary/90 gap-2"
+                className="h-10 w-10 shrink-0 justify-center gap-0 bg-brand-primary px-0 hover:bg-brand-primary/90 sm:h-9 sm:w-auto sm:gap-2 sm:px-3"
                 onClick={() => setReceiveOpen(true)}
+                aria-label="Receive stock"
+                title="Receive stock"
               >
-                <Package className="w-4 h-4" />
-                Receive
+                <Package aria-hidden="true" className="h-4 w-4 shrink-0" />
+                <span className="sr-only sm:not-sr-only">Receive</span>
               </Button>
-            </>
+            </div>
             }
           />
           <PageWorkbench />
-          <CatalogueOperationsStrip active="inventory" />
+          <CatalogueOperationsStrip active="inventory" navigationMode="dropdown" />
 
           {/* Audit 2026-07-02: persistent load-failure state with
               Retry. A silent failure used to render an empty table
@@ -1105,7 +1110,7 @@ function AdminInventory() {
           <RecentReceiptsPanel companyId={companyId} />
 
           {/* Stat cards (4 new ones, ordered by what to act on first) */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
             <button
               type="button"
               onClick={() => setActiveTab("below_reorder")}
@@ -1120,7 +1125,7 @@ function AdminInventory() {
                 </p>
                 <AlertTriangle className="w-4 h-4 text-rose-500" />
               </div>
-              <p className="text-2xl font-semibold text-slate-900">{belowReorderCount}</p>
+              <p className="text-xl font-semibold tabular-nums text-slate-900 sm:text-2xl">{belowReorderCount}</p>
               {/* INV-B: honest split. Pre-INV-B the sub-line read
                   "X fully out" but the tile total mashed below-reorder
                   + out together. Spell out the math so the click
@@ -1135,7 +1140,10 @@ function AdminInventory() {
               type="button"
               onClick={() => {
                 const el = document.getElementById("at-risk-panel");
-                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                if (el) {
+                  el.dispatchEvent(new Event("ui:expand-section", { bubbles: true }));
+                  el.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
               }}
               className="text-left rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:shadow transition-all"
             >
@@ -1146,7 +1154,7 @@ function AdminInventory() {
                 </p>
                 <TrendingDown className="w-4 h-4 text-amber-500" />
               </div>
-              <p className="text-2xl font-semibold text-slate-900">{atRiskItems.length}</p>
+              <p className="text-xl font-semibold tabular-nums text-slate-900 sm:text-2xl">{atRiskItems.length}</p>
               <p className="text-xs text-slate-500 mt-1">
                 {atRiskItems.length === 0 ? "All covered" : "Click to jump"}
               </p>
@@ -1160,7 +1168,7 @@ function AdminInventory() {
                 </p>
                 <Package className="w-4 h-4 text-brand-primary" />
               </div>
-              <p className="text-2xl font-semibold text-slate-900">
+              <p className="text-xl font-semibold text-slate-900 sm:text-2xl tabular-nums">
                 {tenantCurrency.format(stockOnHandValue, 0)}
               </p>
               {/* INV-B: honest "based on N of M items" caveat so the
@@ -1181,7 +1189,7 @@ function AdminInventory() {
                 </p>
                 <Activity className="w-4 h-4 text-blue-500" />
               </div>
-              <p className="text-2xl font-semibold text-slate-900">
+              <p className="text-xl font-semibold text-slate-900 sm:text-2xl">
                 {lastActivity ? relativeTime(lastActivity.created_at) : "-"}
               </p>
               <p className="text-xs text-slate-500 mt-1 truncate">
@@ -1200,11 +1208,11 @@ function AdminInventory() {
               cross-link is one click via AdminNav -> Equipment. */}
 
           {/* At risk this week (the most valuable block, now first) */}
-          <Card id="at-risk-panel" className="mb-6">
+          <Card id="at-risk-panel" collapsible={atRiskItems.length > 0} defaultOpen={false} collapseLabel="At risk this week" className="mb-6 scroll-mt-20">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <div>
-                  <CardTitle className="text-base flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
                     {atRiskItems.length === 0 ? (
                       <CheckCircle2 className="w-5 h-5 text-brand-primary" />
                     ) : (
@@ -1212,7 +1220,7 @@ function AdminInventory() {
                     )}
                     At risk this week
                   </CardTitle>
-                  <p className="text-sm text-slate-500 mt-0.5">
+                  <p className="mt-0.5 text-xs leading-5 text-slate-600 sm:text-sm">
                     {atRiskItems.length === 0
                       ? "All covered for the next 7 days against confirmed bookings."
                       : `${atRiskItems.length} item${atRiskItems.length === 1 ? "" : "s"} will run short on confirmed bookings.`}
@@ -1223,9 +1231,9 @@ function AdminInventory() {
                   // (legacy passive table) to /buy-list (canonical
                   // action surface with bulk-add).
                   <Link href={withSlug("/team-portal/shopping/buy-list")}>
-                    <Button size="sm" variant="outline" className="gap-2">
-                      <TrendingDown className="w-4 h-4" />
-                      Build shopping list
+                    <Button size="sm" variant="outline" className="h-10 w-10 shrink-0 justify-center gap-0 px-0 text-xs sm:h-9 sm:w-auto sm:gap-2 sm:px-3 sm:text-sm" aria-label="Build shopping list" title="Build shopping list">
+                      <TrendingDown aria-hidden="true" className="h-4 w-4" />
+                      <span className="sr-only sm:not-sr-only">Build shopping list</span>
                     </Button>
                   </Link>
                 )}
@@ -1243,16 +1251,17 @@ function AdminInventory() {
 
           {/* Search + filter chips + views + export */}
           <div id="inventory-filters" data-chat-section="admin.inventory.filters" data-chat-section-label="Inventory filters" className="rounded-lg border border-slate-200 bg-white shadow-sm mb-4 p-3 scroll-mt-20">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 relative">
+            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative min-w-0 flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   ref={searchInputRef}
                   type="text"
+                  aria-label="Search inventory items"
                   placeholder="Search items, suppliers, SKU"
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-12 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
+                  className="h-10 w-full rounded-md border border-slate-200 py-2 pl-9 pr-12 text-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary"
                 />
                 {/* Phase 25 #6: clear-search affordance. Swap the
                     `/` keyboard hint for the X clear button when
@@ -1275,14 +1284,15 @@ function AdminInventory() {
                 )}
               </div>
 
+              <div className="flex shrink-0 items-center justify-end gap-1.5">
               {/* Views dropdown */}
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
+                  <Button variant="outline" size="sm" className="h-10 w-10 shrink-0 justify-center gap-0 px-0 sm:h-9 sm:w-auto sm:gap-2 sm:px-3" aria-label="Saved inventory views" title="Saved inventory views">
                     <Bookmark className="w-4 h-4" />
-                    Views
+                    <span className="sr-only sm:not-sr-only">Views</span>
                     {savedViews.length > 0 && (
-                      <span className="text-xs text-slate-500 ml-1">({savedViews.length})</span>
+                      <span className="hidden text-xs text-slate-500 sm:inline">({savedViews.length})</span>
                     )}
                   </Button>
                 </DropdownMenuTrigger>
@@ -1314,6 +1324,7 @@ function AdminInventory() {
                         onClick={(e) => { e.stopPropagation(); removeView(v.id); }}
                         className="p-1.5 mr-1 text-slate-400 hover:text-rose-600"
                         title="Delete view"
+                        aria-label={`Delete saved view ${v.name}`}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -1326,29 +1337,50 @@ function AdminInventory() {
                   "Filters (Coming soon)" button - a dead control the
                   running-todo flagged. The tab chips below plus fuzzy
                   search already cover the filtering need. */}
-              <Button variant="outline" size="sm" className="gap-2" onClick={exportCSV} title="Export current view to CSV">
-                <Download className="w-4 h-4" />
-                Export
+              <Button variant="outline" size="sm" className="h-10 w-10 shrink-0 justify-center gap-0 px-0 sm:h-9 sm:w-auto sm:gap-2 sm:px-3" onClick={exportCSV} title="Export current view to CSV" aria-label="Export inventory CSV">
+                <Download aria-hidden="true" className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">Export</span>
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-9 w-9 p-0 text-slate-400 hover:text-slate-700"
+                className="h-10 w-10 shrink-0 p-0 text-slate-500 hover:text-slate-700 sm:h-9 sm:w-9"
                 onClick={() => setShortcutsOpen(true)}
                 title="Keyboard shortcuts (?)"
+                aria-label="Keyboard shortcuts"
               >
-                <Keyboard className="w-4 h-4" />
+                <Keyboard aria-hidden="true" className="h-4 w-4" />
               </Button>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 mt-3 flex-wrap">
+            <AdminControlGroup
+              label="Inventory filters"
+              icon={Filter}
+              collapsible
+              summary={activeTab === "all" ? `All items · ${inventory.length}`
+                : activeTab === "below_reorder" ? `Below reorder · ${belowReorderItems.length}`
+                  : activeTab === "out" ? `Out of stock · ${outOfStockItems.length}`
+                    : `Perishable · ${inventory.filter((item) => item.isPerishable).length}`}
+              compactLabel="Filter inventory items"
+              compactValue={activeTab}
+              onCompactValueChange={(value) => setActiveTab(value as typeof activeTab)}
+              compactOptions={[
+                { value: "all", label: "All items", count: inventory.length },
+                { value: "below_reorder", label: "Below reorder", count: belowReorderItems.length },
+                { value: "out", label: "Out of stock", count: outOfStockItems.length },
+                { value: "expiring", label: "Perishable", count: inventory.filter((item) => item.isPerishable).length },
+              ]}
+              className="mt-2 rounded-md border-0 bg-slate-50/80 p-2"
+              helpText="Filter the catalogue by stock status or perishable items. The search box above also matches item, supplier, SKU and storage details."
+            >
               <button
                 type="button"
                 id="inventory-all"
                 data-chat-section="admin.inventory.all"
                 data-chat-section-label="All inventory"
                 onClick={() => setActiveTab("all")}
-                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                className={`min-h-9 px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
                   activeTab === "all"
                     ? "bg-brand-primary text-white border-brand-primary"
                     : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
@@ -1362,7 +1394,7 @@ function AdminInventory() {
                 data-chat-section="admin.inventory.below-reorder"
                 data-chat-section-label="Below-reorder inventory"
                 onClick={() => setActiveTab("below_reorder")}
-                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                className={`min-h-9 px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
                   activeTab === "below_reorder"
                     ? "bg-rose-600 text-white border-rose-600"
                     : "bg-white text-rose-700 border-rose-200 hover:bg-rose-50"
@@ -1376,7 +1408,7 @@ function AdminInventory() {
                 data-chat-section="admin.inventory.out"
                 data-chat-section-label="Out-of-stock inventory"
                 onClick={() => setActiveTab("out")}
-                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                className={`min-h-9 px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
                   activeTab === "out"
                     ? "bg-rose-600 text-white border-rose-600"
                     : "bg-white text-rose-700 border-rose-200 hover:bg-rose-50"
@@ -1390,7 +1422,7 @@ function AdminInventory() {
                 data-chat-section="admin.inventory.expiring"
                 data-chat-section-label="Perishable inventory"
                 onClick={() => setActiveTab("expiring")}
-                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                className={`min-h-9 px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
                   activeTab === "expiring"
                     ? "bg-amber-600 text-white border-amber-600"
                     : "bg-white text-amber-700 border-amber-200 hover:bg-amber-50"
@@ -1398,7 +1430,7 @@ function AdminInventory() {
               >
                 Perishable
               </button>
-            </div>
+            </AdminControlGroup>
           </div>
 
           {/* Bulk actions bar (only when something is selected) */}
@@ -1415,7 +1447,7 @@ function AdminInventory() {
           {/* Dense table */}
           <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
             {/* Table header */}
-            <div className="hidden md:grid grid-cols-[28px_28px_minmax(0,2fr)_minmax(0,1fr)_110px_minmax(0,1.4fr)_120px_110px_minmax(0,1fr)_120px] gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider items-center">
+            <div className="hidden md:grid grid-cols-[28px_28px_minmax(0,2fr)_minmax(0,1fr)_110px_minmax(0,1.4fr)_120px_110px_minmax(0,1fr)_120px] gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider items-center">
               <div className="flex items-center justify-center">
                 <input
                   type="checkbox"
@@ -1444,10 +1476,7 @@ function AdminInventory() {
             </div>
 
             {loading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin w-6 h-6 border-2 border-brand-primary/80 border-t-transparent rounded-full mx-auto mb-3" />
-                <p className="text-sm text-slate-500">Loading inventory...</p>
-              </div>
+              <PwaLoadingScreen message="Loading inventory" variant="inline" />
             ) : filteredInventory.length === 0 ? (
               <div className="text-center py-12 px-4">
                 <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -1518,7 +1547,7 @@ function AdminInventory() {
                         )}
                         <Badge
                           variant="outline"
-                          className="mt-1 text-[10px] font-normal border-brand-primary/20 bg-brand-primary/10 text-brand-primary"
+                          className="mt-1 text-xs font-normal border-brand-primary/20 bg-brand-primary/10 text-brand-primary"
                         >
                           {scopeLabel}
                         </Badge>
@@ -1529,7 +1558,7 @@ function AdminInventory() {
                         {(wastageByItem.get(item.id) || 0) > 0 && (
                           <Badge
                             variant="outline"
-                            className="mt-1 ml-1 text-[10px] font-normal border-amber-200 bg-amber-50 text-amber-700"
+                            className="mt-1 ml-1 text-xs font-normal border-amber-200 bg-amber-50 text-amber-700"
                             title={`${wastageByItem.get(item.id)} ${item.unit} written off as waste in the last 30 days`}
                           >
                             waste {wastageByItem.get(item.id)} {item.unit} / 30d
@@ -1561,7 +1590,7 @@ function AdminInventory() {
                             />
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-1">
+                        <p className="text-xs text-slate-500 mt-1">
                           {isOut ? "Out of stock" : isLow ? "Below reorder" : `${Math.round(fillPct)}% of par`}
                         </p>
                       </div>
@@ -1619,7 +1648,7 @@ function AdminInventory() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <p className="text-sm font-medium text-slate-900 truncate">{item.name}</p>
-                            <Badge variant="outline" className="text-[10px] font-normal text-slate-600 border-slate-200 bg-slate-50">
+                            <Badge variant="outline" className="text-xs font-normal text-slate-600 border-slate-200 bg-slate-50">
                               {item.category}
                             </Badge>
                           </div>
@@ -1786,7 +1815,7 @@ function AdminInventory() {
                                           {change > 0 ? "+" : ""}{change.toFixed(1)}%
                                         </span>
                                       </div>
-                                      <p className="text-[10px] text-slate-400 mt-0.5">
+                                      <p className="text-xs text-slate-500 mt-0.5">
                                         {points.length} data point{points.length === 1 ? "" : "s"}
                                       </p>
                                     </div>
@@ -2248,7 +2277,7 @@ function ItemForm({
             className="mt-1"
           />
           {Number(form.cost_per_unit) > 0 && (
-            <p className="text-[11px] text-slate-500 mt-1">
+            <p className="text-xs text-slate-600 mt-1">
               {pricingMode.mode === "inc"
                 ? `= R${toExVat(Number(form.cost_per_unit), 0.15).toFixed(2)} ex VAT`
                 : `= R${toIncVat(Number(form.cost_per_unit), 0.15).toFixed(2)} inc VAT`}
@@ -2316,7 +2345,7 @@ function ItemForm({
           {suppliers.map(s => <option key={s.id} value={s.id}>{s.supplier_name}</option>)}
         </select>
         {suppliers.length === 0 && (
-          <p className="text-[11px] text-slate-500 mt-1">
+          <p className="text-xs text-slate-600 mt-1">
             No suppliers yet, add them in Shopping &gt; Suppliers, then come back here to link.
           </p>
         )}
@@ -2327,7 +2356,7 @@ function ItemForm({
       <div>
         <Label className="flex items-center gap-1">
           Contains allergens
-          <span className="text-[11px] font-normal text-slate-500">(used by menu item warnings)</span>
+          <span className="text-xs font-normal text-slate-600">(used by menu item warnings)</span>
         </Label>
         <div className="flex flex-wrap gap-1.5 mt-1.5">
           {INVENTORY_ALLERGEN_CODES.map(a => {
@@ -2342,7 +2371,7 @@ function ItemForm({
                     ? form.allergen_codes.filter(c => c !== a)
                     : [...form.allergen_codes, a],
                 })}
-                className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
+                className={`min-h-9 text-xs px-2.5 py-1 rounded-full border transition-colors ${
                   on
                     ? "bg-rose-100 text-rose-700 border-rose-300"
                     : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
@@ -2386,7 +2415,7 @@ function BranchScopePicker({
           <option key={b.id} value={b.id}>{b.name} only</option>
         ))}
       </select>
-      <p className="text-[11px] text-slate-500 mt-1">
+      <p className="text-xs text-slate-600 mt-1">
         Shared items show up in every branch's prep + shopping lists. Pinning to one branch
         keeps it out of the others.
       </p>
@@ -2437,7 +2466,48 @@ function AtRiskTable({ rows }: { rows: any[] }) {
   ];
   const sorted = useSortable<any>(rows, sortColumns, { defaultKey: "projected", defaultDir: "asc" });
   return (
-    <div className="overflow-x-auto">
+    <>
+    <div className="space-y-2 md:hidden">
+      {sorted.rows.map((r: any) => {
+        const tone =
+          r.status === "shortfall" ? "bg-rose-50 text-rose-800 border-rose-200" :
+          r.status === "below_minimum" ? "bg-amber-50 text-amber-800 border-amber-200" :
+          "bg-yellow-50 text-yellow-800 border-yellow-200";
+        const projected = Number(r.projected_stock_after_7_days);
+        const projectedTone = projected < 0
+          ? "text-rose-700"
+          : projected < Number(r.minimum_stock)
+            ? "text-amber-700"
+            : "text-slate-900";
+        const statusLabel =
+          r.status === "shortfall" ? "Will run out" :
+          r.status === "below_minimum" ? "Below reorder" :
+          r.status === "low" ? "Low" : r.status;
+        return (
+          <article key={r.inventory_item_id} className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
+            <div className="flex min-w-0 items-start justify-between gap-2">
+              <h3 className="min-w-0 break-words text-sm font-semibold text-slate-900">{r.item_name}</h3>
+              <Badge variant="outline" className={`${tone} shrink-0 border text-xs`}>{statusLabel}</Badge>
+            </div>
+            <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+              <div className="min-w-0">
+                <dt className="text-slate-500">On hand</dt>
+                <dd className="font-medium tabular-nums text-slate-900">{Number(r.current_stock).toLocaleString()} {r.unit_of_measure}</dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-slate-500">Needed · 7 days</dt>
+                <dd className="font-medium tabular-nums text-slate-900">{Number(r.demand_next_7_days).toLocaleString()}</dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-slate-500">Projected on hand</dt>
+                <dd className={`font-semibold tabular-nums ${projectedTone}`}>{projected.toLocaleString()}</dd>
+              </div>
+            </dl>
+          </article>
+        );
+      })}
+    </div>
+    <div className="hidden overflow-x-auto md:block">
       <table className="w-full text-sm">
         <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
           <tr>
@@ -2498,5 +2568,6 @@ function AtRiskTable({ rows }: { rows: any[] }) {
         </tbody>
       </table>
     </div>
+    </>
   );
 }

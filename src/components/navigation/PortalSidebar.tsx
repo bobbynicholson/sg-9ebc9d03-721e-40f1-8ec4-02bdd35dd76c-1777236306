@@ -417,7 +417,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           // Keep nav rows easy to tap while the text and icon columns stay
           // compact. Specific transition properties avoid animating layout.
           "group relative flex min-h-11 items-center gap-2.5 overflow-hidden rounded-lg border border-transparent transition-[color,background-color,border-color,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset active:scale-[0.99] motion-reduce:transform-none",
-          footer ? "px-3 py-2 text-xs font-medium lg:text-[13px]" : "px-2.5 py-2 text-[13px] font-medium lg:px-3 lg:py-2.5 lg:text-sm",
+          footer ? "px-3 py-2 text-xs font-medium lg:text-sm" : "px-2.5 py-2 text-sm font-medium lg:px-3 lg:py-2.5",
           // Brand rail: white-glass rows (brand-tinted states would be
           // tone-on-tone against the brand-painted surface).
           forceBrand
@@ -477,7 +477,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               <div className="truncate">{item.title}</div>
               {description && !active && !footer && (
                 <div className={cn(
-                  "truncate text-[10px] lg:text-[11px]",
+                  "truncate text-xs",
                   forceBrand ? "text-white/60" : "text-slate-500/90 dark:text-slate-400",
                 )}>{description}</div>
               )}
@@ -496,7 +496,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                   // flex-shrink-0 keeps the badge from being squashed
                   // when the title is short; max-w + truncate cap it
                   // when the title is long.
-                  "inline-flex items-center justify-center px-1.5 py-0.5 rounded-md border text-[10px] font-semibold tabular-nums flex-shrink-0 max-w-[80px] truncate",
+                  "inline-flex items-center justify-center px-1.5 py-0.5 rounded-md border text-xs font-semibold tabular-nums flex-shrink-0 max-w-[80px] truncate",
                   badgeTone,
                   badge.pulse ? "motion-safe:animate-pulse" : "",
                 )}
@@ -544,7 +544,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
       ref={mobile ? attachMobileScrollRef : undefined}
       onScroll={mobile ? (event) => { mobileScrollTopRef.current = event.currentTarget.scrollTop; } : undefined}
     >
-      <div className="space-y-4">
+      <div className={mobile ? "space-y-3 sm:space-y-4" : "space-y-4"}>
         {mobile && (
           <div className="space-y-3">
             {canSwitchWorkspace && workspaceCompanySlug && (

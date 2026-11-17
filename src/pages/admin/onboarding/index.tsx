@@ -36,7 +36,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowRight, ArrowLeft, Bell, Check, Loader2, Building2, MapPin, Palette, Landmark, Receipt, CreditCard, Sparkles, FileSpreadsheet, ShieldCheck, Users, Upload, PlayCircle, MessageCircle, ExternalLink } from "lucide-react";
+import { ArrowRight, ArrowLeft, Bell, Check, Loader2, Building2, MapPin, Palette, Landmark, Receipt, CreditCard, Sparkles, FileSpreadsheet, ShieldCheck, Users, Upload, PlayCircle, MessageCircle, ExternalLink, ChevronDown } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -491,7 +491,7 @@ function OnboardingWizard() {
             />
             <PageWorkbench />
             <Card>
-              <CardContent className="p-10 flex items-center justify-center gap-3 text-sm text-slate-500">
+              <CardContent className="flex items-center justify-center gap-3 p-4 text-xs text-slate-600 sm:p-6 sm:text-sm">
                 <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
                 Loading your saved setup...
               </CardContent>
@@ -518,10 +518,10 @@ function OnboardingWizard() {
             meta={
               !loadError ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     Step {stepIndex + 1} of {totalSteps}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {sectionsComplete} of {SECTION_IDS.length} sections complete
                   </span>
@@ -535,10 +535,10 @@ function OnboardingWizard() {
                would clobber the real row on save, so block the wizard
                and offer a retry instead. */
             <Card>
-              <CardContent className="p-6 text-center space-y-3">
+              <CardContent className="space-y-3 p-3 text-center sm:p-5">
                 <p className="text-sm font-semibold text-slate-900">Couldn&apos;t load your saved setup</p>
-                <p className="text-sm text-slate-600 max-w-md mx-auto">{loadError}</p>
-                <Button variant="outline" onClick={() => setLoadAttempt((n) => n + 1)}>
+                <p className="mx-auto max-w-md break-words text-xs leading-5 text-slate-600 sm:text-sm">{loadError}</p>
+                <Button variant="outline" className="min-h-10" onClick={() => setLoadAttempt((n) => n + 1)}>
                   Try again
                 </Button>
               </CardContent>
@@ -550,10 +550,10 @@ function OnboardingWizard() {
               doesn't crush. */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-semibold text-slate-900">
+              <p className="min-w-0 text-xs font-semibold leading-5 text-slate-900 sm:text-sm">
                 Step {stepIndex + 1} of {totalSteps}: {STEPS[stepIndex].label}
               </p>
-              <p className="text-sm text-slate-500">{progressPct}%</p>
+              <p className="shrink-0 text-xs tabular-nums text-slate-600 sm:text-sm">{progressPct}%</p>
             </div>
             <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
               <div
@@ -577,7 +577,7 @@ function OnboardingWizard() {
                     type="button"
                     disabled={!reachable}
                     onClick={() => reachable && setStep(s.id)}
-                    className={`flex items-center gap-1 text-[11px] transition ${
+                    className={`flex items-center gap-1 text-xs transition ${
                       active
                         ? "text-brand-primary font-semibold"
                         : done
@@ -595,7 +595,7 @@ function OnboardingWizard() {
           </div>
 
           <Card>
-            <CardContent className="p-5 sm:p-7 space-y-5">
+            <CardContent className="space-y-4 p-3 sm:space-y-5 sm:p-5 lg:p-7">
               {step === "welcome" && (
                 <WelcomeStep
                   companyName={form.company_name}
@@ -834,10 +834,10 @@ function WelcomeStep({
         <div className="inline-flex w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-secondary items-center justify-center shadow-lg mb-4">
           <Sparkles className="w-8 h-8 text-white" />
         </div>
-        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
+        <h2 className="break-words text-xl font-bold text-slate-900 sm:text-3xl">
           {hasAnyProgress ? "Welcome back" : "Welcome"}{companyName ? `, ${companyName}` : ""}
         </h2>
-        <p className="text-slate-600 mt-2 max-w-lg mx-auto">
+        <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-600">
           {hasAnyProgress
             ? `You've already filled in ${completed} of ${checklist.length} steps. Pick up where you left off or jump to any step below.`
             : "Let's get your business set up. This takes about 5 minutes. We'll cover the basics you need before you can quote, invoice and run your first event."}
@@ -847,18 +847,15 @@ function WelcomeStep({
       {/* ONB-B: live completion checklist. Each row links straight
           to its step so the operator doesn't have to walk the whole
           wizard to fix one missed field. */}
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            What we&apos;ll cover
-          </p>
-          {hasAnyProgress && (
-            <p className="text-xs tabular-nums text-slate-500">
-              {completed} / {checklist.length} complete
-            </p>
-          )}
-        </div>
-        <ul className="space-y-2 text-sm text-slate-700">
+      <details className="group rounded-xl border border-slate-200 bg-slate-50">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-3 py-3 text-left [&::-webkit-details-marker]:hidden sm:px-4">
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-slate-900">What we&apos;ll cover</span>
+            <span className="block text-xs text-slate-600">{hasAnyProgress ? `${completed} of ${checklist.length} sections complete` : `${checklist.length} setup sections`}</span>
+          </span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform group-open:rotate-180" aria-hidden="true" />
+        </summary>
+        <ul className="space-y-2 border-t border-slate-200 px-3 py-3 text-sm text-slate-700 sm:px-4">
           {checklist.map((c) => {
             const done = isStepComplete(c.id, form);
             return (
@@ -867,32 +864,32 @@ function WelcomeStep({
                   type="button"
                   onClick={() => onJumpTo(c.id)}
                   disabled={saving}
-                  className="w-full text-left flex items-start gap-2 px-2 -mx-2 py-1 rounded hover:bg-white transition-colors"
+                  className="-mx-1 flex min-h-10 w-full items-start gap-2 rounded px-1 py-2 text-left transition-colors hover:bg-white"
                 >
                   <Check className={`w-4 h-4 mt-0.5 flex-shrink-0 ${done ? "text-brand-primary" : "text-slate-300"}`} />
-                  <span className="flex-1">
+                  <span className="min-w-0 flex-1 text-xs leading-5 sm:text-sm">
                     <span className={done ? "font-medium text-slate-900" : "text-slate-700"}>{c.label}</span>
                     <span className="text-slate-500">: {c.helper}</span>
                   </span>
-                  <ArrowRight className="w-3 h-3 text-slate-300 flex-shrink-0 mt-1" />
+                  <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
                 </button>
               </li>
             );
           })}
         </ul>
-      </div>
+      </details>
 
-      <div className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-emerald-900/60 dark:bg-emerald-950/20">
-        <div className="flex items-start gap-3">
+      <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4 dark:border-emerald-900/60 dark:bg-emerald-950/20">
+        <div className="flex min-w-0 items-start gap-3">
           <MessageCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-semibold text-slate-900 dark:text-white">Optional: WhatsApp automation</p>
             <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
               Connect the business number, verify the webhook callback in Meta, subscribe to messages, and register the WhatsApp account. The final onboarding step links to the full checklist; you can also return to WhatsApp setup later.
             </p>
           </div>
         </div>
-        <Button asChild variant="outline" size="sm" className="shrink-0 gap-1.5">
+        <Button asChild variant="outline" size="sm" className="min-h-10 w-full shrink-0 gap-1.5 text-xs sm:w-auto sm:text-sm">
           <Link href={`${slug ? `/${slug}` : ""}/admin/whatsapp`}>Read the setup guide <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>
         </Button>
       </div>
@@ -1514,7 +1511,7 @@ function EmailStep({
             <div className="flex items-center gap-2 mb-2">
               <ShieldCheck className="w-5 h-5 text-slate-600" />
               <p className="font-semibold text-slate-900">Use my own domain</p>
-              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-brand-primary/15 text-brand-primary">
+              <span className="rounded-full bg-brand-primary/15 px-2 py-0.5 text-xs font-semibold text-brand-primary">
                 Recommended
               </span>
             </div>
@@ -1739,7 +1736,7 @@ function RemindersStep({
                 aria-label="Before or after the event"
                 value={dueDirection}
                 onChange={(e) => setDueDirection(e.target.value as PaymentDueDirection)}
-                className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                className="min-h-10 w-full min-w-0 max-w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
               >
                 <option value="before_event">days before the event</option>
                 <option value="after_event">days after the event</option>
@@ -1757,7 +1754,7 @@ function RemindersStep({
                 id="onb-payment-reminder"
                 value={reminderMode}
                 onChange={(e) => setReminderMode(e.target.value as PaymentReminderMode)}
-                className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                className="min-h-10 w-full min-w-0 max-w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
               >
                 <option value="off">Don&apos;t send payment reminders</option>
                 <option value="before_due">Send one reminder before payment is due</option>
@@ -2019,14 +2016,14 @@ function DoneStep({
       title="All set"
       description="Quick check before we wrap up. You can edit any of this later in Settings."
     >
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+        <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
           {summary.map((s) => (
-            <div key={s.label} className="flex justify-between sm:block">
-              <dt className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">
+            <div key={s.label} className="flex min-w-0 justify-between gap-3 sm:block">
+              <dt className="shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-600">
                 {s.label}
               </dt>
-              <dd className="text-sm font-medium text-slate-800 sm:mt-0.5 truncate">
+              <dd className="min-w-0 break-words text-right text-sm font-medium text-slate-800 sm:mt-0.5 sm:text-left">
                 {s.value}
               </dd>
             </div>
@@ -2034,33 +2031,36 @@ function DoneStep({
         </dl>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5" aria-labelledby="onboarding-whatsapp-title">
-        <div className="flex items-start gap-3">
+      <section className="rounded-xl border border-slate-200 bg-white" aria-labelledby="onboarding-whatsapp-title">
+        <details className="group">
+        <summary className="flex min-h-16 cursor-pointer list-none items-start gap-3 rounded-xl p-3 text-left [&::-webkit-details-marker]:hidden sm:p-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
             <MessageCircle className="h-5 w-5" aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h3 id="onboarding-whatsapp-title" className="text-sm font-semibold text-slate-900">Optional: WhatsApp automation</h3>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">Can do later</span>
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">Can do later</span>
             </div>
             <p className="mt-1 text-sm leading-relaxed text-slate-600">
               Send approved templates automatically and manage client replies in CateringMS. A webhook is Meta’s secure connection that sends replies and message delivery updates into CateringMS. WhatsApp setup is optional and can be completed later.
             </p>
           </div>
-        </div>
-        <ol className="mt-4 grid gap-3 text-xs leading-relaxed text-slate-600 sm:grid-cols-2">
+          <ChevronDown className="mt-1 h-4 w-4 shrink-0 text-slate-500 transition-transform group-open:rotate-180" aria-hidden="true" />
+        </summary>
+        <div className="space-y-3 border-t border-slate-100 p-3 sm:p-4">
+        <ol className="grid gap-3 text-xs leading-5 text-slate-600 sm:grid-cols-2">
           <li><strong className="text-slate-800">1. Connect:</strong> in WhatsApp setup, enter the phone number ID, WhatsApp Business account ID, permanent access token and App secret from Meta.</li>
           <li><strong className="text-slate-800">2. Register the callback:</strong> on WhatsApp setup, copy the Callback URL and Show or Copy the Verify token. In Meta for Developers, open your app → WhatsApp → Configuration and find the webhook section. Paste both values, then choose Verify and save. For apps created with the Connect with customers through WhatsApp use case, use Use cases → Customize → Configuration. The verify token is not the App secret.</li>
           <li><strong className="text-slate-800">3. Subscribe to fields:</strong> in Meta’s WhatsApp webhook fields, subscribe to <code>messages</code> for replies and delivery updates. With Business app coexistence, also subscribe to <code>smb_message_echoes</code>; old chat history needs <code>history</code> and approved sharing.</li>
           <li><strong className="text-slate-800">4. Register the account:</strong> return to WhatsApp setup and click <strong>Subscribe account</strong>. CateringMS uses the saved access token to subscribe this WABA to the app.</li>
           <li><strong className="text-slate-800">5. Send and confirm:</strong> switch the Meta app to Live for real customer events, complete Meta billing, select an approved template and send a test. Check WhatsApp Activity: Sent means Meta accepted it; Delivered means it reached the phone.</li>
         </ol>
-        <p className="mt-3 text-xs leading-relaxed text-slate-500">
+        <p className="text-xs leading-5 text-slate-500">
           Meta may require a payment method before it delivers messages. The WhatsApp setup page explains each field, shows provider errors, and guides you through recovery.
         </p>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Button asChild variant="outline" size="sm" className="gap-1.5">
+        <div className="flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+          <Button asChild variant="outline" size="sm" className="min-h-10 w-full gap-1.5 text-xs sm:w-auto sm:text-sm">
             <Link href={`${slug ? `/${slug}` : ""}/admin/whatsapp`}>
               <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" /> Open WhatsApp setup <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
             </Link>
@@ -2074,6 +2074,8 @@ function DoneStep({
             Meta WhatsApp webhook guide <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
           </a>
         </div>
+        </div>
+        </details>
       </section>
 
       <div className="flex flex-col sm:flex-row gap-2 pt-2">
@@ -2138,7 +2140,7 @@ function Field({
         {label}{required ? <span className="text-rose-500"> *</span> : null}
       </Label>
       <div className="mt-1">{children}</div>
-      {hint && <p className="text-[11px] text-slate-500 mt-1">{hint}</p>}
+      {hint && <p className="mt-1 text-xs leading-5 text-slate-600">{hint}</p>}
     </div>
   );
 }

@@ -664,18 +664,18 @@ function KitchenStaffPage() {
             meta={
               !loading && !loadError ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {stats.total} active staff
                   </span>
                   {stats.missingRate > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                       {stats.missingRate} missing a rate
                     </span>
                   )}
                   {stats.archived > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       {stats.archived} archived
                     </span>
                   )}
@@ -683,16 +683,16 @@ function KitchenStaffPage() {
               ) : undefined
             }
             actions={
-            <>
+            <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
               {/* Command-centre restructure (2026-07-02): the wage-
                   dashboard shortcut moved out of the old stat strip
                   into the hero actions. */}
-              <Link href={withSlug("/admin/wages")}>
-                <Button variant="outline">
-                  <Banknote className="w-4 h-4 mr-2" />
-                  Wage dashboard
+              <Button asChild variant="outline" size="sm" aria-label="Open wage dashboard" title="Wage dashboard" className="h-10 w-10 justify-center p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3">
+                <Link href={withSlug("/admin/wages")}>
+                  <Banknote className="h-4 w-4" />
+                  <span className="sr-only sm:not-sr-only sm:inline">Wages</span>
+                </Link>
                 </Button>
-              </Link>
               {/* Phase 20 #3: kitchen-staff CSV export. Owners and
                   payroll regularly need a flat roster (name +
                   contact + role + pay type + rate + departments)
@@ -701,6 +701,10 @@ function KitchenStaffPage() {
                   applied 'visible' list. */}
               <Button
                 variant="outline"
+                size="sm"
+                aria-label="Export staff roster as CSV"
+                title="Export CSV"
+                className="h-10 w-10 justify-center p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3"
                 onClick={() => {
                   if (visible.length === 0) {
                     toast({ title: "Nothing to export", description: "Adjust filters until at least one staff member is visible." });
@@ -747,14 +751,14 @@ function KitchenStaffPage() {
                   URL.revokeObjectURL(url);
                 }}
               >
-                <Download className="w-4 h-4 mr-2" />
-                Export CSV
+                <Download className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only sm:inline">Export CSV</span>
               </Button>
-              <Button onClick={openAdd} className="bg-brand-primary hover:opacity-90">
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add staff
+              <Button onClick={openAdd} size="sm" aria-label="Add staff" title="Add staff" className="h-10 w-10 justify-center p-0 bg-brand-primary hover:opacity-90 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3">
+                <UserPlus className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only sm:inline">Add staff</span>
               </Button>
-            </>
+            </div>
             }
           />
           <PageWorkbench />
@@ -768,10 +772,10 @@ function KitchenStaffPage() {
               missing - by then it's a polish nag, not a page-
               defining bug. */}
           {stats.missingRate > 0 && stats.missingRate >= Math.ceil(stats.total / 2) && (
-            <Alert variant="destructive" className="mb-5 border-rose-300 bg-rose-50">
+            <Alert variant="destructive" className="mb-4 border-rose-300 bg-rose-50 sm:mb-5">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
-                <div className="font-semibold text-rose-900">
+                <div className="text-sm font-semibold text-rose-900 sm:text-base">
                   {stats.missingRate} of {stats.total} active staff have no rate set.
                 </div>
                 <p className="text-xs text-rose-800 mt-1">
@@ -783,16 +787,16 @@ function KitchenStaffPage() {
                     {stats.ratelessMore > 0 ? ` and ${stats.ratelessMore} more` : ""}.
                   </p>
                 )}
-                <div className="flex gap-2 mt-2">
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                   <Button
                     size="sm"
-                    className="bg-rose-600 hover:bg-rose-700 text-white"
+                    className="min-h-10 w-full bg-rose-600 text-white hover:bg-rose-700 sm:w-auto"
                     onClick={openBulkRates}
                   >
                     Bulk-set rates
                   </Button>
                   <Link href={withSlug("/admin/wages")}>
-                    <Button size="sm" variant="outline" className="border-rose-300 text-rose-800">
+                    <Button size="sm" variant="outline" className="min-h-10 w-full border-rose-300 text-rose-800 sm:w-auto">
                       Open wage dashboard
                     </Button>
                   </Link>
@@ -807,20 +811,20 @@ function KitchenStaffPage() {
               to the hero actions. A loading skeleton renders inside
               the shell so zeros never masquerade as real counts. */}
           {loading ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" aria-hidden="true">
+            <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-4 lg:grid-cols-4" aria-hidden="true">
               {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white/70 dark:border-slate-800 dark:bg-slate-900/60" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <StatTile
+            <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-4 lg:grid-cols-4">
+              <StatTile compact
                 label="Active staff"
                 value={stats.total}
                 icon={Users}
                 hint="Across every department"
               />
-              <StatTile
+              <StatTile compact
                 label="Missing rate"
                 value={stats.missingRate > 0
                   ? <span className="text-amber-700">{stats.missingRate}</span>
@@ -830,13 +834,13 @@ function KitchenStaffPage() {
                   ? <span className="text-amber-700">Wage dashboard skips staff without rates</span>
                   : "Every active staffer has a rate"}
               />
-              <StatTile
+              <StatTile compact
                 label="Portal logins"
                 value={stats.portalLogins}
                 icon={ExternalLink}
                 hint={`${Math.max(0, stats.total - stats.portalLogins)} clock-in only`}
               />
-              <StatTile
+              <StatTile compact
                 label="Archived"
                 value={stats.archived}
                 icon={Archive}
@@ -848,8 +852,26 @@ function KitchenStaffPage() {
           {/* Command-centre restructure (2026-07-02): department
               chips + search + archived toggle + sort grouped into
               ONE toolbar card instead of three loose rows. */}
-          <PortalCard className="mb-6">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
+          <PortalCard className="mb-4 sm:mb-6">
+            <div className="mb-3 sm:hidden">
+              <label htmlFor="staff-department" className="sr-only">Filter staff by department</label>
+              <select
+                id="staff-department"
+                value={filterDept}
+                onChange={(event) => {
+                  setFilterDept(event.target.value);
+                  setServiceStaffId("");
+                }}
+                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+              >
+                <option value="all">All staff ({staff.filter((s) => s.is_active && !s.deleted_at).length})</option>
+                {ALL_DEPARTMENTS.map((department) => {
+                  const count = staff.filter((member) => member.is_active && !member.deleted_at && Array.isArray(member.departments) && member.departments.includes(department.id)).length;
+                  return <option key={department.id} value={department.id}>{department.label} ({count})</option>;
+                })}
+              </select>
+            </div>
+            <div className="mb-3 hidden flex-wrap items-center gap-2 sm:flex">
               {([{ id: "all", label: "All staff" }, ...ALL_DEPARTMENTS] as const).map((d) => {
                 const active = filterDept === d.id;
                 const count = d.id === "all"
@@ -874,7 +896,7 @@ function KitchenStaffPage() {
                     }`}
                   >
                     {d.label}
-                    <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] ${active ? "bg-white/60" : "bg-slate-100 text-slate-600"}`}>
+                    <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${active ? "bg-white/60" : "bg-slate-100 text-slate-600"}`}>
                       {count}
                     </span>
                   </button>
@@ -895,7 +917,7 @@ function KitchenStaffPage() {
                       </p>
                     </div>
                   </div>
-                  <span className="w-fit rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200">
+                  <span className="w-fit rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
                     {serviceUnassignedCount} available
                   </span>
                 </div>
@@ -949,14 +971,14 @@ function KitchenStaffPage() {
               </div>
             )}
             <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
+              <div className="relative min-w-0 flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
                   ref={searchRef}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search by name, role or phone... (press /)"
-                  className="pl-9 pr-9"
+                  className="h-11 min-w-0 pl-9 pr-9"
                 />
                 {/* Phase 25 #4: clear-search affordance. */}
                 {search && (
@@ -971,9 +993,9 @@ function KitchenStaffPage() {
                   </button>
                 )}
               </div>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-slate-200 bg-white">
+              <div className="flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2">
                 <Switch id="archived" checked={showArchived} onCheckedChange={setShowArchived} />
-                <Label htmlFor="archived" className="text-sm text-slate-700 cursor-pointer select-none">
+                <Label htmlFor="archived" className="cursor-pointer select-none text-xs text-slate-700 sm:text-sm">
                   Show archived
                   {stats.archived > 0 && (
                     <span className="ml-1.5 text-xs text-slate-500">({stats.archived})</span>
@@ -1051,24 +1073,24 @@ function KitchenStaffPage() {
                     // clocked + hours this month + unpaid sessions.
                     const act = activity.get(s.id);
                     return (
-                      <li key={s.id} className={`p-4 flex flex-col sm:flex-row sm:items-center gap-3 ${archived ? "opacity-60" : ""}`}>
-                        <div className="w-10 h-10 rounded-full bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
-                          <ChefHat className="w-5 h-5 text-brand-primary" />
+                      <li key={s.id} className={`grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2.5 p-3 sm:gap-y-3 sm:p-4 xl:grid-cols-[auto_minmax(0,1fr)_minmax(9rem,auto)_auto] xl:items-center ${archived ? "opacity-60" : ""}`}>
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-primary/10 sm:h-10 sm:w-10">
+                          <ChefHat className="h-4 w-4 text-brand-primary sm:h-5 sm:w-5" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-slate-900 truncate">{s.full_name}</span>
-                            {s.role_title && <Badge variant="outline" className="text-[10px]">{s.role_title}</Badge>}
+                        <div className="min-w-0">
+                          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                            <span className="break-words text-sm font-semibold leading-5 text-slate-900">{s.full_name}</span>
+                            {s.role_title && <Badge variant="outline" className="max-w-full whitespace-normal text-xs">{s.role_title}</Badge>}
                             {/* STA-B: pay-type chip - "Monthly" or
                                 "Per shift" instead of leaving the
                                 row to silently render the wrong
                                 columns. Hourly stays unbadged (the
                                 default + the columns are visible). */}
                             {payType === "monthly" && (
-                              <Badge variant="outline" className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20">Monthly</Badge>
+                              <Badge variant="outline" className="border-brand-primary/20 bg-brand-primary/10 text-xs text-brand-primary">Monthly</Badge>
                             )}
                             {payType === "shift" && (
-                              <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-700 border-slate-200">Per shift</Badge>
+                              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-xs text-slate-700">Per shift</Badge>
                             )}
                             {/* STA-B: department badges so the All
                                 view tells the operator which team
@@ -1080,16 +1102,18 @@ function KitchenStaffPage() {
                                 className="inline-flex flex-wrap items-center gap-1"
                               >
                                 {depts.map((d) => (
-                                  <Badge key={d} variant="outline" className="text-[10px] bg-slate-50 text-slate-600 border-slate-200 inline-flex items-center gap-0.5">
-                                    <Tag className="w-2.5 h-2.5" aria-hidden="true" />
+                                  <Badge key={d} variant="outline" className="inline-flex items-center gap-1 border-slate-200 bg-slate-50 text-xs text-slate-600">
+                                    <Tag className="h-3 w-3" aria-hidden="true" />
                                     {ALL_DEPARTMENTS.find((x) => x.id === d)?.label || d}
                                   </Badge>
                                 ))}
                               </span>
                             )}
-                            {archived && <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-500">Archived</Badge>}
+                          </div>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                            {archived && <Badge variant="outline" className="bg-slate-100 text-xs text-slate-600">Archived</Badge>}
                             {s.linked_profile_id ? (
-                              <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">Logs in</Badge>
+                              <Badge variant="outline" className="border-blue-200 bg-blue-50 text-xs text-blue-700">Logs in</Badge>
                             ) : (
                               // STA-B: inverse signal. Pre-STA-B
                               // the "Logs in" pill only fired on
@@ -1097,14 +1121,14 @@ function KitchenStaffPage() {
                               // without were unbadged, leaving the
                               // operator to guess the split. Now
                               // every row carries one or the other.
-                              <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200">Clock-in only</Badge>
+                              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-xs text-slate-600">Clock-in only</Badge>
                             )}
                             {/* STA-B: rate-missing chip on the row
                                 so the operator can fix it without
                                 opening the dialog. */}
                             {!archived && isRateless && (
-                              <Badge variant="outline" className="text-[10px] bg-rose-50 text-rose-700 border-rose-200 inline-flex items-center gap-0.5">
-                                <AlertTriangle className="w-2.5 h-2.5" />
+                              <Badge variant="outline" className="inline-flex items-center gap-1 border-rose-200 bg-rose-50 text-xs text-rose-700">
+                                <AlertTriangle className="h-3 w-3" />
                                 Rate missing
                               </Badge>
                             )}
@@ -1113,7 +1137,7 @@ function KitchenStaffPage() {
                                 noise. */}
                             {!archived && completePct < 100 && (
                               <span
-                                className="text-[10px] text-slate-500 inline-flex items-center gap-0.5"
+                                className="inline-flex items-center gap-1 text-xs text-slate-600"
                                 title={`Onboarding ${completePct}% complete. Missing: ${[
                                   isRateless ? "rate" : null,
                                   !s.phone ? "phone" : null,
@@ -1123,12 +1147,12 @@ function KitchenStaffPage() {
                                   depts.length === 0 ? "department" : null,
                                 ].filter(Boolean).join(", ") || "nothing"}.`}
                               >
-                                <CheckCircle2 className="w-2.5 h-2.5" />
-                                {completePct}%
+                                <CheckCircle2 className="h-3 w-3" />
+                                {completePct}% complete
                               </span>
                             )}
                           </div>
-                          <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                          <div className="mt-2 grid min-w-0 gap-1.5 text-xs text-slate-600 sm:grid-cols-2">
                             {/* Phase 21 #9: click-to-copy phone +
                                 email, same pattern as driver-
                                 management. Kitchen leads paste
@@ -1146,10 +1170,10 @@ function KitchenStaffPage() {
                                     toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
                                   }
                                 }}
-                                className="inline-flex items-center gap-1 hover:underline hover:text-slate-700"
+                                className="inline-flex min-h-8 min-w-0 items-start gap-1.5 text-left hover:text-slate-900"
                                 title="Copy phone number"
                               >
-                                <Phone className="w-3 h-3" />{s.phone}
+                                <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span className="break-all">{s.phone}</span>
                               </button>
                             )}
                             {s.email && (
@@ -1164,68 +1188,51 @@ function KitchenStaffPage() {
                                     toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
                                   }
                                 }}
-                                className="inline-flex items-center gap-1 hover:underline hover:text-slate-700"
+                                className="inline-flex min-h-8 min-w-0 items-start gap-1.5 text-left hover:text-slate-900"
                                 title="Copy email"
                               >
-                                <Mail className="w-3 h-3" />{s.email}
+                                <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span className="break-all">{s.email}</span>
                               </button>
                             )}
                             {/* STA-B: deep-link quick actions next
                                 to the click-to-copy buttons above.
                                 Same pattern contacts page uses for
                                 client rows. */}
-                            {s.phone && (
-                              <a
-                                href={`tel:${String(s.phone).replace(/[^+\d]/g, "")}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-slate-500 hover:text-slate-800"
-                                title={`Call ${s.phone}`}
-                                aria-label={`Call ${s.full_name}`}
-                              >
-                                <Phone className="w-3 h-3" />
-                              </a>
-                            )}
-                            {s.phone && (
-                              <a
-                                href={buildWhatsAppUrl(String(s.phone)) || undefined}
-                                target="_self"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-brand-primary hover:text-brand-primary"
-                                title={`WhatsApp ${s.full_name}`}
-                                aria-label={`WhatsApp ${s.full_name}`}
-                              >
-                                <MessageCircle className="w-3 h-3" />
-                              </a>
-                            )}
                             {s.phone && !archived && (
-                              <div className="flex flex-wrap gap-1.5" onClick={(event) => event.stopPropagation()}>
+                              <div className="col-span-full flex flex-wrap items-center gap-1.5 pt-0.5" onClick={(event) => event.stopPropagation()}>
+                                <a
+                                  href={`tel:${String(s.phone).replace(/[^+\d]/g, "")}`}
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                  title={`Call ${s.phone}`}
+                                  aria-label={`Call ${s.full_name}`}
+                                >
+                                  <Phone className="h-4 w-4" />
+                                </a>
+                                <a
+                                  href={buildWhatsAppUrl(String(s.phone)) || undefined}
+                                  target="_self"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                  title={`WhatsApp ${s.full_name}`}
+                                  aria-label={`WhatsApp ${s.full_name}`}
+                                >
+                                  <MessageCircle className="h-4 w-4" />
+                                </a>
                                 {!s.linked_profile_id && <WhatsAppManualStaffSend
                                   messageKey="whatsapp_staff_welcome_no_login"
                                   recipientName={s.full_name}
                                   recipientPhone={s.phone}
                                   buttonLabel="Shared-device welcome"
-                                  className="h-7 px-2 text-[11px]"
+                                  className="h-9 max-w-full px-2.5 text-xs"
                                 />}
                                 <WhatsAppManualStaffSend
                                   messageKey="whatsapp_staff_check_in"
                                   recipientName={s.full_name}
                                   recipientPhone={s.phone}
                                   buttonLabel="Check in"
-                                  className="h-7 px-2 text-[11px]"
+                                  className="h-9 max-w-full px-2.5 text-xs"
                                 />
                               </div>
-                            )}
-                            {s.email && (
-                              <a
-                                href={`mailto:${s.email}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-slate-500 hover:text-slate-800"
-                                title={`Email ${s.email}`}
-                                aria-label={`Email ${s.full_name}`}
-                              >
-                                <Mail className="w-3 h-3" />
-                              </a>
                             )}
                           </div>
                           {/* STA-C: activity rollup strip. Last
@@ -1235,14 +1242,14 @@ function KitchenStaffPage() {
                               brand-new staff member doesn't show
                               "0h this month, never clocked" noise. */}
                           {!archived && act && (act.last_clocked_at || act.hours_this_month_min > 0 || act.unpaid_session_count > 0) && (
-                            <div className="text-[11px] text-slate-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                            <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
                               {act.last_clocked_at ? (
                                 (() => {
                                   const daysSince = Math.floor((Date.now() - new Date(act.last_clocked_at).getTime()) / 86_400_000);
                                   const stale = daysSince >= 60;
                                   return (
                                     <span
-                                      className={stale ? "text-amber-700" : ""}
+                                      className={`inline-flex items-center ${stale ? "font-medium text-amber-700" : ""}`}
                                       title={`Last clocked ${new Date(act.last_clocked_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`}
                                     >
                                       <Clock className="w-3 h-3 inline mr-0.5" />
@@ -1270,7 +1277,7 @@ function KitchenStaffPage() {
                             </div>
                           )}
                         </div>
-                        <div className="flex items-center gap-3 text-xs">
+                        <div className="col-span-2 grid min-w-0 grid-cols-2 gap-2 text-left xl:col-span-1 xl:flex xl:items-center xl:justify-end xl:gap-3 xl:text-right">
                           {/* STA-B: pay-type-aware column block.
                               Pre-STA-B every row rendered the
                               hourly Standard/Overtime/Std-day
@@ -1278,55 +1285,55 @@ function KitchenStaffPage() {
                               showed "Not set" forever. */}
                           {payType === "hourly" && (
                             <>
-                              <div className="text-right">
-                                <div className="text-[10px] uppercase tracking-wider text-slate-500">Standard</div>
-                                <div className="font-semibold text-slate-900 tabular-nums">
+                              <div className="min-w-0 rounded-lg bg-slate-50 px-2.5 py-2 xl:rounded-none xl:bg-transparent xl:px-0 xl:py-0">
+                                <div className="text-xs uppercase tracking-wide text-slate-500">Standard rate</div>
+                                <div className="break-words text-sm font-semibold text-slate-900 tabular-nums">
                                   {s.hourly_rate != null ? `${formatZAR(Number(s.hourly_rate))}/h` : <span className="text-rose-600">Not set</span>}
                                 </div>
                               </div>
-                              <div className="text-right">
-                                <div className="text-[10px] uppercase tracking-wider text-slate-500">Overtime</div>
-                                <div className="font-semibold text-slate-900 tabular-nums">
+                              <div className="min-w-0 rounded-lg bg-slate-50 px-2.5 py-2 xl:rounded-none xl:bg-transparent xl:px-0 xl:py-0">
+                                <div className="text-xs uppercase tracking-wide text-slate-500">Overtime rate</div>
+                                <div className="break-words text-sm font-semibold text-slate-900 tabular-nums">
                                   {otRate != null ? `${formatZAR(otRate)}/h` : "-"}
                                 </div>
                               </div>
-                              <div className="text-right hidden sm:block">
-                                <div className="text-[10px] uppercase tracking-wider text-slate-500 inline-flex items-center gap-0.5">
+                              <div className="hidden min-w-0 rounded-lg bg-slate-50 px-2.5 py-2 sm:block xl:rounded-none xl:bg-transparent xl:px-0 xl:py-0">
+                                <div className="inline-flex items-center gap-1 text-xs uppercase tracking-wide text-slate-500">
                                   Std day
                                   <InfoTooltip content="Anything above this in a single day flips to overtime. SA BCEA default is 9h." />
                                 </div>
-                                <div className="font-semibold text-slate-900 tabular-nums">{s.standard_hours_per_day}h</div>
+                                <div className="text-sm font-semibold text-slate-900 tabular-nums">{s.standard_hours_per_day}h</div>
                               </div>
                             </>
                           )}
                           {payType === "monthly" && (
-                            <div className="text-right">
-                              <div className="text-[10px] uppercase tracking-wider text-slate-500">Monthly salary</div>
-                              <div className="font-semibold text-slate-900 tabular-nums">
+                            <div className="col-span-2 min-w-0 rounded-lg bg-slate-50 px-2.5 py-2 xl:col-span-1 xl:rounded-none xl:bg-transparent xl:px-0 xl:py-0">
+                              <div className="text-xs uppercase tracking-wide text-slate-500">Monthly salary</div>
+                              <div className="break-words text-sm font-semibold text-slate-900 tabular-nums">
                                 {s.monthly_salary != null ? formatZAR(Number(s.monthly_salary)) : <span className="text-rose-600">Not set</span>}
                               </div>
                             </div>
                           )}
                           {payType === "shift" && (
-                            <div className="text-right">
-                              <div className="text-[10px] uppercase tracking-wider text-slate-500">Per shift</div>
-                              <div className="font-semibold text-slate-900 tabular-nums">
+                            <div className="col-span-2 min-w-0 rounded-lg bg-slate-50 px-2.5 py-2 xl:col-span-1 xl:rounded-none xl:bg-transparent xl:px-0 xl:py-0">
+                              <div className="text-xs uppercase tracking-wide text-slate-500">Per shift rate</div>
+                              <div className="break-words text-sm font-semibold text-slate-900 tabular-nums">
                                 {s.shift_rate != null ? formatZAR(Number(s.shift_rate)) : <span className="text-rose-600">Not set</span>}
                               </div>
                             </div>
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="outline" size="sm" onClick={() => openEdit(s)}>
-                            <Pencil className="w-3 h-3 mr-1" />Edit
+                        <div className="col-span-2 grid grid-cols-2 gap-2 xl:col-span-1 xl:flex xl:items-center">
+                          <Button variant="outline" size="sm" className="h-10 text-xs sm:text-sm xl:h-9" onClick={() => openEdit(s)}>
+                            <Pencil className="mr-1 h-3.5 w-3.5" />Edit
                           </Button>
                           {archived ? (
-                            <Button variant="outline" size="sm" onClick={() => handleRestore(s)} disabled={saving}>
-                              <ArchiveRestore className="w-3 h-3 mr-1" />Restore
+                            <Button variant="outline" size="sm" className="h-10 text-xs sm:text-sm xl:h-9" onClick={() => handleRestore(s)} disabled={saving}>
+                              <ArchiveRestore className="mr-1 h-3.5 w-3.5" />Restore
                             </Button>
                           ) : (
-                            <Button variant="outline" size="sm" onClick={() => setArchiveTarget(s)} className="text-rose-700 border-rose-200 hover:bg-rose-50">
-                              <Archive className="w-3 h-3 mr-1" />Archive
+                            <Button variant="outline" size="sm" onClick={() => setArchiveTarget(s)} className="h-10 border-rose-200 text-xs text-rose-700 hover:bg-rose-50 sm:text-sm xl:h-9">
+                              <Archive className="mr-1 h-3.5 w-3.5" />Archive
                             </Button>
                           )}
                         </div>
@@ -1348,15 +1355,15 @@ function KitchenStaffPage() {
           top, body scrolls in the middle, footer pinned at the bottom.
           Save is always reachable without scrolling. */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col gap-0 p-0">
-          <DialogHeader className="px-6 pt-6 pb-3 flex-shrink-0">
+        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-h-[90vh] sm:w-[calc(100%-2rem)]">
+          <DialogHeader className="flex-shrink-0 px-3 pb-3 pt-4 sm:px-6 sm:pt-6">
             <DialogTitle>{editTarget ? "Edit staff" : "Add staff"}</DialogTitle>
             <DialogDescription>
               Rates only show on this page and the wage dashboard. The kitchen tablet sees names and on-duty status, never rand values.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto px-6 py-3 space-y-4">
+          <div className="flex-1 space-y-4 overflow-y-auto px-3 py-3 sm:px-6">
 
           {error && (
             <Alert variant="destructive">
@@ -1656,7 +1663,7 @@ function KitchenStaffPage() {
 
           </div>
 
-          <DialogFooter className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex-shrink-0 bg-white dark:bg-slate-900 sm:rounded-b-lg">
+          <DialogFooter className="flex-shrink-0 border-t border-slate-200 bg-white px-3 py-3 dark:border-slate-700 dark:bg-slate-900 sm:rounded-b-lg sm:px-6 sm:py-4">
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>Cancel</Button>
             <Button onClick={handleSave} disabled={saving} className="bg-brand-primary hover:opacity-90">
               {saving ? "Saving..." : editTarget ? "Save changes" : "Add staff"}
@@ -1672,7 +1679,7 @@ function KitchenStaffPage() {
           operator who they're looking at so the same rate doesn't
           get pasted on a monthly-salaried row by accident. */}
       <Dialog open={bulkOpen} onOpenChange={(open) => { setBulkOpen(open); if (!open) setBulkRates({}); }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-lg overflow-hidden sm:max-h-[90vh] sm:w-[calc(100%-2rem)]">
           <DialogHeader>
             <DialogTitle>Bulk-set hourly rates</DialogTitle>
             <DialogDescription>
@@ -1694,10 +1701,10 @@ function KitchenStaffPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-slate-900 truncate">{s.full_name}</div>
-                      <div className="text-[10px] text-slate-500 inline-flex items-center gap-1 flex-wrap">
+                      <div className="text-xs text-slate-500 inline-flex items-center gap-1 flex-wrap">
                         {s.role_title && <span>{s.role_title}</span>}
                         {payType !== "hourly" && (
-                          <Badge variant="outline" className="text-[9px] px-1 py-0">
+                          <Badge variant="outline" className="text-xs px-1 py-0">
                             {payType === "monthly" ? "Monthly" : "Per shift"}
                           </Badge>
                         )}
@@ -1708,7 +1715,7 @@ function KitchenStaffPage() {
                             className="inline-flex flex-wrap gap-1"
                           >
                             {s.departments.map((d) => (
-                              <Badge key={d} variant="outline" className="text-[9px] px-1 py-0">
+                              <Badge key={d} variant="outline" className="text-xs px-1 py-0">
                                 {ALL_DEPARTMENTS.find((x) => x.id === d)?.label || d}
                               </Badge>
                             ))}

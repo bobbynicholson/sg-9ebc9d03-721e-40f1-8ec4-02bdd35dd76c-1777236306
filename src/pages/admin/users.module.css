@@ -76,6 +76,14 @@
   gap: 8px;
 }
 
+.actionLabel {
+  min-width: 0;
+}
+
+.roleDropdown {
+  display: none;
+}
+
 .primaryAction {
   border-color: var(--directory-green) !important;
   background: var(--directory-green) !important;
@@ -783,23 +791,34 @@
 @media (max-width: 1279px) {
   .layout { grid-template-columns: minmax(0, 1fr); }
   .aside { position: static; }
-  .roleGroups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .roleGroup + .roleGroup { border-top: 0; padding-top: 0; }
+  .roleDropdown { display: block; padding: 12px 14px 14px; }
+  .roleGroups { display: none; }
   .staffGrid { grid-template-columns: minmax(180px, 1.2fr) minmax(170px, 1fr) minmax(120px, .7fr); }
   .actionsCell { grid-column: 1 / -1; justify-content: flex-start; padding-left: 48px; }
 }
 
 @media (max-width: 767px) {
-  .content { padding: 20px 14px 32px; }
-  .header { align-items: flex-start; flex-direction: column; gap: 14px; margin-bottom: 18px; }
-  .headerActions { width: 100%; justify-content: flex-start; }
-  .headerActions :global(button) { flex: 1 1 auto; }
+  .content { padding: 16px 12px 28px; }
+  .eyebrow { font-size: 9px; }
+  .header { align-items: flex-start; flex-direction: column; gap: 12px; margin: 6px 0 16px; }
+  .title { font-size: clamp(24px, 7vw, 29px); }
+  .subtitle { margin-top: 5px; font-size: 12px; line-height: 1.45; }
+  .headerActions { width: auto; max-width: 100%; justify-content: flex-start; gap: 7px; }
+  .headerActions :global(button) { width: 40px; height: 40px; flex: 0 0 40px; padding: 0; }
+  .headerActions :global(button) svg { width: 16px; height: 16px; margin: 0; }
+  .headerActions .actionLabel { display: none; }
   .summaryGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .metric { padding: 12px 12px 11px; }
-  .metricValue { font-size: 25px; }
-  .roleGroups { grid-template-columns: minmax(0, 1fr); gap: 11px; }
-  .roleGroup + .roleGroup { border-top: 1px solid #e2e8f0; padding-top: 11px; }
-  .directoryHeader { align-items: stretch; flex-direction: column; }
+  .metric { padding: 10px 11px; }
+  .metricLabel { font-size: 11px; }
+  .metricValue { margin-top: 4px; font-size: 22px; }
+  .metricNote { font-size: 10px; }
+  .panelHeader { align-items: center; padding: 12px; }
+  .panelTitle { font-size: 13px; }
+  .panelHint { font-size: 10px; }
+  .roleDropdown { padding: 10px 12px 12px; }
+  .directoryHeader { align-items: stretch; flex-direction: column; gap: 11px; padding: 13px 12px; }
+  .directoryHeading { font-size: 14px; }
+  .directorySubhead { font-size: 10px; }
   .tools { width: 100%; grid-template-columns: minmax(0, 1fr); }
   .selectionBar { align-items: flex-start; flex-direction: column; }
   .bulkBox { align-items: stretch; flex-direction: column; gap: 10px; }
@@ -809,9 +828,12 @@
   .staffGrid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .accessCell { padding-left: 48px; }
   .activityCell { padding-left: 48px; }
-  .actionsCell { grid-column: auto; padding-left: 48px; }
-  .actionsCell :global(button) { flex: 1 1 auto; }
+  .actionsCell { grid-column: auto; justify-content: flex-start; padding-left: 48px; }
+  .actionsCell :global(button) { width: 40px; min-width: 40px; min-height: 40px; flex: 0 0 40px; justify-content: center; padding: 0; }
+  .actionsCell :global(button) svg { width: 16px; height: 16px; margin: 0; }
+  .actionsCell .actionLabel { display: none; }
   .editor { margin-left: 0; }
+  .editor { padding: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

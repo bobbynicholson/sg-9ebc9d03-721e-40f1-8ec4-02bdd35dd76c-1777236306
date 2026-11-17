@@ -7,7 +7,7 @@ import { toLocalISO } from "@/lib/localDate";
 import { formatZAR } from "@/lib/formatters";
 import { recipeCostPerSoldUnit } from "@/lib/recipeScaling";
 import Head from "next/head";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1173,15 +1173,15 @@ function MenuPage() {
             meta={
               !loading && !loadError ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {stats.total} active item{stats.total === 1 ? "" : "s"}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     {stats.withRecipe} with recipe
                   </span>
                   {stats.missingPhoto > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                       {stats.missingPhoto} missing photo{stats.missingPhoto === 1 ? "" : "s"}
                     </span>
@@ -1190,7 +1190,7 @@ function MenuPage() {
               ) : undefined
             }
             actions={
-            <div className="grid w-full grid-cols-2 gap-2 xl:flex xl:w-auto">
+            <div className="flex w-full items-center justify-end gap-2 xl:w-auto">
               {/* Phase 19 #9: menu CSV export. Kitchen leads and
                   costing reviewers regularly want a flat snapshot of
                   the price list + cost + margin to bring into pricing
@@ -1258,19 +1258,20 @@ function MenuPage() {
                   document.body.removeChild(a);
                   URL.revokeObjectURL(url);
                 }}
-                className="w-full justify-center xl:w-auto"
+                className="h-10 w-10 shrink-0 justify-center px-0 text-sm sm:h-9 sm:w-auto sm:px-3"
                 aria-label="Export menu CSV"
+                title="Export menu CSV"
               >
-                <Download className="w-4 h-4 xl:mr-2" /><span className="hidden min-[400px]:inline">Export CSV</span>
+                <Download aria-hidden="true" className="h-4 w-4 shrink-0 sm:mr-2" /><span className="sr-only sm:not-sr-only">Export CSV</span>
               </Button>
-              <Button onClick={openAdd} className="col-span-2 w-full justify-center bg-brand-primary hover:opacity-90 xl:col-auto xl:w-auto">
-                <Plus className="w-4 h-4 mr-2" />Add menu item
+              <Button onClick={openAdd} aria-label="Add menu item" title="Add menu item" className="h-10 w-10 shrink-0 justify-center gap-0 bg-brand-primary px-0 text-sm hover:opacity-90 sm:h-9 sm:w-auto sm:gap-2 sm:px-3">
+                <Plus aria-hidden="true" className="h-4 w-4 shrink-0" /><span className="sr-only sm:not-sr-only">Add menu item</span>
               </Button>
             </div>
             }
           />
           <PageWorkbench />
-          <CatalogueOperationsStrip active="menu" />
+          <CatalogueOperationsStrip active="menu" navigationMode="dropdown" />
 
           {/* Audit 2026-07-02: persistent load-failure state with
               Retry. Previously toast-only, so a failed load read as
@@ -1298,12 +1299,13 @@ function MenuPage() {
               headline equals the sum of its hint breakdown. Semantic
               colours (amber = attention, rose = critical) kept on the
               values only. */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="mb-5 grid grid-cols-2 gap-3 sm:mb-6 sm:gap-4 lg:grid-cols-4">
             <StatTile
               label="Active items"
               icon={BookOpen}
               value={stats.total}
               hint={`${stats.withRecipe} with a recipe attached`}
+              compact
             />
             <StatTile
               label={
@@ -1349,6 +1351,7 @@ function MenuPage() {
                 : stats.highMarginCount > 0
                   ? <span className="text-amber-700 dark:text-amber-400">{stats.highMarginCount} item{stats.highMarginCount === 1 ? "" : "s"} over 85%, check pricing</span>
                   : "Across costed, priced items"}
+              compact
             />
             {/* MNU-B: photo coverage tile. Matches the equivalent
                 surface on /admin/offering and tells the operator
@@ -1368,6 +1371,7 @@ function MenuPage() {
               hint={stats.missingPhoto > 0
                 ? <span className="text-amber-700 dark:text-amber-400">{stats.missingPhoto} missing a photo</span>
                 : "Every active item has a photo"}
+              compact
             />
             <StatTile
               label="Recipe gaps"
@@ -1380,6 +1384,7 @@ function MenuPage() {
               hint={(stats.missingRecipe + stats.incompleteCost) > 0
                 ? `${stats.missingRecipe} no recipe, ${stats.incompleteCost} cost incomplete`
                 : "Recipes and costs all in place"}
+              compact
             />
           </div>
 
@@ -1413,16 +1418,17 @@ function MenuPage() {
 
           {/* Filter bar. Command-centre standard: search + filters
               grouped into one toolbar card. */}
-          <PortalCard padded={false} className="p-3 mb-6">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
+          <PortalCard padded={false} className="mb-5 p-2.5 sm:mb-6 sm:p-3">
+          <div className="flex min-w-0 flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
+            <div className="relative min-w-0 flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input
                 ref={searchRef}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name, category or description... (press /)"
-                className="pl-9 pr-9"
+                placeholder="Search menu items..."
+                aria-label="Search menu items by name, category, or description. Press slash to focus."
+                className="h-10 min-w-0 pl-9 pr-9 text-sm"
               />
               {/* Phase 25 #5: clear-search affordance. */}
               {search && (
@@ -1437,33 +1443,38 @@ function MenuPage() {
                 </button>
               )}
             </div>
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
-            >
-              <option value="all">All categories</option>
-              {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <div className="flex items-center gap-2 px-3 rounded-md border border-slate-200 bg-white">
-              <Switch id="archived" checked={showArchived} onCheckedChange={setShowArchived} />
-              <Label htmlFor="archived" className="text-sm text-slate-700 cursor-pointer select-none">Show archived</Label>
+            <div className="grid min-w-0 grid-cols-2 gap-2 sm:flex sm:items-center">
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                aria-label="Filter by category"
+                className="h-10 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2.5 text-xs sm:w-auto sm:px-3 sm:text-sm"
+              >
+                <option value="all">All categories</option>
+                {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <div className="flex min-h-10 min-w-0 items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-2.5 sm:justify-start sm:px-3">
+                <Switch id="archived" checked={showArchived} onCheckedChange={setShowArchived} />
+                <Label htmlFor="archived" className="cursor-pointer select-none text-xs text-slate-700 sm:text-sm">Show archived</Label>
+              </div>
+              <div className="col-span-2 min-w-0 [&_button]:h-10 [&_button]:w-full sm:col-span-1 sm:[&_button]:h-9 sm:[&_button]:w-auto">
+                <SortMenu
+                  activeKey={menuSort.sortKey}
+                  activeDir={menuSort.sortDir}
+                  onPick={menuSort.setSort}
+                  options={[
+                    { key: "name",     dir: "asc",  label: "Name (A to Z)" },
+                    { key: "name",     dir: "desc", label: "Name (Z to A)" },
+                    { key: "category", dir: "asc",  label: "Category (A to Z)" },
+                    { key: "price",    dir: "desc", label: "Price (high to low)" },
+                    { key: "price",    dir: "asc",  label: "Price (low to high)" },
+                    { key: "cost",     dir: "desc", label: "Cost (high to low)" },
+                    { key: "margin",   dir: "desc", label: "Best margin" },
+                    { key: "margin",   dir: "asc",  label: "Worst margin" },
+                  ]}
+                />
+              </div>
             </div>
-            <SortMenu
-              activeKey={menuSort.sortKey}
-              activeDir={menuSort.sortDir}
-              onPick={menuSort.setSort}
-              options={[
-                { key: "name",     dir: "asc",  label: "Name (A to Z)" },
-                { key: "name",     dir: "desc", label: "Name (Z to A)" },
-                { key: "category", dir: "asc",  label: "Category (A to Z)" },
-                { key: "price",    dir: "desc", label: "Price (high to low)" },
-                { key: "price",    dir: "asc",  label: "Price (low to high)" },
-                { key: "cost",     dir: "desc", label: "Cost (high to low)" },
-                { key: "margin",   dir: "desc", label: "Best margin" },
-                { key: "margin",   dir: "asc",  label: "Worst margin" },
-              ]}
-            />
           </div>
           </PortalCard>
 
@@ -1489,18 +1500,23 @@ function MenuPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-5">
+            <div className="space-y-3">
               {grouped.map(([cat, list]) => (
-                <div key={cat}>
-                  <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1">{cat}, {list.length}</h2>
-                  <Card>
+                  <Card key={cat} collapsible defaultOpen={false} collapseLabel={`${cat} menu items`} className="overflow-hidden">
+                    <CardHeader className="p-3 sm:p-4">
+                      <CardTitle className="flex flex-wrap items-center gap-2 text-sm sm:text-base">
+                        <span>{cat}</span>
+                        <Badge variant="secondary" className="text-xs tabular-nums">{list.length}</Badge>
+                        <span className="text-xs font-normal text-slate-500">item{list.length === 1 ? "" : "s"}</span>
+                      </CardTitle>
+                    </CardHeader>
                     <CardContent className="p-0">
                       <ul className="divide-y divide-slate-100">
                         {list.map(it => {
                           const archived = !!it.deleted_at;
                           const isSelected = selectedIds.has(it.id);
                           return (
-                            <li key={it.id} className={`p-3 sm:p-4 flex flex-col gap-3 sm:flex-row sm:items-center ${archived ? "opacity-60" : ""} ${isSelected ? "bg-brand-primary/5" : ""}`}>
+                            <li key={it.id} className={`flex flex-col gap-2.5 p-2.5 sm:flex-row sm:items-center sm:gap-3 sm:p-4 ${archived ? "opacity-60" : ""} ${isSelected ? "bg-brand-primary/5" : ""}`}>
                               <div className="flex min-w-0 flex-1 items-start gap-3">
                               {/* MNU-B: selection checkbox for bulk
                                   operations. Stays in the gutter so the
@@ -1508,7 +1524,7 @@ function MenuPage() {
                               <button
                                 type="button"
                                 onClick={() => toggleSelect(it.id)}
-                                className="text-slate-400 hover:text-brand-primary shrink-0"
+                                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-brand-primary"
                                 title={isSelected ? "Deselect" : "Select for bulk action"}
                                 aria-label={isSelected ? "Deselect item" : "Select item"}
                               >
@@ -1521,7 +1537,7 @@ function MenuPage() {
                                   set the row's image_url without
                                   opening the edit dialog. */}
                               <div
-                                className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden border-2 border-dashed border-transparent hover:border-brand-primary/40 transition-colors"
+                                className="h-11 w-11 shrink-0 overflow-hidden rounded-lg border-2 border-dashed border-transparent bg-slate-100 transition-colors hover:border-brand-primary/40 sm:h-12 sm:w-12"
                                 onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-brand-primary"); }}
                                 onDragLeave={(e) => { e.currentTarget.classList.remove("border-brand-primary"); }}
                                 onDrop={(e) => {
@@ -1539,8 +1555,8 @@ function MenuPage() {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-semibold text-slate-900 truncate">{it.item_name}</span>
-                                  {archived && <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-500">Archived</Badge>}
+                                  <span className="truncate text-sm font-semibold text-slate-900 sm:text-base">{it.item_name}</span>
+                                  {archived && <Badge variant="outline" className="text-xs bg-slate-100 text-slate-500">Archived</Badge>}
                                   {/* MNU-B: suppress "No recipe" amber on
                                       non-food categories (Service /
                                       Equipment) and on buy-and-sell /
@@ -1554,7 +1570,7 @@ function MenuPage() {
                                     const ftype = (it as any).fulfilment_type;
                                     if (it.recipe_id) {
                                       return (
-                                        <Badge variant="outline" className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20">
+                                        <Badge variant="outline" className="text-xs bg-brand-primary/10 text-brand-primary border-brand-primary/20">
                                           <ChefHat className="w-2.5 h-2.5 mr-0.5" />Recipe x{it.recipe_ingredient_count}
                                         </Badge>
                                       );
@@ -1566,7 +1582,7 @@ function MenuPage() {
                                       return null;
                                     }
                                     return (
-                                      <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">No recipe</Badge>
+                                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">No recipe</Badge>
                                     );
                                   })()}
                                   {/* Wave 66.9 Phase 3 - recipe-completeness chip.
@@ -1607,7 +1623,7 @@ function MenuPage() {
                                       >
                                         <Badge
                                           variant="outline"
-                                          className={`text-[10px] ${tone} cursor-pointer hover:opacity-80 transition-opacity`}
+                                          className={`text-xs ${tone} cursor-pointer hover:opacity-80 transition-opacity`}
                                         >
                                           {label}
                                           <Pencil className="w-2.5 h-2.5 ml-1 opacity-60" />
@@ -1621,7 +1637,7 @@ function MenuPage() {
                                   {((it as any).fulfilment_type === "outsourced" || (it as any).fulfilment_type === "hybrid") && (
                                     <Badge
                                       variant="outline"
-                                      className="text-[10px] bg-blue-50 text-blue-700 border-blue-200"
+                                      className="text-xs bg-blue-50 text-blue-700 border-blue-200"
                                       title={`Fulfilment: ${(it as any).fulfilment_type}. Outsource assignment auto-mints on order creation.`}
                                     >
                                       {(it as any).fulfilment_type === "outsourced" ? "Outsourced" : "Hybrid"}
@@ -1659,16 +1675,16 @@ function MenuPage() {
                                   whole page is admin-gated, but explicit here
                                   so we never accidentally render it on a
                                   shared component. */}
-                              <div className="flex w-full min-w-0 items-center justify-between gap-3 sm:w-auto sm:justify-end">
+                              <div className="flex w-full min-w-0 items-start justify-between gap-3 sm:w-auto sm:items-center sm:justify-end">
                                 <div className="hidden text-right md:block">
-                                  <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                                  <div className="text-xs uppercase tracking-wider text-slate-500">
                                     {(it as any).sold_as_package ? "Cost / pkg" : "Cost / serv"}
                                   </div>
                                   {it.cost && it.cost.contributing > 0 ? (
                                     <>
                                       <div className="font-semibold text-slate-900 tabular-nums">{formatZAR(summaryCostPerSoldUnit(it))}</div>
                                       {(it.cost.free_text > 0 || it.cost.missing_cost > 0) && (
-                                        <div className="text-[10px] text-amber-700 inline-flex items-center gap-0.5">
+                                        <div className="text-xs text-amber-700 inline-flex items-center gap-0.5">
                                           <AlertTriangle className="w-2.5 h-2.5" />
                                           partial
                                         </div>
@@ -1679,7 +1695,7 @@ function MenuPage() {
                                   )}
                                 </div>
                                 <div className="hidden text-right sm:block">
-                                  <div className="text-[10px] uppercase tracking-wider text-slate-500">Price / margin</div>
+                                  <div className="text-xs uppercase tracking-wider text-slate-500">Price / margin</div>
                                   <div className="font-semibold text-slate-900 tabular-nums">{formatZAR(Number(it.base_price || 0))}</div>
                                   {it.cost && it.cost.contributing > 0 && Number(it.base_price || 0) > 0 ? (() => {
                                     const price = Number(it.base_price || 0);
@@ -1688,15 +1704,28 @@ function MenuPage() {
                                     const pct = (margin / price) * 100;
                                     const tone = pct < 30 ? "text-rose-700" : pct < 50 ? "text-amber-700" : "text-brand-primary";
                                     return (
-                                      <div className={`text-[10px] tabular-nums font-medium ${tone}`}>
+                                      <div className={`text-xs tabular-nums font-medium ${tone}`}>
                                         {margin >= 0 ? "+" : ""}{formatZAR(margin)} ({pct.toFixed(1)}%)
                                       </div>
                                     );
                                   })() : null}
                                 </div>
-                                <div className="grid min-w-0 flex-1 grid-cols-1 gap-1.5 min-[360px]:grid-cols-3 sm:flex sm:flex-none sm:items-center">
-                                <Button variant="outline" size="sm" onClick={() => openEdit(it)} className="w-full min-w-0 justify-center sm:w-auto">
-                                  <Pencil className="w-3 h-3 mr-1" />Edit
+                                <div className="min-w-0 flex-1 sm:flex-none">
+                                <div className="mb-2 grid grid-cols-2 gap-2 sm:hidden">
+                                  <div className="min-w-0 rounded-md bg-slate-50 px-2.5 py-2">
+                                    <p className="text-xs text-slate-500">Price</p>
+                                    <p className="truncate text-sm font-semibold tabular-nums text-slate-900">{Number(it.base_price || 0) > 0 ? formatZAR(Number(it.base_price)) : "Not set"}</p>
+                                  </div>
+                                  {canSeeCost && (
+                                    <div className="min-w-0 rounded-md bg-slate-50 px-2.5 py-2">
+                                      <p className="text-xs text-slate-500">{(it as any).sold_as_package ? "Cost / pkg" : "Cost / serv"}</p>
+                                      <p className="truncate text-sm font-semibold tabular-nums text-slate-900">{it.cost && it.cost.contributing > 0 ? formatZAR(summaryCostPerSoldUnit(it)) : "Not costed"}</p>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(2.5rem,1fr))] gap-1.5 sm:flex sm:items-center">
+                                <Button variant="outline" size="sm" onClick={() => openEdit(it)} aria-label={`Edit ${it.item_name}`} title="Edit menu item" className="h-10 min-w-0 justify-center gap-1 px-2 sm:h-9 sm:w-auto sm:px-3">
+                                  <Pencil className="h-4 w-4 sm:h-3 sm:w-3" /><span className="sr-only sm:not-sr-only">Edit</span>
                                 </Button>
                                 {/* MNU-B: duplicate-item shortcut.
                                     Use case: "Crockery & Cutlery"
@@ -1710,21 +1739,23 @@ function MenuPage() {
                                     size="sm"
                                     onClick={() => handleDuplicateItem(it)}
                                     title="Duplicate this item with all its fields and recipe"
-                                    className="w-full min-w-0 justify-center sm:w-auto"
+                                    aria-label={`Duplicate ${it.item_name}`}
+                                    className="h-10 min-w-0 justify-center gap-1 px-2 sm:h-9 sm:w-auto sm:px-3"
                                   >
-                                    <Copy className="w-3 h-3 mr-1" />Duplicate
+                                    <Copy className="h-4 w-4 sm:h-3 sm:w-3" /><span className="sr-only sm:not-sr-only">Duplicate</span>
                                   </Button>
                                 )}
                                 {archived ? (
-                                  <Button variant="outline" size="sm" onClick={() => handleRestore(it)} disabled={saving} className="w-full min-w-0 justify-center sm:w-auto">
-                                    <ArchiveRestore className="w-3 h-3 mr-1" />Restore
+                                  <Button variant="outline" size="sm" onClick={() => handleRestore(it)} disabled={saving} aria-label={`Restore ${it.item_name}`} className="h-10 min-w-0 justify-center gap-1 px-2 sm:h-9 sm:w-auto sm:px-3">
+                                    <ArchiveRestore className="h-4 w-4 sm:h-3 sm:w-3" /><span className="sr-only sm:not-sr-only">Restore</span>
                                   </Button>
                                 ) : (
-                                  <Button variant="outline" size="sm" onClick={() => setArchiveTarget(it)} className="w-full min-w-0 justify-center text-rose-700 border-rose-200 hover:bg-rose-50 sm:w-auto">
-                                    <Archive className="w-3 h-3 mr-1" />Archive
+                                  <Button variant="outline" size="sm" onClick={() => setArchiveTarget(it)} aria-label={`Archive ${it.item_name}`} title="Archive menu item" className="h-10 min-w-0 justify-center gap-1 border-rose-200 px-2 text-rose-700 hover:bg-rose-50 sm:h-9 sm:w-auto sm:px-3">
+                                    <Archive className="h-4 w-4 sm:h-3 sm:w-3" /><span className="sr-only sm:not-sr-only">Archive</span>
                                   </Button>
                                 )}
                                 </div>
+                              </div>
                               </div>
                             </li>
                           );
@@ -1732,7 +1763,6 @@ function MenuPage() {
                       </ul>
                     </CardContent>
                   </Card>
-                </div>
               ))}
             </div>
           )}
@@ -1813,7 +1843,7 @@ function MenuPage() {
                     reaching for a calculator. Hidden when the field
                     is empty or zero. */}
                 {Number(itemDraft.base_price) > 0 && (
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-xs text-slate-500">
                     {pricingMode.mode === "inc"
                       ? `= ${formatZAR(toExVat(Number(itemDraft.base_price), 0.15))} ex VAT`
                       : `= ${formatZAR(toIncVat(Number(itemDraft.base_price), 0.15))} inc VAT`}
@@ -1841,7 +1871,7 @@ function MenuPage() {
                       className={canonicalDraftUnitCost != null ? "text-sm bg-slate-50" : "text-sm"}
                     />
                     {canonicalDraftUnitCost != null && (
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-xs text-slate-500">
                         Calculated from the complete recipe below.
                       </p>
                     )}
@@ -1853,7 +1883,7 @@ function MenuPage() {
                         : margin >= 30 ? "text-amber-700"
                         : "text-rose-700";
                       return (
-                        <p className={`text-[11px] ${tone}`}>
+                        <p className={`text-xs ${tone}`}>
                           Margin {margin.toFixed(1)}% ({formatZAR(price - cost)} per unit)
                         </p>
                       );
@@ -1955,7 +1985,7 @@ function MenuPage() {
                         key={t}
                         type="button"
                         onClick={() => setItemDraft({ ...itemDraft, dietary_tags: toggleArrayValue(itemDraft.dietary_tags, t) })}
-                        className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
+                        className={`text-xs px-2 py-1 rounded-full border transition-colors ${
                           on
                             ? "bg-brand-primary/15 text-brand-primary border-brand-primary/30"
                             : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
@@ -1980,7 +2010,7 @@ function MenuPage() {
                         key={a}
                         type="button"
                         onClick={() => setItemDraft({ ...itemDraft, allergen_codes: toggleArrayValue(itemDraft.allergen_codes, a) })}
-                        className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
+                        className={`text-xs px-2 py-1 rounded-full border transition-colors ${
                           on
                             ? "bg-rose-100 text-rose-700 border-rose-300"
                             : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
@@ -2057,9 +2087,9 @@ function MenuPage() {
                   ))}
                 </datalist>
                 {itemDraft.linked_inventory_item_id ? (
-                  <p className="text-[11px] text-brand-primary">Linked. 1 portion will count as 1 unit on shopping.</p>
+                  <p className="text-xs text-brand-primary">Linked. 1 portion will count as 1 unit on shopping.</p>
                 ) : (
-                  <p className="text-[11px] text-amber-700">Pick an inventory item or save will fail.</p>
+                  <p className="text-xs text-amber-700">Pick an inventory item or save will fail.</p>
                 )}
               </div>
             )}
@@ -2396,11 +2426,11 @@ function MenuPage() {
                               ))}
                             </datalist>
                             {ing.inventory_item_id ? (
-                              <span className="text-[10px] text-brand-primary inline-flex items-center gap-1">
+                              <span className="text-xs text-brand-primary inline-flex items-center gap-1">
                                 <Package className="w-2.5 h-2.5" />Linked to inventory
                               </span>
                             ) : (
-                              <span className="text-[10px] text-slate-400">Free-text, won't auto-deduct stock</span>
+                              <span className="text-xs text-slate-400">Free-text, won't auto-deduct stock</span>
                             )}
                           </div>
                           <div className="col-span-5 sm:col-span-2">
@@ -2522,7 +2552,7 @@ function MenuPage() {
                   onChange={(e) => setTimingDraft({ ...timingDraft, prep_time_minutes: e.target.value })}
                   placeholder="20"
                 />
-                <p className="text-[10px] text-slate-500">Active hands-on time.</p>
+                <p className="text-xs text-slate-500">Active hands-on time.</p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="t_cook">Cook time (min)</Label>
@@ -2535,7 +2565,7 @@ function MenuPage() {
                   onChange={(e) => setTimingDraft({ ...timingDraft, cook_time_minutes: e.target.value })}
                   placeholder="45"
                 />
-                <p className="text-[10px] text-slate-500">Oven / stove time.</p>
+                <p className="text-xs text-slate-500">Oven / stove time.</p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="t_base">Base servings</Label>
@@ -2548,7 +2578,7 @@ function MenuPage() {
                   onChange={(e) => setTimingDraft({ ...timingDraft, base_servings: e.target.value })}
                   placeholder="10"
                 />
-                <p className="text-[10px] text-slate-500">Portions per recipe yield.</p>
+                <p className="text-xs text-slate-500">Portions per recipe yield.</p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="t_notice">Advance notice (hours)</Label>
@@ -2561,10 +2591,10 @@ function MenuPage() {
                   onChange={(e) => setTimingDraft({ ...timingDraft, requires_advance_notice_hours: e.target.value })}
                   placeholder="0"
                 />
-                <p className="text-[10px] text-slate-500">Lead time before service.</p>
+                <p className="text-xs text-slate-500">Lead time before service.</p>
               </div>
             </div>
-            <p className="text-[11px] text-slate-500 leading-snug">
+            <p className="text-xs text-slate-500 leading-snug">
               Saving updates the menu item and, when a recipe exists, the recipe row too - so the chip flips green and the next full edit doesn't clobber these numbers.
             </p>
           </div>
@@ -2664,7 +2694,7 @@ function MenuPage() {
               />
               <span className="text-sm text-slate-500">%</span>
             </div>
-            <p className="text-[11px] text-slate-500 mt-2">
+            <p className="text-xs text-slate-500 mt-2">
               Items with a NULL or zero base_price are skipped - "increase R 0 by X%" is nonsense.
             </p>
           </div>

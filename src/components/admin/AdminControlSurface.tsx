@@ -111,7 +111,7 @@ export function AdminControlGroup({
         </div>
       ))}
       {compactOptions && onCompactValueChange && compactValue !== undefined ? (
-        <div className="mb-2 min-w-0 lg:hidden">
+        <div className={cn("mb-2 min-w-0 lg:hidden", collapsible && !expanded && "hidden")}>
           <Select value={compactValue} onValueChange={onCompactValueChange}>
             <SelectTrigger
               aria-label={compactLabel || (typeof label === "string" ? label : "Filter")}

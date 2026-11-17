@@ -36,6 +36,7 @@ import { useRouter } from "next/router";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { AdminControlGroup } from "@/components/admin/AdminControlSurface";
 import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
+import { PwaLoadingScreen } from "@/components/pwa/PwaLoadingScreen";
 import { PortalShell, PortalHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
@@ -986,20 +987,20 @@ function StockPage() {
               <>
                 {!loading && !error && (
                   <>
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       <span className={`h-1.5 w-1.5 rounded-full ${lowStock.count > 0 ? "bg-rose-400" : "bg-emerald-400"}`} />
                       {lowStock.count} low stock
                     </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       {equipPressure.count} equipment commitment{equipPressure.count === 1 ? "" : "s"}
                     </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       {hireIn.count} hire-in pending
                     </span>
                   </>
                 )}
                 {regionLabel && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/90">
                     <MapPin className="w-3 h-3" /> {regionLabel}
                   </span>
                 )}
@@ -1010,13 +1011,17 @@ function StockPage() {
               {totalAttention > 0 && (
                 <a
                   href="#needs-attention"
-                  className="inline-flex items-center"
+                  aria-label={`${totalAttention} need${totalAttention === 1 ? "s" : ""} attention`}
+                  title={`${totalAttention} need${totalAttention === 1 ? "s" : ""} attention`}
+                  className="relative ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-white/20 bg-white/10 text-white hover:bg-white/20 sm:h-auto sm:w-auto sm:justify-start sm:border-0 sm:bg-transparent sm:p-0 sm:hover:bg-transparent"
                   onClick={(e) => {
                     e.preventDefault();
                     document.getElementById("needs-attention")?.scrollIntoView({ behavior: "smooth", block: "start" });
                   }}
                 >
-                  <Badge variant="destructive" className="bg-amber-500 hover:bg-amber-600 cursor-pointer">
+                  <AlertTriangle aria-hidden="true" className="h-4 w-4 sm:hidden" />
+                  <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-amber-500 px-1 text-center text-[10px] font-semibold leading-4 text-white sm:hidden">{totalAttention > 99 ? "99+" : totalAttention}</span>
+                  <Badge variant="destructive" className="hidden cursor-pointer bg-amber-500 hover:bg-amber-600 sm:inline-flex">
                     {totalAttention} need{totalAttention === 1 ? "s" : ""} attention
                   </Badge>
                 </a>
@@ -1025,7 +1030,7 @@ function StockPage() {
             }
           />
           <PageWorkbench />
-          <CatalogueOperationsStrip active="stock" />
+          <CatalogueOperationsStrip active="stock" navigationMode="dropdown" />
 
           {/* Audit 2026-07-02: persistent load-failure state with
               Retry. Toast-only errors read as "all healthy" zeros. */}
@@ -1076,7 +1081,7 @@ function StockPage() {
           )}
 
           {/* Three top tiles */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-6">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3 xl:gap-6 mb-6">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -1086,7 +1091,7 @@ function StockPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-baseline gap-3 mb-3">
-                  <span className="text-4xl font-bold text-slate-900">{loading ? "..." : lowStock.count}</span>
+                  <span className="text-3xl font-bold text-slate-900 sm:text-4xl">{loading ? "..." : lowStock.count}</span>
                   {/* STK-B: copy honesty. Pre-STK-B said "below minimum"
                       but the rule is <= min (Baby Potatoes 2/2 was AT
                       min, counted as below). */}
@@ -1147,25 +1152,22 @@ function StockPage() {
                   </CardTitle>
                   {/* STK-B: window selector. 14d default, 7/14/30
                       toggle. localStorage-persisted. */}
-                  <div className="flex gap-0.5 rounded-md border border-slate-200 bg-white p-0.5 text-[10px]">
-                    {([7, 14, 30] as const).map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        onClick={() => setEquipWindowPersisted(n)}
-                        className={`px-1.5 py-0.5 rounded ${
-                          equipWindow === n ? "bg-brand-primary text-white font-medium" : "text-slate-600"
-                        }`}
-                      >
-                        {n}d
-                      </button>
-                    ))}
-                  </div>
+                  <label className="sr-only" htmlFor="stock-equipment-window">Equipment booking window</label>
+                  <select
+                    id="stock-equipment-window"
+                    value={equipWindow}
+                    onChange={(event) => setEquipWindowPersisted(Number(event.target.value) as EquipWindow)}
+                    className="h-9 max-w-[7rem] rounded-md border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                  >
+                    <option value={7}>Next 7 days</option>
+                    <option value={14}>Next 14 days</option>
+                    <option value={30}>Next 30 days</option>
+                  </select>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="flex items-baseline gap-3 mb-3">
-                  <span className="text-4xl font-bold text-slate-900">{loading ? "..." : equipPressure.count}</span>
+                  <span className="text-3xl font-bold text-slate-900 sm:text-4xl">{loading ? "..." : equipPressure.count}</span>
                   <span className="text-xs text-slate-600">commitment{equipPressure.count === 1 ? "" : "s"}</span>
                 </div>
                 <p className="text-xs text-slate-600">
@@ -1174,7 +1176,7 @@ function StockPage() {
                     : `No commitments in next ${equipWindow}d`}
                 </p>
                 {doubleBookings.length > 0 && (
-                  <p className="text-[10px] text-rose-700 mt-1 inline-flex items-center gap-1">
+                  <p className="text-xs text-rose-700 mt-1 inline-flex items-center gap-1">
                     <AlertTriangle className="w-3 h-3" />
                     {doubleBookings.length} double-booking{doubleBookings.length === 1 ? "" : "s"}
                   </p>
@@ -1196,7 +1198,7 @@ function StockPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-baseline gap-3 mb-3">
-                  <span className="text-4xl font-bold text-slate-900">{loading ? "..." : hireIn.count}</span>
+                  <span className="text-3xl font-bold text-slate-900 sm:text-4xl">{loading ? "..." : hireIn.count}</span>
                   <span className="text-xs text-slate-600">awaiting receipt</span>
                 </div>
                 {/* STK-B: overdue red flag with days-late sub-line. */}
@@ -1309,7 +1311,7 @@ function StockPage() {
                             <div className={`h-full ${tone}`} style={{ width: `${e.readinessPct}%` }} />
                           </div>
                           {(e.ingredientsShort > 0 || e.hireInsPending > 0) && (
-                            <p className="text-[10px] text-slate-500 mt-0.5">
+                            <p className="text-xs text-slate-500 mt-0.5">
                               {e.ingredientsShort > 0 && <>{e.ingredientsShort} item{e.ingredientsShort === 1 ? "" : "s"} short</>}
                               {e.ingredientsShort > 0 && e.hireInsPending > 0 && " - "}
                               {e.hireInsPending > 0 && <>{e.hireInsPending} hire-in{e.hireInsPending === 1 ? "" : "s"} outstanding</>}
@@ -1361,7 +1363,7 @@ function StockPage() {
                         </li>
                       ))}
                     </ul>
-                    <p className="text-[10px] text-slate-500 mt-2">Sub these out or change supplier.</p>
+                    <p className="text-xs text-slate-500 mt-2">Sub these out or change supplier.</p>
                   </CardContent>
                 </Card>
               )}
@@ -1379,7 +1381,7 @@ function StockPage() {
                         </li>
                       ))}
                     </ul>
-                    <p className="text-[10px] text-slate-500 mt-2">Raise the minimum or find a closer supplier.</p>
+                    <p className="text-xs text-slate-500 mt-2">Raise the minimum or find a closer supplier.</p>
                   </CardContent>
                 </Card>
               )}
@@ -1414,7 +1416,7 @@ function StockPage() {
                         </li>
                       ))}
                     </ul>
-                    <p className="text-[10px] text-slate-500 mt-2">Check storage, portioning, or shelf life.</p>
+                    <p className="text-xs text-slate-500 mt-2">Check storage, portioning, or shelf life.</p>
                   </CardContent>
                 </Card>
               )}
@@ -1434,6 +1436,13 @@ function StockPage() {
                     label="Alert type"
                     helpText="Choose which inventory or equipment issues appear in this list. The active filter is also remembered for your next visit."
                     className="min-w-0 flex-1 border-0 bg-transparent p-0"
+                    collapsible
+                    summary={
+                      filterChip === "all" ? "All alerts"
+                        : filterChip === "hire-in" ? "Hire-in"
+                          : filterChip === "equipment" ? "Equipment"
+                            : "Ingredients"
+                    }
                     compactLabel="Filter stock alerts by type"
                     compactValue={filterChip}
                     onCompactValueChange={(value) => setFilterChipPersisted(value as FilterChip)}
@@ -1489,19 +1498,19 @@ function StockPage() {
                       document.body.removeChild(link);
                       URL.revokeObjectURL(url);
                     }}
-                    className="h-7 px-2.5 text-xs"
+                    className="h-10 w-10 shrink-0 justify-center px-0 text-xs sm:h-9 sm:w-auto sm:px-2.5"
+                    aria-label="Export stock alerts as CSV"
+                    title="Export stock alerts as CSV"
                   >
-                    <Download className="w-3 h-3 mr-1" />
-                    CSV
+                    <Download className="h-4 w-4 shrink-0 sm:mr-1.5" />
+                    <span className="sr-only sm:not-sr-only">CSV</span>
                   </Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
-                </div>
+                <PwaLoadingScreen message="Loading stock alerts" variant="inline" />
               ) : filteredAlerts.length === 0 ? (
                 <p className="text-sm text-slate-500 py-4 text-center">Nothing flagged. Stock looks healthy.</p>
               ) : (
@@ -1525,7 +1534,7 @@ function StockPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">
+                          <Badge variant="secondary" className="text-xs uppercase tracking-wide">
                             {a.kind === "hire-in" ? "Hire-in" : a.kind}
                           </Badge>
                           <ArrowRight className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />

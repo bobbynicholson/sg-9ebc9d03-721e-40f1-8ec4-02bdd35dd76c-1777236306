@@ -32,7 +32,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (!companyId) return res.status(403).json({ error: "Account is not linked to a company" });
 
     const service = getServiceSupabase();
-    const result = await findMoneyInconsistencies(service as any, companyId, { limit: 500 });
+    const { data: company } = await (service as any)
+      .from("companies")
+      .select("currency")
+      .eq("id", companyId)
+      .maybeSingle();
+    const result = await findMoneyInconsistencies(service as any, companyId, {
+      limit: 500,
+      currencyCode: company?.currency || "ZAR",
+    });
     return res.status(200).json({ ok: true, ...result });
   } catch (e: any) {
     console.error("[money-reconciliation] crashed:", e);

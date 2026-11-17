@@ -1022,7 +1022,7 @@ function AdminUsersPage() {
                 className={styles.secondaryAction}
               >
                 <RefreshCw className={`mr-2 h-4 w-4 ${refreshing || invitationsLoading ? "animate-spin" : ""}`} />
-                Refresh
+                <span className={styles.actionLabel}>Refresh</span>
               </Button>
               <Button
                 variant="outline"
@@ -1060,18 +1060,22 @@ function AdminUsersPage() {
                   URL.revokeObjectURL(url);
                 }}
                 disabled={loading}
+                aria-label="Export visible staff as CSV"
+                title="Export CSV"
                 className={styles.secondaryAction}
               >
                 <Download className="mr-2 h-4 w-4" />
-                Export CSV
+                <span className={styles.actionLabel}>Export CSV</span>
               </Button>
               <Button
                 size="sm"
                 onClick={() => setInviteOpen(true)}
+                aria-label="Invite staff"
+                title="Invite staff"
                 className={styles.primaryAction}
               >
                 <UserPlus className="mr-2 h-4 w-4" />
-                Invite staff
+                <span className={styles.actionLabel}>Invite staff</span>
               </Button>
             </div>
           </header>
@@ -1125,6 +1129,24 @@ function AdminUsersPage() {
                       Clear
                     </Button>
                   )}
+                </div>
+                <div className={styles.roleDropdown}>
+                  <Select
+                    value={roleFilter ? String(roleFilter) : "all"}
+                    onValueChange={(value) => setRoleFilter(value === "all" ? null : value as UserRole)}
+                  >
+                    <SelectTrigger aria-label="Filter staff by role">
+                      <SelectValue placeholder="All roles" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All roles ({users.length})</SelectItem>
+                      {roleConfig.filter((role) => role.group !== "client").map((role) => (
+                        <SelectItem key={role.value} value={role.value}>
+                          {role.label} ({roleCount(role.value)})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className={styles.roleGroups}>
                   {ROLE_GROUPS.filter((group) => group.key !== "client").map((group) => {
@@ -1438,6 +1460,7 @@ function AdminUsersPage() {
                                     onClick={() => handleResendInvite(targetUser)}
                                     disabled={resendingUserId === targetUser.id}
                                     title={targetUser.last_sign_in_at ? "Send a fresh login link" : "Resend the expired or missing invite"}
+                                    aria-label={targetUser.last_sign_in_at ? `Send a fresh login link to ${targetUser.full_name || targetUser.email}` : `Resend invite to ${targetUser.full_name || targetUser.email}`}
                                     className={styles.resendAction}
                                   >
                                     {resendingUserId === targetUser.id ? (
@@ -1445,20 +1468,22 @@ function AdminUsersPage() {
                                     ) : (
                                       <Send className="mr-2 h-4 w-4" />
                                     )}
-                                    {resendingUserId === targetUser.id
+                                    <span className={styles.actionLabel}>{resendingUserId === targetUser.id
                                       ? "Sending..."
                                       : targetUser.last_sign_in_at
                                         ? "Send login link"
-                                        : "Resend invite"}
+                                        : "Resend invite"}</span>
                                   </Button>
                                 )}
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   onClick={() => handleEditUser(targetUser.id)}
+                                  title="Edit access"
+                                  aria-label={`Edit access for ${targetUser.full_name || targetUser.email || "staff user"}`}
                                 >
                                   <Edit className="mr-2 h-4 w-4" />
-                                  Edit access
+                                  <span className={styles.actionLabel}>Edit access</span>
                                 </Button>
                                 {targetUser.is_active ? (
                                   <Button
@@ -1467,10 +1492,11 @@ function AdminUsersPage() {
                                     onClick={() => setConfirmDeactivate(targetUser)}
                                     disabled={statusBusy === targetUser.id || targetUser.id === user?.id}
                                     title={targetUser.id === user?.id ? "You can't deactivate yourself" : "Stop this user from signing in"}
+                                    aria-label={`Deactivate ${targetUser.full_name || targetUser.email || "staff user"}`}
                                     className={styles.dangerAction}
                                   >
                                     <UserX className="mr-2 h-4 w-4" />
-                                    Deactivate
+                                    <span className={styles.actionLabel}>Deactivate</span>
                                   </Button>
                                 ) : (
                                   <Button
@@ -1478,10 +1504,12 @@ function AdminUsersPage() {
                                     size="sm"
                                     onClick={() => handleStatusToggle(targetUser, true)}
                                     disabled={statusBusy === targetUser.id}
+                                    title="Reactivate user"
+                                    aria-label={`Reactivate ${targetUser.full_name || targetUser.email || "staff user"}`}
                                     className={styles.reactivateAction}
                                   >
                                     <UserCheck className="mr-2 h-4 w-4" />
-                                    {statusBusy === targetUser.id ? "Saving..." : "Reactivate"}
+                                    <span className={styles.actionLabel}>{statusBusy === targetUser.id ? "Saving..." : "Reactivate"}</span>
                                   </Button>
                                 )}
                               </div>
@@ -1691,11 +1719,11 @@ function AdminUsersPage() {
           }
         }}
       >
-        <DialogContent className={`${styles.dialog} max-w-md`}>
+        <DialogContent className={`${styles.dialog} w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] max-w-md overflow-y-auto p-4 sm:w-[calc(100%-2rem)] sm:p-6`}>
           {createResult ? (
             <>
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
+                <DialogTitle className="flex items-center gap-2 break-words pr-10 text-base sm:text-lg">
                   <MailWarning className="w-5 h-5 text-amber-500" />
                   {createResult.emailed ? "User added - invite sent" : "User added - invite not sent"}
                 </DialogTitle>
@@ -1707,7 +1735,7 @@ function AdminUsersPage() {
               </DialogHeader>
               <div className="space-y-3">
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm space-y-1.5">
-                  <div><span className="text-slate-500">Email:</span> <strong>{createResult.email}</strong></div>
+                  <div className="min-w-0 break-all"><span className="text-slate-500">Email:</span> <strong>{createResult.email}</strong></div>
                   {createResult.loginUrl && (
                     <div>
                       <span className="text-slate-500">Sign in at:</span>{" "}
@@ -1719,8 +1747,8 @@ function AdminUsersPage() {
                   </p>
                 </div>
               </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={copyCreateResult} className="gap-1.5">
+              <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-2">
+                <Button type="button" variant="outline" onClick={copyCreateResult} className="w-full gap-1.5 sm:w-auto">
                   <Copy className="w-4 h-4" /> Copy details
                 </Button>
                 <Button
@@ -1732,7 +1760,7 @@ function AdminUsersPage() {
                     setInviteName("");
                     setInviteRole(UserRole.KITCHEN_STAFF);
                   }}
-                  className="bg-brand-primary hover:opacity-90"
+                  className="w-full bg-brand-primary hover:opacity-90 sm:w-auto"
                 >
                   Done
                 </Button>
@@ -1741,7 +1769,7 @@ function AdminUsersPage() {
           ) : (
           <>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 break-words pr-10 text-base sm:text-lg">
               <UserPlus className="w-5 h-5 text-slate-600" />
               Add new user
             </DialogTitle>
@@ -1799,14 +1827,14 @@ function AdminUsersPage() {
               Choose the role that matches the person&apos;s responsibility. The role sets their initial portal and access level; additional operational roles can be added later from the user&apos;s row. Super Admin is platform-only and cannot be created from a company Teams Hub.
             </p>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-2">
             <DialogClose asChild>
-              <Button variant="outline" disabled={inviting}>Cancel</Button>
+              <Button variant="outline" disabled={inviting} className="w-full sm:w-auto">Cancel</Button>
             </DialogClose>
             <Button
               onClick={handleInviteSubmit}
               disabled={inviting || !inviteEmail.trim()}
-              className="bg-brand-primary hover:opacity-90 gap-1.5"
+              className="w-full gap-1.5 bg-brand-primary hover:opacity-90 sm:w-auto"
             >
               {inviting ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
               {inviting ? "Adding..." : "Add user"}
@@ -1820,20 +1848,25 @@ function AdminUsersPage() {
       {/* USR-C: deactivate confirm. Locking someone out is destructive
           enough to deserve a confirm. Reactivation skips it. */}
       <AlertDialog open={!!confirmDeactivate} onOpenChange={(o) => { if (!o) setConfirmDeactivate(null); }}>
-        <AlertDialogContent className={styles.dialog}>
+        <AlertDialogContent
+          overlayClassName="bg-slate-950/55"
+          className={`${styles.dialog} w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] max-w-md overflow-y-auto p-4 sm:w-[calc(100%-2rem)] sm:p-6`}
+        >
           <AlertDialogHeader>
-            <AlertDialogTitle>Deactivate this user?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmDeactivate?.full_name || confirmDeactivate?.email} will not be able to sign in until you reactivate them.
-              Their data stays - departments, history, payslips all remain.
+            <AlertDialogTitle className="flex items-start gap-2 break-words pr-2 text-left text-base sm:text-lg">
+              <AlertCircle aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
+              <span>Deactivate {confirmDeactivate?.full_name || "this user"}?</span>
+            </AlertDialogTitle>
+            <AlertDialogDescription className="break-words text-left text-sm leading-5">
+              They will lose sign-in access until reactivated. Their departments, history, and payslips will remain.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={statusBusy === confirmDeactivate?.id}>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:gap-2">
+            <AlertDialogCancel disabled={statusBusy === confirmDeactivate?.id} className="mt-0 w-full sm:w-auto">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => confirmDeactivate && handleStatusToggle(confirmDeactivate, false)}
               disabled={statusBusy === confirmDeactivate?.id}
-              className="bg-rose-600 hover:bg-rose-700"
+              className="w-full bg-rose-600 hover:bg-rose-700 sm:w-auto"
             >
               {statusBusy === confirmDeactivate?.id ? "Saving..." : "Deactivate"}
             </AlertDialogAction>

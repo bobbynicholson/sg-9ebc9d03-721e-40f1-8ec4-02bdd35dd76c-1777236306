@@ -25,7 +25,7 @@
  *   - captureException tagged route + step + companyId
  *   - as-any cleanup on auth
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -38,6 +38,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
@@ -137,9 +138,14 @@ function OfferingPage() {
   });
   const [recent, setRecent] = useState<RecentItem[]>([]);
   const [neverQuoted, setNeverQuoted] = useState<NeverQuotedItem[]>([]);
+  const loadSequence = useRef(0);
 
-  const load = async () => {
-    if (!companyId) return;
+  const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
+    if (!companyId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -189,6 +195,7 @@ function OfferingPage() {
           .order("booked_from", { ascending: false })
           .limit(2000),
       ]);
+      if (sequence !== loadSequence.current) return;
 
       if (menuRes.error) throw menuRes.error;
       if (equipRes.error) throw equipRes.error;
@@ -251,12 +258,16 @@ function OfferingPage() {
           status?: string; event_date?: string;
         } | null;
       }>;
+      const acceptedStatuses = new Set(["confirmed", "completed", "preparing", "ready", "in_transit"]);
+      const acceptedRows = oiRows.filter((row) =>
+        acceptedStatuses.has(String(row.orders?.status || "").toLowerCase()),
+      );
       const freq: Record<string, { id: string; name: string; count: number; revenue: number; cost: number; costRows: number }> = {};
-      for (const r of oiRows) {
+      for (const r of acceptedRows) {
         const id = r.menu_item_id;
         if (!id) continue;
         if (!freq[id]) freq[id] = { id, name: r.item_name || "Unnamed", count: 0, revenue: 0, cost: 0, costRows: 0 };
-        freq[id].count += 1;
+        freq[id].count += Math.max(0, Number(r.quantity ?? 1));
         freq[id].revenue += Number(r.line_total || 0);
         if (r.unit_cost != null && r.quantity != null) {
           freq[id].cost += Number(r.unit_cost) * Number(r.quantity);
@@ -280,7 +291,7 @@ function OfferingPage() {
       // line count per order but n is small (5-20 lines). 5000-row
       // cap on the select keeps the outer loop bounded.
       const linesByOrder = new Map<string, Array<{ id: string; name: string }>>();
-      for (const r of oiRows) {
+      for (const r of acceptedRows) {
         const oid = r.order_id;
         const mid = r.menu_item_id;
         if (!oid || !mid) continue;
@@ -330,12 +341,8 @@ function OfferingPage() {
         missingPhoto: equipMissingPhoto,
       });
       // Recent strip: accepted orders in window.
-      const acceptedRows = oiRows.filter((r) => {
-        const orders = (r as unknown as { orders: { status?: string } }).orders;
-        const status = orders?.status;
-        return status && ["confirmed", "completed", "preparing", "ready", "in_transit"].includes(status);
-      });
       const menuRecent: Record<string, RecentItem> = {};
+      const countedOrdersByMenu = new Map<string, Set<string>>();
       for (const r of acceptedRows) {
         const id = r.menu_item_id;
         if (!id) continue;
@@ -347,7 +354,16 @@ function OfferingPage() {
             lastDate: date, acceptedCount: 0,
           };
         }
-        menuRecent[id].acceptedCount += 1;
+        if (r.order_id) {
+          const countedOrders = countedOrdersByMenu.get(id) || new Set<string>();
+          if (!countedOrders.has(r.order_id)) {
+            countedOrders.add(r.order_id);
+            countedOrdersByMenu.set(id, countedOrders);
+            menuRecent[id].acceptedCount += 1;
+          }
+        } else {
+          menuRecent[id].acceptedCount += 1;
+        }
         if (date > menuRecent[id].lastDate) menuRecent[id].lastDate = date;
       }
       const menuTop5 = Object.values(menuRecent).sort((a, b) => (b.lastDate > a.lastDate ? 1 : -1)).slice(0, 5);
@@ -377,7 +393,7 @@ function OfferingPage() {
       // OFR-B: never-quoted callout. Universe of active menu items
       // minus the set of menu_item_id seen in oiRows. Same for
       // equipment. Surfaces dead stock at a glance.
-      const quotedMenuIds = new Set(oiRows.map((r) => r.menu_item_id).filter((x): x is string => !!x));
+      const quotedMenuIds = new Set(acceptedRows.map((r) => r.menu_item_id).filter((x): x is string => !!x));
       const quotedEquipIds = new Set(equipBookings.map((r) => r.equipment_id));
       const dead: NeverQuotedItem[] = [];
       for (const m of menuRows) {
@@ -389,6 +405,7 @@ function OfferingPage() {
       }
       setNeverQuoted(dead);
     } catch (err: unknown) {
+      if (sequence !== loadSequence.current) return;
       const msg = err instanceof Error ? err.message : String(err);
       captureException(err, {
         tags: { route: "/admin/offering", step: "load", companyId },
@@ -400,11 +417,14 @@ function OfferingPage() {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      if (sequence === loadSequence.current) setLoading(false);
     }
-  };
+  }, [companyId, period, toast]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [companyId, period]);
+  useEffect(() => {
+    void load();
+    return () => { loadSequence.current += 1; };
+  }, [load]);
 
   // OFR-B: realtime channel. A photo upload on /admin/menu or a new
   // equipment row should refresh this page without a manual tap.
@@ -427,7 +447,7 @@ function OfferingPage() {
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId]);
+  }, [companyId, load]);
 
   const showMenuEmpty = !loading && menuTile.active === 0;
   const showEquipEmpty = !loading && equipTile.total === 0;
@@ -458,15 +478,15 @@ function OfferingPage() {
             meta={
               !loading && !error ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {menuTile.active} menu item{menuTile.active === 1 ? "" : "s"}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     {equipTile.total} equipment item{equipTile.total === 1 ? "" : "s"}
                   </span>
                   {(menuTile.missingPrice + menuTile.missingPhoto + equipTile.missingPrice + equipTile.missingPhoto) > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                       {menuTile.missingPrice + menuTile.missingPhoto + equipTile.missingPrice + equipTile.missingPhoto} catalogue gap{(menuTile.missingPrice + menuTile.missingPhoto + equipTile.missingPrice + equipTile.missingPhoto) === 1 ? "" : "s"}
                     </span>
@@ -476,32 +496,24 @@ function OfferingPage() {
             }
             actions={
             <>
-              {/* OFR-B: period selector. Drives Top 3 + Recent strip
-                  + Never-quoted callout so the operator can flex the
-                  window between 30 / 60 / 90 days without leaving
-                  the page. Restyled for the dark hero band; active
-                  state uses the tenant brand colour, not amber. */}
-              <div className="flex gap-1 rounded-lg border border-white/15 bg-white/10 p-1 text-xs">
-                {([30, 60, 90] as const).map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setPeriod(p)}
-                    className={`px-2.5 py-1 rounded-md ${
-                      period === p
-                        ? "bg-brand-primary text-white font-medium"
-                        : "text-slate-300 hover:bg-white/10"
-                    }`}
-                  >
-                    {p}d
-                  </button>
-                ))}
+              <div className="flex w-full min-w-0 items-center gap-2 xl:w-auto">
+                <label htmlFor="offering-period" className="shrink-0 text-xs font-medium text-white/85">View period</label>
+                <Select value={String(period)} onValueChange={(value) => setPeriod(Number(value) as Period)}>
+                  <SelectTrigger id="offering-period" className="h-9 w-full min-w-0 border-white/20 bg-white/10 text-sm text-white hover:bg-white/15 focus:ring-white/30 sm:w-40">
+                    <SelectValue placeholder="Choose period" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="30">Last 30 days</SelectItem>
+                    <SelectItem value="60">Last 60 days</SelectItem>
+                    <SelectItem value="90">Last 90 days</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </>
             }
           />
           <PageWorkbench />
-          <CatalogueOperationsStrip active="offering" />
+          <CatalogueOperationsStrip active="offering" navigationMode="dropdown" />
 
           {/* OFR-B: inline error banner. Pre-OFR-B a network failure
               left the page showing zeros silently; now the operator
@@ -529,18 +541,20 @@ function OfferingPage() {
             const gapsTotal = menuTile.missingPrice + menuTile.missingPhoto
               + equipTile.missingPrice + equipTile.missingPhoto;
             return (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-2 gap-3 mb-5 sm:gap-4 sm:mb-6 lg:grid-cols-4">
                 <StatTile
                   label="Active menu items"
                   icon={UtensilsCrossed}
                   value={loading ? "-" : menuTile.active}
                   hint={loading ? undefined : `${menuTile.total} on the books, ${menuPhotoPct}% with a photo`}
+                  compact
                 />
                 <StatTile
                   label="Equipment items"
                   icon={Package}
                   value={loading ? "-" : equipTile.total}
                   hint={loading ? undefined : `${equipPhotoPct}% with a photo`}
+                  compact
                 />
                 <StatTile
                   label="Catalogue gaps"
@@ -551,12 +565,14 @@ function OfferingPage() {
                   hint={loading ? undefined : (gapsTotal > 0
                     ? `${menuTile.missingPrice + menuTile.missingPhoto} menu, ${equipTile.missingPrice + equipTile.missingPhoto} equipment`
                     : "Every item has a price and photo")}
+                  compact
                 />
                 <StatTile
                   label={`Not quoted (${period}d)`}
                   icon={Tag}
                   value={loading ? "-" : neverQuoted.length}
                   hint={loading ? undefined : (neverQuoted.length > 0 ? "Review, reprice or retire" : "Everything moved in the window")}
+                  compact
                 />
               </div>
             );
@@ -565,17 +581,17 @@ function OfferingPage() {
           {/* OFR-B: Menu + Equipment. Snapshot
               framing - every chip + big number deep-links to the
               action surface. */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
+          <div className="mb-5 grid grid-cols-1 gap-3 sm:mb-6 sm:gap-6 lg:grid-cols-2">
             {/* Menu tile */}
             <Card className="overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10 border-b">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-brand-primary/10 flex items-center justify-center">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-primary/10 sm:h-10 sm:w-10">
                       <UtensilsCrossed className="w-5 h-5 text-brand-primary" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg sm:text-xl">Menu</CardTitle>
+                      <CardTitle className="text-base sm:text-lg">Menu</CardTitle>
                       <p className="text-xs text-slate-600">Active items in your catalogue</p>
                     </div>
                   </div>
@@ -603,7 +619,7 @@ function OfferingPage() {
                         active items" is always to go look at them. */}
                     <Link href={withSlug("/admin/menu")} className="block group">
                       <div className="flex items-baseline gap-3 mb-2">
-                        <span className="text-4xl font-bold text-slate-900 group-hover:text-brand-primary transition-colors">
+                        <span className="text-3xl font-bold text-slate-900 transition-colors group-hover:text-brand-primary sm:text-4xl">
                           {loading ? "-" : menuTile.active}
                         </span>
                         <span className="text-sm text-slate-600">active item{menuTile.active === 1 ? "" : "s"}</span>
@@ -613,7 +629,7 @@ function OfferingPage() {
                         "how complete is the catalogue?" - matches
                         the equipment tile below. */}
                     <div className="mb-3">
-                      <div className="flex items-center justify-between text-[10px] text-slate-500 mb-0.5">
+                      <div className="mb-0.5 flex items-center justify-between text-xs text-slate-500">
                         <span>Photo coverage</span>
                         <span className="tabular-nums">{menuTile.withPhoto} / {menuTile.active} ({menuPhotoPct}%)</span>
                       </div>
@@ -707,7 +723,7 @@ function OfferingPage() {
                                     {m.marginPct != null && (
                                       <Badge
                                         variant="outline"
-                                        className={`tabular-nums text-[10px] ${
+                                        className={`tabular-nums text-xs ${
                                           m.marginPct >= 50 ? "border-brand-primary/30 text-brand-primary bg-brand-primary/10" :
                                           m.marginPct >= 25 ? "border-amber-300 text-amber-700 bg-amber-50" :
                                           "border-rose-300 text-rose-700 bg-rose-50"
@@ -738,11 +754,11 @@ function OfferingPage() {
               <CardHeader className="bg-gradient-to-r from-brand-secondary/10 to-brand-primary/5 border-b">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-brand-secondary/10 flex items-center justify-center">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-secondary/10 sm:h-10 sm:w-10">
                       <Package className="w-5 h-5 text-brand-secondary" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg sm:text-xl">Equipment</CardTitle>
+                      <CardTitle className="text-base sm:text-lg">Equipment</CardTitle>
                       <p className="text-xs text-slate-600">Hire stock available to clients</p>
                     </div>
                   </div>
@@ -767,14 +783,14 @@ function OfferingPage() {
                   <>
                     <Link href={withSlug("/admin/equipment")} className="block group">
                       <div className="flex items-baseline gap-3 mb-2">
-                        <span className="text-4xl font-bold text-slate-900 group-hover:text-brand-secondary transition-colors">
+                        <span className="text-3xl font-bold text-slate-900 transition-colors group-hover:text-brand-secondary sm:text-4xl">
                           {loading ? "-" : equipTile.total}
                         </span>
                         <span className="text-sm text-slate-600">item{equipTile.total === 1 ? "" : "s"} on the books</span>
                       </div>
                     </Link>
                     <div className="mb-3">
-                      <div className="flex items-center justify-between text-[10px] text-slate-500 mb-0.5">
+                      <div className="mb-0.5 flex items-center justify-between text-xs text-slate-500">
                         <span>Photo coverage</span>
                         <span className="tabular-nums">{equipTile.withPhoto} / {equipTile.total} ({equipPhotoPct}%)</span>
                       </div>
@@ -858,7 +874,7 @@ function OfferingPage() {
                     >
                       <div className="flex items-center gap-1.5 mb-2">
                         <Sparkles className="w-3 h-3 text-slate-600" />
-                        <span className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                           Co-ordered {p.count}x
                         </span>
                       </div>
@@ -885,7 +901,7 @@ function OfferingPage() {
           {/* Recently quoted strip */}
           <Card collapsible defaultOpen={false} collapseLabel="Recently quoted" className="mb-6">
             <CardHeader>
-              <CardTitle className="text-lg">Recently quoted ({period} days)</CardTitle>
+              <CardTitle className="text-base sm:text-lg">Recently quoted ({period} days)</CardTitle>
               <p className="text-xs text-slate-600 mt-0.5">What clients accepted onto orders most recently.</p>
             </CardHeader>
             <CardContent>
@@ -896,7 +912,7 @@ function OfferingPage() {
               ) : recent.length === 0 ? (
                 <p className="text-sm text-slate-500 py-4">Nothing in the last {period} days. Once an order goes confirmed, it lands here.</p>
               ) : (
-                <div className="flex gap-3 overflow-x-auto pb-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-5">
                   {recent.map((r) => {
                     const href = r.kind === "menu"
                       ? withSlug(`/admin/menu?item=${r.key.slice(2)}`)
@@ -905,19 +921,21 @@ function OfferingPage() {
                       <Link
                         key={r.key}
                         href={href}
-                        className="flex-shrink-0 w-56 p-3 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-300 transition-colors"
+                        className="flex min-h-28 min-w-0 flex-col rounded-lg border border-slate-200 bg-slate-50/50 p-2.5 transition-colors hover:border-slate-300 hover:bg-slate-50 sm:p-3"
                       >
-                        <div className="flex items-center gap-1.5 mb-1.5">
+                        <div className="mb-1.5 flex items-center gap-1.5">
                           {r.kind === "menu"
                             ? <UtensilsCrossed className="w-3.5 h-3.5 text-brand-primary" />
                             : <Package className="w-3.5 h-3.5 text-brand-secondary" />}
-                          <span className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                             {r.kind === "menu" ? "Menu" : "Equipment"}
                           </span>
                         </div>
-                        <p className="text-sm font-semibold text-slate-900 truncate">{r.name}</p>
-                        <p className="text-xs text-slate-500 mt-1">{dateFmt(r.lastDate)}</p>
-                        <p className="text-xs text-slate-500">{r.acceptedCount} time{r.acceptedCount === 1 ? "" : "s"}</p>
+                        <p className="line-clamp-2 break-words text-sm font-semibold leading-5 text-slate-900">{r.name}</p>
+                        <div className="mt-auto flex flex-wrap items-center justify-between gap-x-2 gap-y-1 pt-3 text-xs text-slate-500">
+                          <span>{dateFmt(r.lastDate)}</span>
+                          <span className="font-medium tabular-nums text-slate-700">{r.acceptedCount} time{r.acceptedCount === 1 ? "" : "s"}</span>
+                        </div>
                       </Link>
                     );
                   })}
@@ -932,7 +950,7 @@ function OfferingPage() {
           {!loading && neverQuoted.length > 0 && (
             <Card collapsible defaultOpen={false} collapseLabel="Not quoted items">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
                   Not quoted in {period} days
                   <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">{neverQuoted.length}</span>
@@ -942,24 +960,29 @@ function OfferingPage() {
                 </p>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                   {neverQuoted.slice(0, 20).map((d) => (
                     <Link
                       key={`${d.kind}:${d.id}`}
                       href={d.kind === "menu"
                         ? withSlug(`/admin/menu?item=${d.id}`)
                         : withSlug(`/admin/equipment`)}
+                      className="flex min-h-[4.25rem] min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white p-2.5 transition-colors hover:border-brand-primary/30 hover:bg-slate-50 sm:p-3"
                     >
-                      <Badge variant="outline" className="bg-white hover:bg-slate-50 cursor-pointer gap-1">
-                        {d.kind === "menu"
-                          ? <UtensilsCrossed className="w-3 h-3 text-brand-primary" />
-                          : <Package className="w-3 h-3 text-brand-secondary" />}
-                        {d.name}
-                      </Badge>
+                      {d.kind === "menu"
+                        ? <UtensilsCrossed className="h-4 w-4 shrink-0 text-brand-primary" />
+                        : <Package className="h-4 w-4 shrink-0 text-brand-secondary" />}
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs text-slate-500">{d.kind === "menu" ? "Menu" : "Equipment"}</span>
+                        <span className="line-clamp-2 block text-xs font-medium leading-4 text-slate-800 sm:text-sm sm:leading-5">{d.name}</span>
+                      </span>
+                      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                     </Link>
                   ))}
                   {neverQuoted.length > 20 && (
-                    <Badge variant="secondary">+ {neverQuoted.length - 20} more</Badge>
+                    <div className="flex min-h-[4.25rem] items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3 text-xs font-medium text-slate-600">
+                      + {neverQuoted.length - 20} more items
+                    </div>
                   )}
                 </div>
               </CardContent>

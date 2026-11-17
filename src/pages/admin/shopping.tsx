@@ -38,13 +38,14 @@ import {
 } from "@/components/ui/dialog";
 import { ToastAction } from "@/components/ui/toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, Package, AlertTriangle, Calendar, Truck, Mail, MessageCircle, CheckCircle2, Loader2, TrendingDown, ChevronDown, ChevronUp, Building2, Snowflake, Flame, Receipt, ListChecks, Camera, Download, Printer } from "lucide-react";
+import { ShoppingCart, Package, AlertTriangle, Calendar, Truck, Mail, MessageCircle, CheckCircle2, TrendingDown, ChevronDown, ChevronUp, Building2, Snowflake, Flame, Receipt, ListChecks, Camera, Download, Printer } from "lucide-react";
 import { ReceiptScanner } from "@/components/shopping/ReceiptScanner";
 import { ReconcileSlipDrawer } from "@/components/shopping/ReconcileSlipDrawer";
 import { ReceiptsTab } from "@/components/shopping/ReceiptsTab";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
+import { PwaLoadingScreen } from "@/components/pwa/PwaLoadingScreen";
 import { PortalShell, PortalHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
@@ -1288,7 +1289,7 @@ function SmartShoppingPage() {
           <PortalHeader
             variant="hero"
             title={
-              <span className="flex items-center gap-2 flex-wrap">
+              <span className="flex flex-wrap items-center gap-2 text-lg sm:text-2xl">
                 Smart Shopping
                 <InfoTooltip content={`Shortfalls, the Buy now list, and purchase quantities use the selected window (${planningDates.label.toLowerCase()}).`} />
               </span>
@@ -1301,20 +1302,20 @@ function SmartShoppingPage() {
                   {(() => {
                     const shortfalls = enriched.filter((r) => r.status === "shortfall").length;
                     return (
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                         <span className={`h-1.5 w-1.5 rounded-full ${shortfalls > 0 ? "bg-rose-400" : "bg-emerald-400"}`} />
                         {shortfalls} shortfall{shortfalls === 1 ? "" : "s"}
                       </span>
                     );
                   })()}
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     {buyNow.length} item{buyNow.length === 1 ? "" : "s"} flagged for this window
                   </span>
                   {(() => {
                     const urgent = enriched.filter((r) => r.isUrgent && r.status !== "ok").length;
                     if (urgent === 0) return null;
                     return (
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                         <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                         {urgent} urgent (2d)
                       </span>
@@ -1324,7 +1325,7 @@ function SmartShoppingPage() {
               ) : undefined
             }
             actions={
-            <>
+            <div className="flex w-full min-w-0 flex-wrap items-center justify-start gap-2 xl:w-auto xl:justify-end">
               {/* Phase 20 #1: shopping CSV export. Procurement
                   brains the buy-now list nicely on screen, but the
                   shopper out in the field wants a printable list
@@ -1380,9 +1381,11 @@ function SmartShoppingPage() {
                   document.body.removeChild(a);
                   URL.revokeObjectURL(url);
                 }}
-                className="gap-1.5"
+                className="h-10 w-10 gap-1.5 p-0 sm:h-9 sm:w-auto sm:px-3"
+                aria-label="Export buy-now list as CSV"
+                title="Export buy-now list as CSV"
               >
-                <Download className="w-3.5 h-3.5" /> Export buy-now
+                <Download className="w-4 h-4" /> <span className="sr-only sm:not-sr-only">Export buy-now</span>
               </Button>
               {/* AD-2 (admin-dashboard audit): print-friendly Today's
                   shopping list. Bobby's brief: "if a user needs to go
@@ -1402,40 +1405,42 @@ function SmartShoppingPage() {
                   // animation before the browser print dialog steals focus.
                   setTimeout(() => window.print(), 100);
                 }}
-                className="gap-1.5"
+                className="h-10 w-10 gap-1.5 p-0 sm:h-9 sm:w-auto sm:px-3"
+                aria-label="Print shopping list"
+                title="Print shopping list"
               >
-                <Printer className="w-3.5 h-3.5" /> Print today
+                <Printer className="w-4 h-4" /> <span className="sr-only sm:not-sr-only">Print today</span>
               </Button>
               {pickedCount > 0 && (
                 // Glass chip treatment: the pill sits on the dark hero
                 // band, so no slate-900 text (unreadable on slate-950).
-                <div className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-4 py-2">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2 sm:gap-3 sm:px-4">
+                  <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
                   <div>
                     <p className="text-xs text-white/70">In your PO list</p>
-                    <p className="font-bold text-white">
+                    <p className="text-sm font-bold text-white">
                       {pickedCount} item{pickedCount === 1 ? "" : "s"}
                       {canSeeFinanceAggregate ? ` - ${fmtMoney.format(pickedTotal)}` : ""}
                     </p>
                   </div>
-                  <Button size="sm" onClick={markPurchased} className="ml-2 gap-1 bg-brand-primary text-white hover:bg-brand-primary/90">
-                    <Truck className="w-3.5 h-3.5" /> Mark purchased
+                  <Button size="sm" onClick={markPurchased} aria-label="Mark selected items as purchased" title="Mark selected items as purchased" className="ml-0 h-10 w-10 shrink-0 gap-1 bg-brand-primary p-0 text-white hover:bg-brand-primary/90 sm:ml-2 sm:h-9 sm:w-auto sm:px-3">
+                    <Truck className="h-4 w-4" /> <span className="sr-only sm:not-sr-only">Mark purchased</span>
                   </Button>
                 </div>
               )}
-            </>
+            </div>
             }
           />
           <PageWorkbench />
-          <CatalogueOperationsStrip active="shopping" />
+          <CatalogueOperationsStrip active="shopping" navigationMode="dropdown" />
 
-          <div className="mb-5 flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="mb-5 flex min-w-0 flex-col gap-3 rounded-lg border border-slate-200 bg-white p-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-900">Planning window</p>
               <p className="text-xs text-slate-500">Limit order demand and event details to the dates you&apos;re planning for.</p>
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-              <div className="min-w-[160px]">
+            <div className="flex min-w-0 flex-col gap-2 lg:w-auto lg:flex-row lg:items-end">
+              <div className="w-full min-w-0 lg:w-44">
                 <label htmlFor="shopping-planning-window" className="mb-1 block text-xs font-medium text-slate-600">Demand period</label>
                 <select
                   id="shopping-planning-window"
@@ -1449,8 +1454,8 @@ function SmartShoppingPage() {
                 </select>
               </div>
               {planningWindow === "custom" && (
-                <div className="grid grid-cols-2 items-end gap-2 sm:grid-cols-[140px_140px_auto]">
-                  <div>
+                <div className="grid min-w-0 grid-cols-2 items-end gap-2 lg:grid-cols-[minmax(140px,1fr)_minmax(140px,1fr)_auto]">
+                  <div className="min-w-0">
                     <label htmlFor="shopping-range-start" className="mb-1 block text-xs font-medium text-slate-600">From</label>
                     <Input
                       id="shopping-range-start"
@@ -1458,10 +1463,10 @@ function SmartShoppingPage() {
                       min={todayISO}
                       value={customStartDraft}
                       onChange={(event) => setCustomStartDraft(event.target.value)}
-                      className="h-9 w-full"
+                      className="h-9 w-full min-w-0 text-xs sm:text-sm"
                     />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <label htmlFor="shopping-range-end" className="mb-1 block text-xs font-medium text-slate-600">Through</label>
                     <Input
                       id="shopping-range-end"
@@ -1469,7 +1474,7 @@ function SmartShoppingPage() {
                       min={customStartDraft || todayISO}
                       value={customEndDraft}
                       onChange={(event) => setCustomEndDraft(event.target.value)}
-                      className="h-9 w-full"
+                      className="h-9 w-full min-w-0 text-xs sm:text-sm"
                     />
                   </div>
                   <Button
@@ -1481,7 +1486,7 @@ function SmartShoppingPage() {
                       setCustomStartDate(customStartDraft);
                       setCustomEndDate(customEndDraft);
                     }}
-                    className="col-span-2 h-9 sm:col-span-1"
+                    className="col-span-2 h-9 lg:col-span-1"
                   >
                     Apply dates
                   </Button>
@@ -1489,12 +1494,12 @@ function SmartShoppingPage() {
               )}
             </div>
             {planningWindow === "custom" && customRangeError && (
-              <p role="alert" className="text-xs text-rose-700 sm:max-w-48">{customRangeError}</p>
+              <p role="alert" className="text-xs text-rose-700 lg:max-w-48">{customRangeError}</p>
             )}
           </div>
 
           {/* Top stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+          <div className="mb-5 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-3 lg:grid-cols-4">
             <SummaryTile
               label="Shortfalls"
               value={enriched.filter((r) => r.status === "shortfall").length}
@@ -1512,7 +1517,7 @@ function SmartShoppingPage() {
               tooltip={`Items below minimum stock whose on-hand quantity still covers demand during the selected window (${planningDates.label.toLowerCase()}).`}
             />
             <SummaryTile
-              label="Urgent (≤2 days)"
+              label="Urgent (within 2 days)"
               value={enriched.filter((r) => r.isUrgent && r.status !== "ok").length}
               accent="text-orange-600"
               icon={Flame}
@@ -1549,6 +1554,8 @@ function SmartShoppingPage() {
             <button
               type="button"
               onClick={() => setScannerOpen((v) => !v)}
+              aria-expanded={scannerOpen}
+              aria-controls="shopping-slip-scanner"
               className="flex w-full flex-col gap-3 rounded-t-lg px-4 py-3 text-left hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex min-w-0 items-center gap-3">
@@ -1556,14 +1563,16 @@ function SmartShoppingPage() {
                   <Camera className="w-5 h-5 text-white" />
                 </div>
                 <div className="min-w-0">
-                  <p className="font-semibold text-slate-900">Just back from the shops?</p>
+                  <p className="text-sm font-semibold text-slate-900 sm:text-base">Just back from the shops?</p>
                   <p className="text-xs text-slate-500">Scan the till slip. One upload tags it for tax and feeds your inventory.</p>
                 </div>
               </div>
-              {scannerOpen ? <ChevronUp className="h-4 w-4 shrink-0 text-slate-400" /> : <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />}
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700" aria-hidden="true">
+                {scannerOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+              </span>
             </button>
             {scannerOpen && (
-              <CardContent className="border-t border-slate-100 pt-4 space-y-3">
+              <CardContent id="shopping-slip-scanner" className="border-t border-slate-100 pt-4 space-y-3">
                 <ReceiptScanner accent="emerald" />
                 <div className="flex items-center justify-center pt-2 border-t border-slate-100">
                   <Button
@@ -1596,7 +1605,7 @@ function SmartShoppingPage() {
 
           {loadError && !loading && (
             <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn't load procurement data</h2>
+              <h2 className="mb-1 text-sm font-bold text-rose-900 sm:text-base">Couldn't load procurement data</h2>
               <p className="text-sm text-slate-600 mb-3">{loadError}</p>
               <Button onClick={() => setReloadNonce((n) => n + 1)} size="sm" className="bg-brand-primary text-white hover:bg-brand-primary/90">
                 Retry
@@ -1605,21 +1614,31 @@ function SmartShoppingPage() {
           )}
 
           {loading ? (
-            <Card><CardContent className="py-16 flex items-center justify-center text-slate-500 gap-2">
-              <Loader2 className="w-5 h-5 animate-spin" /> Loading procurement brain...
-            </CardContent></Card>
+            <PwaLoadingScreen message="Loading shopping demand" variant="inline" />
           ) : loadError ? null : outlook.length === 0 ? (
             <Card><CardContent className="py-16 text-center text-slate-500">
               <Package className="w-10 h-10 mx-auto text-slate-300 mb-3" />
-              <p className="font-semibold text-slate-700">No inventory configured yet</p>
+              <p className="text-sm font-semibold text-slate-700 sm:text-base">No inventory configured yet</p>
               <p className="text-sm">Add items in <Link href={withSlug("/admin/inventory")} className="text-brand-primary">Inventory</Link>, link them to recipes, and this page lights up.</p>
             </CardContent></Card>
           ) : (
             <Tabs value={initialTab} onValueChange={handleTabChange}>
-              <TabsList className="mb-4 grid h-auto w-full grid-cols-1 gap-1 rounded-xl bg-slate-100 p-1 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="sr-only" htmlFor="shopping-view-select">Shopping view</label>
+              <select
+                id="shopping-view-select"
+                value={initialTab}
+                onChange={(event) => handleTabChange(event.target.value)}
+                className="mb-4 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 shadow-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 sm:hidden"
+              >
+                <option value="buy_now">Buy now{buyNow.length > 0 ? ` (${buyNow.length})` : ""}</option>
+                <option value="plan">Plan ahead</option>
+                <option value="supplier">By supplier</option>
+                <option value="receipts">Receipts</option>
+              </select>
+              <TabsList className="mb-4 hidden h-auto w-full grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 sm:grid lg:grid-cols-4">
                 <TabsTrigger value="buy_now" className="min-h-10 justify-center gap-1.5 whitespace-normal px-2 text-xs sm:text-sm data-[state=active]:bg-white">
                   <Flame className="w-3.5 h-3.5" /> Buy now
-                  {buyNow.length > 0 && <Badge className="ml-1 bg-rose-100 text-rose-700 text-[10px]">{buyNow.length}</Badge>}
+                  {buyNow.length > 0 && <Badge className="ml-1 bg-rose-100 text-rose-700 text-xs">{buyNow.length}</Badge>}
                 </TabsTrigger>
                 <TabsTrigger value="plan" className="min-h-10 justify-center gap-1.5 whitespace-normal px-2 text-xs sm:text-sm data-[state=active]:bg-white">
                   <Calendar className="w-3.5 h-3.5" /> Plan ahead
@@ -1665,7 +1684,7 @@ function SmartShoppingPage() {
                                   className="flex items-center gap-2 flex-wrap text-xs bg-white border border-blue-100 rounded-md px-2 py-1.5"
                                 >
                                   <div className="flex-1 min-w-0">
-                                    <span className="font-semibold text-slate-900">{r.item_name}</span>
+                                    <span className="text-sm font-semibold text-slate-900 sm:text-base">{r.item_name}</span>
                                     <span className="text-slate-500 ml-1">
                                       {r.ordered_qty != null ? ` · ${r.ordered_qty} ${r.unit_of_measure}` : ""}
                                       {r.ordered_until ? ` · ETA ${new Date(r.ordered_until + "T00:00:00").toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}
@@ -1676,7 +1695,7 @@ function SmartShoppingPage() {
                                     onClick={() => markReceivedSingle(r.inventory_item_id)}
                                     disabled={!!rowBusy[r.inventory_item_id]}
                                     title="Goods arrived - add to stock and clear the flag"
-                                    className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-brand-primary/30 text-brand-primary bg-brand-primary/10 hover:bg-brand-primary/15 disabled:opacity-50 min-h-[28px]"
+                                    className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-brand-primary/30 text-brand-primary bg-brand-primary/10 hover:bg-brand-primary/15 disabled:opacity-50 min-h-[28px]"
                                   >
                                     <CheckCircle2 className="w-3 h-3" /> Mark received
                                   </button>
@@ -1685,14 +1704,14 @@ function SmartShoppingPage() {
                                     onClick={() => clearOrdered(r.inventory_item_id)}
                                     disabled={!!rowBusy[r.inventory_item_id]}
                                     title="Didn't actually order this - clear the flag without receiving"
-                                    className="text-[11px] px-2 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 min-h-[28px]"
+                                    className="text-xs px-2 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 min-h-[28px]"
                                   >
                                     Undo
                                   </button>
                                 </li>
                               ))}
                             </ul>
-                            <p className="mt-2 text-[10px] text-blue-700">
+                            <p className="mt-2 text-xs text-blue-700">
                               Items hidden from Buy-now until delivery. Mark received once the goods arrive (writes a stock-in transaction) or Undo if it was a mistake.
                             </p>
                           </CardContent>
@@ -1713,7 +1732,7 @@ function SmartShoppingPage() {
                                   className="flex items-center gap-2 flex-wrap text-xs bg-white border border-slate-200 rounded-md px-2 py-1.5"
                                 >
                                   <div className="flex-1 min-w-0">
-                                    <span className="font-semibold text-slate-900">{r.item_name}</span>
+                                    <span className="text-sm font-semibold text-slate-900 sm:text-base">{r.item_name}</span>
                                     <span className="text-slate-400 ml-1">
                                       til {r.snooze_until ? new Date(r.snooze_until + "T00:00:00").toLocaleDateString("en-ZA", { day: "numeric", month: "short" }) : ""}
                                     </span>
@@ -1722,7 +1741,7 @@ function SmartShoppingPage() {
                                     type="button"
                                     onClick={() => clearSnooze(r.inventory_item_id)}
                                     disabled={!!rowBusy[r.inventory_item_id]}
-                                    className="text-[11px] px-2 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 min-h-[28px]"
+                                    className="text-xs px-2 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 min-h-[28px]"
                                   >
                                     Unsnooze
                                   </button>
@@ -1739,11 +1758,11 @@ function SmartShoppingPage() {
                   <CardHeader>
                     <div className="flex items-start justify-between gap-3 flex-wrap">
                       <div>
-                        <CardTitle className="text-base flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
                           <ListChecks className="w-5 h-5 text-brand-primary" />
                           Buy now
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="text-xs sm:text-sm">
                           Items below minimum stock or short of confirmed demand during the selected window ({planningDates.label.toLowerCase()}). Tick to add to your PO list.
                         </CardDescription>
                       </div>
@@ -1776,7 +1795,7 @@ function SmartShoppingPage() {
                     {buyNow.length === 0 ? (
                       <div className="py-12 text-center">
                         <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-500 mb-2" />
-                        <p className="font-semibold text-slate-700">All stocked up</p>
+                        <p className="text-sm font-semibold text-slate-700 sm:text-base">All stocked up</p>
                         <p className="text-xs text-slate-500">Nothing to buy right now. Check back tomorrow.</p>
                       </div>
                     ) : (
@@ -1809,11 +1828,11 @@ function SmartShoppingPage() {
                   <CardHeader>
                     <div className="flex items-start justify-between gap-3 flex-wrap">
                       <div>
-                        <CardTitle className="text-base flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
                           <Calendar className="w-5 h-5 text-blue-600" />
                           Plan ahead
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="text-xs sm:text-sm">
                           Demand for {planningDates.label.toLowerCase()}. Buy-by dates account for shelf life.
                         </CardDescription>
                       </div>
@@ -1862,9 +1881,11 @@ function SmartShoppingPage() {
                             document.body.removeChild(a);
                             URL.revokeObjectURL(url);
                           }}
-                          className="gap-1.5"
+                          className="h-9 w-9 gap-1.5 p-0 sm:w-auto sm:px-3"
+                          aria-label="Export plan as CSV"
+                          title="Export plan as CSV"
                         >
-                          <Download className="w-3.5 h-3.5" /> Export
+                          <Download className="h-4 w-4" /> <span className="sr-only sm:not-sr-only">Export</span>
                         </Button>
                       )}
                     </div>
@@ -1885,7 +1906,7 @@ function SmartShoppingPage() {
                                   <>
                                     {new Date(group.eventDate + "T00:00:00").toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
                                     {group.eventName && <span className="ml-2 text-slate-700 font-normal">- {group.eventName}</span>}
-                                    {group.orderNumber && <span className="ml-2 text-[11px] text-slate-500 font-mono">#{group.orderNumber}</span>}
+                                    {group.orderNumber && <span className="ml-2 text-xs text-slate-500 font-mono">#{group.orderNumber}</span>}
                                   </>
                                 ) : (
                                   <>Restock (no event linked)</>
@@ -2005,7 +2026,7 @@ function SmartShoppingPage() {
                                     <Building2 className="w-5 h-5 text-brand-primary" />
                                   </div>
                                   <div className="min-w-0">
-                                    <p className="font-semibold text-slate-900 truncate">
+                                    <p className="truncate text-sm font-semibold text-slate-900 sm:text-base">
                                       {g.supplier?.supplier_name || "No preferred supplier"}
                                     </p>
                                     <p className="text-xs text-slate-500">
@@ -2024,7 +2045,7 @@ function SmartShoppingPage() {
                                         contact fields were already
                                         loaded but never rendered. */}
                                     {g.supplier && (g.supplier.email || g.supplier.phone || g.supplier.contact_person) && (
-                                      <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                                      <p className="text-xs text-slate-500 mt-0.5 truncate">
                                         {g.supplier.contact_person && <span>{g.supplier.contact_person}</span>}
                                         {g.supplier.contact_person && (g.supplier.email || g.supplier.phone) && <span className="mx-1 text-slate-300">·</span>}
                                         {g.supplier.email && <span>{g.supplier.email}</span>}
@@ -2041,12 +2062,12 @@ function SmartShoppingPage() {
                                     {g.supplier && (
                                       <div className="flex flex-wrap gap-1.5 mt-1">
                                         {sentToday[g.supplier.id] && (
-                                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-brand-primary/15 text-brand-primary border border-brand-primary/20">
+                                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded-full bg-brand-primary/15 text-brand-primary border border-brand-primary/20">
                                             <Mail className="w-2.5 h-2.5" /> Sent today
                                           </span>
                                         )}
                                         {canSeeFinanceAggregate && supplierHistory[g.supplier.id]?.ytdSpend > 0 && (
-                                          <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] rounded-full bg-slate-100 text-slate-700 border border-slate-200" title="Total spend on this supplier this calendar year, from logged receipts.">
+                                          <span className="inline-flex items-center px-1.5 py-0.5 text-xs rounded-full bg-slate-100 text-slate-700 border border-slate-200" title="Total spend on this supplier this calendar year, from logged receipts.">
                                             YTD {fmtMoney.format(supplierHistory[g.supplier.id].ytdSpend)}
                                           </span>
                                         )}
@@ -2063,7 +2084,7 @@ function SmartShoppingPage() {
                                                 ? `${diff}d ago`
                                                 : d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
                                           return (
-                                            <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] rounded-full bg-slate-100 text-slate-700 border border-slate-200" title="Most recent receipt logged against this supplier.">
+                                            <span className="inline-flex items-center px-1.5 py-0.5 text-xs rounded-full bg-slate-100 text-slate-700 border border-slate-200" title="Most recent receipt logged against this supplier.">
                                               Last order {label}
                                             </span>
                                           );
@@ -2073,7 +2094,7 @@ function SmartShoppingPage() {
                                           if (!cut) return null;
                                           return (
                                             <span
-                                              className={`inline-flex items-center px-1.5 py-0.5 text-[10px] rounded-full border ${
+                                              className={`inline-flex items-center px-1.5 py-0.5 text-xs rounded-full border ${
                                                 cut.urgent
                                                   ? "bg-amber-100 text-amber-800 border-amber-200"
                                                   : "bg-blue-50 text-blue-800 border-blue-200"
@@ -2089,7 +2110,7 @@ function SmartShoppingPage() {
                                   </div>
                                 </div>
                                 <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
-                                  <span className="font-bold tabular-nums text-slate-900">
+                                  <span className="text-sm font-bold tabular-nums text-slate-900 sm:text-base">
                                     {fmtMoney.format(g.totalCost)}
                                   </span>
                                   {/* SHOP-E: single Email order button
@@ -2164,7 +2185,7 @@ function SmartShoppingPage() {
             </Tabs>
           )}
 
-          <p className="text-[11px] text-slate-500 text-center mt-6">
+          <p className="text-xs text-slate-500 text-center mt-6">
             Buying needs come from your current stock and the ingredients your confirmed orders use.
             Updates the moment a stock change or new order lands.
           </p>
@@ -2236,7 +2257,7 @@ function SmartShoppingPage() {
                         <strong>{l.reorderQty} {l.unit_of_measure}</strong> {l.item_name}
                       </span>
                       {l.buyBy && (
-                        <span className="text-[11px] text-slate-500">
+                        <span className="text-xs text-slate-500">
                           by {l.buyBy.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
                         </span>
                       )}
@@ -2275,7 +2296,7 @@ function SmartShoppingPage() {
                         body: renderOrderBody(d.supplierName, d.contactPerson, d.lines),
                         bodyManuallyEdited: false,
                       } : d)}
-                      className="text-[11px] text-blue-700 hover:underline"
+                      className="text-xs text-blue-700 hover:underline"
                     >
                       Reset to template
                     </button>
@@ -2419,7 +2440,7 @@ function SmartShoppingPage() {
                             </td>
                             <td style={{ padding: "6pt 3pt" }}>
                               <strong>{r.item_name}</strong>
-                              {r.isUrgent ? <span style={{ marginLeft: "6pt", padding: "1pt 4pt", border: "1pt solid #dc2626", color: "#dc2626", fontSize: "8pt", fontWeight: 700 }}>URGENT</span> : null}
+                              {r.isUrgent ? <span className="text-rose-600" style={{ marginLeft: "6pt", padding: "1pt 4pt", border: "1pt solid currentColor", fontSize: "8pt", fontWeight: 700 }}>URGENT</span> : null}
                             </td>
                             <td style={{ padding: "6pt 3pt", textAlign: "right" }}>{r.reorderQty} {r.unit_of_measure || ""}</td>
                             <td style={{ padding: "6pt 3pt" }}>{r.supplier?.supplier_name || ""}</td>
@@ -2475,13 +2496,13 @@ function SmartShoppingPage() {
 function SummaryTile({ label, value, accent, icon: Icon, hint, isMoney, tooltip }: any) {
   return (
     <Card>
-      <CardContent className="p-4 flex items-center justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500 flex items-center gap-1">{label}{tooltip && <InfoTooltip content={tooltip} />}</p>
-          <p className={`text-2xl md:text-3xl font-bold mt-1 ${accent} ${isMoney ? "" : "tabular-nums"}`}>{value}</p>
-          {hint && <p className="text-[11px] text-slate-500 mt-0.5">{hint}</p>}
+      <CardContent className="flex min-w-0 items-center justify-between gap-2 p-3 sm:p-4">
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-1 text-xs uppercase tracking-wide text-slate-500">{label}{tooltip && <InfoTooltip content={tooltip} />}</p>
+          <p className={`mt-1 break-words font-bold leading-tight ${isMoney ? "text-base sm:text-lg" : "text-lg sm:text-xl"} ${accent} ${isMoney ? "" : "tabular-nums"}`}>{value}</p>
+          {hint && <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{hint}</p>}
         </div>
-        <Icon className={`w-8 h-8 ${accent} opacity-30`} />
+        <Icon className={`h-6 w-6 shrink-0 opacity-30 sm:h-8 sm:w-8 ${accent}`} aria-hidden="true" />
       </CardContent>
     </Card>
   );
@@ -2511,7 +2532,7 @@ function ItemTable({
           scroll off-screen on compact screens. */}
       <div className="hidden overflow-x-auto lg:block">
       <table className="w-full text-sm">
-        <thead className="text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200">
+        <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
           <tr>
             <th className="w-8 py-2"></th>
             <th className="text-left py-2 pr-3">Item</th>
@@ -2563,7 +2584,7 @@ function ItemTable({
                             return (
                               <Badge
                                 variant="outline"
-                                className={`text-[10px] ${up ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-brand-primary/10 text-brand-primary border-brand-primary/20"}`}
+                                className={`text-xs ${up ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-brand-primary/10 text-brand-primary border-brand-primary/20"}`}
                                 title={`Median per-item price change for ${r.supplier?.supplier_name || "this supplier"} vs 60-120d ago`}
                               >
                                 {up ? "+" : ""}{pct.toFixed(0)}% supplier
@@ -2587,7 +2608,7 @@ function ItemTable({
                             return (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] bg-amber-50 text-amber-700 border-amber-200"
+                                className="text-xs bg-amber-50 text-amber-700 border-amber-200"
                                 title={`${cheaperName} ${canSeeFinance ? `: ${fmtMoney.format(Number(cheaper.unit_price))} per unit` : ""} - ${pct}% cheaper`}
                               >
                                 {cheaperName} -{pct}%
@@ -2652,7 +2673,7 @@ function ItemTable({
                           type="button"
                           onClick={() => onMarkOrdered(r.inventory_item_id, r.reorderQty, 7)}
                           disabled={!!rowBusy?.[r.inventory_item_id]}
-                          className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50"
+                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50"
                           title="Already ordered this from your supplier? Marks the line as in-flight so it stops flagging as shortfall. 7-day ETA, undo available."
                         >
                           <Truck className="w-3 h-3" />
@@ -2664,7 +2685,7 @@ function ItemTable({
                           type="button"
                           onClick={() => onSnooze(r.inventory_item_id, 7)}
                           disabled={!!rowBusy?.[r.inventory_item_id]}
-                          className="text-[10px] px-1.5 py-0.5 rounded border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                          className="text-xs px-1.5 py-0.5 rounded border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                           title="Snooze - hides this item from Buy-now for 7 days"
                         >
                           Snooze 7d
@@ -2672,11 +2693,14 @@ function ItemTable({
                       )}
                       {lines.length > 0 && (
                         <button
+                          type="button"
                           onClick={() => setExpandedItem(isOpen ? null : r.inventory_item_id)}
-                          className="text-slate-400 hover:text-slate-700"
+                          aria-label={`${isOpen ? "Hide" : "Show"} order demand for ${r.item_name}`}
+                          aria-expanded={isOpen}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                           title={`${lines.length} order${lines.length === 1 ? "" : "s"} pulling on this`}
                         >
-                          {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                         </button>
                       )}
                     </div>
@@ -2685,7 +2709,7 @@ function ItemTable({
                 {isOpen && lines.length > 0 && (
                   <tr className="bg-slate-50">
                     <td colSpan={showBuyBy ? (hideSupplier ? 9 : 10) : (hideSupplier ? 8 : 9)} className="px-4 py-3">
-                      <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-2 flex items-center gap-1">
+                      <div className="text-xs uppercase tracking-wide text-slate-500 mb-2 flex items-center gap-1">
                         <Calendar className="w-3 h-3" /> Pulled by upcoming orders
                       </div>
                       <div className="space-y-1">
@@ -2698,10 +2722,10 @@ function ItemTable({
                                   item rather than searching for it. */}
                               {withSlug ? (
                                 <Link href={withSlug(`/admin/orders?q=${encodeURIComponent(l.order_number)}`)} className="hover:underline">
-                                  <Badge variant="outline" className="text-[10px] hover:bg-slate-100">{l.order_number}</Badge>
+                                  <Badge variant="outline" className="text-xs hover:bg-slate-100">{l.order_number}</Badge>
                                 </Link>
                               ) : (
-                                <Badge variant="outline" className="text-[10px]">{l.order_number}</Badge>
+                                <Badge variant="outline" className="text-xs">{l.order_number}</Badge>
                               )}
                               <span className="text-slate-700 truncate">{orderDisplayName({ event_name: l.event_name }) === "Order" ? "" : orderDisplayName({ event_name: l.event_name })}</span>
                               <span className="text-slate-500 hidden sm:inline">via {l.menu_item_name}</span>
@@ -2748,15 +2772,15 @@ function ItemTable({
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-semibold text-slate-900">{r.item_name}</span>
+                    <span className="text-sm font-semibold text-slate-900 sm:text-base">{r.item_name}</span>
                     {r.is_perishable && <Snowflake className="w-3 h-3 text-brand-primary shrink-0" />}
-                    <Badge variant="outline" className={`${meta.tone} border text-[10px]`}>{meta.label}</Badge>
+                    <Badge variant="outline" className={`${meta.tone} border text-xs`}>{meta.label}</Badge>
                     {canSeeFinance && r.preferred_supplier_id && creep?.[r.preferred_supplier_id]?.median_pct_change != null && Math.abs(creep[r.preferred_supplier_id].median_pct_change) >= 5 && creep[r.preferred_supplier_id].items_compared >= 2 && (() => {
                       const pct = creep[r.preferred_supplier_id].median_pct_change as number;
                       return (
                         <Badge
                           variant="outline"
-                          className={`text-[10px] ${pct > 0 ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-brand-primary/10 text-brand-primary border-brand-primary/20"}`}
+                          className={`text-xs ${pct > 0 ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-brand-primary/10 text-brand-primary border-brand-primary/20"}`}
                         >
                           {pct > 0 ? "+" : ""}{pct.toFixed(0)}%
                         </Badge>
@@ -2766,13 +2790,13 @@ function ItemTable({
                       const pct = Math.round((1 - Number(cheaperLink.unit_price) / myUnit) * 100);
                       const cheaperName = suppliersById?.[cheaperLink.supplier_id]?.supplier_name || "Other";
                       return (
-                        <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                        <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
                           {cheaperName} -{pct}%
                         </Badge>
                       );
                     })()}
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">
+                  <div className="text-xs text-slate-500 mt-0.5">
                     {r.category || "Uncategorised"}{showShelfLife && r.shelf_life_days ? ` · ${r.shelf_life_days}d shelf` : ""}
                   </div>
 
@@ -2838,7 +2862,7 @@ function ItemTable({
                         type="button"
                         onClick={() => onMarkOrdered(r.inventory_item_id, r.reorderQty, 7)}
                         disabled={!!rowBusy?.[r.inventory_item_id]}
-                        className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 min-h-[32px]"
+                        className="inline-flex min-h-10 items-center gap-1 rounded border border-blue-300 bg-blue-50 px-2.5 py-1 text-xs text-blue-700 hover:bg-blue-100 disabled:opacity-50"
                         title="Marks the line as in-flight - hides it from Buy-now for 7 days. Undo available."
                       >
                         <Truck className="w-3.5 h-3.5" />
@@ -2850,7 +2874,7 @@ function ItemTable({
                         type="button"
                         onClick={() => onSnooze(r.inventory_item_id, 7)}
                         disabled={!!rowBusy?.[r.inventory_item_id]}
-                        className="text-xs px-2 py-1 rounded border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50 min-h-[32px]"
+                        className="min-h-10 rounded border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                       >
                         Snooze 7d
                       </button>
@@ -2859,7 +2883,9 @@ function ItemTable({
                       <button
                         type="button"
                         onClick={() => setExpandedItem(isOpen ? null : r.inventory_item_id)}
-                        className="ml-auto text-xs text-slate-500 hover:text-slate-700 inline-flex items-center gap-1 min-h-[32px] px-1"
+                        aria-expanded={isOpen}
+                        aria-label={`${isOpen ? "Hide" : "Show"} ${lines.length} orders pulling on ${r.item_name}`}
+                        className="ml-auto inline-flex min-h-10 items-center gap-1 px-1 text-xs text-slate-600 hover:text-slate-900"
                       >
                         {lines.length} pull{lines.length === 1 ? "" : "s"}
                         {isOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -2871,7 +2897,7 @@ function ItemTable({
 
               {isOpen && lines.length > 0 && (
                 <div className="mt-3 ml-7 pl-2 border-l border-slate-200 space-y-1.5">
-                  <div className="text-[10px] uppercase tracking-wide text-slate-500 inline-flex items-center gap-1">
+                  <div className="text-xs uppercase tracking-wide text-slate-500 inline-flex items-center gap-1">
                     <Calendar className="w-3 h-3" /> Pulled by upcoming orders
                   </div>
                   {lines.map((l: any, i: number) => (
@@ -2879,14 +2905,14 @@ function ItemTable({
                       <div className="flex items-center gap-2 flex-wrap">
                         {withSlug ? (
                           <Link href={withSlug(`/admin/orders?q=${encodeURIComponent(l.order_number)}`)}>
-                            <Badge variant="outline" className="text-[10px] hover:bg-slate-100">{l.order_number}</Badge>
+                            <Badge variant="outline" className="text-xs hover:bg-slate-100">{l.order_number}</Badge>
                           </Link>
                         ) : (
-                          <Badge variant="outline" className="text-[10px]">{l.order_number}</Badge>
+                          <Badge variant="outline" className="text-xs">{l.order_number}</Badge>
                         )}
                         <span className="text-slate-700 truncate">{orderDisplayName({ event_name: l.event_name }) === "Order" ? "" : orderDisplayName({ event_name: l.event_name })}</span>
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">
+                      <div className="text-xs text-slate-500 mt-0.5">
                         {Number(l.quantity_required).toLocaleString()} {l.unit} · {new Date(l.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} · via {l.menu_item_name}
                       </div>
                     </div>

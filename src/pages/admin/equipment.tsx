@@ -17,6 +17,7 @@ import { useRouter } from "next/router";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { SortMenu } from "@/components/ui/sort-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Head from "next/head";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,7 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -39,15 +40,17 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Plus, Search, Package, Edit, Trash2, AlertTriangle, CheckCircle2, ToggleLeft,
-  Calendar as CalendarIcon, ExternalLink, Loader2, Download, X, RefreshCw, Sparkles,
+  Plus, Search, Package, Edit, Trash2, AlertTriangle, CheckCircle2, ToggleLeft, ChevronDown,
+  Calendar as CalendarIcon, ExternalLink, Loader2, Download, X, RefreshCw, Sparkles, Filter,
 } from "lucide-react";
 import {
   listUpcomingReservations, getEquipmentAvailability,
   type EquipmentReservationRow,
 } from "@/services/equipmentAvailabilityService";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { AdminControlGroup } from "@/components/admin/AdminControlSurface";
 import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
+import { PwaLoadingScreen } from "@/components/pwa/PwaLoadingScreen";
 import { PortalShell, PortalHeader,
   PageWorkbench,
   PortalCard,
@@ -136,6 +139,13 @@ const SUGGESTED_CATEGORIES = [
 
 const TABS = ["catalog", "availability", "shortages", "hire-in", "damages"] as const;
 type TabKey = typeof TABS[number];
+const TAB_LABELS: Record<TabKey, string> = {
+  catalog: "Catalog",
+  availability: "Availability",
+  shortages: "Shortages",
+  "hire-in": "Hire-in orders",
+  damages: "Damages",
+};
 
 const safeNum = (v: any) => {
   const n = typeof v === "string" ? parseFloat(v) : Number(v);
@@ -243,21 +253,22 @@ function EquipmentPage() {
             title="Equipment"
             subtitle="Manage equipment, check availability and arrange hire-in cover for shortages."
             icon={Package}
+            actionsAlign="start"
             meta={
               heroStats ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {heroStats.items} catalogue item{heroStats.items === 1 ? "" : "s"}
                   </span>
                   {heroStats.noneFree > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                       {heroStats.noneFree} none free
                     </span>
                   )}
                   {heroStats.hidden > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       {heroStats.hidden} hidden from quotes
                     </span>
                   )}
@@ -270,24 +281,39 @@ function EquipmentPage() {
                   handleTabChange("catalog");
                   setAddSignal((n) => n + 1);
                 }}
-                className="bg-brand-primary text-white hover:opacity-90"
+                className="h-10 w-10 shrink-0 justify-center gap-0 bg-brand-primary px-0 text-white hover:opacity-90 sm:h-9 sm:w-auto sm:gap-2 sm:px-3"
+                aria-label="Add equipment"
+                title="Add equipment"
               >
-                <Plus className="w-4 h-4 mr-2" />
-                Add equipment
+                <Plus aria-hidden="true" className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">Add equipment</span>
               </Button>
             }
           />
           <PageWorkbench />
-          <CatalogueOperationsStrip active={tab === "damages" ? "damages" : "equipment"} />
+          <CatalogueOperationsStrip active={tab === "damages" ? "damages" : "equipment"} navigationMode="dropdown" />
 
           <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1 sm:grid-cols-3 lg:inline-grid lg:w-auto lg:grid-cols-5">
-              <TabsTrigger id="equipment-catalog" data-chat-section="admin.equipment.catalog" data-chat-section-label="Equipment catalogue" value="catalog" className="min-w-0 whitespace-normal px-2 py-2 text-xs sm:text-sm">Catalog</TabsTrigger>
-              <TabsTrigger id="equipment-availability" data-chat-section="admin.equipment.availability" data-chat-section-label="Equipment availability" value="availability" className="min-w-0 whitespace-normal px-2 py-2 text-xs sm:text-sm">Availability</TabsTrigger>
-              <TabsTrigger id="equipment-shortages" data-chat-section="admin.equipment.shortages" data-chat-section-label="Equipment shortages" value="shortages" className="min-w-0 whitespace-normal px-2 py-2 text-xs sm:text-sm">Shortages</TabsTrigger>
-              <TabsTrigger id="equipment-hire-in" data-chat-section="admin.equipment.hire-in" data-chat-section-label="Equipment hire-in" value="hire-in" className="min-w-0 whitespace-normal px-2 py-2 text-xs sm:text-sm">Hire-in orders</TabsTrigger>
-              <TabsTrigger id="equipment-damages" data-chat-section="admin.equipment.damages" data-chat-section-label="Equipment damages" value="damages" className="min-w-0 whitespace-normal px-2 py-2 text-xs sm:text-sm">Damages</TabsTrigger>
-            </TabsList>
+            <div
+              id={`equipment-${tab}`}
+              data-chat-section={`admin.equipment.${tab}`}
+              data-chat-section-label={`Equipment ${TAB_LABELS[tab]}`}
+              className="mb-4 min-w-0"
+            >
+              <Select value={tab} onValueChange={handleTabChange}>
+                <SelectTrigger aria-label="Choose equipment section" className="h-10 w-full max-w-full border-slate-200 bg-white text-sm font-medium sm:max-w-sm">
+                  <Package aria-hidden="true" className="h-4 w-4 shrink-0 text-brand-primary" />
+                  <SelectValue>{TAB_LABELS[tab]}</SelectValue>
+                </SelectTrigger>
+                <SelectContent align="start" className="w-[min(22rem,calc(100vw-2rem))]">
+                  {TABS.map((value) => (
+                    <SelectItem key={value} value={value} className="min-h-10 py-2">
+                      {TAB_LABELS[value]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             <TabsContent value="catalog" className="mt-6">
               <CatalogTab companyId={companyId} addSignal={addSignal} />
@@ -670,11 +696,11 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
 
   return (
     <>
-      <div className="mb-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-        <div className="text-sm text-slate-600">
+      <div className="mb-4 flex min-w-0 flex-col items-start gap-3">
+        <div className="max-w-3xl text-sm text-slate-600">
           Chafing dishes, tables, chairs, hire add-ons. The catalog feeds the quote builder, kitchen pack list and driver load list.
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full shrink-0 items-center justify-start gap-2 sm:w-auto">
         {/* Phase 15 #6: equipment CSV export. Lets the team
             stocktake / hand the catalogue to an insurer / quote
             an external hire-out without opening each row. Reads
@@ -682,6 +708,7 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
             flows through. */}
         <Button
           variant="outline"
+          size="sm"
           onClick={() => {
             if (filtered.length === 0) {
               toast({ title: "Nothing to export", description: "Adjust filters until at least one item is visible." });
@@ -721,9 +748,12 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
             a.click();
             URL.revokeObjectURL(url);
           }}
+          className="h-10 w-10 shrink-0 justify-center gap-0 px-0 sm:h-9 sm:w-auto sm:gap-2 sm:px-3"
+          aria-label="Export equipment as CSV"
+          title="Export equipment as CSV"
         >
-          <Download className="w-4 h-4 mr-2" />
-          Export CSV
+          <Download aria-hidden="true" className="h-4 w-4" />
+          <span className="sr-only sm:not-sr-only">Export CSV</span>
         </Button>
         <Button
           onClick={() =>
@@ -740,10 +770,13 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
               is_available: true,
             })
           }
-          className="bg-brand-primary text-white"
+          size="sm"
+          className="h-10 w-10 shrink-0 justify-center gap-0 bg-brand-primary px-0 text-white sm:h-9 sm:w-auto sm:gap-2 sm:px-3"
+          aria-label="Add equipment"
+          title="Add equipment"
         >
-          <Plus className="w-4 h-4 mr-2" />
-          Add equipment
+          <Plus aria-hidden="true" className="h-4 w-4" />
+          <span className="sr-only sm:not-sr-only">Add equipment</span>
         </Button>
         </div>
       </div>
@@ -764,8 +797,8 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
         </Card>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Catalog items</p><p className="text-2xl font-bold text-slate-900">{totalItems}</p></CardContent></Card>
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+        <Card><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Catalog items</p><p className="text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">{totalItems}</p></CardContent></Card>
         {/* EQP-B: replaced "Total units" vanity tile with hire-in
             committed - the operator-actionable number is "how much
             am I spending on third-party rentals". Falls back to
@@ -774,18 +807,18 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-slate-600 mb-1">Hire-in spend (90d)</p>
-              <p className="text-2xl font-bold text-rose-600">
+              <p className="text-xl font-bold tabular-nums text-rose-600 sm:text-2xl">
                 {formatZAR(hireInCommittedTotal, { decimals: 0 })}
               </p>
               {hireInCommittedCount > 0 && (
-                <p className="text-[10px] text-slate-500 mt-0.5">{hireInCommittedCount} order{hireInCommittedCount === 1 ? "" : "s"}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{hireInCommittedCount} order{hireInCommittedCount === 1 ? "" : "s"}</p>
               )}
             </CardContent>
           </Card>
         ) : (
-          <Card><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Total units</p><p className="text-2xl font-bold text-blue-600">{totalUnits}</p></CardContent></Card>
+          <Card><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Total units</p><p className="text-xl font-bold tabular-nums text-blue-600 sm:text-2xl">{totalUnits}</p></CardContent></Card>
         )}
-        <Card><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">No stock free</p><p className="text-2xl font-bold text-amber-600">{lowStock}</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">No stock free</p><p className="text-xl font-bold tabular-nums text-amber-600 sm:text-2xl">{lowStock}</p></CardContent></Card>
         {/* EQP-B: clickable tile drilldown to the hidden subset. */}
         <button
           type="button"
@@ -795,9 +828,9 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
           }`}
         >
           <p className="text-xs text-slate-600 mb-1">Hidden from quotes</p>
-          <p className="text-2xl font-bold text-slate-500">{offlineItems}</p>
+          <p className="text-xl font-bold tabular-nums text-slate-500 sm:text-2xl">{offlineItems}</p>
           {offlineItems > 0 && (
-            <p className="text-[10px] text-slate-500 mt-0.5">Tap to filter</p>
+            <p className="text-xs text-slate-500 mt-0.5">Tap to filter</p>
           )}
         </button>
       </div>
@@ -819,72 +852,93 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
               <span className="font-semibold">{dueSoonServiceCount}</span> due within 7 days
             </span>
           )}
-          <span className="text-[11px] text-amber-700 ml-auto">Open each row to log a service.</span>
+          <span className="text-xs text-amber-800 ml-auto">Open each row to log a service.</span>
         </div>
       )}
 
       {/* Command-centre standard: search + filters + sort grouped
           into one toolbar card. */}
-      <PortalCard padded={false} className="p-3 mb-6">
-      <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input
-            ref={searchRef}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, category, description... (press /)"
-            className="pl-9 pr-9"
+      <PortalCard padded={false} className="mb-6 p-3">
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative min-w-0 flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              ref={searchRef}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search equipment"
+              placeholder="Search equipment by name, category or description"
+              className="h-10 pl-9 pr-9 text-sm"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                title="Clear search"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <SortMenu
+            activeKey={equipmentSort.sortKey}
+            activeDir={equipmentSort.sortDir}
+            onPick={equipmentSort.setSort}
+            options={[
+              { key: "name",     dir: "asc",  label: "Name (A to Z)" },
+              { key: "name",     dir: "desc", label: "Name (Z to A)" },
+              { key: "category", dir: "asc",  label: "Category (A to Z)" },
+              { key: "rate",     dir: "desc", label: "Rate (high to low)" },
+              { key: "rate",     dir: "asc",  label: "Rate (low to high)" },
+              { key: "free",     dir: "desc", label: "Most free units" },
+              { key: "free",     dir: "asc",  label: "Fewest free units" },
+              { key: "qty",      dir: "desc", label: "Largest catalog qty" },
+            ]}
           />
-          {/* Phase 25 #7: clear-search affordance. */}
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-              title="Clear search"
-              aria-label="Clear search"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
         </div>
-        <div className="flex gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs">
-          {(["all", "available", "hidden"] as const).map((k) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => setFilterAvailable(k)}
-              className={`px-3 py-1.5 rounded-md ${
-                filterAvailable === k
-                  ? "bg-brand-primary/10 text-brand-primary font-medium"
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              {k === "all" ? "All" : k === "available" ? "In catalog" : "Hidden"}
-            </button>
-          ))}
-        </div>
-        <SortMenu
-          activeKey={equipmentSort.sortKey}
-          activeDir={equipmentSort.sortDir}
-          onPick={equipmentSort.setSort}
-          options={[
-            { key: "name",     dir: "asc",  label: "Name (A to Z)" },
-            { key: "name",     dir: "desc", label: "Name (Z to A)" },
-            { key: "category", dir: "asc",  label: "Category (A to Z)" },
-            { key: "rate",     dir: "desc", label: "Rate (high to low)" },
-            { key: "rate",     dir: "asc",  label: "Rate (low to high)" },
-            { key: "free",     dir: "desc", label: "Most free units" },
-            { key: "free",     dir: "asc",  label: "Fewest free units" },
-            { key: "qty",      dir: "desc", label: "Largest catalog qty" },
-          ]}
-        />
-      </div>
+        <AdminControlGroup
+          label="Equipment filters"
+          icon={Filter}
+          collapsible
+          summary={`${filterAvailable === "all" ? "All items" : filterAvailable === "available" ? "In catalog" : "Hidden"}${gapFilter === "missing-photo" ? " · Missing photo" : gapFilter === "missing-price" ? " · Missing price" : ""}`}
+          className="mt-2 rounded-md border-0 bg-slate-50/80 p-2"
+          helpText="Show all equipment, items available to quote, or hidden items. Catalogue checks can also find missing prices and photos."
+        >
+          <div className="grid w-full min-w-0 gap-2 sm:grid-cols-2">
+            <div className="min-w-0 space-y-1">
+              <Label htmlFor="equipment-availability-filter" className="text-xs text-slate-600">Availability</Label>
+              <Select value={filterAvailable} onValueChange={(value) => setFilterAvailable(value as typeof filterAvailable)}>
+                <SelectTrigger id="equipment-availability-filter" aria-label="Filter by availability" className="h-10 w-full bg-white text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All equipment</SelectItem>
+                  <SelectItem value="available">In catalog</SelectItem>
+                  <SelectItem value="hidden">Hidden from quotes</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="min-w-0 space-y-1">
+              <Label htmlFor="equipment-gap-filter" className="text-xs text-slate-600">Catalogue checks</Label>
+              <Select value={gapFilter} onValueChange={(value) => setGapFilter(value as typeof gapFilter)}>
+                <SelectTrigger id="equipment-gap-filter" aria-label="Filter catalogue gaps" className="h-10 w-full bg-white text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No gap filter</SelectItem>
+                  <SelectItem value="missing-photo">Missing photo</SelectItem>
+                  <SelectItem value="missing-price">Missing price</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </AdminControlGroup>
       </PortalCard>
 
       {loading ? (
-        <Card><CardContent className="p-12 text-center text-slate-500">Loading...</CardContent></Card>
+        <PwaLoadingScreen message="Loading equipment catalogue" variant="inline" />
       ) : rows.length === 0 ? (
         <Card className="border-2 border-dashed">
           <CardContent className="p-12 text-center">
@@ -915,11 +969,14 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
       ) : (
         <div className="space-y-6">
           {grouped.map(([cat, items]) => (
-            <div key={cat}>
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">{cat}</h2>
-                <span className="text-xs text-slate-400">{items.length} item{items.length === 1 ? "" : "s"}</span>
-              </div>
+            <details key={cat} className="group border-b border-slate-200 pb-2">
+              <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 rounded-md py-2 text-left hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary">
+                <span className="min-w-0 truncate text-xs font-semibold uppercase tracking-wider text-slate-600">{cat}</span>
+                <span className="inline-flex shrink-0 items-center gap-2 text-xs text-slate-500">
+                  {items.length} item{items.length === 1 ? "" : "s"}
+                  <ChevronDown aria-hidden="true" className="h-4 w-4 transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+                </span>
+              </summary>
               <div className="space-y-2">
                 {items.map((r) => {
                   const offline = r.is_available === false;
@@ -941,24 +998,24 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                   const isDueSoon = !!nextDue && !isOverdue && nextDue - now <= sevenDays;
                   return (
                     <Card key={r.id} className={`${offline ? "opacity-60" : ""}`}>
-                      <CardContent className="p-4 flex flex-wrap items-center gap-3">
+                      <CardContent className="flex flex-wrap items-center gap-3 p-3 sm:p-4">
                         <div className="flex-1 min-w-[200px]">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-slate-900">{r.name || "(unnamed)"}</span>
                             {offline ? (
-                              <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200">hidden</Badge>
+                              <Badge variant="outline" className="text-xs bg-slate-50 text-slate-600 border-slate-200">hidden</Badge>
                             ) : (
-                              <Badge variant="outline" className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20">in catalog</Badge>
+                              <Badge variant="outline" className="text-xs bg-brand-primary/10 text-brand-primary border-brand-primary/20">in catalog</Badge>
                             )}
                             {noFree && (
-                              <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                              <Badge variant="outline" className="text-xs bg-amber-50 text-amber-800 border-amber-200">
                                 <AlertTriangle className="w-2.5 h-2.5 mr-0.5" /> none free
                               </Badge>
                             )}
                             {isOverdue && (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] bg-rose-50 text-rose-700 border-rose-300"
+                                className="text-xs bg-rose-50 text-rose-800 border-rose-300"
                                 title={`Service was due ${new Date(r.next_service_due as string).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}`}
                               >
                                 Service overdue
@@ -967,14 +1024,14 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                             {isDueSoon && (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] bg-amber-50 text-amber-700 border-amber-300"
+                                className="text-xs bg-amber-50 text-amber-800 border-amber-300"
                                 title={`Service due ${new Date(r.next_service_due as string).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}`}
                               >
                                 Service due
                               </Badge>
                             )}
                             {r.condition && r.condition !== "good" && (
-                              <Badge variant="outline" className="text-[10px]">{r.condition}</Badge>
+                              <Badge variant="outline" className="text-xs">{r.condition}</Badge>
                             )}
                             {/* Wave 70.24 - cleaning chip so admin can
                                 spot at-a-glance which items hit the
@@ -982,7 +1039,7 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                             {r.requires_cleaning === false ? (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] bg-slate-50 text-slate-500 border-slate-200"
+                                className="text-xs bg-slate-50 text-slate-600 border-slate-200"
                                 title="Does not go to cleaning team on return (disposable / non-cleanable)"
                               >
                                 no cleaning
@@ -990,7 +1047,7 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                             ) : (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20"
+                                className="text-xs bg-brand-primary/10 text-brand-primary border-brand-primary/20"
                                 title={r.dishwasher_safe ? "Dishwasher-safe - defaults to dishwasher method" : "Hand-wash item - defaults to manual method"}
                               >
                                 <Sparkles className="w-2.5 h-2.5 mr-0.5" />
@@ -1000,7 +1057,7 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                             {r.is_hire_in === true && (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] bg-amber-50 text-amber-700 border-amber-200"
+                                className="text-xs bg-amber-50 text-amber-800 border-amber-200"
                                 title={r.supplier_cleans ? "Hire-in; supplier handles cleaning" : "Hire-in equipment"}
                               >
                                 hire-in{r.supplier_cleans ? " - supplier cleans" : ""}
@@ -1013,14 +1070,14 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                               if (!util || util.totalEvents === 0) return null;
                               if (util.bookedEvents === 0) {
                                 return (
-                                  <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200" title="Zero bookings in the last 90 days. Consider archiving or repurposing.">
+                                  <Badge variant="outline" className="text-xs bg-slate-50 text-slate-600 border-slate-200" title="Zero bookings in the last 90 days. Consider archiving or repurposing.">
                                     Dead 90d
                                   </Badge>
                                 );
                               }
                               if (util.pct >= 0.6) {
                                 return (
-                                  <Badge variant="outline" className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20" title={`Booked on ${util.bookedEvents} of ${util.totalEvents} events in the last 90 days. Consider buying more stock.`}>
+                                  <Badge variant="outline" className="text-xs bg-brand-primary/10 text-brand-primary border-brand-primary/20" title={`Booked on ${util.bookedEvents} of ${util.totalEvents} events in the last 90 days. Consider buying more stock.`}>
                                     High-util ({util.bookedEvents}/{util.totalEvents})
                                   </Badge>
                                 );
@@ -1035,7 +1092,7 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                               return (
                                 <Badge
                                   variant="outline"
-                                  className="text-[10px] bg-rose-50 text-rose-700 border-rose-200"
+                                  className="text-xs bg-rose-50 text-rose-800 border-rose-200"
                                   title={canSeeFinance
                                     // Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding.
                                     ? `${dmg.count} damage${dmg.count === 1 ? "" : "s"} logged in last 90 days, total R ${new Intl.NumberFormat("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(dmg.totalCost).map((p) => (p.type === "group" ? " " : p.type === "decimal" ? "." : p.value)).join("")}`
@@ -1055,7 +1112,7 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                               return (
                                 <Badge
                                   variant="outline"
-                                  className="text-[10px] bg-amber-50 text-amber-800 border-amber-300"
+                                  className="text-xs bg-amber-50 text-amber-800 border-amber-300"
                                   title={/* Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding. */ `Hired in ${spend.hireCount}x in last 90d for R ${new Intl.NumberFormat("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(spend.totalSpend).map((p) => (p.type === "group" ? " " : p.type === "decimal" ? "." : p.value)).join("")}. Replacement cost R ${new Intl.NumberFormat("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(r.replacement_cost as number).map((p) => (p.type === "group" ? " " : p.type === "decimal" ? "." : p.value)).join("")}. You've spent ${rec.multiplier?.toFixed(1)}x what you'd pay to buy.`}
                                 >
                                   Consider buying
@@ -1071,7 +1128,7 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                               return (
                                 <Badge
                                   variant="outline"
-                                  className="text-[10px] bg-rose-50 text-rose-700 border-rose-200"
+                                  className="text-xs bg-rose-50 text-rose-800 border-rose-200"
                                   title={`Name says "${conflict.nameMaterial}" but description says "${conflict.descMaterial}". Looks like a data-entry mix-up - review the row.`}
                                 >
                                   Material mismatch
@@ -1082,38 +1139,37 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                           {r.description && (
                             <p className="text-xs text-slate-500 mt-1 line-clamp-1">{r.description}</p>
                           )}
+                          <div className="mt-2 flex w-full flex-wrap items-center justify-start gap-1 border-t border-slate-100 pt-2 sm:w-auto sm:border-0 sm:pt-0">
+                            <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-9 sm:w-9" aria-label={`View upcoming bookings for ${r.name}`} title="View upcoming bookings" onClick={() => setReservationsFor(r)}>
+                              <CalendarIcon className="w-4 h-4 text-blue-600" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-9 sm:w-9" aria-label={offline ? `Show ${r.name} in quote builder` : `Hide ${r.name} from quote builder`} title={offline ? "Show in quote builder" : "Hide from quote builder"} onClick={() => toggleAvailable(r)}>
+                              {offline ? <CheckCircle2 className="w-4 h-4 text-brand-primary" /> : <ToggleLeft className="w-4 h-4 text-slate-500" />}
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-9 sm:w-9" aria-label={`Edit ${r.name}`} title={`Edit ${r.name}`} onClick={() => setEditing(r)}>
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-9 sm:w-9" aria-label={`Delete ${r.name}`} title={`Delete ${r.name}`} onClick={() => setDeletingId(r.id)}>
+                              <Trash2 className="w-4 h-4 text-rose-600" />
+                            </Button>
+                          </div>
                         </div>
                         <div className="text-right text-xs text-slate-500">
                           <div>{safeNum(r.available_quantity)} / {safeNum(r.quantity)} free</div>
-                          <div className="text-base font-semibold text-blue-700 mt-0.5">{fmtR(safeNum(r.rental_price))}</div>
+                          <div className="mt-0.5 text-sm font-semibold tabular-nums text-blue-700 sm:text-base">{fmtR(safeNum(r.rental_price))}</div>
                           {/* EQP-B: hire-in cost gated to finance role. */}
                           {canSeeFinance && safeNum(r.hire_in_cost) > 0 && (
-                            <div className="text-[10px] text-amber-700 mt-0.5">
+                            <div className="text-xs text-amber-800 mt-0.5">
                               hire-in {fmtR(safeNum(r.hire_in_cost))}
                             </div>
                           )}
-                        </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          {/* EQP-B: per-row icon aria-labels. */}
-                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`View upcoming bookings for ${r.name}`} title="View upcoming bookings" onClick={() => setReservationsFor(r)}>
-                            <CalendarIcon className="w-4 h-4 text-blue-600" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={offline ? `Show ${r.name} in quote builder` : `Hide ${r.name} from quote builder`} title={offline ? "Show in quote builder" : "Hide from quote builder"} onClick={() => toggleAvailable(r)}>
-                            {offline ? <CheckCircle2 className="w-4 h-4 text-brand-primary" /> : <ToggleLeft className="w-4 h-4 text-slate-500" />}
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Edit ${r.name}`} title={`Edit ${r.name}`} onClick={() => setEditing(r)}>
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Delete ${r.name}`} title={`Delete ${r.name}`} onClick={() => setDeletingId(r.id)}>
-                            <Trash2 className="w-4 h-4 text-rose-600" />
-                          </Button>
                         </div>
                       </CardContent>
                     </Card>
                   );
                 })}
               </div>
-            </div>
+            </details>
           ))}
         </div>
       )}
@@ -1185,7 +1241,7 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                     value={editing.rental_price ?? 0}
                     onChange={(e) => setEditing({ ...editing, rental_price: safeNum(e.target.value) })}
                   />
-                  <p className="text-[11px] text-slate-500 mt-1">
+                  <p className="text-xs text-slate-600 mt-1">
                     What you charge per booking.
                     {Number(editing.rental_price) > 0 && (
                       <>
@@ -1207,7 +1263,7 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                   onChange={(e) => setEditing({ ...editing, hire_in_cost: safeNum(e.target.value) })}
                   placeholder="What you pay if you have to hire-in extras"
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
+                <p className="text-xs text-slate-600 mt-1">
                   When the quote builder sees you've committed more units than you own on a given date,
                   it surfaces (shortfall x this cost) as a margin signal so you don't quote at a loss.
                 </p>
@@ -1319,7 +1375,7 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                     />
                     <div className="min-w-0">
                       <div className="font-medium">Needs cleaning</div>
-                      <div className="text-[11px] text-slate-500">Off for disposables, signage, gas burners and the like.</div>
+                      <div className="text-xs text-slate-600">Off for disposables, signage, gas burners and the like.</div>
                     </div>
                   </label>
                   {editing.requires_cleaning !== false && (
@@ -1331,7 +1387,7 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                       />
                       <div className="min-w-0">
                         <div className="font-medium">Dishwasher safe</div>
-                        <div className="text-[11px] text-slate-500">Cleaning jobs default to dishwasher method.</div>
+                        <div className="text-xs text-slate-600">Cleaning jobs default to dishwasher method.</div>
                       </div>
                     </label>
                   )}
@@ -1379,7 +1435,7 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                     />
                     <div className="min-w-0">
                       <div className="font-medium">Hire-in from supplier</div>
-                      <div className="text-[11px] text-slate-500">Equipment rented in (vs your own stock).</div>
+                      <div className="text-xs text-slate-600">Equipment rented in (vs your own stock).</div>
                     </div>
                   </label>
                   {editing.is_hire_in === true && (
@@ -1391,7 +1447,7 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                       />
                       <div className="min-w-0">
                         <div className="font-medium">Supplier handles cleaning</div>
-                        <div className="text-[11px] text-slate-500">Skip the cleaning queue; supplier cleans on return.</div>
+                        <div className="text-xs text-slate-600">Skip the cleaning queue; supplier cleans on return.</div>
                       </div>
                     </label>
                   )}
@@ -1435,7 +1491,7 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                         }
                         placeholder="e.g. 90 for gas burners"
                       />
-                      <p className="text-[11px] text-slate-500 mt-1">
+                      <p className="text-xs text-slate-600 mt-1">
                         Empty = no recurring schedule. The next_service_due field auto-fills when a service is logged.
                       </p>
                     </div>
@@ -1449,7 +1505,7 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                         }
                       />
                       {editing.last_serviced_at && (
-                        <p className="text-[11px] text-slate-500 mt-1">
+                        <p className="text-xs text-slate-600 mt-1">
                           Last serviced{" "}
                           {new Date(editing.last_serviced_at).toLocaleDateString("en-ZA", {
                             day: "numeric",
@@ -1635,7 +1691,7 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
             </div>
 
             {reservationsLoading ? (
-              <div className="py-12 text-center text-sm text-slate-500">Loading bookings...</div>
+              <PwaLoadingScreen message="Loading equipment bookings" variant="inline" />
             ) : reservations.length === 0 ? (
               <div className="py-12 text-center text-sm text-slate-500">
                 Nothing on the calendar for this item.
@@ -1652,7 +1708,7 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                         <div className="text-sm font-medium text-slate-900 truncate">
                           {r.client_name || "Order"}
                         </div>
-                        <div className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap">
+                        <div className="text-xs text-slate-600 flex items-center gap-1.5 flex-wrap">
                           <span className="capitalize">{r.status.replace(/_/g, " ")}</span>
                           {r.from_stock_qty > 0 && (
                             <span className="rounded bg-brand-primary/10 text-brand-primary border border-brand-primary/20 px-1.5 py-0.5">
@@ -1821,43 +1877,41 @@ function AvailabilityTab({ companyId }: { companyId: string | null }) {
 
   return (
     <>
-      <Card className="mb-5">
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row md:items-end gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs">Pick a date</Label>
-              <Input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-44"
-              />
-            </div>
-            <div className="space-y-1 flex-1">
-              <Label className="text-xs">Filter items</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by name or category..."
-                  className="pl-9"
-                />
-              </div>
-            </div>
-            <div className="text-xs text-slate-500 inline-flex items-center gap-1">
-              <CalendarIcon className="w-3 h-3" />
-              {friendlyDate}
-            </div>
+      <AdminControlGroup
+        label="Availability filters"
+        icon={Filter}
+        collapsible
+        summary={`${friendlyDate}${search ? " · Search active" : ""}`}
+        className="mb-4"
+        contentClassName="grid w-full min-w-0 gap-3 sm:grid-cols-[minmax(10rem,auto)_minmax(0,1fr)]"
+      >
+        <div className="min-w-0 space-y-1">
+          <Label htmlFor="equipment-availability-date" className="text-xs text-slate-600">Check date</Label>
+          <Input
+            id="equipment-availability-date"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="h-10 w-full sm:w-44"
+          />
+        </div>
+        <div className="min-w-0 space-y-1">
+          <Label htmlFor="equipment-availability-search" className="text-xs text-slate-600">Search equipment</Label>
+          <div className="relative">
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              id="equipment-availability-search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name or category..."
+              className="h-10 pl-9"
+            />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </AdminControlGroup>
 
       {loadingItems ? (
-        <Card><CardContent className="p-12 text-center text-slate-500">
-          <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
-          Loading catalog...
-        </CardContent></Card>
+        <PwaLoadingScreen message="Loading availability" variant="inline" />
       ) : loadItemsError ? (
         <Card className="bg-rose-50 border-l-4 border-l-rose-500">
           <CardContent className="py-3 px-4 flex items-start gap-3">
@@ -1882,17 +1936,60 @@ function AvailabilityTab({ companyId }: { companyId: string | null }) {
       ) : (
         <div className="space-y-6">
           {grouped.map(([cat, rows]) => (
-            <div key={cat}>
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">{cat}</h2>
-                <span className="text-xs text-slate-400">{rows.length} item{rows.length === 1 ? "" : "s"}</span>
-              </div>
+            <details key={cat} className="group border-b border-slate-200 pb-2">
+              <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 rounded-md py-2 text-left hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary">
+                <span className="min-w-0 truncate text-xs font-semibold uppercase tracking-wider text-slate-600">{cat}</span>
+                <span className="inline-flex shrink-0 items-center gap-2 text-xs text-slate-500">
+                  {rows.length} item{rows.length === 1 ? "" : "s"}
+                  <ChevronDown aria-hidden="true" className="h-4 w-4 transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+                </span>
+              </summary>
               <Card>
                 <CardContent className="p-0">
-                  <div className="overflow-x-auto">
+                  <div className="space-y-2 p-3 md:hidden">
+                    {rows.map((r) => {
+                      const tight = !r.loading && r.available === 0 && r.owned > 0;
+                      const over = !r.loading && r.reserved > r.owned;
+                      const statusLabel = r.loading ? "Checking"
+                        : r.failed ? "Lookup failed"
+                          : over ? "Over capacity"
+                            : tight ? "None free" : "Available";
+                      const statusTone = r.failed ? "border-slate-200 bg-slate-50 text-slate-600"
+                        : over ? "border-rose-200 bg-rose-50 text-rose-800"
+                          : tight ? "border-amber-200 bg-amber-50 text-amber-800"
+                            : "border-brand-primary/20 bg-brand-primary/10 text-brand-primary";
+                      return (
+                        <article key={r.id} className="min-w-0 rounded-lg border border-slate-200 p-3">
+                          <div className="flex min-w-0 items-start justify-between gap-2">
+                            <h3 className="min-w-0 break-words text-sm font-semibold text-slate-900">{r.name}</h3>
+                            <Badge variant="outline" className={`shrink-0 border text-xs ${statusTone}`}>{statusLabel}</Badge>
+                          </div>
+                          <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                            <div>
+                              <dt className="text-slate-500">Owned</dt>
+                              <dd className="font-medium tabular-nums text-slate-900">{r.owned}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-slate-500">Committed</dt>
+                              <dd className={`font-medium tabular-nums ${over ? "text-rose-800" : "text-slate-900"}`}>
+                                {r.loading ? <Loader2 className="h-4 w-4 animate-spin" /> : r.failed ? "Unavailable" : r.reserved}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="text-slate-500">Free on date</dt>
+                              <dd className={`font-semibold tabular-nums ${r.failed ? "text-slate-500" : tight ? "text-amber-800" : over ? "text-rose-800" : "text-brand-primary"}`}>
+                                {r.loading ? <Loader2 className="h-4 w-4 animate-spin" /> : r.failed ? "Unavailable" : r.available}
+                              </dd>
+                            </div>
+                          </dl>
+                        </article>
+                      );
+                    })}
+                  </div>
+                  <div className="hidden overflow-x-auto md:block">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200 bg-slate-50/50">
+                        <tr className="text-left text-xs uppercase tracking-wider text-slate-500 border-b border-slate-200 bg-slate-50/50">
                           <th className="px-4 py-2.5 font-medium">Item</th>
                           <th className="px-3 py-2.5 font-medium text-right">Owned</th>
                           <th className="px-3 py-2.5 font-medium text-right">Committed</th>
@@ -1933,7 +2030,7 @@ function AvailabilityTab({ companyId }: { companyId: string | null }) {
                   </div>
                 </CardContent>
               </Card>
-            </div>
+            </details>
           ))}
           {!computing && filteredResults.length === 0 && (
             <Card><CardContent className="p-8 text-center text-sm text-slate-500">

@@ -282,13 +282,13 @@ function ShoppingTeamPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <StatTile
+              <StatTile compact
                 label="Active staff"
                 value={stats.active}
                 icon={Users}
                 hint="Shopping-bucket team members"
               />
-              <StatTile
+              <StatTile compact
                 label="Lists today"
                 value={stats.listsToday}
                 icon={ClipboardList}
@@ -296,7 +296,7 @@ function ShoppingTeamPage() {
                   ? `${tenantCurrency.format(stats.spendToday)} spend logged today`
                   : "Lists dated today"}
               />
-              <StatTile
+              <StatTile compact
                 label="Overdue lists"
                 value={stats.overdueLists > 0
                   ? <span className="text-rose-600">{stats.overdueLists}</span>
@@ -304,7 +304,7 @@ function ShoppingTeamPage() {
                 icon={AlertTriangle}
                 hint={stats.overdueLists > 0 ? "Past their date, not finished" : "Everything on schedule"}
               />
-              <StatTile
+              <StatTile compact
                 label="Slips this week"
                 value={stats.receiptsThisWeek}
                 icon={Receipt}

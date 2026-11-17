@@ -42,6 +42,7 @@ import {
   CalendarDays,
   Repeat2,
   AlertCircle,
+  ChevronDown,
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -234,12 +235,12 @@ function PublicHolidaysAdmin() {
             meta={
               !loading && !loadError && (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {summary.total} holiday{summary.total === 1 ? "" : "s"} in {year}
                   </span>
                   {summary.custom > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       {summary.custom} company custom{summary.custom === 1 ? "" : "s"}
                     </span>
                   )}
@@ -247,13 +248,17 @@ function PublicHolidaysAdmin() {
               )
             }
             actions={
-            <>
+            <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
               {/* Phase 22 #4: holidays CSV. Payroll and ops planning
                   cross-reference these against shift rosters, public-
                   holiday surcharges and venue closures. */}
               <Button
                 variant="outline"
+                size="sm"
                 disabled={filtered.length === 0}
+                aria-label="Export public holidays as CSV"
+                title="Export CSV"
+                className="h-10 w-10 justify-center p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3"
                 onClick={() => {
                   const esc = (v: any) => {
                     if (v == null) return "";
@@ -286,36 +291,28 @@ function PublicHolidaysAdmin() {
                   URL.revokeObjectURL(url);
                 }}
               >
-                <Download className="w-4 h-4 mr-1.5" /> Export CSV
+                <Download className="h-4 w-4" /><span className="sr-only sm:not-sr-only sm:inline">Export CSV</span>
               </Button>
-              <Button onClick={() => setAdding(true)} className="bg-brand-primary text-white hover:opacity-90">
-                <Plus className="w-4 h-4 mr-1.5" /> Add company holiday
+              <Button onClick={() => setAdding(true)} size="sm" aria-label="Add company holiday" title="Add company holiday" className="h-10 w-10 justify-center p-0 text-white sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3">
+                <Plus className="h-4 w-4" /><span className="sr-only sm:not-sr-only sm:inline">Add holiday</span>
               </Button>
-            </>
+            </div>
             }
           />
           <PageWorkbench />
 
-          <div className="mb-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div className="mb-4 grid gap-2 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
             <Card className="border border-slate-200 shadow-sm">
-              <CardContent className="py-3 flex flex-wrap items-center gap-2">
-                <span className="text-xs uppercase tracking-normal text-slate-500 font-semibold">Year</span>
-                <div className="flex flex-wrap gap-1">
-                  {years.map((y) => (
-                    <button
-                      key={y}
-                      type="button"
-                      onClick={() => setYear(y)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-semibold border ${
-                        year === y
-                          ? "bg-slate-900 text-white border-slate-900"
-                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      {y}
-                    </button>
-                  ))}
-                </div>
+              <CardContent className="flex flex-wrap items-center gap-2 p-3 sm:py-3 sm:px-4">
+                <label htmlFor="holiday-year" className="text-xs font-semibold text-slate-600">Calendar year</label>
+                <select
+                  id="holiday-year"
+                  value={year}
+                  onChange={(event) => setYear(Number(event.target.value))}
+                  className="h-10 min-w-28 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                >
+                  {years.map((y) => <option key={y} value={y}>{y}</option>)}
+                </select>
               </CardContent>
             </Card>
 
@@ -328,35 +325,35 @@ function PublicHolidaysAdmin() {
           </div>
 
           {loadError && (
-            <div className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+            <div className="mb-4 flex min-w-0 items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800 sm:text-sm">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span className="flex-1">{loadError}</span>
-              <Button size="sm" variant="outline" onClick={reload} disabled={loading} className="shrink-0">
+              <span className="min-w-0 flex-1 break-words">{loadError}</span>
+              <Button size="sm" variant="outline" onClick={reload} disabled={loading} aria-label="Retry loading holidays" className="min-h-10 shrink-0">
                 Retry
               </Button>
             </div>
           )}
 
-          <div className="mb-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="mb-4 grid min-w-0 gap-3 sm:mb-6 sm:gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
             <Card className="border border-slate-200 shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <CalendarDays className="h-4 w-4 text-slate-600" />
+              <CardHeader className="px-3 pb-3 pt-4 sm:px-5">
+                <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+                  <CalendarDays className="h-4 w-4 shrink-0 text-slate-600" />
                   Calendar view
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-xs leading-5 sm:text-sm">
                   Holiday dates highlighted for {year}. Company custom days sit on top of the shared gazetted calendar.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-3 pb-3 sm:px-5 sm:pb-5">
                 {loading ? (
                   <div className="py-12 text-center text-slate-500">
                     <Loader2 className="w-6 h-6 mx-auto animate-spin mb-2" />Loading calendar...
                   </div>
                 ) : (
-                  <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+                  <div className="grid min-w-0 gap-2 sm:gap-3 md:grid-cols-2 2xl:grid-cols-3">
                     {Array.from({ length: 12 }, (_, monthIndex) => (
-                      <HolidayMonth
+                        <HolidayMonth
                         key={monthIndex}
                         year={year}
                         monthIndex={monthIndex}
@@ -370,20 +367,20 @@ function PublicHolidaysAdmin() {
               </CardContent>
             </Card>
 
-            <Card className="border border-slate-200 shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">
+            <Card collapsible defaultOpen={false} collapseLabel="selected holiday details" className="border border-slate-200 shadow-sm">
+              <CardHeader className="p-3 sm:p-4">
+                <CardTitle className="text-sm leading-5 sm:text-base">
                   {selectedDate ? dateLabel(selectedDate) : "Selected date"}
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-xs leading-5 sm:text-sm">
                   {selectedHolidays.length > 0
                     ? `${selectedHolidays.length} holiday${selectedHolidays.length === 1 ? "" : "s"} on this date`
                     : "No holiday on the selected date"}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-3 p-3 sm:p-4">
                 {selectedHolidays.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-slate-200 px-3 py-8 text-center text-sm text-slate-500">
+                  <div className="rounded-lg border border-dashed border-slate-200 px-3 py-5 text-center text-xs leading-5 text-slate-500 sm:py-8 sm:text-sm">
                     Select a highlighted date in the calendar to inspect its payroll source.
                   </div>
                 ) : (
@@ -393,7 +390,7 @@ function PublicHolidaysAdmin() {
                       <div key={`${h.id}-${h.display_date}`} className="rounded-lg border border-slate-200 bg-white p-3">
                         <div className="mb-2 flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <p className="font-medium text-slate-900">{h.name}</p>
+                            <p className="break-words text-sm font-medium text-slate-900">{h.name}</p>
                             <p className="text-xs text-slate-500">
                               {h.is_recurring ? `Repeats yearly from ${h.original_date}` : "Fixed date"}
                             </p>
@@ -408,13 +405,13 @@ function PublicHolidaysAdmin() {
                             </Badge>
                           )}
                         </div>
-                        {h.notes && <p className="text-xs text-slate-500">{h.notes}</p>}
+                        {h.notes && <p className="break-words text-xs leading-5 text-slate-500">{h.notes}</p>}
                         {isCustom && (
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setConfirmDelete(h)}
-                            className="mt-3 h-8 text-rose-600 hover:bg-rose-50"
+                            className="mt-3 min-h-10 text-xs text-rose-600 hover:bg-rose-50 sm:h-9"
                           >
                             <Trash2 className="mr-1.5 h-3.5 w-3.5" />
                             Delete
@@ -429,9 +426,9 @@ function PublicHolidaysAdmin() {
           </div>
 
           <Card className="border border-slate-200 shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">{filtered.length} {filtered.length === 1 ? "holiday" : "holidays"} in {year}</CardTitle>
-              <CardDescription>Source list used for payroll checks and CSV export.</CardDescription>
+            <CardHeader className="px-3 pb-2 pt-4 sm:px-5">
+              <CardTitle className="text-sm sm:text-base">{filtered.length} {filtered.length === 1 ? "holiday" : "holidays"} in {year}</CardTitle>
+              <CardDescription className="text-xs leading-5 sm:text-sm">Source list used for payroll checks and CSV export.</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               {loading ? (
@@ -444,9 +441,50 @@ function PublicHolidaysAdmin() {
                   No holidays on file for this year.
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                <div className="space-y-2 px-3 pb-3 md:hidden">
+                  {filtered.map((h) => {
+                    const isCustom = h.company_id != null;
+                    return (
+                      <article key={`mobile-${h.id}-${h.display_date}`} className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
+                        <div className="flex min-w-0 items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="break-words text-sm font-semibold text-slate-900">{h.name}</p>
+                            <p className="mt-0.5 text-xs tabular-nums text-slate-600">{dateLabel(h.display_date)}</p>
+                          </div>
+                          {isCustom ? (
+                            <Badge variant="outline" className="shrink-0 border-amber-200 bg-amber-50 text-xs text-amber-700">Company</Badge>
+                          ) : (
+                            <Badge variant="outline" className="shrink-0 border-slate-200 bg-slate-50 text-xs text-slate-600">Gazetted</Badge>
+                          )}
+                        </div>
+                        <div className="mt-2 flex min-w-0 items-end justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="inline-flex items-center gap-1 text-xs text-slate-600">
+                              {h.is_recurring ? <><Repeat2 className="h-3.5 w-3.5 shrink-0" />Repeats yearly</> : "Fixed date"}
+                            </p>
+                            {h.notes && <p className="mt-1 break-words text-xs leading-5 text-slate-500">{h.notes}</p>}
+                          </div>
+                          {isCustom && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setConfirmDelete(h)}
+                              className="h-10 w-10 shrink-0 p-0 text-rose-600 hover:bg-rose-50"
+                              aria-label={`Delete ${h.name}`}
+                              title={`Delete ${h.name}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+                <div className="hidden overflow-x-auto md:block">
                   <table className="w-full min-w-[720px] text-sm">
-                    <thead className="text-[10px] uppercase tracking-normal text-slate-500 border-b border-slate-200 bg-slate-50">
+                    <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-normal text-slate-600">
                       <tr>
                         <th className="text-left py-2 pl-4">Date</th>
                         <th className="text-left py-2 px-2">Holiday</th>
@@ -465,7 +503,7 @@ function PublicHolidaysAdmin() {
                             </td>
                             <td className="py-2 px-2 text-slate-900 font-medium">
                               {h.name}
-                              {h.notes && <p className="text-[11px] font-normal text-slate-500 mt-0.5">{h.notes}</p>}
+                              {h.notes && <p className="mt-0.5 text-xs font-normal text-slate-500">{h.notes}</p>}
                             </td>
                             <td className="py-2 px-2">
                               {isCustom ? (
@@ -478,7 +516,7 @@ function PublicHolidaysAdmin() {
                                 </Badge>
                               )}
                             </td>
-                            <td className="py-2 px-2 text-xs text-slate-600">
+                            <td className="py-2 px-2 text-xs leading-5 text-slate-600">
                               {h.is_recurring ? (
                                 <span className="inline-flex items-center gap-1">
                                   <Repeat2 className="h-3.5 w-3.5" />
@@ -507,6 +545,7 @@ function PublicHolidaysAdmin() {
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -590,8 +629,8 @@ function PublicHolidaysAdmin() {
 function MetricPill({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
-      <p className="text-[10px] font-semibold uppercase tracking-normal text-slate-500">{label}</p>
-      <p className="text-lg font-semibold tabular-nums text-slate-950">{value}</p>
+      <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">{label}</p>
+      <p className="text-base font-semibold tabular-nums text-slate-950 sm:text-lg">{value}</p>
     </div>
   );
 }
@@ -614,63 +653,70 @@ function HolidayMonth({
   const leading = (firstDay.getDay() + 6) % 7;
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   const today = tenantTodayISO();
+  const holidayDateCount = Array.from(holidaysByDate.keys()).filter((date) => isoParts(date).month === monthIndex + 1).length;
   const cells = [
     ...Array.from({ length: leading }, () => null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-slate-900">{monthName}</h3>
-        <span className="text-xs text-slate-500 tabular-nums">
-          {Array.from(holidaysByDate.keys()).filter((d) => isoParts(d).month === monthIndex + 1).length}
+    <details className="group min-w-0 self-start rounded-lg border border-slate-200 bg-white">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 py-2 text-left [&::-webkit-details-marker]:hidden">
+        <h3 className="min-w-0 text-sm font-semibold text-slate-900">{monthName}</h3>
+        <span className="flex shrink-0 items-center gap-2">
+          <span className="text-xs tabular-nums text-slate-600">
+              {holidayDateCount} date{holidayDateCount === 1 ? "" : "s"}
+          </span>
+          <ChevronDown className="h-4 w-4 text-slate-500 transition-transform group-open:rotate-180" aria-hidden="true" />
         </span>
-      </div>
-      <div className="grid grid-cols-7 gap-1 text-center">
-        {WEEKDAYS.map((day) => (
-          <div key={day} className="py-1 text-[10px] font-semibold uppercase text-slate-400">
-            {day}
+      </summary>
+      <div className="border-t border-slate-100 px-2 pb-2 pt-1 sm:px-3 sm:pb-3">
+          <div className="grid grid-cols-7 gap-1 text-center">
+            {WEEKDAYS.map((day) => (
+              <div key={day} className="py-1 text-xs font-semibold uppercase text-slate-500">
+                {day}
+              </div>
+            ))}
+            {cells.map((day, index) => {
+              if (day == null) return <div key={`blank-${index}`} className="aspect-square" />;
+              const key = dateKey(year, monthIndex + 1, day);
+              const holidays = holidaysByDate.get(key) || [];
+              const hasCustom = holidays.some((h) => h.company_id != null);
+              const isSelected = selectedDate === key;
+              const isToday = today === key;
+              const title = holidays.length > 0
+                ? holidays.map((h) => h.name).join(", ")
+                : `${day} ${monthName}`;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  title={title}
+                  aria-label={`${dateLabel(key)}${holidays.length > 0 ? `, ${title}` : ", no holiday"}${isToday ? ", today" : ""}`}
+                  onClick={() => onSelectDate(key)}
+                  className={`relative flex aspect-square min-h-9 items-center justify-center rounded-md border text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary ${
+                    isSelected
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : holidays.length > 0
+                        ? hasCustom
+                          ? "border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100"
+                          : "border-slate-200 bg-slate-50 text-slate-900 hover:bg-slate-100"
+                        : "border-transparent text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>{day}</span>
+                  {isToday && (
+                    <span className={`absolute top-1 right-1 h-1.5 w-1.5 rounded-full ${isSelected ? "bg-white" : "bg-brand-primary"}`} />
+                  )}
+                  {holidays.length > 0 && (
+                    <span className={`absolute bottom-1 h-1 w-4 rounded-full ${hasCustom ? "bg-amber-500" : "bg-slate-400"}`} />
+                  )}
+                </button>
+              );
+            })}
           </div>
-        ))}
-        {cells.map((day, index) => {
-          if (day == null) return <div key={`blank-${index}`} className="aspect-square" />;
-          const key = dateKey(year, monthIndex + 1, day);
-          const holidays = holidaysByDate.get(key) || [];
-          const hasCustom = holidays.some((h) => h.company_id != null);
-          const isSelected = selectedDate === key;
-          const isToday = today === key;
-          const title = holidays.length > 0
-            ? holidays.map((h) => h.name).join(", ")
-            : `${day} ${monthName}`;
-          return (
-            <button
-              key={key}
-              type="button"
-              title={title}
-              onClick={() => onSelectDate(key)}
-              className={`relative flex aspect-square min-h-8 items-center justify-center rounded-md border text-xs font-medium transition ${
-                isSelected
-                  ? "border-slate-900 bg-slate-900 text-white"
-                  : holidays.length > 0
-                    ? hasCustom
-                      ? "border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100"
-                      : "border-slate-200 bg-slate-50 text-slate-900 hover:bg-slate-100"
-                    : "border-transparent text-slate-500 hover:bg-slate-50"
-              }`}
-            >
-              <span>{day}</span>
-              {isToday && (
-                <span className={`absolute top-1 right-1 h-1.5 w-1.5 rounded-full ${isSelected ? "bg-white" : "bg-brand-primary"}`} />
-              )}
-              {holidays.length > 0 && (
-                <span className={`absolute bottom-1 h-1 w-4 rounded-full ${hasCustom ? "bg-amber-500" : "bg-slate-400"}`} />
-              )}
-            </button>
-          );
-        })}
       </div>
-    </div>
+    </details>
   );
 }
 
@@ -777,10 +823,10 @@ function AddHolidayDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] max-w-md overflow-y-auto p-4 sm:w-[calc(100%-2rem)] sm:p-6">
         <DialogHeader>
-          <DialogTitle>Add company holiday</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="pr-8 text-base sm:text-lg">Add company holiday</DialogTitle>
+          <DialogDescription className="text-xs leading-5 sm:text-sm">
             Adds a date that triggers the 2x rate for any shift worked. Visible only to your team.
           </DialogDescription>
         </DialogHeader>

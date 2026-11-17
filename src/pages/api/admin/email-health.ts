@@ -2,10 +2,9 @@
 /**
  * /api/admin/email-health
  *   GET  -> queue health snapshot for the caller's company
- *   POST -> drain the caller's due queue now (on-demand "send pending"), or
- *           release one explicitly selected queued email immediately when
- *           body.queueId is supplied. No cron secret needed - this is an
- *           authenticated operator action.
+ *   POST -> drain due queued emails, or release one explicitly selected
+ *           queued / held email immediately when body.queueId is supplied.
+ *           Held emails are never bulk-approved by the generic drain action.
  *
  * Admin / owner only. Gives the operator visibility + manual control so a
  * stuck email queue can never sit silent again.
@@ -49,27 +48,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       if (queueId) {
         drained = await drainEmailQueue(service as any, [companyId], { queueIds: [queueId], batchSize: 1 });
       } else {
-        // "Send due emails now" is the admin's approval for everything
-        // waiting: emails held for approval plus queued emails already due.
-        const { data: waiting, error: waitingError } = await (service as any)
-          .from("outgoing_email_queue")
-          .select("id")
-          .eq("company_id", companyId)
-          .eq("status", "awaiting_approval")
-          .order("created_at", { ascending: true })
-          .limit(50);
-        if (waitingError) throw new Error(`Approval list read failed: ${waitingError.message}`);
-        const waitingIds = ((waiting || []) as Array<{ id: string }>).map((r) => r.id);
-        const approved = waitingIds.length
-          ? await drainEmailQueue(service as any, [companyId], { queueIds: waitingIds, batchSize: waitingIds.length })
-          : { processed: 0, sent: 0, failed: 0 };
-        const due = await drainEmailQueue(service as any, [companyId]);
-        drained = {
-          processed: approved.processed + due.processed,
-          sent: approved.sent + due.sent,
-          failed: approved.failed + due.failed,
-          recovered: (approved.recovered || 0) + (due.recovered || 0),
-        };
+        drained = await drainEmailQueue(service as any, [companyId]);
       }
     }
 

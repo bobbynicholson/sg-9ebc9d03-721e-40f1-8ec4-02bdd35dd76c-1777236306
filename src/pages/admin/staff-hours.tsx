@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, Users, TrendingUp, CheckCircle, Banknote, Download, AlertTriangle, ExternalLink, Loader2 } from "lucide-react";
+import { Clock, Users, TrendingUp, CheckCircle, Banknote, Download, AlertTriangle, ExternalLink, Loader2, Plus, ChevronDown } from "lucide-react";
 import { captureException } from "@/lib/observability";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -98,6 +98,23 @@ interface StaffGroup {
 const centsOf = (v: number | string | null | undefined) => Math.round(Number(v || 0) * 100);
 const sumEarningsCents = (rows: StaffSession[]) =>
   rows.reduce((sum, s) => sum + centsOf(s.total_earnings), 0);
+const sessionHours = (session: StaffSession) => {
+  const start = new Date(session.clock_in).getTime();
+  if (!Number.isFinite(start)) return Number(session.total_hours || 0);
+  const end = session.clock_out ? new Date(session.clock_out).getTime() : Math.min(Date.now(), start + 14 * 60 * 60 * 1000);
+  return Number.isFinite(end) ? Math.max(0, (end - start) / 3_600_000) : Number(session.total_hours || 0);
+};
+const sessionNeedsReview = (session: StaffSession) => {
+  const hours = sessionHours(session);
+  if (!session.clock_out) {
+    const startedAt = new Date(session.clock_in).getTime();
+    return Number.isFinite(startedAt) && Date.now() - startedAt > 14 * 60 * 60 * 1000;
+  }
+  return hours > 24 || Math.abs(hours - Number(session.total_hours || 0)) > 0.05;
+};
+const payableUnpaidSessions = (rows: StaffSession[]) => rows.filter((s) =>
+  !!s.clock_out && !sessionNeedsReview(s) && centsOf(s.total_earnings) > 0,
+);
 
 function StaffHoursPage() {
   const router = useRouter();
@@ -298,8 +315,12 @@ function StaffHoursPage() {
       };
     }
     acc[staffId].sessions.push(session);
-    acc[staffId].totalHours += Number(session.total_hours || 0);
-    acc[staffId].totalEarningsCents += centsOf(session.total_earnings);
+    // Keep impossible single-session totals out of the headline sum;
+    // they remain visible in the session list and review banner.
+    if (!sessionNeedsReview(session)) {
+      acc[staffId].totalHours += sessionHours(session);
+      acc[staffId].totalEarningsCents += centsOf(session.total_earnings);
+    }
     if (session.payment_status === "unpaid") {
       acc[staffId].unpaidSessions.push(session);
     }
@@ -399,17 +420,9 @@ function StaffHoursPage() {
     ? "in the selected range"
     : period === "week" ? "in the last 7 days" : "in the last 30 days";
 
-  // STH-B intel: open-shift anomalies. Any session with no
-  // clock_out that started more than 14 hours ago is almost
-  // certainly a forgot-to-clock-out, not a real ongoing shift.
-  // Surface as a banner so payroll doesn't accidentally pay for
-  // 16 hours of cooking that didn't happen.
-  const openShiftAnomalies = sessions.filter((s) => {
-    if (s.clock_out) return false;
-    const startMs = new Date(s.clock_in).getTime();
-    if (!Number.isFinite(startMs)) return false;
-    return Date.now() - startMs > 14 * 60 * 60 * 1000;
-  });
+  // Flag stale open clocks and impossible closed durations before
+  // they can be included in a payout.
+  const shiftReviewAnomalies = sessions.filter(sessionNeedsReview);
 
   return (
     <>
@@ -429,9 +442,9 @@ function StaffHoursPage() {
             icon={Clock}
             subtitle={
               <>
-                Clock-in / clock-out audit per staff member, with payments processed on this page. For the full wage roll-up (BCEA overtime + Sunday + public-holiday splits) see{" "}
-                <Link href={withSlug("/admin/wages")} className="font-semibold text-white underline underline-offset-2 hover:text-white/80 inline-flex items-center gap-0.5">
-                  Wages dashboard <ExternalLink className="w-3 h-3" />
+                Review clocked shifts and payments. Full wage breakdowns are in the{" "}
+                <Link href={withSlug("/admin/wages")} className="inline-flex items-center gap-1 font-semibold text-white underline underline-offset-2 hover:text-white/80">
+                  Wages dashboard <ExternalLink className="h-3.5 w-3.5" />
                 </Link>
                 .
               </>
@@ -439,15 +452,15 @@ function StaffHoursPage() {
             meta={
               !loading && (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {summary.totalStaff} staff clocked in this period
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                    {Number(summary.totalHours || 0).toFixed(1)}h worked
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
+                  {Number(summary.totalHours || 0).toFixed(1)}h tracked
                   </span>
                   {summary.totalUnpaidCents > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                       {fmtMoney(summary.totalUnpaidCents)} unpaid
                     </span>
@@ -456,7 +469,7 @@ function StaffHoursPage() {
               )
             }
             actions={
-            <>
+            <div className="flex items-center justify-end gap-2">
             {/* Phase 17 #10: CSV export. Payroll team needs an
                 offline copy of the period roll-up to push through
                 their bank-transfer template + reconcile against
@@ -466,6 +479,9 @@ function StaffHoursPage() {
                 snapshot. */}
             <Button
               variant="outline"
+              size="sm"
+              title="Export staff hours as CSV"
+              aria-label="Export staff hours as CSV"
               onClick={() => {
                 if (sessions.length === 0) {
                   toast({ title: "Nothing to export", description: "No sessions in this period." });
@@ -512,12 +528,12 @@ function StaffHoursPage() {
                 a.click();
                 URL.revokeObjectURL(url);
               }}
-              className="gap-2 self-start sm:self-auto"
+              className="h-10 w-10 justify-center gap-2 p-0 sm:h-9 sm:w-auto sm:px-3"
             >
-              <Download className="w-4 h-4" />
-              Export CSV
+              <Download className="h-4 w-4" />
+              <span className="sr-only sm:not-sr-only sm:inline">Export CSV</span>
             </Button>
-            </>
+            </div>
             }
           />
           <PageWorkbench />
@@ -543,83 +559,82 @@ function StaffHoursPage() {
               them here prevents the operator paying out a 16-hour
               "shift" that was actually a 7-hour shift + 9 hours
               the session was left open with nobody around to close it. */}
-          {openShiftAnomalies.length > 0 && (
+          {shiftReviewAnomalies.length > 0 && (
             <div className="mb-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-amber-900">
-                  {openShiftAnomalies.length} clock-in{openShiftAnomalies.length === 1 ? "" : "s"} still open more than 14 hours
+                  {shiftReviewAnomalies.length} shift{shiftReviewAnomalies.length === 1 ? "" : "s"} needs review
                 </p>
                 <p className="text-xs text-amber-800/90 mt-0.5">
-                  Probable forgot-to-clock-out events. Review and close them before processing payments so you don&apos;t pay for hours that weren&apos;t worked.
+                  Open shifts older than 14 hours and closed shifts with mismatched totals or over 24 hours are held for review. Correct the clock record before paying it.
                 </p>
                 <ul className="mt-1.5 text-xs text-amber-800 space-y-0.5">
-                  {openShiftAnomalies.slice(0, 5).map((s) => (
+                  {shiftReviewAnomalies.slice(0, 5).map((s) => (
                     <li key={s.id}>
                       <span className="font-medium">{s.staff?.full_name || "Unknown staff"}</span>
-                      {" - clocked in "}
-                      {formatLocalDate(s.clock_in)}
+                      {s.clock_out ? ` — ${sessionHours(s).toFixed(1)}h clocked / ${Number(s.total_hours || 0).toFixed(1)}h stored` : ` — open since ${formatLocalDate(s.clock_in)}`}
                     </li>
                   ))}
-                  {openShiftAnomalies.length > 5 && (
-                    <li className="italic">+ {openShiftAnomalies.length - 5} more</li>
+                  {shiftReviewAnomalies.length > 5 && (
+                    <li className="italic">+ {shiftReviewAnomalies.length - 5} more</li>
                   )}
                 </ul>
               </div>
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="mb-5 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-4 lg:grid-cols-4">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-1.5">Total Staff <InfoTooltip content={"Number of staff who clocked in at least once during this period."} /></CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pb-1 pt-3 sm:px-6 sm:pb-2 sm:pt-6">
+                <CardTitle className="flex items-center gap-1 text-xs font-medium sm:text-sm">Total staff <InfoTooltip content={"Number of staff who clocked in at least once during this period."} /></CardTitle>
+                <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{summary.totalStaff}</div>
-                <p className="text-xs text-muted-foreground">Active {periodLabel}</p>
+              <CardContent className="px-3 pb-3 pt-0 sm:px-6 sm:pb-6">
+                <div className="text-xl font-bold tabular-nums sm:text-2xl">{summary.totalStaff}</div>
+                <p className="text-xs leading-4 text-muted-foreground">Active {periodLabel}</p>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-1.5">Total Hours <InfoTooltip content={"Total hours your team has clocked during this period."} /></CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pb-1 pt-3 sm:px-6 sm:pb-2 sm:pt-6">
+                <CardTitle className="flex items-center gap-1 text-xs font-medium sm:text-sm">Total hours <InfoTooltip content={"Total hours your team has clocked during this period."} /></CardTitle>
+                <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{Number(summary.totalHours || 0).toFixed(1)}h</div>
-                <p className="text-xs text-muted-foreground">Worked {periodLabel}</p>
+              <CardContent className="px-3 pb-3 pt-0 sm:px-6 sm:pb-6">
+                <div className="text-xl font-bold tabular-nums sm:text-2xl">{Number(summary.totalHours || 0).toFixed(1)}h</div>
+                <p className="text-xs leading-4 text-muted-foreground">Worked {periodLabel}</p>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-1.5">Unpaid <InfoTooltip content={"What you still owe staff for shifts that have not yet been paid out."} /></CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pb-1 pt-3 sm:px-6 sm:pb-2 sm:pt-6">
+                <CardTitle className="flex items-center gap-1 text-xs font-medium sm:text-sm">Unpaid <InfoTooltip content={"What you still owe staff for shifts that have not yet been paid out."} /></CardTitle>
+                <TrendingUp className="h-4 w-4 shrink-0 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-amber-600">{fmtMoney(summary.totalUnpaidCents)}</div>
-                <p className="text-xs text-muted-foreground">Pending payment</p>
+              <CardContent className="px-3 pb-3 pt-0 sm:px-6 sm:pb-6">
+                <div className="break-words text-lg font-bold leading-6 text-amber-600 tabular-nums sm:text-xl">{fmtMoney(summary.totalUnpaidCents)}</div>
+                <p className="text-xs leading-4 text-muted-foreground">Pending payment</p>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-1.5">Paid Out <InfoTooltip content={"Total paid out to staff during this period."} /></CardTitle>
-                <CheckCircle className="h-4 w-4 text-muted-foreground" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pb-1 pt-3 sm:px-6 sm:pb-2 sm:pt-6">
+                <CardTitle className="flex items-center gap-1 text-xs font-medium sm:text-sm">Paid out <InfoTooltip content={"Total paid out to staff during this period."} /></CardTitle>
+                <CheckCircle className="h-4 w-4 shrink-0 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-brand-primary">{fmtMoney(summary.totalPaidCents)}</div>
-                <p className="text-xs text-muted-foreground">Paid {periodLabel}</p>
+              <CardContent className="px-3 pb-3 pt-0 sm:px-6 sm:pb-6">
+                <div className="break-words text-lg font-bold leading-6 text-brand-primary tabular-nums sm:text-xl">{fmtMoney(summary.totalPaidCents)}</div>
+                <p className="text-xs leading-4 text-muted-foreground">Paid {periodLabel}</p>
               </CardContent>
             </Card>
           </div>
 
           {/* Toolbar: range + sort + actions grouped into one card
               (command-centre standard) instead of a floating strip. */}
-          <Card className="mb-6">
-            <CardContent className="p-4 flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-2 flex-wrap">
+          <Card className="mb-4 sm:mb-6">
+            <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 sm:p-4">
+            <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
               {/* STH-C: range mode now includes Custom. Pre-STH-C
                   the period was locked to 7 or 30 days; payroll
                   runs the audit on arbitrary windows. */}
@@ -638,7 +653,7 @@ function StaffHoursPage() {
                   }
                 }}
               >
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="h-10 w-full sm:w-[180px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -653,14 +668,14 @@ function StaffHoursPage() {
                     type="date"
                     value={customFrom}
                     onChange={(e) => setCustomFrom(e.target.value)}
-                    className="w-[150px]"
+                    className="h-10 min-w-0 w-full sm:w-[150px]"
                     aria-label="From date"
                   />
                   <Input
                     type="date"
                     value={customTo}
                     onChange={(e) => setCustomTo(e.target.value)}
-                    className="w-[150px]"
+                    className="h-10 min-w-0 w-full sm:w-[150px]"
                     aria-label="To date"
                   />
                 </>
@@ -669,7 +684,7 @@ function StaffHoursPage() {
                   actually triages on. Default is highest-unpaid
                   first because that's the run-up-to-payday case. */}
               <Select value={staffSort} onValueChange={(v: any) => setStaffSort(v)}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="h-10 w-full sm:w-[200px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -681,20 +696,18 @@ function StaffHoursPage() {
               </Select>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
               {/* STH-C: manager backfill for a clock-in that
                   never happened (clock-in missed / forgot to
                   clock in). Inserts a staff_work_sessions row
                   with entered_manually=true so payroll can
                   audit which sessions weren't real clock-ins. */}
-              <Button variant="outline" onClick={() => {
+              <Button variant="outline" size="sm" title="Add a manual shift" aria-label="Add a manual shift" className="h-10 w-10 justify-center p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3" onClick={() => {
                 setManualDraft({ staffId: "", clockIn: "", clockOut: "", reason: "" });
                 setManualOpen(true);
               }}>
-                + Add manual shift
-              </Button>
-              <Button onClick={loadData} disabled={loading}>
-                {loading ? "Loading..." : "Refresh"}
+                <Plus className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only sm:inline">Add manual shift</span>
               </Button>
             </div>
             </CardContent>
@@ -753,8 +766,21 @@ function StaffHoursPage() {
             );
           })()}
 
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "hours" | "ledger" | "monthly-audit")} className="space-y-6">
-            <TabsList>
+          <div className="mb-3 md:hidden">
+            <label htmlFor="staff-hours-view" className="sr-only">Staff hours view</label>
+            <Select value={activeTab} onValueChange={(value) => setActiveTab(value as "hours" | "ledger" | "monthly-audit")}>
+              <SelectTrigger id="staff-hours-view" className="h-10 w-full bg-white text-sm font-medium">
+                <SelectValue placeholder="Choose a view" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hours">Staff hours</SelectItem>
+                <SelectItem value="ledger">Payment ledger</SelectItem>
+                <SelectItem value="monthly-audit">Monthly audit</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "hours" | "ledger" | "monthly-audit")} className="space-y-4 sm:space-y-6">
+            <TabsList className="hidden md:grid md:w-fit md:grid-cols-3">
               <TabsTrigger id="staff-hours" data-chat-section="admin.staff-hours.hours" data-chat-section-label="Staff hours" value="hours">Staff Hours</TabsTrigger>
               <TabsTrigger id="staff-payment-ledger" data-chat-section="admin.staff-hours.ledger" data-chat-section-label="Payment ledger" value="ledger">Payment Ledger</TabsTrigger>
               <TabsTrigger id="staff-monthly-audit" data-chat-section="admin.staff-hours.monthly-audit" data-chat-section-label="Monthly hours audit" value="monthly-audit">Monthly audit</TabsTrigger>
@@ -805,61 +831,62 @@ function StaffHoursPage() {
                 </Card>
               )}
               {sortedStaffEntries.map(([staffId, data]) => (
-                <Card key={staffId}>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
+                <Card key={staffId} className="min-w-0">
+                  <CardHeader className="p-3 sm:p-5">
+                    <div className="flex min-w-0 items-start justify-between gap-3">
                       <div>
-                        <CardTitle>{data.staff?.full_name || "Unknown"}</CardTitle>
-                        <CardDescription>
+                        <CardTitle className="break-words text-base sm:text-lg">{data.staff?.full_name || "Unknown"}</CardTitle>
+                        <CardDescription className="mt-1 break-all text-xs sm:text-sm">
                           {data.staff?.role} • {data.staff?.email}
                         </CardDescription>
                       </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold">{Number(data.totalHours || 0).toFixed(1)}h</div>
-                        <div className="text-sm text-muted-foreground">
+                      <div className="shrink-0 text-right">
+                        <div className="text-xl font-bold tabular-nums sm:text-2xl">{Number(data.totalHours || 0).toFixed(1)}h</div>
+                        <div className="break-words text-xs text-muted-foreground sm:text-sm">
                           {fmtMoney(data.totalEarningsCents)} total
                         </div>
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-4 px-3 pb-3 pt-0 sm:px-5 sm:pb-5">
                     {data.unpaidSessions.length > 0 && (
-                      <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium">Unpaid Hours</span>
-                          <span className="text-lg font-bold text-amber-600">
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20 sm:p-4">
+                        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-sm font-semibold">Unpaid hours</span>
+                          <span className="break-words text-base font-bold text-amber-700 tabular-nums sm:text-lg">
                             {fmtMoney(sumEarningsCents(data.unpaidSessions))}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between text-sm text-muted-foreground">
-                          <span>
-                            {Number(data.unpaidSessions.reduce((sum: number, s: any) => sum + Number(s.total_hours || 0), 0)).toFixed(1)} hours
+                        <div className="flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:text-sm">
+                          <span className="tabular-nums">
+                            {Number(data.unpaidSessions.reduce((sum: number, s: any) => sum + sessionHours(s), 0)).toFixed(1)} hours
                           </span>
+                          {payableUnpaidSessions(data.unpaidSessions).length === 0 && <span className="text-xs text-amber-800">Complete the shift, record valid earnings, and review any shift over 24h before payout.</span>}
                           <Dialog open={paymentDialog && selectedStaff === staffId} onOpenChange={(open) => {
                             setPaymentDialog(open);
                             if (!open) setSelectedStaff(null);
                           }}>
                             <DialogTrigger asChild>
-                              <Button size="sm" onClick={() => setSelectedStaff(staffId)}>
+                              <Button size="sm" className="h-10 w-full text-xs sm:h-9 sm:w-auto sm:text-sm" onClick={() => setSelectedStaff(staffId)} disabled={payableUnpaidSessions(data.unpaidSessions).length === 0}>
                                 Process Payment
                               </Button>
                             </DialogTrigger>
-                            <DialogContent>
+                            <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-lg overflow-y-auto sm:max-h-[90vh] sm:w-[calc(100%-2rem)]">
                               <DialogHeader>
-                                <DialogTitle>Process Payment for {data.staff?.full_name}</DialogTitle>
+                                <DialogTitle className="break-words text-base sm:text-lg">Process payment for {data.staff?.full_name}</DialogTitle>
                               </DialogHeader>
-                              <div className="space-y-4">
-                                <div className="p-4 bg-muted rounded-lg">
-                                  <div className="flex justify-between mb-2">
+                              <div className="space-y-3 sm:space-y-4">
+                                <div className="space-y-2 rounded-lg bg-muted p-3 sm:p-4">
+                                  <div className="flex flex-wrap justify-between gap-2 text-sm">
                                     <span>Total Hours:</span>
                                     <span className="font-bold">
-                                      {Number(data.unpaidSessions.reduce((sum: number, s: any) => sum + Number(s.total_hours || 0), 0)).toFixed(1)}h
+                                      {Number(payableUnpaidSessions(data.unpaidSessions).reduce((sum, s) => sum + sessionHours(s), 0)).toFixed(1)}h
                                     </span>
                                   </div>
-                                  <div className="flex justify-between">
+                                  <div className="flex flex-wrap justify-between gap-2 text-sm">
                                     <span>Total Amount:</span>
                                     <span className="font-bold text-brand-primary">
-                                      {fmtMoney(sumEarningsCents(data.unpaidSessions))}
+                                      {fmtMoney(sumEarningsCents(payableUnpaidSessions(data.unpaidSessions)))}
                                     </span>
                                   </div>
                                 </div>
@@ -901,10 +928,10 @@ function StaffHoursPage() {
                                   />
                                 </div>
 
-                                <Button
-                                  onClick={() => handleProcessPayment(staffId, data.unpaidSessions.map((s: any) => s.id))}
-                                  disabled={loading}
-                                  className="w-full"
+                                  <Button
+                                  onClick={() => handleProcessPayment(staffId, payableUnpaidSessions(data.unpaidSessions).map((s) => s.id))}
+                                  disabled={loading || payableUnpaidSessions(data.unpaidSessions).length === 0}
+                                  className="h-10 w-full text-sm"
                                 >
                                   {loading ? "Processing..." : "Confirm Payment"}
                                 </Button>
@@ -915,28 +942,32 @@ function StaffHoursPage() {
                       </div>
                     )}
 
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium mb-2">Recent Sessions</div>
+                    <details className="group rounded-lg border border-slate-200">
+                      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+                        <span>Recent sessions ({data.sessions.length})</span>
+                        <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform group-open:rotate-180" aria-hidden="true" />
+                      </summary>
+                      <div className="space-y-2 border-t border-slate-100 p-2.5">
                       {data.sessions.slice(0, 5).map((session) => (
-                        <div key={session.id} className="flex items-center justify-between text-sm p-2 bg-muted rounded">
-                          <div className="flex items-center gap-2">
+                        <div key={session.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg bg-muted p-2.5 text-xs sm:text-sm">
+                          <div className="flex min-w-0 items-center gap-2">
                             <Clock className="h-4 w-4 text-muted-foreground" />
                             {/* STH-B: was `session.clock_in_time`
                                 which doesn't exist on the schema -
                                 rendered "Invalid Date" on every
                                 row. Real column is clock_in. */}
-                            <span>{formatLocalDate(session.clock_in)}</span>
+                            <span className="break-words">{formatLocalDate(session.clock_in)}</span>
                           </div>
-                          <div className="flex items-center gap-3 flex-wrap justify-end">
-                            <span>{Number(session.total_hours || 0).toFixed(1)}h</span>
-                            <span className="font-medium">{fmtMoney(centsOf(session.total_earnings))}</span>
+                          <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            <span className="whitespace-nowrap tabular-nums">{sessionHours(session).toFixed(1)}h</span>
+                            <span className="break-words font-medium tabular-nums">{fmtMoney(centsOf(session.total_earnings))}</span>
                             {/* STH-C: Manual chip when this row was
                                 backfilled. Title hovers the reason
                                 the manager gave. */}
                             {session.entered_manually && (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] border-amber-300 text-amber-800 bg-amber-50"
+                                className="text-xs border-amber-300 text-amber-800 bg-amber-50"
                                 title={session.entry_reason || "Manually backfilled"}
                               >
                                 Manual
@@ -945,10 +976,15 @@ function StaffHoursPage() {
                             {session.entry_reason?.startsWith("daily_operations_task:") && (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] border-sky-300 text-sky-800 bg-sky-50"
+                                className="text-xs border-sky-300 text-sky-800 bg-sky-50"
                                 title="Payable time recorded for a one-off kitchen, cleaning or driver task"
                               >
                                 Daily task
+                              </Badge>
+                            )}
+                            {sessionNeedsReview(session) && (
+                              <Badge variant="outline" className="border-amber-300 bg-amber-50 text-xs text-amber-800" title="This session is excluded from the headline hours and cannot be paid until corrected.">
+                                Review duration
                               </Badge>
                             )}
                             <Badge variant={session.payment_status === "paid" ? "default" : "secondary"}>
@@ -957,7 +993,8 @@ function StaffHoursPage() {
                           </div>
                         </div>
                       ))}
-                    </div>
+                      </div>
+                    </details>
                   </CardContent>
                 </Card>
               ))}
@@ -965,11 +1002,11 @@ function StaffHoursPage() {
 
             <TabsContent value="ledger" className="space-y-4">
               <Card collapsible defaultOpen={false} collapseLabel="Payment History">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                  <div>
-                    <CardTitle className="flex items-center gap-1.5">Payment History <InfoTooltip content={"Every staff payment in this period, including the method, hours covered and rate paid."} /></CardTitle>
+                <CardHeader className="flex flex-col items-start justify-between gap-3 pb-3 sm:flex-row sm:items-center">
+                  <div className="min-w-0">
+                    <CardTitle className="flex items-center gap-1.5 text-base sm:text-lg">Payment history <InfoTooltip content={"Payments made in this date range, with the work period, hours covered and rate paid."} /></CardTitle>
                     <CardDescription>
-                      Complete record of all staff payments
+                      Payments made during the selected date range
                     </CardDescription>
                   </div>
                   {/* Phase 21 #7: payment ledger CSV. The sessions
@@ -980,6 +1017,9 @@ function StaffHoursPage() {
                   <Button
                     variant="outline"
                     size="sm"
+                    title="Export payment ledger as CSV"
+                    aria-label="Export payment ledger as CSV"
+                    className="h-10 w-10 justify-center p-0 sm:h-9 sm:w-auto sm:px-3"
                     disabled={ledger.length === 0}
                     onClick={() => {
                       if (ledger.length === 0) return;
@@ -1017,28 +1057,28 @@ function StaffHoursPage() {
                       URL.revokeObjectURL(url);
                     }}
                   >
-                    <Download className="w-4 h-4 mr-2" />
-                    Export ledger
+                    <Download className="h-4 w-4 sm:mr-2" />
+                    <span className="sr-only sm:not-sr-only sm:inline">Export ledger</span>
                   </Button>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-3 sm:p-6">
                   <div className="space-y-2">
                     {ledger.map((payment) => (
-                      <div key={payment.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex-1">
-                          <div className="font-medium">{payment.staff?.full_name}</div>
-                          <div className="text-sm text-muted-foreground">
+                      <div key={payment.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-3 rounded-lg border border-slate-200 p-3 sm:p-4">
+                        <div className="min-w-0">
+                          <div className="break-words text-sm font-semibold sm:text-base">{payment.staff?.full_name || "Unknown staff"}</div>
+                          <div className="mt-1 text-xs text-muted-foreground sm:text-sm">
                             {formatLocalDate(payment.payment_period_start)} - {formatLocalDate(payment.payment_period_end)}
                           </div>
-                          <div className="text-sm text-muted-foreground">
+                          <div className="text-xs text-muted-foreground sm:text-sm">
                             {Number(payment.total_hours || 0).toFixed(1)} hours @ {fmtMoney(centsOf(payment.hourly_rate))}/hr
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold text-brand-primary">
+                        <div className="min-w-0 text-right">
+                          <div className="break-words text-base font-bold text-brand-primary tabular-nums sm:text-lg">
                             {fmtMoney(centsOf(payment.total_amount))}
                           </div>
-                          <div className="text-sm text-muted-foreground capitalize">
+                          <div className="text-xs capitalize text-muted-foreground sm:text-sm">
                             {(payment.payment_method || "").replace("_", " ")}
                           </div>
                           <div className="text-xs text-muted-foreground">
@@ -1074,7 +1114,7 @@ function StaffHoursPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <Button asChild variant="outline">
                   <Link href={withSlug("/admin/wages")} className="justify-start gap-1.5">
                     <Clock className="w-3.5 h-3.5" />
@@ -1105,7 +1145,7 @@ function StaffHoursPage() {
             ins. Earnings auto-computed off the same rate fallback
             chain clockOut uses. */}
         <Dialog open={manualOpen} onOpenChange={setManualOpen}>
-          <DialogContent>
+          <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-lg overflow-y-auto sm:max-h-[90vh] sm:w-[calc(100%-2rem)]">
             <DialogHeader>
               <DialogTitle>Add manual shift</DialogTitle>
             </DialogHeader>
@@ -1131,7 +1171,7 @@ function StaffHoursPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>Clock-in</Label>
                   <Input
@@ -1158,7 +1198,7 @@ function StaffHoursPage() {
                   onChange={(e) => setManualDraft((d) => ({ ...d, reason: e.target.value }))}
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-1">
+              <div className="flex flex-col-reverse justify-end gap-2 pt-1 sm:flex-row">
                 <Button variant="outline" onClick={() => setManualOpen(false)} disabled={manualSaving}>
                   Cancel
                 </Button>

@@ -337,7 +337,7 @@ export function ReceiptsTab({ companyId, userId }: Props) {
       {/* TOOLBAR */}
       <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900 sm:text-lg">
             <Receipt className="w-5 h-5 text-brand-primary" />
             Receipts &amp; tax-deductible log
           </h2>
@@ -362,19 +362,19 @@ export function ReceiptsTab({ companyId, userId }: Props) {
         <Card className="border-0 shadow-sm">
           <CardContent className="py-4 px-4">
             <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Slips logged</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">{summary.receiptCount}</p>
+            <p className="mt-1 text-lg font-bold tabular-nums text-slate-900 sm:text-xl">{summary.receiptCount}</p>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-sm bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
           <CardContent className="py-4 px-4">
             <p className="text-xs uppercase tracking-wide text-brand-primary font-semibold">Deductible total</p>
-            <p className="text-2xl font-bold text-brand-primary mt-1 tabular-nums">{fmtR(summary.deductibleTotal)}</p>
+            <p className="mt-1 break-words text-base font-bold tabular-nums text-brand-primary sm:text-lg">{fmtR(summary.deductibleTotal)}</p>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-sm">
           <CardContent className="py-4 px-4">
             <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Non-deductible</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">{fmtR(summary.nonDeductibleTotal)}</p>
+            <p className="mt-1 break-words text-base font-bold tabular-nums text-slate-900 sm:text-lg">{fmtR(summary.nonDeductibleTotal)}</p>
           </CardContent>
         </Card>
         {/* SHOP-K: VAT-claimable surface. The summarise()
@@ -385,9 +385,9 @@ export function ReceiptsTab({ companyId, userId }: Props) {
         <Card className="border-0 shadow-sm bg-gradient-to-br from-brand-primary/5 to-brand-secondary/10">
           <CardContent className="py-4 px-4">
             <p className="text-xs uppercase tracking-wide text-brand-primary font-semibold">VAT input</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">{fmtR(summary.vatClaimableTotal)}</p>
+            <p className="mt-1 break-words text-base font-bold tabular-nums text-slate-900 sm:text-lg">{fmtR(summary.vatClaimableTotal)}</p>
             {summary.mismatchCount > 0 && (
-              <p className="text-[10px] text-rose-700 mt-0.5 font-medium">
+              <p className="text-xs text-rose-700 mt-0.5 font-medium">
                 {summary.mismatchCount} mismatch{summary.mismatchCount === 1 ? "" : "es"} - review before filing
               </p>
             )}
@@ -411,11 +411,11 @@ export function ReceiptsTab({ companyId, userId }: Props) {
               <p className={`text-xs uppercase tracking-wide font-semibold ${summary.unfiledCount > 0 ? "text-amber-700" : "text-slate-500"}`}>
                 Slips needing lines{needsLinesOnly ? " · filtering" : ""}
               </p>
-              <p className={`text-2xl font-bold mt-1 tabular-nums ${summary.unfiledCount > 0 ? "text-amber-900" : "text-slate-900"}`}>
+              <p className={`mt-1 text-lg font-bold tabular-nums sm:text-xl ${summary.unfiledCount > 0 ? "text-amber-900" : "text-slate-900"}`}>
                 {summary.unfiledCount}
               </p>
               {summary.unfiledCount > 0 && (
-                <p className="text-[10px] text-amber-700 mt-0.5">
+                <p className="text-xs text-amber-700 mt-0.5">
                   {needsLinesOnly ? "Tap again to clear filter" : "Tap to filter the list"}
                 </p>
               )}
@@ -481,7 +481,7 @@ export function ReceiptsTab({ companyId, userId }: Props) {
         <Card className="border-0 shadow-sm">
           <CardContent className="py-16 text-center space-y-3">
             <Receipt className="w-12 h-12 text-slate-300 mx-auto" />
-            <h3 className="text-base font-semibold text-slate-900">No slips in this window yet</h3>
+            <h3 className="text-sm font-semibold text-slate-900 sm:text-base">No slips in this window yet</h3>
             <p className="text-sm text-slate-600 max-w-md mx-auto">
               Use the till slip scanner above to upload photos - the AI will extract the lines for you.
               Or add one by hand with the button up top.
@@ -565,7 +565,7 @@ export function ReceiptsTab({ companyId, userId }: Props) {
                 onChange={(e) => setNewFile(e.target.files?.[0] || null)}
                 className="block w-full mt-1 text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-amber-100 file:text-amber-800 hover:file:bg-amber-200"
               />
-              <p className="text-[11px] text-slate-500 mt-1">
+              <p className="text-xs text-slate-500 mt-1">
                 Phone camera works. We store the image so the accountant can refer back to it.
               </p>
             </div>
@@ -589,7 +589,7 @@ export function ReceiptsTab({ companyId, userId }: Props) {
                 placeholder="e.g. 1245.50"
                 className="mt-1"
               />
-              <p className="text-[11px] text-slate-500 mt-1">
+              <p className="text-xs text-slate-500 mt-1">
                 Use the slip's grand total. Per-line items get added on the next step so you can mark each one deductible.
               </p>
             </div>
@@ -812,12 +812,12 @@ function ReceiptRow({
                 </span>
               )}
               {receipt.items.length === 0 && (
-                <Badge className="bg-amber-100 text-amber-800 border-0 text-[10px] gap-1">
+                <Badge className="bg-amber-100 text-amber-800 border-0 text-xs gap-1">
                   <AlertCircle className="w-3 h-3" /> No lines yet
                 </Badge>
               )}
               {driftBig && (
-                <Badge className="bg-rose-100 text-rose-800 border-0 text-[10px]">
+                <Badge className="bg-rose-100 text-rose-800 border-0 text-xs">
                   Lines {driftDirection === "over" ? "exceed" : "under"} slip by {fmtR(drift)}
                 </Badge>
               )}
@@ -827,7 +827,7 @@ function ReceiptRow({
                   onClick={(e) => { e.stopPropagation(); onRescan(receipt.id); }}
                   disabled={rescanning}
                   title="Re-run the AI on this slip image to extract line items + tax tags"
-                  className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-brand-primary/10 text-brand-primary border border-brand-primary/20 hover:bg-brand-primary/15 disabled:opacity-60"
+                  className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-brand-primary/10 text-brand-primary border border-brand-primary/20 hover:bg-brand-primary/15 disabled:opacity-60"
                 >
                   {rescanning ? (
                     <><Loader2 className="w-3 h-3 animate-spin" /> Reading...</>
@@ -990,7 +990,7 @@ function LineRow({
           <button
             type="button"
             onClick={() => { setNoteDraft(item.notes || ""); setEditingNote(true); }}
-            className="text-[11px] text-slate-500 hover:text-brand-primary hover:underline text-left truncate block w-full"
+            className="text-xs text-slate-500 hover:text-brand-primary hover:underline text-left truncate block w-full"
             title="Edit note"
           >
             {item.notes}
@@ -999,7 +999,7 @@ function LineRow({
           <button
             type="button"
             onClick={() => { setNoteDraft(""); setEditingNote(true); }}
-            className="text-[11px] text-slate-400 hover:text-brand-primary hover:underline italic"
+            className="text-xs text-slate-400 hover:text-brand-primary hover:underline italic"
             title="Add a note for the accountant"
           >
             + Add note

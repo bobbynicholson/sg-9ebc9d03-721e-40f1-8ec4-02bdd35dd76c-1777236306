@@ -686,32 +686,32 @@
 }
 
 /* Compact, readable type across admin routes on phones. Keep the same
-   relative hierarchy while preventing default Tailwind headings and body
-   copy from dominating narrow workspaces. Explicit 10-12px metadata stays
-   as authored; form controls retain the 16px mobile focus size above. */
+   relative hierarchy while preventing KPI figures and headings from
+   dominating narrow workspaces. Small admin captions have a 12px floor;
+   form controls retain the 16px mobile focus size above. */
 @media (max-width: 639px) {
   .admin-page-shell [class~="text-4xl"] {
-    font-size: 1.5rem !important;
-    line-height: 1.875rem !important;
-  }
-
-  .admin-page-shell [class~="text-3xl"] {
     font-size: 1.375rem !important;
     line-height: 1.75rem !important;
   }
 
-  .admin-page-shell [class~="text-2xl"] {
+  .admin-page-shell [class~="text-3xl"] {
     font-size: 1.25rem !important;
-    line-height: 1.5rem !important;
+    line-height: 1.625rem !important;
   }
 
-  .admin-page-shell [class~="text-xl"] {
+  .admin-page-shell [class~="text-2xl"] {
     font-size: 1.125rem !important;
     line-height: 1.5rem !important;
   }
 
+  .admin-page-shell [class~="text-xl"] {
+    font-size: 1.0625rem !important;
+    line-height: 1.375rem !important;
+  }
+
   .admin-page-shell [class~="text-lg"] {
-    font-size: 1rem !important;
+    font-size: 0.9375rem !important;
     line-height: 1.25rem !important;
   }
 
@@ -723,6 +723,12 @@
   .admin-page-shell [class~="text-sm"] {
     font-size: 0.875rem !important;
     line-height: 1.125rem !important;
+  }
+
+  .admin-page-shell [class~="text-[10px]"],
+  .admin-page-shell [class~="text-[11px]"] {
+    font-size: 0.75rem !important;
+    line-height: 1rem !important;
   }
 }
 

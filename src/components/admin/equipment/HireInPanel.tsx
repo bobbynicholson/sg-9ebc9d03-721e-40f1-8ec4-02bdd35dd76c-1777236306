@@ -30,6 +30,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { captureException } from "@/lib/observability";
 import { staffOrderHref } from "@/lib/orderUrls";
+import { PwaLoadingScreen } from "@/components/pwa/PwaLoadingScreen";
 
 interface HireOrder {
   id: string;
@@ -765,7 +766,7 @@ export function HireInPanel() {
 
       {/* List */}
       {loading ? (
-        <Card className="border-0 shadow-md"><CardContent className="p-12 text-center text-slate-500">Loading...</CardContent></Card>
+        <PwaLoadingScreen message="Loading hire-in orders" variant="inline" />
       ) : rows.length === 0 ? (
         <Card className="border-2 border-dashed">
           <CardContent className="p-12 text-center">

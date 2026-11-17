@@ -56,14 +56,9 @@ export interface PayoutTotalsSnapshot {
 }
 
 /**
- * List the live settlements that overlap the (period_from,
- * period_to) window. Returns rows keyed by driver_id for cheap
- * lookup from the per-row settlement chip.
- *
- * "Overlap" rather than "exact match" - a settlement recorded for
- * a 14-day pay-fortnight should still surface when the operator
- * is looking at the matching 30-day view. Operators can then drill
- * into the original window.
+ * List settlements for this exact period. A payout from a different
+ * overlapping window must not mark a driver as settled here: the
+ * settlement totals and status need to describe the same dates.
  */
 export const driverPayoutService = {
   async listForPeriod(
@@ -76,17 +71,14 @@ export const driverPayoutService = {
       .select("*")
       .eq("company_id", opts.companyId)
       .is("deleted_at", null)
-      // Window-overlap. A row's window overlaps the query window
-      // when its from <= query.to AND its to >= query.from.
-      .lte("period_from", opts.periodTo)
-      .gte("period_to", opts.periodFrom)
+      .eq("period_from", opts.periodFrom)
+      .eq("period_to", opts.periodTo)
       .order("created_at", { ascending: false });
     if (error) {
       console.warn("[driverPayoutService.listForPeriod]", error);
       return out;
     }
-    // First (most recent) row per driver wins. Subsequent rows are
-    // ignored - the chip on the settlement table only needs one.
+    // First (most recent) row per driver wins if legacy duplicates exist.
     for (const r of (data || []) as DriverPayoutRow[]) {
       if (!out.has(r.driver_id)) out.set(r.driver_id, r);
     }

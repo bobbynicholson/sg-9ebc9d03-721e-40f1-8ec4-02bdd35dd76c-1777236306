@@ -89,6 +89,7 @@ export function PortalHeader({
   variant = "default",
   appearance,
   meta,
+  actionsAlign = "end",
 }: {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
@@ -99,6 +100,8 @@ export function PortalHeader({
   /** "brand" is the company workspace tone; "dark" is the platform tone. */
   appearance?: "brand" | "dark";
   meta?: React.ReactNode;
+  /** Align action buttons beside the title when a page needs a tighter header. */
+  actionsAlign?: "start" | "end";
 }) {
   const router = useRouter();
   const actionsRef = React.useRef<HTMLDivElement>(null);
@@ -151,8 +154,14 @@ export function PortalHeader({
         />
         {/* Keep page actions beside the title when the content area allows;
             below that, stack them so labels stay readable. */}
-        <div className="relative flex w-full min-w-0 flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex min-w-0 flex-1 items-start gap-3.5">
+        <div className={cn(
+          "relative flex w-full min-w-0 flex-col gap-4 xl:flex-row xl:items-center",
+          actionsAlign === "start" ? "xl:justify-start xl:gap-6" : "xl:justify-between",
+        )}>
+          <div className={cn(
+            "flex min-w-0 items-start gap-3.5",
+            actionsAlign === "start" ? "xl:max-w-[min(100%,48rem)] xl:flex-none" : "flex-1",
+          )}>
             {Icon && (
               <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-white">
                 <Icon className="h-5 w-5" aria-hidden="true" />
@@ -181,7 +190,8 @@ export function PortalHeader({
             <div
               ref={actionsRef}
               className={cn(
-                "portal-header-actions grid w-full min-w-0 max-w-full shrink-0 grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] items-center gap-2 xl:flex xl:w-auto xl:flex-wrap xl:justify-end xl:max-w-[60%] [&_button]:min-h-10 [&_button]:min-w-0 [&_button]:max-w-full [&_button]:text-sm [&_input]:min-w-0 [&_input]:max-w-full [&_select]:min-w-0 [&_select]:max-w-full [&_[role=combobox]]:min-w-0 [&_[role=combobox]]:max-w-full sm:[&_button]:min-h-9",
+                "portal-header-actions grid w-full min-w-0 max-w-full shrink-0 grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] items-center gap-2 xl:flex xl:w-auto xl:flex-wrap xl:max-w-[60%] [&_button]:min-h-10 [&_button]:min-w-0 [&_button]:max-w-full [&_button]:text-sm [&_input]:min-w-0 [&_input]:max-w-full [&_select]:min-w-0 [&_select]:max-w-full [&_[role=combobox]]:min-w-0 [&_[role=combobox]]:max-w-full sm:[&_button]:min-h-9",
+                actionsAlign === "start" ? "xl:justify-start" : "xl:justify-end",
                 !isBrand && "dark",
               )}
             >
@@ -195,13 +205,13 @@ export function PortalHeader({
   return (
     <header
       className={cn(
-        "relative mb-7 grid gap-4 border-b border-slate-300/70 pb-6 dark:border-slate-800 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end",
+        "relative mb-4 grid gap-3 border-b border-slate-300/70 pb-4 dark:border-slate-800 sm:mb-7 sm:gap-4 sm:pb-6 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end",
         className,
       )}
     >
-      <div className="flex min-w-0 items-start gap-4">
+      <div className="flex min-w-0 items-start gap-2.5 sm:gap-4">
         {Icon && (
-          <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-brand-primary/20 bg-gradient-to-br from-brand-primary/12 via-white to-brand-secondary/10 text-brand-primary shadow-sm dark:border-brand-primary/30 dark:from-brand-primary/15 dark:via-slate-900 dark:to-brand-secondary/10">
+          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-brand-primary/20 bg-gradient-to-br from-brand-primary/12 via-white to-brand-secondary/10 text-brand-primary shadow-sm dark:border-brand-primary/30 dark:from-brand-primary/15 dark:via-slate-900 dark:to-brand-secondary/10 sm:h-11 sm:w-11">
             <Icon className="h-5 w-5" aria-hidden="true" />
           </span>
         )}
@@ -658,14 +668,15 @@ export function StatTile({
   return (
     <div
       className={cn(
-        "group relative overflow-hidden rounded-xl border border-slate-200/80 bg-white px-4 py-3.5 transition-[border-color,box-shadow] duration-200 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/95 dark:hover:border-slate-700",
+        "group relative overflow-hidden rounded-xl border border-slate-200/80 bg-white transition-[border-color,box-shadow] duration-200 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/95 dark:hover:border-slate-700",
+        compact ? "px-3 py-3 sm:px-4 sm:py-3.5" : "px-4 py-3.5",
         SOFT_SHADOW,
         className,
       )}
     >
       {toneStyle && <span aria-hidden="true" className={cn("absolute inset-x-0 top-0 h-0.5", toneStyle.bar)} />}
       <div className="flex items-center justify-between gap-2">
-        <p className={cn(compact ? "text-xs" : "text-[13px]", "font-medium leading-5 text-slate-500 dark:text-slate-400")}>{label}</p>
+        <p className={cn(compact ? "text-xs sm:text-sm" : "text-[13px]", "font-medium leading-5 text-slate-500 dark:text-slate-400")}>{label}</p>
         {Icon && (
           <span
             className={cn(
@@ -680,7 +691,7 @@ export function StatTile({
         )}
       </div>
       <div className="mt-1.5 flex items-end justify-between gap-2">
-        <p className={cn(compact ? "text-lg sm:text-xl" : "text-[1.75rem]", "font-semibold leading-none tracking-tight tabular-nums text-slate-950 dark:text-white")}>
+        <p className={cn(compact ? "text-lg sm:text-2xl" : "text-[1.75rem]", "font-semibold leading-none tracking-tight tabular-nums text-slate-950 dark:text-white")}>
           {value}
         </p>
         {trend && (
@@ -700,7 +711,7 @@ export function StatTile({
           </span>
         )}
       </div>
-      {hint && <p className={cn("mt-1.5 leading-4 text-slate-500 dark:text-slate-400", compact ? "text-[11px]" : "text-xs")}>{hint}</p>}
+      {hint && <p className="mt-1.5 text-xs leading-4 text-slate-500 dark:text-slate-400">{hint}</p>}
     </div>
   );
 }

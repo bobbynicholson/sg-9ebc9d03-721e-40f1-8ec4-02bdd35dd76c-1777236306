@@ -73,10 +73,12 @@ interface TeamRow {
   bg: string;
   href: string;
   headCount: number;
+  headCountLabel?: string;
   // null = we don't track shift hours for this team. Renders as
   // "-" instead of a misleading 0.
   hoursThisWeek: number | null;
   jobsToday: number;
+  jobsLabel?: string;
   // TMS-B: comparison vs same day last week. null when unknown.
   jobsSameDayLastWeek: number | null;
   anomalies: number;
@@ -406,6 +408,7 @@ function TeamsIndexPage() {
         .select("id, status, assigned_at, accepted_at, completed_at, base_fee, distance_fee, total_earnings, orders!inner(order_number, event_name, event_time, event_date, company_id, deleted_at, region_id, status)")
         .eq("company_id", companyId)
         .is("orders.deleted_at", null)
+        .not("orders.status", "eq", "cancelled")
         .eq("orders.event_date", todayISO);
       if (regionFilterId) drvAssnQ = drvAssnQ.eq("orders.region_id", regionFilterId);
 
@@ -420,13 +423,13 @@ function TeamsIndexPage() {
       if (regionFilterId) drvWeekQ = drvWeekQ.eq("orders.region_id", regionFilterId);
 
       let driverLastWeekQ = supabase
-        .from("orders")
-        .select("id", { count: "exact", head: true })
+        .from("driver_assignments")
+        .select("id, orders!inner(event_date, deleted_at, region_id, status)", { count: "exact", head: true })
         .eq("company_id", companyId)
-        .is("deleted_at", null)
-        .eq("event_date", lastWeekISO)
-        .not("status", "in", "(cancelled,completed)");
-      if (regionFilterId) driverLastWeekQ = driverLastWeekQ.eq("region_id", regionFilterId);
+        .is("orders.deleted_at", null)
+        .not("orders.status", "eq", "cancelled")
+        .eq("orders.event_date", lastWeekISO);
+      if (regionFilterId) driverLastWeekQ = driverLastWeekQ.eq("orders.region_id", regionFilterId);
 
       const [drvAssnRes, drvWeekRes, driverLastWeekRes] = await Promise.all([
         drvAssnQ,
@@ -551,11 +554,18 @@ function TeamsIndexPage() {
         .is("deleted_at", null)
         .gte("planned_start", lastWeekISO + "T00:00:00")
         .lt("planned_start", lastWeekISO + "T23:59:59");
-      const handoverPendingQ = supabase
+      let handoverPendingQ = supabase
         .from("cleaning_event_handovers")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
+        .is("deleted_at", null)
         .in("status", ["expected", "in_progress"]);
+      if (regionFilterId) {
+        // The generated client types omit the optional region_id column
+        // on the handover table, but the cleaning board already scopes it.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        handoverPendingQ = (handoverPendingQ as any).eq("region_id", regionFilterId);
+      }
       const [cleaningTodayRes, cleaningLastWeekRes, handoverPendingRes] = await Promise.all([
         cleaningTodayQ,
         cleaningLastWeekQ,
@@ -596,6 +606,22 @@ function TeamsIndexPage() {
       // their own ops surfaces (leads + quotes for sales, outsource
       // providers for outsource). We pull lightweight counts in
       // parallel so the extra tiles don't cost a round-trip burst.
+      let outsourceAssnTodayQ = supabase.from("outsource_assignments")
+        .select("id, orders!inner(event_date, company_id, deleted_at, region_id)")
+        .eq("company_id", companyId)
+        .is("orders.deleted_at", null)
+        .not("orders.status", "eq", "cancelled")
+        .eq("orders.event_date", todayISO);
+      let outsourceAssnLastWeekQ = supabase.from("outsource_assignments")
+        .select("id, orders!inner(event_date, deleted_at, region_id)", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .is("orders.deleted_at", null)
+        .not("orders.status", "eq", "cancelled")
+        .eq("orders.event_date", lastWeekISO);
+      if (regionFilterId) {
+        outsourceAssnTodayQ = outsourceAssnTodayQ.eq("orders.region_id", regionFilterId);
+        outsourceAssnLastWeekQ = outsourceAssnLastWeekQ.eq("orders.region_id", regionFilterId);
+      }
       const [
         leadsTodayRes,
         quotesTodayRes,
@@ -623,19 +649,10 @@ function TeamsIndexPage() {
           .eq("company_id", companyId)
           .eq("is_active", true)
           .is("deleted_at", null),
-        // Outsource assignments today via the joined order.
-        // outsource_assignments doesn't carry event_date directly;
-        // we filter via orders.event_date.
-        supabase.from("outsource_assignments")
-          .select("id, orders!inner(event_date, company_id, deleted_at)")
-          .eq("company_id", companyId)
-          .is("orders.deleted_at", null)
-          .eq("orders.event_date", todayISO),
-        supabase.from("outsource_assignments")
-          .select("id", { count: "exact", head: true })
-          .eq("company_id", companyId)
-          .gte("created_at", lastWeekISO + "T00:00:00")
-          .lt("created_at", lastWeekISO + "T23:59:59"),
+        // Compare assignments by event date (not created_at) so the
+        // current and previous-week values describe the same work.
+        outsourceAssnTodayQ,
+        outsourceAssnLastWeekQ,
       ]);
       for (const res of [
         leadsTodayRes, quotesTodayRes, outsourceProvidersRes,
@@ -733,11 +750,12 @@ function TeamsIndexPage() {
           headCount: staffByTeam.kitchen || 0,
           hoursThisWeek: Math.round(kitchenHours),
           jobsToday: kitchenJobs ?? 0,
+          jobsLabel: "Events today",
           jobsSameDayLastWeek: kitchenLastWeekJobs ?? null,
           anomalies: kitchenMissingClockOut,
           anomalyHint: kitchenMissingClockOut > 0
             ? `${kitchenMissingClockOut} missing clock-out`
-            : "All clocked",
+            : "No missing clock-outs",
           nextLabel: nextKitchenRow
             ? orderDisplayName({ event_name: nextKitchenRow.event_name, order_number: nextKitchenRow.order_number })
             : null,
@@ -756,9 +774,10 @@ function TeamsIndexPage() {
           headCount: staffByTeam.drivers || 0,
           hoursThisWeek: Math.round(driverHours),
           jobsToday: driverJobs,
+          jobsLabel: "Assignments today",
           jobsSameDayLastWeek: driverLastWeekJobs ?? null,
           anomalies: driverAnomalies,
-          anomalyHint: driverAnomalies > 0 ? `${driverAnomalies} declined / no-show` : "All accepted",
+          anomalyHint: driverAnomalies > 0 ? `${driverAnomalies} declined / no-show` : "No declines or no-shows",
           nextLabel: nextDriverRow
             ? orderDisplayName({ event_name: nextDriverRow.orders?.event_name, order_number: nextDriverRow.orders?.order_number })
             : null,
@@ -784,6 +803,7 @@ function TeamsIndexPage() {
           // - the tile renders "-" instead of a misleading 0.
           hoursThisWeek: null,
           jobsToday: shoppingJobs,
+          jobsLabel: "Lists today",
           jobsSameDayLastWeek: shoppingLastWeek ?? null,
           anomalies: shoppingAnomalies,
           anomalyHint: shoppingAnomalies > 0 ? `${shoppingAnomalies} overdue list${shoppingAnomalies === 1 ? "" : "s"}` : "On track",
@@ -808,7 +828,8 @@ function TeamsIndexPage() {
           anomalies: cleaningAnomaliesCount,
           anomalyHint: cleaningAnomaliesCount > 0
             ? `${cleaningAnomaliesCount} overdue slot${cleaningAnomaliesCount === 1 ? "" : "s"}`
-            : cleaningJobsToday > 0 ? "On track" : "Quiet day",
+            : handoverPending > 0 ? "Open handovers"
+              : cleaningJobsToday > 0 ? "On track" : "Quiet day",
           nextLabel: nextCleaningRow ? "Next cleaning slot" : null,
           nextTimeISO: nextCleaningRow?.planned_start || null,
           // TMS-C: cleaning_jobs has no cost field. Showing 0 would
@@ -816,6 +837,7 @@ function TeamsIndexPage() {
           burnTodayZar: null,
           clockedNow: null,
           handoverPending: handoverPending ?? 0,
+          jobsLabel: "Jobs today",
         },
         // TMS-D (task #206, 2026-05-24): Sales tile. sales_admin
         // role is real (per enum). Activity = leads created today +
@@ -832,6 +854,7 @@ function TeamsIndexPage() {
           headCount: staffByTeam.sales || 0,
           hoursThisWeek: null,
           jobsToday: (leadsTodayRes.count ?? 0) + (quotesTodayRes.count ?? 0),
+          jobsLabel: "Activity today",
           jobsSameDayLastWeek: null,
           anomalies: 0,
           anomalyHint: (leadsTodayRes.count ?? 0) > 0
@@ -856,8 +879,10 @@ function TeamsIndexPage() {
           bg: "from-brand-primary/10 to-brand-secondary/10",
           href: "/admin/outsource-providers",
           headCount: outsourceProvidersRes.count ?? 0,
+          headCountLabel: "Providers",
           hoursThisWeek: null,
           jobsToday: (outsourceAssnTodayRes.data || []).length,
+          jobsLabel: "Assignments today",
           jobsSameDayLastWeek: outsourceAssnLastWeekRes.count ?? null,
           anomalies: 0,
           anomalyHint: (outsourceAssnTodayRes.data || []).length > 0
@@ -933,7 +958,9 @@ function TeamsIndexPage() {
 
   const totalAnomalies = rows.reduce((sum, r) => sum + r.anomalies, 0);
   // Command-centre hero chips: live totals off the loaded rows.
-  const totalActiveStaff = rows.reduce((sum, r) => sum + r.headCount, 0);
+  const totalActiveStaff = rows
+    .filter((row) => row.key !== "outsource")
+    .reduce((sum, row) => sum + row.headCount, 0);
   const totalJobsToday = rows.reduce((sum, r) => sum + r.jobsToday, 0);
   // Hours only sum across teams that actually track shifts (kitchen +
   // drivers); shopping / cleaning / sales report null and stay out so
@@ -1019,8 +1046,8 @@ function TeamsIndexPage() {
               the panic. */}
           {!loading && risks.length > 0 && (
             <Card className="mb-4 border-rose-200 bg-rose-50 shadow-sm">
-              <CardContent className="py-3 px-4">
-                <div className="flex items-start gap-3">
+              <CardContent className="px-3 py-3 sm:px-4">
+                <div className="flex min-w-0 flex-wrap items-start gap-3">
                   <AlertTriangle className="w-5 h-5 text-rose-700 shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-rose-900">
@@ -1044,8 +1071,8 @@ function TeamsIndexPage() {
                       )}
                     </ul>
                   </div>
-                  <Link href={withSlug("/admin/order-assignments")}>
-                    <Button size="sm" variant="outline" className="gap-1.5 border-rose-300 text-rose-800 hover:bg-rose-100">
+                  <Link href={withSlug("/admin/order-assignments")} className="w-full sm:ml-auto sm:w-auto">
+                    <Button size="sm" variant="outline" className="min-h-10 w-full gap-1.5 border-rose-300 text-rose-800 hover:bg-rose-100 sm:w-auto">
                       Assign drivers <ArrowRight className="w-3.5 h-3.5" />
                     </Button>
                   </Link>
@@ -1059,15 +1086,17 @@ function TeamsIndexPage() {
               the financial-dashboard composition. */}
           {!loading && !error && rows.length > 0 && (
             <div className="grid grid-cols-2 gap-4 mb-6 lg:grid-cols-4">
-              <StatTile label="Active staff" value={totalActiveStaff} icon={Users} hint="Across every team bucket." />
-              <StatTile label="Jobs today" value={totalJobsToday} icon={Calendar} hint="Events, deliveries, runs and slots." />
+              <StatTile compact label="Active staff" value={totalActiveStaff} icon={Users} hint="Counted by team; cross-trained people can appear in more than one." />
+              <StatTile compact label="Work items today" value={totalJobsToday} icon={Calendar} hint="Activity across teams; one event may appear in multiple buckets." />
               <StatTile
+                compact
                 label="Hours this week"
                 value={`${totalHoursWeek}h`}
                 icon={Clock}
                 hint="Kitchen and driver shifts only."
               />
               <StatTile
+                compact
                 label="Anomalies"
                 value={totalAnomalies}
                 icon={AlertTriangle}
@@ -1097,20 +1126,20 @@ function TeamsIndexPage() {
                 ? null
                 : r.jobsToday - r.jobsSameDayLastWeek;
               return (
-                <Card key={r.key} className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
-                  <CardContent className="p-4 sm:p-5">
+                <Card key={r.key} className="min-w-0 border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
+                  <CardContent className="min-w-0 p-3 sm:p-5">
                     {/* TMS-C (task #205, 2026-05-24): split the row
                         into the click-through Link (covers icon +
                         name + stats) and a separate action zone for
                         the WhatsApp broadcast button. Wrapping the
                         whole row in a Link meant the operator could
                         only navigate; now they get both. */}
-                    <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
-                      <Link href={withSlug(r.href)} className="flex items-center gap-4 flex-1 min-w-0">
-                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center flex-shrink-0">
-                          <r.icon className={`w-6 h-6 ${r.iconColor}`} />
+                    <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center">
+                      <Link href={withSlug(r.href)} className="flex min-w-0 items-start gap-3 lg:flex-1 lg:items-center lg:gap-4">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 sm:h-11 sm:w-11 lg:h-14 lg:w-14">
+                          <r.icon className={`h-5 w-5 sm:h-5 sm:w-5 lg:h-6 lg:w-6 ${r.iconColor}`} />
                         </div>
-                        <div className="flex-1 min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h2 className="text-lg sm:text-xl font-bold text-slate-900">{r.name}</h2>
                             {r.anomalies > 0 && (
@@ -1124,7 +1153,7 @@ function TeamsIndexPage() {
                             {r.handoverPending > 0 && (
                               <Badge variant="outline" className="text-[10px] uppercase tracking-wide border-slate-300 text-slate-700 bg-slate-50">
                                 <FileText className="w-2.5 h-2.5 mr-1" />
-                                {r.handoverPending} handover{r.handoverPending === 1 ? "" : "s"}
+                                {r.handoverPending} open handover{r.handoverPending === 1 ? "" : "s"}
                               </Badge>
                             )}
                             {/* TMS-C: money chip per tile, finance-
@@ -1150,10 +1179,10 @@ function TeamsIndexPage() {
                               actual "what's next for this team" without
                               clicking through. */}
                           {r.nextLabel && (
-                            <p className="text-[11px] text-slate-600 mt-1 flex items-center gap-1.5">
+                            <p className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-slate-600">
                               <Clock className="w-3 h-3 text-slate-400" />
                               <span className="font-medium">Next:</span>
-                              <span className="truncate">{r.nextLabel}</span>
+                              <span className="min-w-0 flex-1 truncate">{r.nextLabel}</span>
                               {r.nextTimeISO && (
                                 <span className="text-slate-400 tabular-nums">
                                   {r.nextTimeISO.includes("T") && r.nextTimeISO.split("T")[1]?.length > 5
@@ -1168,7 +1197,7 @@ function TeamsIndexPage() {
                               Drivers don't track clock-in the same way
                               so the column stays null. */}
                           {r.clockedNow != null && r.headCount > 0 && (
-                            <p className="text-[11px] mt-0.5 flex items-center gap-1.5">
+                            <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px]">
                               <span className="text-slate-400">Clocked:</span>
                               <span className={`tabular-nums font-medium ${r.clockedNow >= r.headCount ? "text-brand-primary" : r.clockedNow === 0 ? "text-rose-700" : "text-amber-700"}`}>
                                 {r.clockedNow} / {r.headCount}
@@ -1182,8 +1211,8 @@ function TeamsIndexPage() {
                           )}
                         </div>
                       </Link>
-                      <div className="grid grid-cols-3 gap-3 sm:gap-6 flex-shrink-0 w-full sm:w-auto">
-                        <Stat label="Active" value={loading ? "-" : String(r.headCount)} />
+                      <div className="grid w-full min-w-0 grid-cols-3 gap-2 sm:gap-4 lg:w-auto lg:shrink-0 lg:gap-6">
+                        <Stat label={r.headCountLabel || "Active staff"} value={loading ? "-" : String(r.headCount)} />
                         <Stat
                           label="Hours wk"
                           value={loading ? "-" : r.hoursThisWeek == null ? "-" : String(r.hoursThisWeek)}
@@ -1192,7 +1221,7 @@ function TeamsIndexPage() {
                             : "Hours logged Mon 00:00 to now (local time). Matches the Wages report for the same window."}
                         />
                         <Stat
-                          label="Jobs today"
+                          label={r.jobsLabel || "Jobs today"}
                           value={loading ? "-" : String(r.jobsToday)}
                           delta={deltaVs}
                           deltaTooltip={r.jobsSameDayLastWeek != null ? `vs ${r.jobsSameDayLastWeek} on same day last week` : undefined}
@@ -1205,13 +1234,14 @@ function TeamsIndexPage() {
                         variant="outline"
                         size="sm"
                         onClick={(e) => { e.preventDefault(); setBroadcastTeam(r); }}
-                        className="gap-1.5 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10 flex-shrink-0"
+                        aria-label={`Message ${r.name}`}
+                        className="h-10 w-10 shrink-0 self-end p-0 text-brand-primary hover:bg-brand-primary/10 lg:h-9 lg:w-auto lg:self-auto lg:gap-1.5 lg:px-3"
                         title={`Send a WhatsApp message to every ${r.name.toLowerCase()} member with a phone on file.`}
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Message</span>
+                        <span className="hidden lg:inline">Message</span>
                       </Button>
-                      <ArrowRight className="w-5 h-5 text-slate-400 flex-shrink-0 hidden sm:block" />
+                      <ArrowRight className="hidden h-5 w-5 shrink-0 text-slate-400 lg:block" />
                     </div>
                   </CardContent>
                 </Card>
@@ -1230,13 +1260,13 @@ function TeamsIndexPage() {
                 Operational pipelines
               </h2>
               <Link href={withSlug("/admin/equipment?tab=hire-in")} className="block">
-                <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
-                  <CardContent className="p-4 sm:p-5">
-                    <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
-                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center flex-shrink-0">
-                        <ShoppingBag className="w-6 h-6 text-slate-600" />
+                <Card className="min-w-0 border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
+                  <CardContent className="min-w-0 p-3 sm:p-5">
+                    <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 sm:h-14 sm:w-14">
+                        <ShoppingBag className="h-5 w-5 text-slate-600 sm:h-6 sm:w-6" />
                       </div>
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-lg sm:text-xl font-bold text-slate-900">Hire-in</h3>
                           {hireInOverdue > 0 && (
@@ -1297,9 +1327,10 @@ function Stat({
         {delta != null && delta !== 0 && (
           <span
             title={deltaTooltip}
-            className={`text-[10px] font-semibold tabular-nums ${delta > 0 ? "text-brand-primary" : "text-rose-700"}`}
+            aria-label={delta > 0 ? `${delta} more than the same day last week` : `${Math.abs(delta)} fewer than the same day last week`}
+            className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${delta > 0 ? "bg-brand-primary/10 text-brand-primary" : "bg-rose-50 text-rose-700"}`}
           >
-            {delta > 0 ? "+" : ""}{delta}
+            {delta > 0 ? `+${delta}` : `−${Math.abs(delta)}`} vs prev wk
           </span>
         )}
       </div>
@@ -1323,6 +1354,7 @@ function BroadcastDialog({
   companyId: string | null;
 }) {
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
   const [body, setBody] = useState("");
   const [recipients, setRecipients] = useState<Array<{ id: string; name: string | null; phone: string }>>([]);
   const [loadingRecipients, setLoadingRecipients] = useState(false);
@@ -1447,24 +1479,29 @@ function BroadcastDialog({
 
   return (
     <Dialog open={!!team} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] max-w-md overflow-y-auto p-4 sm:w-[calc(100%-2rem)] sm:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex min-w-0 items-center gap-2 pr-12 text-base sm:text-lg">
             <MessageCircle className="w-5 h-5 text-brand-primary" />
-            Message {team?.name.toLowerCase() || "team"}
+            <span className="min-w-0 break-words">Message {team?.name.toLowerCase() || "team"}</span>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm leading-5">
             Goes to every {team?.name.toLowerCase()} member with a phone on file and WhatsApp opt-in. Drain cron sends within 5 minutes.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+          <div className="min-w-0 break-words rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-700">
             {loadingRecipients ? (
               <span className="inline-flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> Loading roster...</span>
             ) : rosterError ? (
               <span className="text-rose-700">Couldn't load the roster: {rosterError}. Close and reopen to retry.</span>
             ) : recipients.length === 0 ? (
-              <span className="text-amber-700">No-one with a phone + opt-in. Add phone numbers on /admin/staff and flag whatsapp_opt_in.</span>
+              <div className="flex min-w-0 flex-col gap-2 text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+                <span>No eligible team members yet. Add a phone number and enable WhatsApp opt-in for staff.</span>
+                <Link href={withSlug("/admin/staff")} onClick={onClose} className="inline-flex min-h-9 shrink-0 items-center font-semibold text-brand-primary underline-offset-2 hover:underline">
+                  Manage staff
+                </Link>
+              </div>
             ) : (
               <>
                 <span className="font-medium">{recipients.length} recipient{recipients.length === 1 ? "" : "s"}:</span>{" "}
@@ -1476,21 +1513,21 @@ function BroadcastDialog({
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder={`Hi team, ...`}
-            rows={5}
-            className="text-sm"
+            rows={4}
+            className="max-h-48 min-h-28 resize-y text-sm"
           />
-          <p className="text-[11px] text-slate-500">
+          <p className="text-xs leading-5 text-slate-500">
             WhatsApp Business templates are required for first contact - if a recipient hasn't messaged you in 24h, Meta may drop free-form text. The queue logs the failure with a clear reason.
           </p>
         </div>
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-2">
           <DialogClose asChild>
-            <Button variant="outline" disabled={sending}>Cancel</Button>
+            <Button variant="outline" className="min-h-10 w-full sm:w-auto" disabled={sending}>Cancel</Button>
           </DialogClose>
           <Button
             onClick={handleSend}
             disabled={sending || loadingRecipients || recipients.length === 0 || !body.trim()}
-            className="bg-brand-primary hover:bg-brand-primary/90 gap-1.5"
+            className="min-h-10 w-full gap-1.5 bg-brand-primary hover:bg-brand-primary/90 sm:w-auto"
           >
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
             {sending ? "Queueing..." : `Send to ${recipients.length || 0}`}

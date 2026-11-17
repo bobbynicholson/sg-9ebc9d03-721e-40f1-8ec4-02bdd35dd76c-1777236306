@@ -59,7 +59,7 @@ import {
   ChefHat, ArrowLeft, Users, Clock, ClipboardList, BookOpen, Loader2,
   Banknote, CalendarDays, Wrench, Package, Flame, AlertTriangle,
   CheckCircle2, ArrowRight, MessageCircle, Printer, FileText,
-  Settings as SettingsIcon, ChevronDown, ChevronUp,
+  Settings as SettingsIcon, ChevronDown, ChevronUp, RefreshCw,
 } from "lucide-react";
 import { KitchenRulesPanel } from "@/components/admin/KitchenRulesPanel";
 import { TeamManagerWorkspace } from "@/components/admin/TeamManagerWorkspace";
@@ -597,17 +597,17 @@ function KitchenTeamPage() {
             meta={
               !loading && !error ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {stats.jobsToday} job{stats.jobsToday === 1 ? "" : "s"} today
                   </span>
                   {totalPrep > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       {stats.prepDone}/{totalPrep} prep tasks done
                     </span>
                   )}
                   {stats.active > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       Clocked {stats.clockedNow}/{stats.active}
                     </span>
                   )}
@@ -615,41 +615,49 @@ function KitchenTeamPage() {
               ) : undefined
             }
             actions={
-              <>
-              <Link href={withSlug(userRole === UserRole.KITCHEN_MANAGER ? "/team-portal/kitchen/today" : "/admin/teams")}>
-                <Button variant="outline" size="sm">
-                  <ArrowLeft className="w-4 h-4 mr-1.5" />
-                  {userRole === UserRole.KITCHEN_MANAGER ? "Kitchen today" : "All teams"}
+              <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 xl:w-auto">
+                <Link className="shrink-0" href={withSlug(userRole === UserRole.KITCHEN_MANAGER ? "/team-portal/kitchen/today" : "/admin/teams")}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-label={userRole === UserRole.KITCHEN_MANAGER ? "Kitchen today" : "All teams"}
+                    title={userRole === UserRole.KITCHEN_MANAGER ? "Kitchen today" : "All teams"}
+                    className="h-10 w-10 justify-center p-0 sm:h-9 sm:w-auto sm:px-3"
+                  >
+                    <ArrowLeft className="h-4 w-4 sm:mr-1.5" />
+                    <span className="sr-only sm:not-sr-only sm:inline">{userRole === UserRole.KITCHEN_MANAGER ? "Kitchen today" : "All teams"}</span>
+                  </Button>
+                </Link>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setBroadcastOpen(true)}
+                  aria-label="Send today's prep list"
+                  title="Send today's prep list to kitchen staff."
+                  className="h-10 w-10 justify-center border-brand-primary/30 p-0 text-brand-primary hover:bg-brand-primary/10 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  <span className="sr-only sm:not-sr-only sm:inline">Send prep list</span>
                 </Button>
-              </Link>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setBroadcastOpen(true)}
-                className="gap-1.5 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
-                title="Send today's prep list to every kitchen staff member with a phone on file."
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                Send prep list
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.print()}
-                className="gap-1.5"
-                title="Print-friendly view of today's prep schedule."
-              >
-                <Printer className="w-3.5 h-3.5" />
-                Print
-              </Button>
-              </>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.print()}
+                  aria-label="Print today's prep schedule"
+                  title="Print today's prep schedule."
+                  className="h-10 w-10 justify-center p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3"
+                >
+                  <Printer className="h-4 w-4" />
+                  <span className="sr-only sm:not-sr-only sm:inline">Print</span>
+                </Button>
+              </div>
             }
           />
           <PageWorkbench className="no-print" />
 
           {loading && (
             <div aria-hidden="true" className="no-print">
-              <div className="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-4 lg:grid-cols-4">
                 {[0, 1, 2, 3].map((i) => (
                   <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white dark:border-slate-800 dark:bg-slate-900/95" />
                 ))}
@@ -658,18 +666,18 @@ function KitchenTeamPage() {
           )}
 
           {!loading && !error && (
-            <div className="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 lg:grid-cols-4 no-print">
+            <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-4 lg:grid-cols-4 no-print">
               <Link href={withSlug("/admin/kitchen-staff")} className="block">
-                <StatTile label="Active team" value={stats.active} icon={Users} hint="Roster, rates, departments." />
+                <StatTile compact label="Active team" value={stats.active} icon={Users} hint="Roster, rates, departments." />
               </Link>
               <Link href={withSlug("/admin/staff-hours")} className="block">
-                <StatTile label="Hours this week" value={`${stats.hoursWeek}h`} icon={Clock} hint="Kitchen shifts, Monday to now." />
+                <StatTile compact label="Hours this week" value={`${stats.hoursWeek}h`} icon={Clock} hint="Kitchen shifts, Monday to now." />
               </Link>
               <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date())}`)} className="block">
-                <StatTile label="Jobs today" value={stats.jobsToday} icon={ClipboardList} hint="Events on today's calendar." />
+                <StatTile compact label="Jobs today" value={stats.jobsToday} icon={ClipboardList} hint="Events on today's calendar." />
               </Link>
               <Link href={withSlug("/admin/kitchen-schedule")} className="block">
-                <StatTile label="Prep tasks done" value={`${stats.prepDone}/${totalPrep}`} icon={Flame} hint={stats.prepOverdue > 0 ? `${stats.prepOverdue} overdue right now.` : "Today's prep pipeline."} />
+                <StatTile compact label="Prep tasks done" value={`${stats.prepDone}/${totalPrep}`} icon={Flame} hint={stats.prepOverdue > 0 ? `${stats.prepOverdue} overdue right now.` : "Today's prep pipeline."} />
               </Link>
             </div>
           )}
@@ -682,17 +690,20 @@ function KitchenTeamPage() {
           {!loading && error && (
             <Card className="mb-4 border-rose-200 bg-rose-50 shadow-sm no-print">
               <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3 px-4">
-                <div className="flex items-center gap-2 text-sm text-rose-800">
+                <div className="flex min-w-0 flex-1 items-start gap-2 text-sm text-rose-800">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>Could not load kitchen metrics: {error}</span>
+                  <span className="min-w-0 break-words">Could not load kitchen metrics: {error}</span>
                 </div>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => setRefreshTick((n) => n + 1)}
-                  className="border-rose-300 text-rose-800 hover:bg-rose-100"
+                  aria-label="Retry loading kitchen metrics"
+                  title="Retry"
+                  className="h-10 w-10 shrink-0 justify-center border-rose-300 p-0 text-rose-800 hover:bg-rose-100 sm:h-9 sm:w-auto sm:gap-2 sm:px-3"
                 >
-                  Retry
+                  <RefreshCw className="h-4 w-4" />
+                  <span className="sr-only sm:not-sr-only sm:inline">Retry</span>
                 </Button>
               </CardContent>
             </Card>
@@ -706,7 +717,7 @@ function KitchenTeamPage() {
             {stats.active > 0 && (
               <Badge
                 variant="outline"
-                className={`px-3 py-1.5 text-sm ${
+                className={`px-2.5 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm ${
                   stats.clockedNow >= stats.active
                     ? "border-brand-primary/30 text-brand-primary bg-brand-primary/10"
                     : stats.clockedNow === 0
@@ -720,7 +731,7 @@ function KitchenTeamPage() {
             )}
             {/* KIT-A: wage burn today, finance-gated. */}
             {canSeeFinance && stats.burnTodayZar > 0 && (
-              <Badge variant="outline" className="px-3 py-1.5 text-sm border-brand-primary/30 text-brand-primary bg-brand-primary/10 tabular-nums">
+              <Badge variant="outline" className="px-2.5 py-1 text-xs tabular-nums border-brand-primary/30 bg-brand-primary/10 text-brand-primary sm:px-3 sm:py-1.5 sm:text-sm">
                 <Banknote className="w-3 h-3 mr-1" />
                 {tenantCurrency.format(stats.burnTodayZar)} burn today
               </Badge>
@@ -731,7 +742,7 @@ function KitchenTeamPage() {
                 means gear didn't move stations. */}
             {stats.handoversWaiting > 0 && (
               <Link href={withSlug("/admin/equipment?tab=handovers")}>
-                <Badge variant="outline" className="px-3 py-1.5 text-sm border-slate-300 text-slate-700 bg-slate-50 cursor-pointer hover:bg-slate-100">
+                <Badge variant="outline" className="cursor-pointer border-slate-300 bg-slate-50 px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-100 sm:px-3 sm:py-1.5 sm:text-sm">
                   <FileText className="w-3 h-3 mr-1" />
                   {stats.handoversWaiting} handover{stats.handoversWaiting === 1 ? "" : "s"} awaiting receive
                 </Badge>
@@ -746,7 +757,7 @@ function KitchenTeamPage() {
               Hidden when nobody clocked any hours this week. */}
           {stats.topStaffHours.length > 0 && (
             <div className="mb-4 no-print">
-              <p className="text-[10px] uppercase tracking-wide font-semibold text-slate-500 mb-1.5">
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Hours this week
               </p>
               <div className="flex flex-wrap gap-2">
@@ -758,7 +769,7 @@ function KitchenTeamPage() {
                     <Link key={m.id} href={withSlug(`/admin/staff-hours?staff=${m.id}`)}>
                       <Badge
                         variant="outline"
-                        className={`px-2.5 py-1 text-xs tabular-nums cursor-pointer ${
+                        className={`max-w-full whitespace-normal break-words px-2.5 py-1 text-xs tabular-nums cursor-pointer ${
                           overtime
                             ? "border-rose-300 text-rose-800 bg-rose-50 hover:bg-rose-100"
                             : high
@@ -782,13 +793,13 @@ function KitchenTeamPage() {
               but kitchen-shaped. Hidden while loading (the skeleton
               above stands in). */}
           <div className={`mb-4 no-print ${loading ? "hidden" : ""}`}>
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:gap-3 sm:px-4 sm:py-3">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-slate-900">Kitchen intelligence</p>
-                <p className="mt-0.5 text-xs text-slate-500">Prep readiness, tomorrow&apos;s load, equipment, and stock risk.</p>
+                <p className="mt-0.5 text-xs leading-5 text-slate-500">Prep readiness, tomorrow&apos;s load, equipment, and stock risk.</p>
               </div>
-              <button type="button" onClick={() => setIsIntelOpen((open) => !open)} aria-expanded={isIntelOpen} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 text-xs font-semibold text-slate-600 transition-colors hover:border-brand-primary/40 hover:text-brand-primary">
-                {isIntelOpen ? "Hide" : "Open"} insights
+              <button type="button" onClick={() => setIsIntelOpen((open) => !open)} aria-expanded={isIntelOpen} aria-label={`${isIntelOpen ? "Hide" : "Show"} kitchen insights`} title={`${isIntelOpen ? "Hide" : "Show"} kitchen insights`} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 p-0 text-xs font-semibold text-slate-600 transition-colors hover:border-brand-primary/40 hover:text-brand-primary sm:h-9 sm:w-auto sm:gap-1.5 sm:px-2.5">
+                <span className="sr-only sm:not-sr-only sm:inline">{isIntelOpen ? "Hide" : "Open"} insights</span>
                 <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isIntelOpen ? "rotate-180" : ""}`} />
               </button>
             </div>
@@ -798,18 +809,18 @@ function KitchenTeamPage() {
                 actually is right now. */}
             <Link href={withSlug("/admin/kitchen-schedule")}>
               <Card className={`border shadow-sm transition-colors hover:border-slate-300 ${stats.prepOverdue > 0 ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}>
-                <CardContent className="p-5">
+                <CardContent className="p-3 sm:p-4">
                   <div className="flex items-start gap-3">
-                    <Flame className={`w-6 h-6 ${stats.prepOverdue > 0 ? "text-rose-600" : "text-brand-primary"} flex-shrink-0`} />
+                    <Flame className={`h-5 w-5 flex-shrink-0 sm:h-6 sm:w-6 ${stats.prepOverdue > 0 ? "text-rose-600" : "text-brand-primary"}`} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-slate-900">
+                        <p className="break-words text-sm font-semibold leading-5 text-slate-900">
                           {totalPrep === 0
                             ? "No prep tasks today"
                             : `${stats.prepDone} of ${totalPrep} prep tasks done`}
                         </p>
                         {stats.prepOverdue > 0 && (
-                          <Badge variant="destructive" className="text-[10px] uppercase">
+                          <Badge variant="destructive" className="text-xs uppercase">
                             {stats.prepOverdue} overdue
                           </Badge>
                         )}
@@ -822,7 +833,7 @@ function KitchenTeamPage() {
                               style={{ width: `${prepDonePct}%` }}
                             />
                           </div>
-                          <p className="text-[11px] text-slate-600 mt-1.5">
+                          <p className="mt-1.5 text-xs leading-5 text-slate-600">
                             {stats.prepInProgress > 0 && <span className="text-amber-700 font-medium">{stats.prepInProgress} in progress</span>}
                             {stats.prepInProgress > 0 && stats.prepPending > 0 && <span className="text-slate-400 mx-1">·</span>}
                             {stats.prepPending > 0 && <span>{stats.prepPending} not started</span>}
@@ -832,7 +843,7 @@ function KitchenTeamPage() {
                           </p>
                         </>
                       ) : (
-                        <p className="text-xs text-slate-600 mt-1">
+                        <p className="mt-1 text-xs leading-5 text-slate-600">
                           No tasks scheduled for today. Tap to open the schedule grid.
                         </p>
                       )}
@@ -846,16 +857,16 @@ function KitchenTeamPage() {
                 staff in before the day arrives. */}
             <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date(Date.now() + 24 * 3600 * 1000))}`)}>
               <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
-                <CardContent className="p-5">
+                <CardContent className="p-3 sm:p-4">
                   <div className="flex items-start gap-3">
-                    <CalendarDays className={`w-6 h-6 ${stats.tomorrowEvents > 0 ? "text-blue-700" : "text-slate-400"} flex-shrink-0`} />
+                    <CalendarDays className={`h-5 w-5 flex-shrink-0 sm:h-6 sm:w-6 ${stats.tomorrowEvents > 0 ? "text-blue-700" : "text-slate-400"}`} />
                     <div className="min-w-0">
-                      <p className="font-semibold text-slate-900">
+                      <p className="break-words text-sm font-semibold leading-5 text-slate-900">
                         {stats.tomorrowEvents === 0
                           ? "Light day tomorrow"
                           : `Tomorrow: ${stats.tomorrowEvents} event${stats.tomorrowEvents === 1 ? "" : "s"}`}
                       </p>
-                      <p className="text-xs text-slate-600 mt-0.5">
+                      <p className="mt-1 text-xs leading-5 text-slate-600">
                         {stats.tomorrowPrepMin > 0
                           ? `${Math.round(stats.tomorrowPrepMin / 60 * 10) / 10}h of prep already scheduled. Call extra hands in now if needed.`
                           : "No events booked. Quiet kitchen day."}
@@ -871,16 +882,16 @@ function KitchenTeamPage() {
                 so the kitchen manager isn't blindsided. */}
             <Link href={withSlug("/admin/equipment?tab=shortages")}>
               <Card className={`border shadow-sm transition-colors hover:border-slate-300 ${stats.issuesThisWeek > 0 ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}>
-                <CardContent className="p-5">
+                <CardContent className="p-3 sm:p-4">
                   <div className="flex items-start gap-3">
-                    <Wrench className={`w-6 h-6 ${stats.issuesThisWeek > 0 ? "text-rose-600" : "text-slate-400"} flex-shrink-0`} />
+                    <Wrench className={`h-5 w-5 flex-shrink-0 sm:h-6 sm:w-6 ${stats.issuesThisWeek > 0 ? "text-rose-600" : "text-slate-400"}`} />
                     <div className="min-w-0">
-                      <p className="font-semibold text-slate-900">
+                      <p className="break-words text-sm font-semibold leading-5 text-slate-900">
                         {stats.issuesThisWeek === 0
                           ? "Clean week, no damages"
                           : `${stats.issuesThisWeek} equipment issue${stats.issuesThisWeek === 1 ? "" : "s"} this week`}
                       </p>
-                      <p className="text-xs text-slate-600 mt-0.5">
+                      <p className="mt-1 text-xs leading-5 text-slate-600">
                         {stats.issuesThisWeek === 0
                           ? "Nothing logged in the last 7 days."
                           : "Damages logged in the last 7 days. Tap to review."}
@@ -904,16 +915,16 @@ function KitchenTeamPage() {
                 need to check on the fly today" prompt. */}
             <Link href={withSlug("/admin/stock?filter=perishable-risk")}>
               <Card className={`border shadow-sm transition-colors hover:border-slate-300 ${stats.stockAtRisk > 0 ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}>
-                <CardContent className="p-5">
+                <CardContent className="p-3 sm:p-4">
                   <div className="flex items-start gap-3">
-                    <Package className={`w-6 h-6 ${stats.stockAtRisk > 0 ? "text-rose-600" : "text-slate-400"} flex-shrink-0`} />
+                    <Package className={`h-5 w-5 flex-shrink-0 sm:h-6 sm:w-6 ${stats.stockAtRisk > 0 ? "text-rose-600" : "text-slate-400"}`} />
                     <div className="min-w-0">
-                      <p className="font-semibold text-slate-900">
+                      <p className="break-words text-sm font-semibold leading-5 text-slate-900">
                         {stats.stockAtRisk === 0
                           ? "Perishables on par"
                           : `${stats.stockAtRisk} perishable${stats.stockAtRisk === 1 ? "" : "s"} at risk`}
                       </p>
-                      <p className="text-xs text-slate-600 mt-0.5">
+                      <p className="mt-1 text-xs leading-5 text-slate-600">
                         {stats.stockAtRisk === 0
                           ? "Nothing low and nothing expiring in the next 3 days."
                           : "Low stock or expiring within 3 days. Tap to triage."}
@@ -928,13 +939,13 @@ function KitchenTeamPage() {
 
           {/* Tile shortcuts - unchanged routing, slug-wrapped now. */}
           <div className="no-print">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div>
+            <div className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:gap-3 sm:px-4 sm:py-3">
+              <div className="min-w-0">
                 <p className="text-sm font-semibold text-slate-900">Kitchen tools</p>
-                <p className="mt-0.5 text-xs text-slate-500">Open the deeper admin workspaces when you need them.</p>
+                <p className="mt-0.5 text-xs leading-5 text-slate-500">Open the deeper admin workspaces when you need them.</p>
               </div>
-              <button type="button" onClick={() => setIsShortcutsOpen((open) => !open)} aria-expanded={isShortcutsOpen} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 text-xs font-semibold text-slate-600 transition-colors hover:border-brand-primary/40 hover:text-brand-primary">
-                {isShortcutsOpen ? "Hide" : "Open"} tools
+              <button type="button" onClick={() => setIsShortcutsOpen((open) => !open)} aria-expanded={isShortcutsOpen} aria-label={`${isShortcutsOpen ? "Hide" : "Show"} kitchen tools`} title={`${isShortcutsOpen ? "Hide" : "Show"} kitchen tools`} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 p-0 text-xs font-semibold text-slate-600 transition-colors hover:border-brand-primary/40 hover:text-brand-primary sm:h-9 sm:w-auto sm:gap-1.5 sm:px-2.5">
+                <span className="sr-only sm:not-sr-only sm:inline">{isShortcutsOpen ? "Hide" : "Open"} tools</span>
                 <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isShortcutsOpen ? "rotate-180" : ""}`} />
               </button>
             </div>
@@ -942,12 +953,12 @@ function KitchenTeamPage() {
             {tiles.map((t) => (
               <Link key={t.label} href={withSlug(t.href)}>
                 <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
-                  <CardContent className="p-5">
+                  <CardContent className="p-3 sm:p-4">
                     <div className="flex items-start gap-3">
-                      <t.icon className={`w-6 h-6 ${t.iconColor} flex-shrink-0`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-900">{t.label}</p>
-                        <p className="text-xs text-slate-600 mt-0.5">{t.sub}</p>
+                      <t.icon className={`h-5 w-5 flex-shrink-0 sm:h-6 sm:w-6 ${t.iconColor}`} />
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words text-sm font-semibold leading-5 text-slate-900">{t.label}</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-600">{t.sub}</p>
                       </div>
                       <ArrowRight className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
                     </div>
@@ -961,7 +972,7 @@ function KitchenTeamPage() {
           {/* KIT-A: an at-a-glance "what's surfaced where" hint at
               the bottom so a new operator knows the deeper drilldowns
               exist (handovers / wages / live ops). */}
-          <div className="no-print mt-6 flex flex-wrap items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-xs dark:border-slate-800 dark:bg-slate-900/60">
+          <div className="no-print mt-5 flex flex-wrap items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs dark:border-slate-800 dark:bg-slate-900/60 sm:mt-6 sm:gap-2 sm:px-4 sm:py-3">
             <span className="font-semibold text-slate-600 dark:text-slate-300">More admin workspaces</span>
             <span className="hidden text-slate-300 sm:inline">·</span>
             <Link href={withSlug("/admin/tracking")} className="rounded-md px-2 py-1 font-medium text-brand-primary transition-colors hover:bg-brand-primary/10 hover:underline">Live operations</Link>
@@ -1037,6 +1048,7 @@ function KitchenTeamPage() {
         companyId={companyId || ""}
         regionFilterId={regionFilterId || null}
         prepRows={prepRows}
+        staffHref={withSlug("/admin/kitchen-staff")}
       />
 
       {/* KIT-B: print stylesheet. Hides every .no-print element +
@@ -1072,6 +1084,8 @@ function KitchenRulesSection() {
           onClick={() => setOpen((o) => !o)}
           className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50"
           aria-expanded={open}
+          aria-controls="kitchen-rules-panel"
+          aria-label={`${open ? "Hide" : "Show"} kitchen rules`}
         >
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-lg bg-brand-primary/10 text-brand-primary flex items-center justify-center shrink-0">
@@ -1090,13 +1104,13 @@ function KitchenRulesSection() {
             <ChevronDown className="w-4 h-4 text-slate-500 shrink-0" />
           )}
         </button>
-        {open && (
-          <div className="border-t border-slate-200 p-4 bg-slate-50/40">
+        <div id="kitchen-rules-panel" hidden={!open} style={open ? undefined : { display: "none" }} className="min-w-0 border-t border-slate-200 bg-slate-50/40 p-3 sm:p-4">
+          {open && (
             <KitchenRulesPanel
               contextNote="Same form as /admin/kitchen-settings. Edits land on companies.kitchen_settings either way."
             />
-          </div>
-        )}
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -1107,13 +1121,14 @@ function KitchenRulesSection() {
 // extra kitchen-shaped affordances: defaults the message body to
 // the day's task summary so the manager doesn't start from blank.
 function PrepBroadcastDialog({
-  open, onClose, companyId, regionFilterId, prepRows,
+  open, onClose, companyId, regionFilterId, prepRows, staffHref,
 }: {
   open: boolean;
   onClose: () => void;
   companyId: string;
   regionFilterId: string | null;
   prepRows: PrepRow[];
+  staffHref: string;
 }) {
   const { toast } = useToast();
   const [body, setBody] = useState("");
@@ -1245,13 +1260,13 @@ function PrepBroadcastDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] max-w-lg overflow-y-auto p-4 sm:w-[calc(100%-2rem)] sm:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex min-w-0 items-center gap-2 pr-12 text-base sm:text-lg">
             <MessageCircle className="w-5 h-5 text-brand-primary" />
-            Send prep list
+            <span className="min-w-0 break-words">Send prep list</span>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm leading-5">
             Goes to every kitchen staff member with a phone on file. Drain cron sends within 5 minutes. We've pre-filled the message with today's prep summary - edit before sending.
           </DialogDescription>
         </DialogHeader>
@@ -1264,13 +1279,18 @@ function PrepBroadcastDialog({
               </span>
             </div>
           )}
-          <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+          <div className="min-w-0 break-words rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-700">
             {loadingRoster ? (
               <span className="inline-flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> Loading roster...</span>
             ) : rosterError ? (
               <span className="text-rose-700">Couldn't load the roster: {rosterError}. Close and reopen to retry.</span>
             ) : recipients.length === 0 ? (
-              <span className="text-amber-700">No kitchen staff with a phone on file. Add phone numbers on /admin/kitchen-staff.</span>
+              <div className="flex min-w-0 flex-col gap-2 text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+                <span>No kitchen staff are eligible yet. Add a phone number and enable WhatsApp opt-in.</span>
+                <Link href={staffHref} onClick={onClose} className="inline-flex min-h-9 shrink-0 items-center font-semibold text-brand-primary underline-offset-2 hover:underline">
+                  Manage staff
+                </Link>
+              </div>
             ) : (
               <>
                 <span className="font-medium">{recipients.length} recipient{recipients.length === 1 ? "" : "s"}:</span>{" "}
@@ -1281,21 +1301,21 @@ function PrepBroadcastDialog({
           <Textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            rows={10}
-            className="text-sm font-mono"
+            rows={6}
+            className="max-h-56 min-h-32 resize-y text-sm font-mono"
           />
-          <p className="text-[11px] text-slate-500">
+          <p className="text-xs leading-5 text-slate-500">
             WhatsApp Business templates required for first contact. If a recipient hasn't messaged you in 24h, Meta may drop the free-form text - the queue logs the failure with a clear reason.
           </p>
         </div>
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-2">
           <DialogClose asChild>
-            <Button variant="outline" disabled={sending}>Cancel</Button>
+            <Button variant="outline" className="min-h-10 w-full sm:w-auto" disabled={sending}>Cancel</Button>
           </DialogClose>
           <Button
             onClick={handleSend}
             disabled={sending || loadingRoster || recipients.length === 0 || !body.trim()}
-            className="bg-brand-primary hover:bg-brand-primary/90 gap-1.5"
+            className="min-h-10 w-full gap-1.5 bg-brand-primary hover:bg-brand-primary/90 sm:w-auto"
           >
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
             {sending ? "Queueing..." : `Send to ${recipients.length || 0}`}

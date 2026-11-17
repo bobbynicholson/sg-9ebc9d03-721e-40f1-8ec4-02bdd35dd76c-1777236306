@@ -16,12 +16,19 @@ import { PrivacyTab } from "@/components/account/settings/PrivacyTab";
 import { ProfileTab, ProfileSummaryCard } from "@/components/account/settings/ProfileTab";
 import { SecurityTab } from "@/components/account/settings/SecurityTab";
 import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type {
   ProfileFormData,
   PasswordFormData,
 } from "@/components/account/settings/types";
 
 const ACCOUNT_SETTINGS_TABS = new Set(["profile", "security", "notifications", "privacy"]);
+const SETTINGS_SECTIONS = [
+  { value: "profile", label: "Profile", hint: "Name and contact", icon: User },
+  { value: "security", label: "Security", hint: "Password", icon: Lock },
+  { value: "notifications", label: "Notifications", hint: "Email, push and WhatsApp alerts", icon: Bell },
+  { value: "privacy", label: "Privacy", hint: "Data and visibility", icon: Shield },
+] as const;
 
 function tabFromLocation(): string {
   if (typeof window === "undefined") return "profile";
@@ -357,7 +364,7 @@ function ProfileSettingsPage() {
       </Head>
 
       <PortalLayout maxWidth="full" showWorkbench={false}>
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <PortalHeader
             variant="hero"
             title="Account settings"
@@ -397,34 +404,51 @@ function ProfileSettingsPage() {
             value={activeTab}
             onValueChange={handleTabChange}
             orientation="vertical"
-            className="grid w-full gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start"
+            className="grid w-full gap-4 sm:gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start"
           >
-            <div className="space-y-4 lg:sticky lg:top-6">
-              <ProfileSummaryCard
-                profile={profile}
-                company={company}
-                formData={formData}
-                uploadingAvatar={uploadingAvatar}
-                fileInputRef={fileInputRef}
-                onAvatarPick={handleAvatarPick}
-                onAvatarChange={handleAvatarChange}
-              />
-              <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm sm:grid-cols-4 lg:flex lg:flex-col lg:items-stretch dark:border-slate-800 dark:bg-slate-900">
-                {([
-                  { value: "profile", label: "Profile", hint: "Name and contact", icon: User },
-                  { value: "security", label: "Security", hint: "Password", icon: Lock },
-                  { value: "notifications", label: "Notifications", hint: "Email, push and WhatsApp alerts", icon: Bell },
-                  { value: "privacy", label: "Privacy", hint: "Data and visibility", icon: Shield },
-                ] as const).map((t) => (
+            <div className="space-y-3 lg:sticky lg:top-6 lg:space-y-4">
+              <div className={activeTab === "profile" ? "block" : "hidden lg:block"}>
+                <ProfileSummaryCard
+                  profile={profile}
+                  company={company}
+                  formData={formData}
+                  uploadingAvatar={uploadingAvatar}
+                  fileInputRef={fileInputRef}
+                  onAvatarPick={handleAvatarPick}
+                  onAvatarChange={handleAvatarChange}
+                />
+              </div>
+              <div className="lg:hidden">
+                <label htmlFor="account-settings-section" className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                  Settings section
+                </label>
+                <Select value={activeTab} onValueChange={handleTabChange}>
+                  <SelectTrigger id="account-settings-section" className="h-11 rounded-xl border-slate-200 bg-white text-sm shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                    <SelectValue placeholder="Choose a section" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SETTINGS_SECTIONS.map((section) => (
+                      <SelectItem key={section.value} value={section.value}>
+                        <span className="flex items-center gap-2">
+                          <section.icon className="h-4 w-4 text-slate-500" />
+                          {section.label}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <TabsList className="hidden h-auto w-full gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm lg:flex lg:flex-col lg:items-stretch dark:border-slate-800 dark:bg-slate-900">
+                {SETTINGS_SECTIONS.map((t) => (
                   <TabsTrigger
                     key={t.value}
                     value={t.value}
-                    className="flex items-center justify-center gap-2.5 rounded-lg px-3 py-2 text-sm data-[state=active]:bg-brand-primary/10 data-[state=active]:text-brand-primary data-[state=active]:shadow-none lg:justify-start"
+                    className="flex items-center justify-start gap-2.5 rounded-lg px-3 py-2.5 text-sm data-[state=active]:bg-brand-primary/10 data-[state=active]:text-brand-primary data-[state=active]:shadow-none"
                   >
                     <t.icon className="h-4 w-4 shrink-0" />
                     <span className="flex flex-col items-start leading-tight">
                       <span className="font-medium">{t.label}</span>
-                      <span className="hidden text-[11px] font-normal text-slate-500 lg:block">{t.hint}</span>
+                      <span className="hidden text-xs font-normal text-slate-500 lg:block">{t.hint}</span>
                     </span>
                   </TabsTrigger>
                 ))}

@@ -30,7 +30,7 @@ export function MobileSearchTrigger({
     >
       <Search className="w-4 h-4 flex-shrink-0" />
       <span className="flex-1 text-left">{hint}</span>
-      <kbd className="hidden sm:inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-mono text-slate-600 dark:border-white/20 dark:bg-white/10 dark:text-white/70">
+      <kbd className="hidden sm:inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-xs font-mono text-slate-600 dark:border-white/20 dark:bg-white/10 dark:text-white/70">
         Cmd K
       </kbd>
     </button>
@@ -57,12 +57,12 @@ export function MobileQuickActions({
 }) {
   if (!actions.length) return null;
   return (
-    <div className="mb-2">
-      <p className="px-1 mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/70 flex items-center gap-1">
+    <div>
+      <p className="px-1 mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/70 flex items-center gap-1">
         <Sparkles className="w-3 h-3" />
         Quick actions
       </p>
-      <div className={`grid gap-2 ${actions.length >= 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+      <div className={`grid gap-2 ${actions.length >= 3 ? "grid-cols-2 min-[360px]:grid-cols-3" : "grid-cols-2"}`}>
         {actions.map((a) => {
           const Icon = a.icon;
           return (
@@ -78,7 +78,7 @@ export function MobileQuickActions({
               <div className="min-w-0 w-full">
                 <div className="line-clamp-2 break-words text-xs font-semibold leading-tight text-slate-900 dark:text-slate-100">{a.label}</div>
                 {a.sub && (
-                  <div className="mt-0.5 line-clamp-2 text-[10px] leading-tight text-slate-500 dark:text-white/60">{a.sub}</div>
+                  <div className="mt-0.5 line-clamp-2 text-xs leading-tight text-slate-500 dark:text-white/70">{a.sub}</div>
                 )}
               </div>
             </Link>

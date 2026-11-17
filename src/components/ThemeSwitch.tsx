@@ -1,40 +1,8 @@
-"use client";
-
-import * as React from "react";
-import { Moon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-
 /**
- * Dark mode is temporarily disabled - the existing theme didn't have proper
- * dark colour tokens applied to most pages, so toggling it broke the layout.
- * Render a passive icon with a "coming soon" tooltip until we ship a proper
- * dark theme pass.
+ * Theme control is hidden while the app is pinned to light mode. Keeping this
+ * tiny component lets existing portal headers omit it without duplicated
+ * feature flags; restore the switch after dark mode is ready across the app.
  */
 export function ThemeSwitch() {
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            disabled
-            className="h-11 w-11 cursor-not-allowed opacity-60"
-            aria-label="Theme switching"
-          >
-            <Moon className="h-5 w-5 text-slate-500" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p className="text-xs">Dark mode coming soon</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
+  return null;
 }

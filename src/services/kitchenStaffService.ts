@@ -662,6 +662,7 @@ export const kitchenStaffService = {
       manual_override: true,
       override_reason: args.override_reason,
       clocked_out_by: args.edited_by,
+      break_started_at: newEnd ? null : shift.break_started_at,
     };
     if (args.notes !== undefined) patch.notes = args.notes;
 

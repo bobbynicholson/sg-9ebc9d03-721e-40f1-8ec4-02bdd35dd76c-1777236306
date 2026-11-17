@@ -22,6 +22,8 @@ import Head from "next/head";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
+import { AdminControlGroup } from "@/components/admin/AdminControlSurface";
+import { PwaLoadingScreen } from "@/components/pwa/PwaLoadingScreen";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -31,6 +33,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
+  DialogClose,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -89,6 +92,15 @@ import {
   CheckCircle2,
   AlertTriangle,
   Calendar,
+  Check,
+  ChevronDown,
+  Briefcase,
+  FileText,
+  Filter,
+  Power,
+  ShieldCheck,
+  Upload,
+  X,
 } from "lucide-react";
 import {
   PageWorkbench, PortalCard, PortalHeader, PortalShell, StatTile,
@@ -536,21 +548,22 @@ function ProvidersList() {
             variant="hero"
             title="Outsource providers"
             icon={HardHat}
+            actionsAlign="end"
             subtitle="Manage external service providers and their event bookings."
             meta={
               !loading && !loadError ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {totals.active} active of {totals.all}
                   </span>
                   {totals.bookings > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       {totals.bookings} booking{totals.bookings === 1 ? "" : "s"} on file
                     </span>
                   )}
                   {totals.acceptRate != null && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       {totals.acceptRate}% accept rate
                     </span>
                   )}
@@ -558,19 +571,31 @@ function ProvidersList() {
               ) : undefined
             }
             actions={
-              <>
-              <Button variant="outline" onClick={() => setImportOpen(true)} title="Import providers from CSV">
-                Import CSV
-              </Button>
-              <Button onClick={openAdd} className="bg-brand-primary hover:opacity-90">
-                <Plus className="w-4 h-4 mr-2" />
-                Add provider
-              </Button>
-              </>
+              <div className="flex min-w-0 items-center justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setImportOpen(true)}
+                  className="h-10 w-10 shrink-0 justify-center gap-0 px-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3"
+                  aria-label="Import providers from CSV"
+                  title="Import providers from CSV"
+                >
+                  <Upload aria-hidden="true" className="h-4 w-4" />
+                  <span className="sr-only sm:not-sr-only">Import CSV</span>
+                </Button>
+                <Button
+                  onClick={openAdd}
+                  className="h-10 w-10 shrink-0 justify-center gap-0 bg-brand-primary px-0 text-white sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3"
+                  aria-label="Add provider"
+                  title="Add provider"
+                >
+                  <Plus aria-hidden="true" className="h-4 w-4" />
+                  <span className="sr-only sm:not-sr-only">Add provider</span>
+                </Button>
+              </div>
             }
           />
           <PageWorkbench />
-          <CatalogueOperationsStrip active="outsource" />
+          <CatalogueOperationsStrip active="outsource" navigationMode="dropdown" />
 
           {/* OUT-B: cron dry-run tester. Demoted from always-on
               yellow banner to a collapsed disclosure. Only owner /
@@ -580,78 +605,101 @@ function ProvidersList() {
           {canRunCronDryRun && <CronDryRunPanel />}
 
           {/* Stat tiles: real aggregates from the loaded list. */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="mb-5 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
             <StatTile
               label="Active providers"
               value={`${totals.active} / ${totals.all}`}
               hint="Active of all on file"
               icon={HardHat}
+              compact
             />
             <StatTile
               label="Bookings on file"
               value={`${totals.bookings}`}
               hint="Assignments across all providers"
               icon={Calendar}
+              compact
             />
             <StatTile
               label="Accept rate"
               value={totals.acceptRate == null ? "-" : `${totals.acceptRate}%`}
               hint="Accepted vs cancelled requests"
               icon={CheckCircle2}
+              compact
             />
             <StatTile
               label="Roles covered"
               value={`${totals.rolesCovered}`}
               hint="Distinct service roles you can book"
               icon={Star}
+              compact
             />
           </div>
 
           {/* Toolbar: search + filters in one card */}
           <PortalCard className="mb-6" padded={false}>
-            <div className="p-3 flex flex-col sm:flex-row gap-2 sm:p-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <div className="flex min-w-0 flex-col gap-2.5 p-3 sm:p-4">
+              <div className="relative min-w-0">
+                <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search name, contact, specialty, role..."
-                  className="pl-9 bg-white"
+                  className="h-10 bg-white pl-9 text-sm"
+                  aria-label="Search outsource providers"
                 />
               </div>
-              <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger className="w-full sm:w-44 bg-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All roles</SelectItem>
-                  {availableRoles.map((r) => (
-                    <SelectItem key={r} value={r}>{roleLabel(r)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {regions.length > 0 && (
-                <Select value={regionFilter} onValueChange={setRegionFilter}>
-                  <SelectTrigger className="w-full sm:w-44 bg-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All regions</SelectItem>
-                    {regions.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              <label className="inline-flex items-center gap-1.5 text-xs text-slate-700 px-3 py-2 bg-white border border-slate-200 rounded-md cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={activeOnly}
-                  onChange={(e) => setActiveOnly(e.target.checked)}
-                  className="accent-brand-primary"
-                />
-                Active only
-              </label>
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <AdminControlGroup
+                  label="Provider filters"
+                  icon={Filter}
+                  collapsible
+                  summary={`${roleFilter === "all" ? "All roles" : roleLabel(roleFilter)} · ${regionFilter === "all" ? "All regions" : regions.find((region) => region.id === regionFilter)?.name || "Region"} · ${activeOnly ? "Active only" : "All providers"}`}
+                  className="min-w-0 flex-1 rounded-md border-0 bg-slate-50/80 p-2"
+                  contentClassName="grid w-full min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-3"
+                >
+                  <div className="min-w-0 space-y-1">
+                    <Label htmlFor="provider-role-filter" className="text-xs text-slate-600">Role</Label>
+                    <Select value={roleFilter} onValueChange={setRoleFilter}>
+                      <SelectTrigger id="provider-role-filter" aria-label="Filter by provider role" className="h-10 w-full bg-white text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All roles</SelectItem>
+                        {availableRoles.map((role) => (
+                          <SelectItem key={role} value={role}>{roleLabel(role)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {regions.length > 0 && (
+                    <div className="min-w-0 space-y-1">
+                      <Label htmlFor="provider-region-filter" className="text-xs text-slate-600">Region</Label>
+                      <Select value={regionFilter} onValueChange={setRegionFilter}>
+                        <SelectTrigger id="provider-region-filter" aria-label="Filter by region" className="h-10 w-full bg-white text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All regions</SelectItem>
+                          {regions.map((region) => (
+                            <SelectItem key={region.id} value={region.id}>{region.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <label className="flex min-h-10 items-center gap-2 text-xs font-medium text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={activeOnly}
+                      onChange={(e) => setActiveOnly(e.target.checked)}
+                      className="h-4 w-4 accent-brand-primary"
+                    />
+                    Active providers only
+                  </label>
+                </AdminControlGroup>
+                <span className="shrink-0 text-xs tabular-nums text-slate-500">{filtered.length} of {providers.length}</span>
+              </div>
             </div>
           </PortalCard>
 
@@ -672,22 +720,11 @@ function ProvidersList() {
 
           {/* List */}
           {loading ? (
-            // Skeleton keeps the shell + rail mounted while loading.
-            <Card>
-              <CardContent className="p-4 space-y-3" aria-busy="true" aria-label="Loading providers">
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center gap-4 animate-pulse">
-                    <div className="h-4 w-40 rounded bg-slate-200 dark:bg-slate-800" />
-                    <div className="h-4 flex-1 rounded bg-slate-100 dark:bg-slate-800/60" />
-                    <div className="h-4 w-24 rounded bg-slate-100 dark:bg-slate-800/60" />
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+            <PwaLoadingScreen message="Loading outsource providers" variant="inline" />
           ) : loadError ? null : providers.length === 0 ? (
             <Card className="border-2 border-dashed">
-              <CardContent className="p-12 text-center">
-                <HardHat className="w-14 h-14 mx-auto text-slate-300 mb-3" />
+              <CardContent className="p-6 text-center sm:p-12">
+                <HardHat className="mx-auto mb-3 h-10 w-10 text-slate-300 sm:h-14 sm:w-14" />
                 <h3 className="text-lg font-semibold text-slate-900 mb-1">
                   No outsource providers yet
                 </h3>
@@ -696,14 +733,14 @@ function ProvidersList() {
                   specific orders. They become assignable from the order modal with a built-in
                   accept/decline magic link.
                 </p>
-                <Button onClick={openAdd} className="mt-4 bg-brand-primary hover:opacity-90">
-                  <Plus className="w-4 h-4 mr-2" />
+                <Button onClick={openAdd} className="mt-4 h-10 bg-brand-primary hover:opacity-90">
+                  <Plus className="mr-2 h-4 w-4" />
                   Add your first provider
                 </Button>
               </CardContent>
             </Card>
           ) : filtered.length === 0 ? (
-            <Card><CardContent className="p-8 text-center text-slate-500">
+            <Card><CardContent className="p-5 text-center text-sm text-slate-600 sm:p-8">
               No providers match the current filter.
             </CardContent></Card>
           ) : (
@@ -713,151 +750,125 @@ function ProvidersList() {
                 const rateDisplay = p.default_rate != null
                   ? `${p.default_currency} ${Number(p.default_rate).toLocaleString("en-ZA", { maximumFractionDigits: 2 })} ${rateLabel.toLowerCase()}`
                   : `${rateLabel}`;
+                const providerRegionId = (p as OutsourceProvider & { region_id?: string | null }).region_id;
                 return (
                   <Card key={p.id} className={`${p.is_active ? "" : "opacity-60"} hover:shadow-sm transition`}>
-                    <CardContent className="p-4">
-                      {/* Stack name / rate / actions vertically on mobile -
-                          side-by-side they collided (the provider name
-                          overlapped the "R x per event" block at phone width). */}
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {/* withSlug was missing here - every other
-                                internal link carries ?company_slug; this
-                                one dropped it and lost tenant context. */}
+                    <CardContent className="p-2.5 sm:p-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex min-w-0 items-center gap-1.5">
                             <Link
                               href={withSlug(`/admin/outsource-providers/${p.id}`)}
-                              className="text-lg font-semibold text-slate-900 hover:text-brand-primary hover:underline"
+                              className="min-w-0 truncate text-sm font-semibold text-slate-900 hover:text-brand-primary hover:underline"
+                              title={p.provider_name}
                             >
                               {p.provider_name}
                             </Link>
-                            {!p.is_active && (
-                              <Badge className="bg-slate-200 text-slate-700 text-[10px]">Inactive</Badge>
-                            )}
+                            {!p.is_active && <Badge className="shrink-0 bg-slate-200 text-slate-700 text-xs">Inactive</Badge>}
                             {p.rating != null && (
-                              <span className="inline-flex items-center gap-0.5 text-xs text-amber-700">
-                                <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                              <span className="inline-flex shrink-0 items-center gap-0.5 text-xs tabular-nums text-amber-700" title={`${Number(p.rating).toFixed(1)} out of 5`}>
+                                <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
                                 {Number(p.rating).toFixed(1)}
                               </span>
                             )}
-                            {/* Role chips are decorative category chrome -
-                                brand tint, not the off-palette blue. */}
-                            {(p.provider_roles || []).map((r) => (
-                              <Badge key={r} variant="outline" className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20">
-                                {roleLabel(r)}
+                            {(p.provider_roles || []).slice(0, 1).map((role) => (
+                              <Badge key={role} variant="outline" className="max-w-[9rem] shrink-0 truncate text-xs bg-brand-primary/10 text-brand-primary border-brand-primary/20">
+                                {roleLabel(role)}
                               </Badge>
                             ))}
-                          </div>
-                          {p.contact_person && (
-                            <p className="text-xs text-slate-600 mt-0.5">Contact: {p.contact_person}</p>
-                          )}
-                          {p.specialty && (
-                            <p className="text-xs text-slate-600 mt-0.5">{p.specialty}</p>
-                          )}
-                          {/* Contact strip */}
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            {p.email && (
-                              <a
-                                href={`mailto:${p.email}`}
-                                className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50"
-                              >
-                                <Mail className="w-3 h-3" />
-                                {p.email}
-                              </a>
-                            )}
-                            {p.whatsapp_number && (
-                              <a
-                                href={waTemplateFor(p) || buildWhatsAppUrl(p.whatsapp_number) || undefined}
-                                target="_self"
-                                rel="noopener noreferrer"
-                                title="Opens WhatsApp with a templated enquiry pre-filled"
-                                className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded-md px-2 py-1 hover:bg-brand-primary/15"
-                              >
-                                <MessageCircle className="w-3 h-3" />
-                                {p.whatsapp_number}
-                              </a>
-                            )}
-                            {p.phone && (
-                              <a
-                                href={`tel:${p.phone.replace(/[^+\d]/g, "")}`}
-                                className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50"
-                              >
-                                <Phone className="w-3 h-3" />
-                                {p.phone}
-                              </a>
+                            {(p.provider_roles || []).length > 1 && (
+                              <span className="shrink-0 text-xs text-slate-500" title={(p.provider_roles || []).map(roleLabel).join(", ")}>
+                                +{p.provider_roles.length - 1}
+                              </span>
                             )}
                           </div>
-                        </div>
-                        <div className="text-left sm:text-right shrink-0">
-                          {canSeeFinance && (
-                            <>
-                              <p className="text-sm font-semibold text-slate-900 tabular-nums">{rateDisplay}</p>
-                              {p.payment_terms_days != null && (
-                                <p className="text-[11px] text-slate-500">Net {p.payment_terms_days}d</p>
-                              )}
-                            </>
-                          )}
-                          <p className="text-[11px] text-slate-500 mt-1">
-                            Prefers {p.preferred_contact_channel}
+                          <p className="mt-0.5 truncate text-xs text-slate-600" title={[p.contact_person, p.specialty].filter(Boolean).join(" · ") || "No contact details"}>
+                            {[p.contact_person, p.specialty].filter(Boolean).join(" · ") || "No contact details"}
                           </p>
-                          {/* OUT-D: reliability + last-booked pills.
-                              Data already on OutsourceProviderWithStats
-                              (assignment_count, accepted_count,
-                              cancelled_count, last_assignment_at).
-                              Surface them inline so the operator sees
-                              who's solid at a glance. */}
-                          {p.assignment_count > 0 && (() => {
-                            const responded = p.accepted_count + p.cancelled_count;
-                            const acceptRate = responded > 0
-                              ? Math.round((p.accepted_count / responded) * 100)
-                              : null;
-                            const daysSinceLast = p.last_assignment_at
-                              ? Math.floor((Date.now() - new Date(p.last_assignment_at).getTime()) / 86_400_000)
-                              : null;
-                            return (
-                              <div className="text-[11px] text-slate-500 mt-0.5 space-y-0.5">
-                                <p>{p.assignment_count} booking{p.assignment_count === 1 ? "" : "s"} on file</p>
-                                {/* Status colour stays semantic: emerald good, amber mid, rose poor. */}
-                                {acceptRate != null && (
-                                  <p className={acceptRate >= 80 ? "text-emerald-600" : acceptRate >= 50 ? "text-amber-700" : "text-rose-700"}>
-                                    {acceptRate}% accept
-                                  </p>
-                                )}
-                                {daysSinceLast != null && (
-                                  <p>last booked {daysSinceLast === 0 ? "today" : `${daysSinceLast}d ago`}</p>
-                                )}
-                              </div>
-                            );
-                          })()}
+                          <p className="mt-0.5 truncate text-xs text-slate-500">
+                            {p.assignment_count} booking{p.assignment_count === 1 ? "" : "s"}
+                            {p.preferred_contact_channel ? ` · Prefers ${p.preferred_contact_channel}` : ""}
+                            {canSeeFinance && p.default_rate != null ? ` · ${rateDisplay}` : ""}
+                          </p>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex shrink-0 items-center gap-0.5">
                           <Button
-                            size="sm"
+                            size="icon"
                             variant="ghost"
+                            className="h-9 w-9"
                             onClick={() => handleToggleActive(p)}
-                            title={p.is_active ? "Deactivate" : "Activate"}
+                            aria-label={p.is_active ? `Deactivate ${p.provider_name}` : `Activate ${p.provider_name}`}
+                            title={p.is_active ? "Deactivate provider" : "Activate provider"}
                           >
-                            {p.is_active ? "Active" : "Inactive"}
+                            <Power className={`h-4 w-4 ${p.is_active ? "text-emerald-700" : "text-slate-500"}`} />
                           </Button>
                           <Button
-                            size="sm"
+                            size="icon"
                             variant="ghost"
+                            className="h-9 w-9"
                             onClick={() => openEdit(p)}
-                            title="Edit"
+                            aria-label={`Edit ${p.provider_name}`}
+                            title="Edit provider"
                           >
-                            <Pencil className="w-4 h-4" />
+                            <Pencil className="h-4 w-4" />
                           </Button>
                           <Button
-                            size="sm"
+                            size="icon"
                             variant="ghost"
+                            className="h-9 w-9 text-rose-600 hover:text-rose-700"
                             onClick={() => setDeleteTarget(p)}
-                            title="Remove"
-                            className="text-rose-600 hover:text-rose-700"
+                            aria-label={`Delete ${p.provider_name}`}
+                            title="Delete provider"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
+                      <details className="group mt-2 border-t border-slate-100 pt-1.5">
+                        <summary className="flex min-h-8 cursor-pointer list-none items-center gap-2 rounded text-xs font-medium text-slate-600 hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary">
+                          <span>Contact and booking details</span>
+                          <span className="min-w-0 flex-1 truncate text-left font-normal text-slate-500">
+                            {[p.email, p.phone, p.whatsapp_number].filter(Boolean).join(" · ") || "No contact methods added"}
+                          </span>
+                          <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+                        </summary>
+                        <div className="grid min-w-0 gap-3 border-t border-slate-100 py-3 text-xs text-slate-700 sm:grid-cols-2 lg:grid-cols-3">
+                          <div className="min-w-0 space-y-1.5">
+                            <p className="font-semibold text-slate-800">Contact</p>
+                            {p.contact_person && <p className="break-words">{p.contact_person}</p>}
+                            {p.specialty && <p className="break-words text-slate-600">{p.specialty}</p>}
+                            {p.email && <a href={`mailto:${p.email}`} className="flex min-w-0 items-center gap-1.5 text-brand-primary hover:underline"><Mail className="h-3.5 w-3.5 shrink-0" /><span className="min-w-0 break-all">{p.email}</span></a>}
+                            {p.whatsapp_number && (
+                              <a href={waTemplateFor(p) || buildWhatsAppUrl(p.whatsapp_number) || undefined} target="_self" rel="noopener noreferrer" title="Opens WhatsApp with a templated enquiry pre-filled" className="flex min-w-0 items-center gap-1.5 text-brand-primary hover:underline">
+                                <MessageCircle className="h-3.5 w-3.5 shrink-0" /><span>{p.whatsapp_number}</span>
+                              </a>
+                            )}
+                            {p.phone && <a href={`tel:${p.phone.replace(/[^+\d]/g, "")}`} className="flex items-center gap-1.5 text-brand-primary hover:underline"><Phone className="h-3.5 w-3.5" />{p.phone}</a>}
+                            {p.provider_roles?.length > 1 && <p className="break-words text-slate-600">Also: {p.provider_roles.slice(1).map(roleLabel).join(", ")}</p>}
+                          </div>
+                          <div className="min-w-0 space-y-1.5">
+                            <p className="font-semibold text-slate-800">Booking defaults</p>
+                            {canSeeFinance && <p className="break-words font-medium tabular-nums text-slate-900">{rateDisplay}</p>}
+                            {canSeeFinance && p.payment_terms_days != null && <p>Net {p.payment_terms_days} days</p>}
+                            <p>Preferred contact: {p.preferred_contact_channel || "Not set"}</p>
+                            <p>Bookings on file: {p.assignment_count}</p>
+                            {providerRegionId && <p>Region: {regions.find((region) => region.id === providerRegionId)?.name || "Assigned region"}</p>}
+                            {p.assignment_count > 0 && (() => {
+                              const responses = p.accepted_count + p.cancelled_count;
+                              const acceptRate = responses > 0 ? Math.round((p.accepted_count / responses) * 100) : null;
+                              const lastBookedDays = p.last_assignment_at
+                                ? Math.floor((Date.now() - new Date(p.last_assignment_at).getTime()) / 86_400_000)
+                                : null;
+                              return (
+                                <div className="flex flex-wrap gap-x-2 gap-y-1 text-slate-600">
+                                  {acceptRate != null && <span className={acceptRate >= 80 ? "text-emerald-700" : acceptRate >= 50 ? "text-amber-700" : "text-rose-700"}>{acceptRate}% accept</span>}
+                                  {lastBookedDays != null && <span>Last booked {lastBookedDays === 0 ? "today" : `${lastBookedDays}d ago`}</span>}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      </details>
                     </CardContent>
                   </Card>
                 );
@@ -866,7 +877,7 @@ function ProvidersList() {
           )}
 
           {/* Suppliers cross-link so admins find the right home for what they're entering */}
-          <p className="text-[11px] text-slate-500 mt-6">
+          <p className="mt-5 text-xs text-slate-600">
             Looking for goods suppliers (ingredients, equipment)?{" "}
             <Link href={withSlug("/admin/suppliers")} className="underline hover:text-slate-900">
               Open suppliers <ExternalLink className="w-2.5 h-2.5 inline-block" />
@@ -878,17 +889,32 @@ function ProvidersList() {
 
       {/* Add / Edit dialog */}
       <Dialog open={adding} onOpenChange={(o) => { if (!o) closeDialog(); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent hideCloseButton className="w-[calc(100vw-1rem)] max-w-2xl max-h-[calc(100dvh-1rem)] overflow-y-auto p-4 sm:p-6">
+          <DialogHeader className="sticky top-0 z-10 -mx-4 -mt-4 border-b border-slate-200 bg-white px-4 pb-3 pt-4 pr-14 text-left dark:border-slate-700 dark:bg-slate-900 sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-6 sm:pr-16">
+            <DialogClose
+              aria-label="Close provider editor"
+              title="Close"
+              className="absolute right-2 top-2 z-20 inline-flex h-10 w-10 items-center justify-center rounded-full border border-brand-primary/30 bg-brand-primary/10 text-brand-primary shadow-sm transition hover:bg-brand-primary hover:text-white focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:ring-offset-2 sm:right-3 sm:top-3"
+            >
+              <X className="h-5 w-5" aria-hidden="true" />
+            </DialogClose>
             <DialogTitle>{editing ? "Edit provider" : "Add outsource provider"}</DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="max-w-prose text-xs leading-relaxed">
               These details drive the request comms + cost lines when this provider is assigned to an order.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5 col-span-2">
+          <div className="space-y-5 py-2">
+            <section aria-labelledby="provider-details-heading" className="space-y-3">
+              <div className="flex items-center gap-2.5 border-b border-slate-200 pb-2 dark:border-slate-700">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary"><HardHat className="h-4 w-4" aria-hidden="true" /></span>
+                <span className="min-w-0">
+                  <h3 id="provider-details-heading" className="text-sm font-semibold text-slate-900 dark:text-slate-100">Provider details</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">Name the provider and the service they offer.</p>
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="col-span-full space-y-1.5">
                 <Label htmlFor="op-name">Provider name</Label>
                 <Input
                   id="op-name"
@@ -915,35 +941,66 @@ function ProvidersList() {
                   placeholder="Spit braai, fine dining"
                 />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Roles this provider can fulfil</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {COMMON_ROLES.map((r) => {
-                  const active = form.provider_roles.includes(r.value);
-                  return (
-                    <button
-                      type="button"
-                      key={r.value}
-                      onClick={() => toggleRole(r.value)}
-                      className={`text-xs px-2.5 py-1 rounded-full border transition ${
-                        active
-                          ? "bg-brand-primary text-white border-brand-primary"
-                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      {r.label}
-                    </button>
-                  );
-                })}
               </div>
-              <p className="text-[11px] text-slate-500">
-                Multi-select. Same provider can be both a florist and an on-site chef if they offer both.
-              </p>
-            </div>
+            </section>
 
-            <div className="grid grid-cols-3 gap-3">
+            <details className="group rounded-lg border border-slate-200 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-800/40">
+              <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 [&::-webkit-details-marker]:hidden">
+                <span className="flex min-w-0 items-center gap-2">
+                  <Briefcase className="h-4 w-4 shrink-0 text-brand-primary" aria-hidden="true" />
+                  <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100">Roles this provider can fulfil</span>
+                  <span className="mt-0.5 block truncate text-xs text-slate-500">
+                    {form.provider_roles.length
+                      ? `${COMMON_ROLES.filter((role) => form.provider_roles.includes(role.value)).slice(0, 2).map((role) => role.label).join(", ")}${form.provider_roles.length > 2 ? ` +${form.provider_roles.length - 2} more` : ""}`
+                      : "No roles selected yet"}
+                  </span>
+                  </span>
+                </span>
+                <span className="flex shrink-0 items-center gap-2">
+                  <span className="rounded-full bg-white px-2 py-1 text-xs font-medium text-slate-700 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700">
+                    {form.provider_roles.length} selected
+                  </span>
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-700 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700">
+                    <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" aria-hidden="true" />
+                  </span>
+                </span>
+              </summary>
+              <div className="border-t border-slate-200 p-3 dark:border-slate-700">
+                <div className="grid max-h-52 grid-cols-1 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-2">
+                  {COMMON_ROLES.map((r) => {
+                    const active = form.provider_roles.includes(r.value);
+                    return (
+                      <button
+                        type="button"
+                        key={r.value}
+                        aria-pressed={active}
+                        onClick={() => toggleRole(r.value)}
+                        className={`flex min-h-10 items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 ${
+                          active
+                            ? "border-brand-primary bg-brand-primary/10 text-brand-primary"
+                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        <span>{r.label}</span>
+                        {active && <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-xs text-slate-500">You can choose more than one role for the same provider.</p>
+              </div>
+            </details>
+
+            <section aria-labelledby="provider-contact-heading" className="space-y-3">
+              <div className="flex items-center gap-2.5 border-b border-slate-200 pb-2 dark:border-slate-700">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary"><Phone className="h-4 w-4" aria-hidden="true" /></span>
+                <span className="min-w-0">
+                  <h3 id="provider-contact-heading" className="text-sm font-semibold text-slate-900 dark:text-slate-100">Contact and location</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">How to reach them and which region they cover.</p>
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="op-email">Email</Label>
                 <Input
@@ -972,9 +1029,9 @@ function ProvidersList() {
                   placeholder="+27 82 ... (if different)"
                 />
               </div>
-            </div>
+              </div>
 
-            <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Preferred contact</Label>
                 <Select
@@ -1004,9 +1061,18 @@ function ProvidersList() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
+              </div>
+            </section>
 
-            <div className="grid grid-cols-3 gap-3">
+            <section aria-labelledby="provider-booking-heading" className="space-y-3">
+              <div className="flex items-center gap-2.5 border-b border-slate-200 pb-2 dark:border-slate-700">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary"><Calendar className="h-4 w-4" aria-hidden="true" /></span>
+                <span className="min-w-0">
+                  <h3 id="provider-booking-heading" className="text-sm font-semibold text-slate-900 dark:text-slate-100">Booking defaults</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">Default cost and payment terms used for new assignments.</p>
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Default rate type</Label>
                 <Select
@@ -1034,7 +1100,7 @@ function ProvidersList() {
                   disabled={form.default_rate_type === "quoted"}
                 />
                 {form.default_rate_type === "quoted" && (
-                  <p className="text-[10px] text-slate-500">Cost negotiated per booking.</p>
+                  <p className="text-xs text-slate-600">Cost negotiated per booking.</p>
                 )}
               </div>
               <div className="space-y-1.5">
@@ -1048,9 +1114,18 @@ function ProvidersList() {
                   placeholder="Net days for their invoice"
                 />
               </div>
-            </div>
+              </div>
+            </section>
 
-            <div className="space-y-1.5">
+            <section aria-labelledby="provider-notes-heading" className="space-y-3">
+              <div className="flex items-center gap-2.5 border-b border-slate-200 pb-2 dark:border-slate-700">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary"><FileText className="h-4 w-4" aria-hidden="true" /></span>
+                <span className="min-w-0">
+                  <h3 id="provider-notes-heading" className="text-sm font-semibold text-slate-900 dark:text-slate-100">Notes for your team</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">Availability, preferences, or other useful context.</p>
+                </span>
+              </div>
+              <div className="space-y-1.5">
               <Label htmlFor="op-notes">Notes <span className="text-xs text-slate-400">(optional)</span></Label>
               <Textarea
                 id="op-notes"
@@ -1059,18 +1134,20 @@ function ProvidersList() {
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 placeholder="Prefers Sundays off, has own transport, vegan-friendly..."
               />
-            </div>
+              </div>
+            </section>
 
             {/* OUT-C: compliance + commercial. Folded into a collapsed
                 disclosure so the day-1 form stays light, but the data
                 is available for SARS-readiness and public-liability
                 tracking when the operator wants it. */}
-            <details className="rounded-md border border-slate-200 bg-slate-50/60 p-3">
-              <summary className="text-xs font-semibold uppercase tracking-wide text-slate-700 cursor-pointer">
-                Compliance, rating + linked supplier
+            <details className="group rounded-lg border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-800/40">
+              <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-slate-800 dark:text-slate-100 [&::-webkit-details-marker]:hidden">
+                <span className="flex min-w-0 items-center gap-2"><ShieldCheck className="h-4 w-4 shrink-0 text-brand-primary" aria-hidden="true" /><span>Compliance and linked supplier <span className="font-normal text-slate-500">(optional)</span></span></span>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-slate-700 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700"><ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" aria-hidden="true" /></span>
               </summary>
-              <div className="mt-3 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+              <div className="mt-3 space-y-3 border-t border-slate-200 pt-3 dark:border-slate-700">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="op-rating">Rating (1-5)</Label>
                     <Input
@@ -1098,7 +1175,7 @@ function ProvidersList() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-[10px] text-slate-500">e.g. the florist who also sells you vases.</p>
+                    <p className="text-xs text-slate-600">e.g. the florist who also sells you vases.</p>
                   </div>
                 </div>
                 <div className="space-y-1.5">
@@ -1110,7 +1187,7 @@ function ProvidersList() {
                     placeholder="e.g. 4123456789"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="op-ins-prov">Insurance provider</Label>
                     <Input
@@ -1137,7 +1214,7 @@ function ProvidersList() {
                     value={form.insurance_expiry}
                     onChange={(e) => setForm({ ...form, insurance_expiry: e.target.value })}
                   />
-                  <p className="text-[10px] text-slate-500">
+                  <p className="text-xs text-slate-600">
                     Detail page chip turns amber within 30 days, rose when expired.
                   </p>
                 </div>
@@ -1155,7 +1232,7 @@ function ProvidersList() {
             </details>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="sticky bottom-0 z-10 -mx-4 -mb-4 mt-2 flex-row justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900 sm:-mx-6 sm:-mb-6 sm:px-6 sm:space-x-0">
             <Button variant="outline" onClick={closeDialog} disabled={saving}>Cancel</Button>
             <Button onClick={handleSave} disabled={saving} className="bg-brand-primary hover:opacity-90">
               {saving ? "Saving..." : editing ? "Save changes" : "Add provider"}
@@ -1285,7 +1362,7 @@ function CronDryRunPanel() {
         </p>
         {r.preview && r.preview.length > 0 && (
           <div className="mt-2 max-h-40 overflow-y-auto border border-slate-200 rounded-md bg-white">
-            <table className="w-full text-[11px]">
+            <table className="w-full text-xs">
               <thead className="text-slate-500 bg-slate-50">
                 <tr>
                   <th className="text-left px-2 py-1">Provider email</th>
@@ -1304,7 +1381,7 @@ function CronDryRunPanel() {
           </div>
         )}
         {r.errors && r.errors.length > 0 && (
-          <p className="text-rose-700 text-[11px]"><AlertTriangle className="w-3 h-3 inline mr-1" />{r.errors.length} error(s): {r.errors.slice(0, 2).join("; ")}</p>
+          <p className="text-xs text-rose-700"><AlertTriangle className="w-3 h-3 inline mr-1" />{r.errors.length} error(s): {r.errors.slice(0, 2).join("; ")}</p>
         )}
       </div>
     );
@@ -1515,7 +1592,7 @@ Sunset Florals,Linda,linda@example.co.za,0214441234,,florist,Boho weddings,quote
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100vw-1rem)] max-w-3xl max-h-[calc(100dvh-1rem)] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Import providers from CSV</DialogTitle>
           <DialogDescription>
@@ -1546,9 +1623,9 @@ Sunset Florals,Linda,linda@example.co.za,0214441234,,florist,Boho weddings,quote
                 {rows.length} row{rows.length === 1 ? "" : "s"} parsed
                 {errorCount > 0 && <span className="text-rose-600 ml-2">· {errorCount} with errors</span>}
               </div>
-              <div className="max-h-64 overflow-y-auto rounded-md border border-slate-200">
+              <div className="max-h-64 overflow-x-auto overflow-y-auto rounded-md border border-slate-200">
                 <table className="w-full text-xs">
-                  <thead className="bg-slate-50 text-slate-500 uppercase text-[10px]">
+                  <thead className="bg-slate-50 text-slate-600 uppercase text-xs">
                     <tr>
                       <th className="text-left px-2 py-1.5">Name</th>
                       <th className="text-left px-2 py-1.5">Contact</th>
@@ -1562,7 +1639,7 @@ Sunset Florals,Linda,linda@example.co.za,0214441234,,florist,Boho weddings,quote
                       <tr key={i} className={r._error ? "bg-rose-50" : "border-t border-slate-100"}>
                         <td className="px-2 py-1.5 font-medium text-slate-900">
                           {r.provider_name || <span className="text-rose-600">(blank)</span>}
-                          {r._error && <span className="block text-[10px] text-rose-600">{r._error}</span>}
+                          {r._error && <span className="block text-xs text-rose-700">{r._error}</span>}
                         </td>
                         <td className="px-2 py-1.5 text-slate-600">{r.contact_person}</td>
                         <td className="px-2 py-1.5 text-slate-600">{r.email}</td>
@@ -1573,7 +1650,7 @@ Sunset Florals,Linda,linda@example.co.za,0214441234,,florist,Boho weddings,quote
                   </tbody>
                 </table>
                 {rows.length > 50 && (
-                  <div className="px-2 py-1 text-[10px] text-slate-500 bg-slate-50 border-t">
+                  <div className="px-2 py-1 text-xs text-slate-600 bg-slate-50 border-t">
                     + {rows.length - 50} more rows
                   </div>
                 )}

@@ -78,6 +78,9 @@ export interface DriverShift {
 
 export interface ShiftPayLine {
   shift_id: string;
+  actual_start?: string | null;
+  actual_end?: string | null;
+  notes?: string | null;
   /** Driver-portal restructure: calendar date of the shift so pay
    *  surfaces (earnings table, CSV payslip export) can label the
    *  line with a human date instead of an opaque shift id. Optional
@@ -87,6 +90,10 @@ export interface ShiftPayLine {
   multiplier: number;
   hourly_rate: number;
   pay: number;
+  /** Invalid or stale clock rows remain visible for correction but never
+   *  contribute to settlement until their timestamps are reviewed. */
+  needs_review?: boolean;
+  review_reason?: string | null;
   /** Phase 3 #2: per-day BCEA buckets when the shift crosses
    *  midnight or includes overtime. NULL on shifts that don't have
    *  actual_start + actual_end timestamps (legacy / manual rows). */
@@ -139,6 +146,7 @@ export interface DriverPaySummary {
     distance_pay: number;
     callout_pay: number;
     grand_total: number;
+    shifts_needing_review?: number;
   };
 }
 
@@ -188,6 +196,79 @@ export function calculateShiftPay(
     hourly_rate: rates.hourly_rate,
     pay,
   };
+}
+
+/** Use the same clock-duration checks as the staff-hours audit before a
+ *  driver shift can contribute money to settlement. Valid shifts use the
+ *  timestamp duration (hours_worked is a generated DB column, but legacy
+ *  imports and stale rows still need a guard). */
+function driverShiftReviewReason(shift: DriverShift, now = Date.now()): string | null {
+  const start = shift.actual_start ? new Date(shift.actual_start).getTime() : NaN;
+  const end = shift.actual_end ? new Date(shift.actual_end).getTime() : NaN;
+  if (!Number.isFinite(start)) return "Missing or invalid clock-in time";
+  if (!Number.isFinite(end)) {
+    if (shift.status === "completed") return "Completed shift has no clock-out time";
+    return now - start > 14 * 60 * 60 * 1000 ? "Open shift is older than 14 hours" : null;
+  }
+  const elapsedHours = (end - start) / 3_600_000;
+  if (elapsedHours <= 0) return "Clock-out is before clock-in";
+  if (elapsedHours > 24) return "Shift exceeds 24 hours";
+  if (shift.hours_worked == null) return "Stored shift hours are missing";
+  if (Math.abs(elapsedHours - Number(shift.hours_worked)) > 0.05) {
+    return "Clock duration differs from stored hours";
+  }
+  return null;
+}
+
+function buildDriverShiftPayLines(
+  shifts: DriverShift[],
+  rates: DriverPayRates,
+): ShiftPayLine[] {
+  const lines: ShiftPayLine[] = [];
+  for (const shift of shifts) {
+    const reviewReason = driverShiftReviewReason(shift)
+      || (shift.actual_end && shift.status !== "completed" ? "Shift has clock-out time but is not marked completed" : null);
+    const completed = shift.status === "completed";
+    const staleOpen = shift.status === "active" && !shift.actual_end && !!shift.actual_start && !!reviewReason;
+    const endedButNotCompleted = !!shift.actual_end && shift.status !== "completed" && !!reviewReason;
+    if (!completed && !staleOpen && !endedButNotCompleted) continue;
+
+    if (reviewReason) {
+      const start = shift.actual_start ? new Date(shift.actual_start).getTime() : NaN;
+      const end = shift.actual_end ? new Date(shift.actual_end).getTime() : NaN;
+      const elapsed = Number.isFinite(start) && Number.isFinite(end) && end > start
+        ? (end - start) / 3_600_000
+        : Number.isFinite(start) && !Number.isFinite(end)
+          ? (Math.min(Date.now(), start + 14 * 60 * 60 * 1000) - start) / 3_600_000
+          : Number(shift.hours_worked || 0);
+      lines.push({
+        ...calculateShiftPay({ ...shift, hours_worked: 0 }, rates),
+        shift_date: shift.shift_date,
+        actual_start: shift.actual_start,
+        actual_end: shift.actual_end,
+        notes: shift.notes,
+        hours: +Math.max(0, elapsed).toFixed(2),
+        pay: 0,
+        needs_review: true,
+        review_reason: reviewReason,
+      });
+      continue;
+    }
+
+    const start = new Date(shift.actual_start!).getTime();
+    const end = new Date(shift.actual_end!).getTime();
+    const elapsedHours = (end - start) / 3_600_000;
+    lines.push({
+      ...calculateShiftPay({ ...shift, hours_worked: elapsedHours }, rates),
+      shift_date: shift.shift_date,
+      actual_start: shift.actual_start,
+      actual_end: shift.actual_end,
+      notes: shift.notes,
+      needs_review: false,
+      review_reason: null,
+    });
+  }
+  return lines;
 }
 
 /**
@@ -946,29 +1027,22 @@ export const driverPayService = {
       else oneOffSet.add(h.date);
     }
 
-    const shiftLines = shifts
-      .filter((s) => s.status === "completed" && s.hours_worked != null)
-      .map((s) => {
-        // Carry the calendar date so pay surfaces can label the line.
-        const base = { ...calculateShiftPay(s, rates), shift_date: s.shift_date };
-        // When we have both timestamps, recompute the BCEA breakdown
-        // so the admin pay UI can show per-day buckets (cross-
-        // midnight Sunday + overtime are most useful to surface).
-        if (s.actual_start && s.actual_end) {
-          try {
-            const bcea = calculateBceaShiftPay(
-              s.actual_start,
-              s.actual_end,
-              rates.hourly_rate,
-              { oneOff: oneOffSet, recurringMD: recurringMDSet },
-            );
-            return { ...base, bcea_buckets: bcea.buckets };
-          } catch {
-            // Fall through to the base line without breakdown.
-          }
-        }
-        return base;
-      });
+    const shiftLines = buildDriverShiftPayLines(shifts, rates).map((line) => {
+      const shift = shifts.find((candidate) => candidate.id === line.shift_id);
+      // A row held for review has no payable value and no BCEA breakdown.
+      if (line.needs_review || !shift?.actual_start || !shift.actual_end) return line;
+      try {
+        const bcea = calculateBceaShiftPay(
+          shift.actual_start,
+          shift.actual_end,
+          rates.hourly_rate,
+          { oneOff: oneOffSet, recurringMD: recurringMDSet },
+        );
+        return { ...line, bcea_buckets: bcea.buckets };
+      } catch {
+        return line;
+      }
+    });
     // Prefer the rate-locked snapshot when present (stamped on
     // delivery completion via autoClockOut). Falls back to a live
     // calc for legacy orders that closed before snapshotting shipped.
@@ -977,8 +1051,9 @@ export const driverPayService = {
       ...sittingDeliveries.map((delivery) => calculateDeliveryPayLine(delivery, rates)),
     ];
 
-    const hoursTotal = +shiftLines.reduce((sum, s) => sum + s.hours, 0).toFixed(2);
-    const hourlyPay = +shiftLines.reduce((sum, s) => sum + s.pay, 0).toFixed(2);
+    const payableShiftLines = shiftLines.filter((shift) => !shift.needs_review);
+    const hoursTotal = +payableShiftLines.reduce((sum, s) => sum + s.hours, 0).toFixed(2);
+    const hourlyPay = +payableShiftLines.reduce((sum, s) => sum + s.pay, 0).toFixed(2);
     const distanceTotalKm = +deliveryLines.reduce((sum, d) => sum + d.distance_km, 0).toFixed(2);
     const distancePay = +deliveryLines.reduce((sum, d) => sum + d.distance_pay, 0).toFixed(2);
     const calloutPay = +deliveryLines.reduce((sum, d) => sum + d.callout_fee, 0).toFixed(2);
@@ -995,6 +1070,7 @@ export const driverPayService = {
         distance_pay: distancePay,
         callout_pay: calloutPay,
         grand_total: +(hourlyPay + distancePay + calloutPay).toFixed(2),
+        shifts_needing_review: shiftLines.filter((shift) => shift.needs_review).length,
       },
     };
   },
@@ -1024,6 +1100,7 @@ export const driverPayService = {
     distance_pay: number;
     callout_pay: number;
     grand_total: number;
+    shifts_needing_review: number;
   }>> {
     const out = new Map<string, {
       rates: ReturnType<typeof resolveEffectiveRates>;
@@ -1034,6 +1111,7 @@ export const driverPayService = {
       distance_pay: number;
       callout_pay: number;
       grand_total: number;
+      shifts_needing_review: number;
     }>();
     if (opts.driverIds.length === 0) return out;
 
@@ -1163,25 +1241,14 @@ export const driverPayService = {
     for (const driverId of opts.driverIds) {
       const profile = profileById.get(driverId) || null;
       const rates = resolveEffectiveRates(profile, defaults);
-      const shifts = (shiftsByDriver.get(driverId) || []).filter(
-        (s) => s.status === "completed" && s.hours_worked != null,
-      );
-      const shiftLines = shifts.map((s) => {
-        const base = calculateShiftPay(s, rates);
-        if (s.actual_start && s.actual_end) {
-          try {
-            calculateBceaShiftPay(s.actual_start, s.actual_end, rates.hourly_rate, {
-              oneOff: oneOffSet, recurringMD: recurringMDSet,
-            });
-          } catch { /* fall through, base only */ }
-        }
-        return base;
-      });
+      const shifts = shiftsByDriver.get(driverId) || [];
+      const shiftLines = buildDriverShiftPayLines(shifts, rates);
       const deliveries = ordersByDriver.get(driverId) || [];
       const deliveryLines = deliveries.map((delivery) => calculateDeliveryPayLine(delivery, rates));
 
-      const hoursTotal = +shiftLines.reduce((sum, s) => sum + s.hours, 0).toFixed(2);
-      const hourlyPay = +shiftLines.reduce((sum, s) => sum + s.pay, 0).toFixed(2);
+      const payableShiftLines = shiftLines.filter((shift) => !shift.needs_review);
+      const hoursTotal = +payableShiftLines.reduce((sum, s) => sum + s.hours, 0).toFixed(2);
+      const hourlyPay = +payableShiftLines.reduce((sum, s) => sum + s.pay, 0).toFixed(2);
       const distanceTotalKm = +deliveryLines.reduce((sum, d) => sum + d.distance_km, 0).toFixed(2);
       const distancePay = +deliveryLines.reduce((sum, d) => sum + d.distance_pay, 0).toFixed(2);
       const calloutPay = +deliveryLines.reduce((sum, d) => sum + d.callout_fee, 0).toFixed(2);
@@ -1195,6 +1262,7 @@ export const driverPayService = {
         distance_pay: distancePay,
         callout_pay: calloutPay,
         grand_total: +(hourlyPay + distancePay + calloutPay).toFixed(2),
+        shifts_needing_review: shiftLines.filter((shift) => shift.needs_review).length,
       });
     }
 

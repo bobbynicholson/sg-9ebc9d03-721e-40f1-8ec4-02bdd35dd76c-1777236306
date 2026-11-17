@@ -57,68 +57,104 @@ export function ProfileSummaryCard({
     : null;
 
   return (
-    <Card className="overflow-hidden border border-slate-200/90 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div className="h-20 bg-gradient-to-r from-brand-primary via-brand-primary/80 to-brand-secondary" aria-hidden="true" />
-      <CardContent className="-mt-12 flex flex-col items-center px-5 pb-5 text-center">
-        <div className="relative">
-          <Avatar className="h-24 w-24 bg-white ring-4 ring-white shadow-md dark:ring-slate-900">
-            <AvatarImage src={formData.avatar_url} className="object-contain" />
-            <AvatarFallback className="bg-brand-primary/10 text-2xl font-semibold text-brand-primary">
-              {getInitials(formData.full_name || "User")}
-            </AvatarFallback>
-          </Avatar>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            className="hidden"
-            onChange={onAvatarChange}
-          />
-          <button
-            type="button"
-            onClick={onAvatarPick}
-            disabled={uploadingAvatar}
-            aria-label="Change photo"
-            title="Change photo (JPG, PNG or WebP, max 5 MB)"
-            className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-900 text-white shadow transition hover:bg-slate-700 disabled:opacity-60 dark:border-slate-900"
-          >
-            <Camera className="h-4 w-4" />
-          </button>
+    <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="hidden"
+        onChange={onAvatarChange}
+      />
+      <Card className="border border-slate-200/90 p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:hidden">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="relative shrink-0">
+            <Avatar className="h-12 w-12 bg-white ring-2 ring-white shadow-sm dark:ring-slate-900">
+              <AvatarImage src={formData.avatar_url} className="object-contain" />
+              <AvatarFallback className="bg-brand-primary/10 text-sm font-semibold text-brand-primary">
+                {getInitials(formData.full_name || "User")}
+              </AvatarFallback>
+            </Avatar>
+            <button
+              type="button"
+              onClick={onAvatarPick}
+              disabled={uploadingAvatar}
+              aria-label="Change photo"
+              title="Change photo (JPG, PNG or WebP, max 5 MB)"
+              className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-slate-900 text-white shadow disabled:opacity-60 dark:border-slate-900"
+            >
+              <Camera className="h-3 w-3" />
+            </button>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold leading-tight text-slate-950 dark:text-white">
+              {formData.full_name || "Your name"}
+            </p>
+            {formData.email && <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{formData.email}</p>}
+            <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+              {role && <span className="truncate">{ROLE_NAMES[role as keyof typeof ROLE_NAMES] || role}</span>}
+              {companyName && role && <span aria-hidden="true">·</span>}
+              {companyName && <span className="truncate">{companyName}</span>}
+            </div>
+          </div>
+          {uploadingAvatar && <span className="shrink-0 text-xs text-slate-500">Uploading…</span>}
         </div>
-        <p className="mt-3 text-lg font-semibold leading-tight text-slate-950 dark:text-white">
-          {formData.full_name || "Your name"}
-        </p>
-        {formData.email && (
-          <p className="mt-0.5 flex max-w-full items-center gap-1.5 truncate text-sm text-slate-500 dark:text-slate-400">
-            <Mail className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{formData.email}</span>
+      </Card>
+      <Card className="hidden overflow-hidden border border-slate-200/90 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:block">
+        <div className="h-20 bg-gradient-to-r from-brand-primary via-brand-primary/80 to-brand-secondary" aria-hidden="true" />
+        <CardContent className="-mt-12 flex flex-col items-center px-5 pb-5 text-center">
+          <div className="relative">
+            <Avatar className="h-24 w-24 bg-white ring-4 ring-white shadow-md dark:ring-slate-900">
+              <AvatarImage src={formData.avatar_url} className="object-contain" />
+              <AvatarFallback className="bg-brand-primary/10 text-2xl font-semibold text-brand-primary">
+                {getInitials(formData.full_name || "User")}
+              </AvatarFallback>
+            </Avatar>
+            <button
+              type="button"
+              onClick={onAvatarPick}
+              disabled={uploadingAvatar}
+              aria-label="Change photo"
+              title="Change photo (JPG, PNG or WebP, max 5 MB)"
+              className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-900 text-white shadow transition hover:bg-slate-700 disabled:opacity-60 dark:border-slate-900"
+            >
+              <Camera className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="mt-3 text-lg font-semibold leading-tight text-slate-950 dark:text-white">
+            {formData.full_name || "Your name"}
           </p>
-        )}
-        {role && (
-          <Badge variant="secondary" className="mt-3 gap-1 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/10">
-            <Briefcase className="h-3 w-3" />
-            {ROLE_NAMES[role as keyof typeof ROLE_NAMES] || role}
-          </Badge>
-        )}
-        <dl className="mt-4 w-full space-y-2 border-t border-slate-100 pt-4 text-left text-sm dark:border-slate-800">
-          {companyName && (
-            <div className="flex items-center justify-between gap-3">
-              <dt className="flex items-center gap-1.5 text-slate-500"><Building2 className="h-3.5 w-3.5" /> Company</dt>
-              <dd className="truncate font-medium text-slate-900 dark:text-slate-100">{companyName}</dd>
-            </div>
+          {formData.email && (
+            <p className="mt-0.5 flex max-w-full items-center gap-1.5 truncate text-sm text-slate-500 dark:text-slate-400">
+              <Mail className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{formData.email}</span>
+            </p>
           )}
-          {memberSince && (
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-slate-500">Member since</dt>
-              <dd className="font-medium text-slate-900 dark:text-slate-100">{memberSince}</dd>
-            </div>
+          {role && (
+            <Badge variant="secondary" className="mt-3 gap-1 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/10">
+              <Briefcase className="h-3 w-3" />
+              {ROLE_NAMES[role as keyof typeof ROLE_NAMES] || role}
+            </Badge>
           )}
-        </dl>
-        <p className="mt-3 text-[11px] text-slate-400">
-          {uploadingAvatar ? "Uploading photo..." : "Tap the camera to change your photo"}
-        </p>
-      </CardContent>
-    </Card>
+          <dl className="mt-4 w-full space-y-2 border-t border-slate-100 pt-4 text-left text-sm dark:border-slate-800">
+            {companyName && (
+              <div className="flex items-center justify-between gap-3">
+                <dt className="flex items-center gap-1.5 text-slate-500"><Building2 className="h-3.5 w-3.5" /> Company</dt>
+                <dd className="truncate font-medium text-slate-900 dark:text-slate-100">{companyName}</dd>
+              </div>
+            )}
+            {memberSince && (
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-slate-500">Member since</dt>
+                <dd className="font-medium text-slate-900 dark:text-slate-100">{memberSince}</dd>
+              </div>
+            )}
+          </dl>
+          <p className="mt-3 text-xs text-slate-400">
+            {uploadingAvatar ? "Uploading photo..." : "Tap the camera to change your photo"}
+          </p>
+        </CardContent>
+      </Card>
+    </>
   );
 }
 
@@ -214,7 +250,7 @@ export function ProfileTab({
                 />
               </div>
               {canEditCompanyName && (
-                <p className="text-[11px] text-slate-500">
+                <p className="text-xs text-slate-500">
                   Renames your company everywhere, invoices, emails, dashboard.
                 </p>
               )}

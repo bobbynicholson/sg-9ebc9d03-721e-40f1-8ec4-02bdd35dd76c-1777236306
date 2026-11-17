@@ -31,7 +31,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Calendar, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle, Users, Clock, UserPlus } from "lucide-react";
+import { Calendar, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Plus, Loader2, Download, RefreshCw, AlertTriangle, Users, Clock, UserPlus } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
 import { LogDriverShiftModal, type ExistingShiftForEdit } from "@/components/admin/LogDriverShiftModal";
 import { ShiftTasksChips } from "@/components/admin/ShiftTasksChips";
@@ -268,31 +268,55 @@ function DriverScheduleGrid() {
             meta={
               !loading && !loadError ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {drivers.length} driver{drivers.length === 1 ? "" : "s"}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     {shifts.length} shift{shifts.length === 1 ? "" : "s"} this week
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     {weekHours.toFixed(1)}h rostered
                   </span>
                 </>
               ) : undefined
             }
             actions={
-            <>
-                <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, -7))}>
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                {/* Hero band is dark; slate-700 text vanished on it. */}
-                <div className="text-sm font-medium text-white px-2 tabular-nums whitespace-nowrap">{weekLabel}</div>
-                <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, 7))}>
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date()))}>
-                  This week
+              <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-start">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setWeekStart(addDays(weekStart, -7))}
+                    aria-label="Previous week"
+                    title="Previous week"
+                    className="h-10 w-10 shrink-0 justify-center p-0 sm:h-9"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="min-w-0 flex-1 px-1 text-center text-xs font-medium tabular-nums text-white sm:flex-initial sm:px-2 sm:text-sm sm:whitespace-nowrap">{weekLabel}</div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setWeekStart(addDays(weekStart, 7))}
+                    aria-label="Next week"
+                    title="Next week"
+                    className="h-10 w-10 shrink-0 justify-center p-0 sm:h-9"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setWeekStart(startOfWeek(new Date()))}
+                  aria-label="Go to this week"
+                  title="This week"
+                  className="h-10 w-10 justify-center p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3"
+                >
+                  <CalendarDays className="h-4 w-4" />
+                  <span className="sr-only sm:not-sr-only sm:inline">This week</span>
                 </Button>
                 {/* Phase 28 #8: manual refresh. A dispatcher who
                     has just logged a shift from another tab or
@@ -304,8 +328,12 @@ function DriverScheduleGrid() {
                   size="sm"
                   onClick={load}
                   disabled={loading}
+                  aria-label="Refresh driver schedule"
+                  title="Refresh schedule"
+                  className="h-10 w-10 justify-center p-0 sm:h-9 sm:w-auto sm:px-3"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                  <span className="sr-only sm:not-sr-only sm:inline">Refresh</span>
                 </Button>
                 {/* Phase 22 #2: weekly grid CSV. Dispatch leads
                     handing off the schedule to a colleague or
@@ -315,7 +343,9 @@ function DriverScheduleGrid() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1.5"
+                  className="h-10 w-10 justify-center p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3"
+                  aria-label="Export driver schedule as CSV"
+                  title="Export CSV"
                   onClick={() => {
                     if (drivers.length === 0) return;
                     const esc = (v: any) => {
@@ -363,9 +393,10 @@ function DriverScheduleGrid() {
                   }}
                   disabled={drivers.length === 0 || shifts.length === 0}
                 >
-                  <Download className="w-3.5 h-3.5" /> Export CSV
+                  <Download className="h-4 w-4" /><span className="sr-only sm:not-sr-only sm:inline">Export CSV</span>
                 </Button>
-            </>
+                </div>
+              </div>
             }
           />
           <PageWorkbench />
@@ -373,10 +404,10 @@ function DriverScheduleGrid() {
           {/* Surfaced load failure with Retry; pre-audit a failed fetch
               rendered as "No drivers in this company yet". */}
           {loadError && (
-            <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn&apos;t load the schedule</h2>
-              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
-              <Button onClick={load} size="sm" disabled={loading} className="bg-brand-primary hover:bg-brand-primary/90">
+            <div className="mb-4 rounded-lg border border-rose-200 bg-white p-3 shadow-sm sm:mb-6 sm:p-4">
+              <h2 className="mb-1 text-sm font-bold text-rose-900 sm:text-base">Couldn&apos;t load the schedule</h2>
+              <p className="mb-3 break-words text-xs leading-5 text-slate-600 sm:text-sm">{loadError}</p>
+              <Button onClick={load} size="sm" disabled={loading} aria-label="Retry loading the schedule" className="min-h-10 bg-brand-primary hover:bg-brand-primary/90">
                 <RefreshCw className="w-4 h-4 mr-2" /> Retry
               </Button>
             </div>
@@ -385,26 +416,26 @@ function DriverScheduleGrid() {
           {/* Command-centre restructure: live weekly aggregates. Missed
               stays semantic (rose when non-zero, never brand). */}
           {!loadError && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <StatTile
+            <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-4 lg:grid-cols-4">
+              <StatTile compact
                 label="Drivers"
                 value={loading ? "-" : drivers.length}
                 hint="Active driver roster"
                 icon={Users}
               />
-              <StatTile
+              <StatTile compact
                 label="Shifts this week"
                 value={loading ? "-" : shifts.length}
                 hint={`Week of ${weekLabel}`}
                 icon={Calendar}
               />
-              <StatTile
+              <StatTile compact
                 label="Hours rostered"
                 value={loading ? "-" : `${weekHours.toFixed(1)}h`}
                 hint="Planned hours, else actual clocked"
                 icon={Clock}
               />
-              <StatTile
+              <StatTile compact
                 label="Missed shifts"
                 value={
                   loading ? "-" : (
@@ -420,15 +451,15 @@ function DriverScheduleGrid() {
           )}
 
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">
+              <CardHeader className="px-3 pb-3 pt-4 sm:px-6">
+                <CardTitle className="text-sm sm:text-base">
                   {drivers.length} driver{drivers.length === 1 ? "" : "s"}
                 </CardTitle>
-                <CardDescription className="text-xs">
-                  Planned times and actual hours appear for every driver/day. Totals use planned hours where set, otherwise actual. Tap an empty day to log a shift.
+                <CardDescription className="text-xs leading-5">
+                  Expand a driver to review their week. Totals use planned hours where set, otherwise actual. Choose an empty day to log a shift.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-3 pb-3 sm:px-6 sm:pb-6">
                 {loading ? (
                   <div className="text-center py-12 text-slate-500 text-sm">
                     <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" /> Loading...
@@ -452,12 +483,11 @@ function DriverScheduleGrid() {
                   </div>
                 ) : (
                   <>
-                    {/* A seven-day timesheet table cannot be legible on a phone.
-                        Keep the dense grid for tablet/desktop, but present each
-                        driver's full week as tap-friendly day cards on mobile. */}
+                    {/* Keep each driver's week collapsed initially so the
+                        roster stays scan-friendly on phones. */}
                     <div className="space-y-4 md:hidden">
                       <p className="text-xs text-slate-500">
-                        Tap a scheduled shift to edit it, or an empty day to add one.
+                        Expand a driver to see their days. Tap a shift to edit or an empty day to add one.
                       </p>
                       {drivers.map((d) => {
                         const driverTotal = weekDays.reduce((total, day) => (
@@ -466,19 +496,23 @@ function DriverScheduleGrid() {
                             0,
                           )
                         ), 0);
+                        const driverShiftCount = weekDays.reduce(
+                          (count, day) => count + (shiftIndex[`${d.id}|${toLocalISO(day)}`] || []).length,
+                          0,
+                        );
                         return (
-                          <div key={d.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-3 py-3">
+                          <details key={d.id} className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                            <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 text-left [&::-webkit-details-marker]:hidden">
                               <div className="min-w-0">
-                                <p className="truncate font-semibold text-slate-900">{d.full_name || d.email}</p>
-                                <p className="truncate text-xs text-slate-500">{d.email}</p>
+                                <p className="truncate text-sm font-semibold text-slate-900">{d.full_name || d.email}</p>
+                                <p className="truncate text-xs text-slate-500">{driverShiftCount} shift{driverShiftCount === 1 ? "" : "s"} this week · {d.email}</p>
                               </div>
-                              <div className="shrink-0 text-right">
-                                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Week</p>
-                                <p className="text-sm font-bold tabular-nums text-slate-900">{driverTotal > 0 ? `${driverTotal.toFixed(1)}h` : "-"}</p>
+                              <div className="flex shrink-0 items-center gap-2">
+                                <span className="text-xs font-semibold tabular-nums text-slate-700">{driverTotal > 0 ? `${driverTotal.toFixed(1)}h` : "-"}</span>
+                                <ChevronDown className="h-4 w-4 text-slate-500 transition-transform group-open:rotate-180" aria-hidden="true" />
                               </div>
-                            </div>
-                            <div className="grid grid-cols-1 gap-2 p-2 min-[390px]:grid-cols-2">
+                            </summary>
+                            <div id={`driver-week-${d.id}`} className="grid grid-cols-1 gap-2 border-t border-slate-100 p-2 min-[390px]:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
                               {weekDays.map((day, i) => {
                                 const iso = toLocalISO(day);
                                 const cellShifts = shiftIndex[`${d.id}|${iso}`] || [];
@@ -489,7 +523,7 @@ function DriverScheduleGrid() {
                                     <div className="mb-2 flex items-center justify-between gap-2">
                                       <div>
                                         <p className="text-xs font-semibold text-slate-800">{DAY_LABELS[i]}</p>
-                                        <p className="text-[11px] text-slate-500">
+                                        <p className="text-xs text-slate-500">
                                           {day.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
                                         </p>
                                       </div>
@@ -550,19 +584,19 @@ function DriverScheduleGrid() {
                                                     : `${actualHours.toFixed(1)}h`}
                                                 </span>
                                                 {(s.rate_multiplier ?? 1) > 1 && (
-                                                  <Badge className="shrink-0 border-amber-200 bg-amber-100 px-1 py-0 text-[10px] text-amber-800">
+                                                  <Badge className="shrink-0 border-amber-200 bg-amber-100 px-1 py-0 text-xs text-amber-800">
                                                     x{Number(s.rate_multiplier ?? 1)}
                                                   </Badge>
                                                 )}
                                               </div>
                                               {hasActual ? (
-                                                <p className="mt-0.5 text-[10px] tabular-nums text-brand-primary">Actual {actualHours.toFixed(1)}h</p>
+                                                <p className="mt-0.5 text-xs tabular-nums text-brand-primary">Actual {actualHours.toFixed(1)}h</p>
                                               ) : isMissed ? (
-                                                <p className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] font-medium text-rose-700">
-                                                  <AlertTriangle className="h-2.5 w-2.5" /> Missed
+                                                <p className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-rose-700">
+                                                  <AlertTriangle className="h-3 w-3" /> Missed
                                                 </p>
                                               ) : (
-                                                <p className="mt-0.5 text-[10px] tabular-nums text-brand-primary">{plannedHours.toFixed(1)}h planned</p>
+                                                <p className="mt-0.5 text-xs tabular-nums text-brand-primary">{plannedHours.toFixed(1)}h planned</p>
                                               )}
                                               <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                                                 <ShiftTasksChips
@@ -607,27 +641,35 @@ function DriverScheduleGrid() {
                                 );
                               })}
                             </div>
-                          </div>
+                          </details>
                         );
                       })}
                     </div>
 
-                    <div className="hidden overflow-x-auto md:block">
+                    <details className="group hidden overflow-hidden rounded-xl border border-slate-200 bg-white md:block">
+                    <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-left [&::-webkit-details-marker]:hidden">
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-slate-900">Full weekly grid</span>
+                        <span className="block text-xs text-slate-500">Expand to scan all seven days</span>
+                      </span>
+                      <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform group-open:rotate-180" aria-hidden="true" />
+                    </summary>
+                    <div className="overflow-x-auto border-t border-slate-100">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-left">
-                          <th className="px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold sticky left-0 bg-white">
+                          <th className="sticky left-0 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
                             Driver
                           </th>
                           {weekDays.map((d, i) => (
-                            <th key={i} className="px-2 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold text-center min-w-[88px]">
+                            <th key={i} className="min-w-[88px] px-2 py-2 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">
                               <div>{DAY_LABELS[i]}</div>
-                              <div className="text-[10px] text-slate-400 tabular-nums">
+                              <div className="text-xs text-slate-500 tabular-nums">
                                 {d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
                               </div>
                             </th>
                           ))}
-                          <th className="px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold text-right">Total</th>
+                          <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Total</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -637,7 +679,7 @@ function DriverScheduleGrid() {
                             <tr key={d.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                               <td className="px-3 py-2 sticky left-0 bg-white">
                                 <div className="font-medium text-slate-900 truncate">{d.full_name || d.email}</div>
-                                <div className="text-[11px] text-slate-500 truncate">{d.email}</div>
+                                <div className="truncate text-xs text-slate-500">{d.email}</div>
                               </td>
                               {weekDays.map((day, i) => {
                                 const iso = toLocalISO(day);
@@ -713,21 +755,21 @@ function DriverScheduleGrid() {
                                                     : `${aHours.toFixed(1)}h`}
                                                 </span>
                                                 {(s.rate_multiplier ?? 1) > 1 && (
-                                                  <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[10px] px-1 py-0">
+                                                  <Badge className="border-amber-200 bg-amber-100 px-1 py-0 text-xs text-amber-800">
                                                     x{Number(s.rate_multiplier ?? 1)}
                                                   </Badge>
                                                 )}
                                               </div>
                                               {hasActual ? (
-                                                <div className="text-[10px] text-brand-primary mt-0.5 tabular-nums">
+                                                <div className="mt-0.5 text-xs tabular-nums text-brand-primary">
                                                   Actual {aHours.toFixed(1)}h
                                                 </div>
                                               ) : isMissed ? (
-                                                <div className="text-[10px] text-rose-700 font-medium mt-0.5 inline-flex items-center gap-0.5">
-                                                  <AlertTriangle className="w-2.5 h-2.5" /> Missed
+                                                <div className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-rose-700">
+                                                  <AlertTriangle className="h-3 w-3" /> Missed
                                                 </div>
                                               ) : (
-                                                <div className="text-[10px] text-brand-primary mt-0.5 tabular-nums">
+                                                <div className="mt-0.5 text-xs tabular-nums text-brand-primary">
                                                   {pHours.toFixed(1)}h planned
                                                 </div>
                                               )}
@@ -782,7 +824,7 @@ function DriverScheduleGrid() {
                       </tbody>
                       <tfoot>
                         <tr className="border-t-2 border-slate-200">
-                          <td className="px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold sticky left-0 bg-white">
+                          <td className="sticky left-0 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
                             Day total
                           </td>
                           {dayTotals.map((h, i) => (
@@ -797,6 +839,7 @@ function DriverScheduleGrid() {
                       </tfoot>
                     </table>
                     </div>
+                    </details>
                   </>
                 )}
               </CardContent>

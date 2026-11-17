@@ -59,7 +59,7 @@ import { teamBucketsForUser } from "@/lib/teamRoleBuckets";
 import {
   Truck, ArrowLeft, Users, Clock, ClipboardList,
   Receipt, Map as MapIcon, Car, AlertTriangle, Banknote, CalendarDays,
-  CheckCircle2, ArrowRight, Flame, Wrench, Snowflake,
+  CheckCircle2, ArrowRight, Flame, Wrench, Snowflake, RefreshCw,
 } from "lucide-react";
 import { PageWorkbench, PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
 
@@ -467,18 +467,18 @@ function DriversTeamPage() {
             meta={
               !loading && !error ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {stats.jobsToday} assignment{stats.jobsToday === 1 ? "" : "s"} today
                   </span>
                   {stats.unassignedToday > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
                       {stats.unassignedToday} unassigned
                     </span>
                   )}
                   {stats.active > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       Clocked {stats.clockedNow}/{stats.active}
                     </span>
                   )}
@@ -486,11 +486,20 @@ function DriversTeamPage() {
               ) : undefined
             }
             actions={
-              <Link href={withSlug("/admin/teams")}>
-                <Button variant="outline" size="sm">
-                  <ArrowLeft className="w-4 h-4 mr-1.5" /> All teams
+              <div className="flex w-full items-center justify-end">
+              <Link href={withSlug("/admin/teams")} className="shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label="All teams"
+                  title="All teams"
+                  className="h-10 w-10 justify-center p-0 sm:h-9 sm:w-auto sm:px-3"
+                >
+                  <ArrowLeft className="h-4 w-4 sm:mr-1.5" />
+                  <span className="sr-only sm:not-sr-only sm:inline">All teams</span>
                 </Button>
               </Link>
+              </div>
             }
           />
           <PageWorkbench />
@@ -500,18 +509,21 @@ function DriversTeamPage() {
               rendering zeros. */}
           {!loading && error && (
             <Card className="mb-4 border-rose-200 bg-rose-50 shadow-sm">
-              <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3 px-4">
-                <div className="flex items-center gap-2 text-sm text-rose-800">
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-4">
+                <div className="flex min-w-0 flex-1 items-start gap-2 text-sm text-rose-800">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>Could not load driver metrics: {error}</span>
+                  <span className="min-w-0 break-words">Could not load driver metrics: {error}</span>
                 </div>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => setRefreshTick((n) => n + 1)}
-                  className="border-rose-300 text-rose-800 hover:bg-rose-100"
+                  aria-label="Retry loading driver metrics"
+                  title="Retry"
+                  className="h-10 w-10 shrink-0 justify-center border-rose-300 p-0 text-rose-800 hover:bg-rose-100 sm:h-9 sm:w-auto sm:gap-2 sm:px-3"
                 >
-                  Retry
+                  <RefreshCw className="h-4 w-4" />
+                  <span className="sr-only sm:not-sr-only sm:inline">Retry</span>
                 </Button>
               </CardContent>
             </Card>
@@ -523,12 +535,12 @@ function DriversTeamPage() {
               load was still running, which reads as real data. */}
           {loading && (
             <div aria-hidden="true">
-              <div className="grid grid-cols-2 gap-4 mb-6 lg:grid-cols-4">
+              <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-4 lg:grid-cols-4">
                 {[0, 1, 2, 3].map((i) => (
                   <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white dark:border-slate-800 dark:bg-slate-900/95" />
                 ))}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
+              <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4">
                 {[0, 1, 2, 3].map((i) => (
                   <div key={i} className="h-24 animate-pulse rounded-lg border border-slate-200 bg-white shadow-sm" />
                 ))}
@@ -541,18 +553,18 @@ function DriversTeamPage() {
               aggregates, same links). Semantic chips (clocked, unassigned,
               finance) stay as the strip below. */}
           {!loading && !error && (
-            <div className="grid grid-cols-2 gap-4 mb-6 lg:grid-cols-4">
+            <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-4 lg:grid-cols-4">
               <Link href={withSlug("/admin/driver-management")} className="block">
-                <StatTile label="Active drivers" value={stats.active} icon={Users} hint="Roster, availability, ratings." />
+                <StatTile compact label="Active drivers" value={stats.active} icon={Users} hint="Roster, availability, ratings." />
               </Link>
               <Link href={withSlug("/admin/driver-settlement")} className="block">
-                <StatTile label="Hours this week" value={`${stats.hoursWeek}h`} icon={Clock} hint="From driver shifts, Monday to now." />
+                <StatTile compact label="Hours this week" value={`${stats.hoursWeek}h`} icon={Clock} hint="From driver shifts, Monday to now." />
               </Link>
               <Link href={withSlug(`/admin/order-assignments?date=${toLocalISO(new Date())}`)} className="block">
-                <StatTile label="Assignments today" value={stats.jobsToday} icon={ClipboardList} hint="Deliveries on today's board." />
+                <StatTile compact label="Assignments today" value={stats.jobsToday} icon={ClipboardList} hint="Deliveries on today's board." />
               </Link>
               <Link href={withSlug("/admin/order-assignments?filter=unassigned")} className="block">
-                <StatTile
+                <StatTile compact
                   label="Unassigned today"
                   value={stats.unassignedToday}
                   icon={AlertTriangle}
@@ -570,7 +582,7 @@ function DriversTeamPage() {
             {stats.active > 0 && (
               <Badge
                 variant="outline"
-                className={`px-3 py-1.5 text-sm ${
+                className={`px-2.5 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm ${
                   stats.clockedNow >= stats.active
                     ? "border-brand-primary/30 text-brand-primary bg-brand-primary/10"
                     : stats.clockedNow === 0
@@ -584,21 +596,21 @@ function DriversTeamPage() {
             )}
             {stats.unassignedToday > 0 && (
               <Link href={withSlug("/admin/order-assignments?filter=unassigned")}>
-                <Badge variant="outline" className="px-3 py-1.5 text-sm border-rose-300 text-rose-800 bg-rose-50 cursor-pointer hover:bg-rose-100">
+                <Badge variant="outline" className="cursor-pointer border-rose-300 bg-rose-50 px-2.5 py-1 text-xs text-rose-800 hover:bg-rose-100 sm:px-3 sm:py-1.5 sm:text-sm">
                   <AlertTriangle className="w-3 h-3 mr-1" />
                   {stats.unassignedToday} unassigned today
                 </Badge>
               </Link>
             )}
             {canSeeFinance && stats.burnTodayZar > 0 && (
-              <Badge variant="outline" className="px-3 py-1.5 text-sm border-brand-primary/30 text-brand-primary bg-brand-primary/10 tabular-nums">
+              <Badge variant="outline" className="border-brand-primary/30 bg-brand-primary/10 px-2.5 py-1 text-xs tabular-nums text-brand-primary sm:px-3 sm:py-1.5 sm:text-sm">
                 <Banknote className="w-3 h-3 mr-1" />
                 {tenantCurrency.format(stats.burnTodayZar)} pay today
               </Badge>
             )}
             {canSeeFinance && stats.settlementOwed > 0 && (
               <Link href={withSlug("/admin/driver-settlement")}>
-                <Badge variant="outline" className="px-3 py-1.5 text-sm border-slate-300 text-slate-700 bg-slate-50 tabular-nums cursor-pointer hover:bg-slate-100">
+                <Badge variant="outline" className="cursor-pointer border-slate-300 bg-slate-50 px-2.5 py-1 text-xs tabular-nums text-slate-700 hover:bg-slate-100 sm:px-3 sm:py-1.5 sm:text-sm">
                   <Receipt className="w-3 h-3 mr-1" />
                   {tenantCurrency.format(stats.settlementOwed)} settlement owed
                 </Badge>
@@ -610,7 +622,7 @@ function DriversTeamPage() {
               mins; overtime tint at 45h (rose + !), 38h (amber). */}
           {stats.topDriverHours.length > 0 && (
             <div className="mb-4">
-              <p className="text-[10px] uppercase tracking-wide font-semibold text-slate-500 mb-1.5">
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Hours this week
               </p>
               <div className="flex flex-wrap gap-2">
@@ -622,7 +634,7 @@ function DriversTeamPage() {
                     <Link key={d.id} href={withSlug(`/admin/driver-settlement?driver=${d.id}`)}>
                       <Badge
                         variant="outline"
-                        className={`px-2.5 py-1 text-xs tabular-nums cursor-pointer ${
+                        className={`max-w-full whitespace-normal break-words px-2.5 py-1 text-xs tabular-nums cursor-pointer ${
                           overtime
                             ? "border-rose-300 text-rose-800 bg-rose-50 hover:bg-rose-100"
                             : high
@@ -648,23 +660,23 @@ function DriversTeamPage() {
             {/* Today's deliveries pipeline. */}
             <Link href={withSlug("/admin/order-assignments")}>
               <Card className={`border shadow-sm transition-colors hover:border-slate-300 ${stats.asnOverdue > 0 ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}>
-                <CardContent className="p-5">
+                <CardContent className="p-3 sm:p-4">
                   <div className="flex items-start gap-3">
-                    <Truck className={`w-6 h-6 ${stats.asnOverdue > 0 ? "text-rose-600" : "text-sky-600"} flex-shrink-0`} />
+                    <Truck className={`h-5 w-5 flex-shrink-0 sm:h-6 sm:w-6 ${stats.asnOverdue > 0 ? "text-rose-600" : "text-sky-600"}`} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-slate-900">
+                        <p className="break-words text-sm font-semibold leading-5 text-slate-900">
                           {totalPipeline === 0
                             ? "No deliveries today"
                             : `${stats.asnDone} of ${totalPipeline} delivered`}
                         </p>
                         {stats.asnOverdue > 0 && (
-                          <Badge variant="destructive" className="text-[10px] uppercase">
+                          <Badge variant="destructive" className="text-xs uppercase">
                             {stats.asnOverdue} overdue
                           </Badge>
                         )}
                         {stats.asnDeclined > 0 && (
-                          <Badge variant="outline" className="text-[10px] border-rose-300 text-rose-700 bg-rose-50">
+                          <Badge variant="outline" className="border-rose-300 bg-rose-50 text-xs text-rose-700">
                             {stats.asnDeclined} declined
                           </Badge>
                         )}
@@ -677,7 +689,7 @@ function DriversTeamPage() {
                               style={{ width: `${pipelinePct}%` }}
                             />
                           </div>
-                          <p className="text-[11px] text-slate-600 mt-1.5">
+                          <p className="mt-1.5 text-xs leading-5 text-slate-600">
                             {stats.asnInTransit > 0 && <span className="text-amber-700 font-medium">{stats.asnInTransit} on the road</span>}
                             {stats.asnInTransit > 0 && stats.asnPending > 0 && <span className="text-slate-400 mx-1">·</span>}
                             {stats.asnPending > 0 && <span>{stats.asnPending} waiting to depart</span>}
@@ -687,7 +699,7 @@ function DriversTeamPage() {
                           </p>
                         </>
                       ) : (
-                        <p className="text-xs text-slate-600 mt-1">
+                        <p className="mt-1 text-xs leading-5 text-slate-600">
                           Quiet board. Tap to open the dispatch queue.
                         </p>
                       )}
@@ -700,16 +712,16 @@ function DriversTeamPage() {
             {/* Tomorrow's load. */}
             <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date(Date.now() + 24 * 3600 * 1000))}`)}>
               <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
-                <CardContent className="p-5">
+                <CardContent className="p-3 sm:p-4">
                   <div className="flex items-start gap-3">
-                    <CalendarDays className={`w-6 h-6 ${stats.tomorrowJobs > 0 ? "text-blue-700" : "text-slate-400"} flex-shrink-0`} />
+                    <CalendarDays className={`h-5 w-5 flex-shrink-0 sm:h-6 sm:w-6 ${stats.tomorrowJobs > 0 ? "text-blue-700" : "text-slate-400"}`} />
                     <div className="min-w-0">
-                      <p className="font-semibold text-slate-900">
+                      <p className="break-words text-sm font-semibold leading-5 text-slate-900">
                         {stats.tomorrowJobs === 0
                           ? "Light day tomorrow"
                           : `Tomorrow: ${stats.tomorrowJobs} delivery${stats.tomorrowJobs === 1 ? "" : "s"}`}
                       </p>
-                      <p className="text-xs text-slate-600 mt-0.5">
+                      <p className="mt-1 text-xs leading-5 text-slate-600">
                         {stats.tomorrowJobs === 0
                           ? "No deliveries booked. Use the quiet time for fleet checks."
                           : "Open the calendar to start sequencing routes for tomorrow."}
@@ -723,18 +735,18 @@ function DriversTeamPage() {
             {/* Fleet readiness. */}
             <Link href={withSlug("/admin/vehicles")}>
               <Card className={`border shadow-sm transition-colors hover:border-slate-300 ${stats.vehiclesActive < stats.vehiclesTotal ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
-                <CardContent className="p-5">
+                <CardContent className="p-3 sm:p-4">
                   <div className="flex items-start gap-3">
-                    <Wrench className={`w-6 h-6 ${stats.vehiclesActive < stats.vehiclesTotal ? "text-amber-700" : "text-slate-400"} flex-shrink-0`} />
+                    <Wrench className={`h-5 w-5 flex-shrink-0 sm:h-6 sm:w-6 ${stats.vehiclesActive < stats.vehiclesTotal ? "text-amber-700" : "text-slate-400"}`} />
                     <div className="min-w-0">
-                      <p className="font-semibold text-slate-900">
+                      <p className="break-words text-sm font-semibold leading-5 text-slate-900">
                         {stats.vehiclesTotal === 0
                           ? "No vehicles on file"
                           : stats.vehiclesActive === stats.vehiclesTotal
                             ? `${stats.vehiclesActive} vehicle${stats.vehiclesActive === 1 ? "" : "s"} fit to drive`
                             : `${stats.vehiclesActive} of ${stats.vehiclesTotal} fit to drive`}
                       </p>
-                      <p className="text-xs text-slate-600 mt-0.5 flex items-center gap-1.5">
+                      <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs leading-5 text-slate-600">
                         {stats.vehiclesColdChain > 0 && (
                           <>
                             <Snowflake className="w-3 h-3 text-sky-600" />
@@ -755,16 +767,16 @@ function DriversTeamPage() {
             {/* Recent issues. */}
             <Link href={withSlug("/admin/order-assignments?filter=issues")}>
               <Card className={`border shadow-sm transition-colors hover:border-slate-300 ${stats.issuesThisWeek > 0 ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}>
-                <CardContent className="p-5">
+                <CardContent className="p-3 sm:p-4">
                   <div className="flex items-start gap-3">
-                    <AlertTriangle className={`w-6 h-6 ${stats.issuesThisWeek > 0 ? "text-rose-600" : "text-slate-400"} flex-shrink-0`} />
+                    <AlertTriangle className={`h-5 w-5 flex-shrink-0 sm:h-6 sm:w-6 ${stats.issuesThisWeek > 0 ? "text-rose-600" : "text-slate-400"}`} />
                     <div className="min-w-0">
-                      <p className="font-semibold text-slate-900">
+                      <p className="break-words text-sm font-semibold leading-5 text-slate-900">
                         {stats.issuesThisWeek === 0
                           ? "Clean week, no issues"
                           : `${stats.issuesThisWeek} issue${stats.issuesThisWeek === 1 ? "" : "s"} this week`}
                       </p>
-                      <p className="text-xs text-slate-600 mt-0.5">
+                      <p className="mt-1 text-xs leading-5 text-slate-600">
                         {stats.issuesThisWeek === 0
                           ? "No declined / cancelled / no-show assignments in the last 7 days."
                           : "Declined, cancelled or no-show assignments. Tap to triage."}
@@ -781,12 +793,12 @@ function DriversTeamPage() {
             {tiles.map((t) => (
               <Link key={t.label} href={withSlug(t.href)}>
                 <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
-                  <CardContent className="p-5">
+                  <CardContent className="p-3 sm:p-4">
                     <div className="flex items-start gap-3">
-                      <t.icon className={`w-6 h-6 ${t.iconColor} flex-shrink-0`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-900">{t.label}</p>
-                        <p className="text-xs text-slate-600 mt-0.5">{t.sub}</p>
+                      <t.icon className={`h-5 w-5 flex-shrink-0 sm:h-6 sm:w-6 ${t.iconColor}`} />
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words text-sm font-semibold leading-5 text-slate-900">{t.label}</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-600">{t.sub}</p>
                       </div>
                       <ArrowRight className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
                     </div>

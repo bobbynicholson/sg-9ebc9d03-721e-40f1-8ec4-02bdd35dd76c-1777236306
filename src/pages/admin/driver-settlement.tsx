@@ -212,6 +212,7 @@ function DriverSettlementPage() {
       distance_pay: number;
       callout_pay: number;
       grand_total: number;
+      shifts_needing_review: number;
     };
     method: DriverPayoutMethod;
     reference: string;
@@ -372,6 +373,7 @@ function DriverSettlementPage() {
               distance_pay: t.distance_pay,
               callout_pay: t.callout_pay,
               grand_total: t.grand_total,
+              shifts_needing_review: t.shifts_needing_review || 0,
             },
           };
           return { ...r, summary: thin, loading: false };
@@ -443,6 +445,7 @@ function DriverSettlementPage() {
   useEffect(() => {
     if (!user?.company_id) return;
     let cancelled = false;
+    setPayoutsByDriver(new Map());
     (async () => {
       try {
         const map = await driverPayoutService.listForPeriod({
@@ -508,7 +511,7 @@ function DriverSettlementPage() {
     // active == drivers with grand_total > 0. Pre-DRV-B "Drivers
     // paid" tile read the roster which was misleading when only
     // one driver had hours.
-    let hours = 0, hourlyPay = 0, distanceKm = 0, distancePay = 0, callout = 0, grand = 0;
+    let hours = 0, hourlyPay = 0, distanceKm = 0, distancePay = 0, callout = 0, grand = 0, shiftsToReview = 0;
     let roster = 0, active = 0;
     for (const r of rows) {
       const s = r.summary?.totals;
@@ -521,8 +524,9 @@ function DriverSettlementPage() {
       distancePay += s.distance_pay;
       callout += s.callout_pay;
       grand += s.grand_total;
+      shiftsToReview += s.shifts_needing_review || 0;
     }
-    return { hours, hourlyPay, distanceKm, distancePay, callout, grand, roster, active };
+    return { hours, hourlyPay, distanceKm, distancePay, callout, grand, roster, active, shiftsToReview };
   }, [rows]);
 
   const exportCsv = () => {
@@ -530,7 +534,7 @@ function DriverSettlementPage() {
       "Driver", "Email", "Hours", "Hourly pay", "Distance (km)", "Distance pay", "Callouts", "Callout pay", "Grand total",
       // DRV-B: settlement status + paid-at columns so finance can
       // reconcile against the rand totals already in the export.
-      "Settlement status", "Paid at", "Paid method", "Paid reference",
+      "Shifts needing review", "Settlement status", "Paid at", "Paid method", "Paid reference",
     ];
     const lines = [header.join(",")];
     for (const r of rows) {
@@ -554,6 +558,7 @@ function DriverSettlementPage() {
           : (s.callout_pay === 0 ? 0 : ""),
         s.callout_pay.toFixed(2),
         s.grand_total.toFixed(2),
+        s.shifts_needing_review || 0,
         payout?.status ?? "unsettled",
         payout?.paid_at ? `"${payout.paid_at}"` : "",
         payout?.paid_method ?? "",
@@ -580,6 +585,14 @@ function DriverSettlementPage() {
       toast({ title: "No totals to settle yet", description: "Wait for the row to finish loading.", variant: "destructive" });
       return;
     }
+    if ((t.shifts_needing_review || 0) > 0) {
+      toast({
+        title: "Review driver shifts first",
+        description: `${driverName} has ${t.shifts_needing_review} shift${t.shifts_needing_review === 1 ? "" : "s"} with clock data that needs correction. Expand the driver row to edit them before settling.`,
+        variant: "destructive",
+      });
+      return;
+    }
     setPayoutDialog({
       driverId,
       driverName,
@@ -590,6 +603,7 @@ function DriverSettlementPage() {
         distance_pay: t.distance_pay,
         callout_pay: t.callout_pay,
         grand_total: t.grand_total,
+        shifts_needing_review: t.shifts_needing_review || 0,
       },
       method: "eft",
       reference: "",
@@ -598,8 +612,9 @@ function DriverSettlementPage() {
     });
   };
 
-  const confirmMarkPaid = async () => {
+  const confirmMarkPaid = async (goToNext = false) => {
     if (!payoutDialog || !user?.company_id) return;
+    const currentPayout = payoutDialog;
     setPayoutDialog((d) => (d ? { ...d, busy: true } : d));
     try {
       const draft = await driverPayoutService.ensureDraft({
@@ -635,8 +650,8 @@ function DriverSettlementPage() {
       });
       if (!paid.ok || !paid.payout) throw new Error(paid.error || "Could not mark as paid");
       toast({
-        title: "Payout recorded",
-        description: `${payoutDialog.driverName}: ${formatR(payoutDialog.totals.grand_total)} via ${payoutDialog.method}.`,
+        title: goToNext ? "Payout recorded" : "Payout recorded",
+        description: `${currentPayout.driverName}: ${formatR(currentPayout.totals.grand_total)} via ${currentPayout.method}.`,
       });
       // Optimistic - the realtime channel will also fire but the
       // local map gets the new row immediately.
@@ -645,10 +660,21 @@ function DriverSettlementPage() {
         next.set(paid.payout!.driver_id, paid.payout!);
         return next;
       });
-      setPayoutDialog(null);
+      if (goToNext) {
+        const nextDriver = getNextEligibleDriver(currentPayout.driverId);
+        if (nextDriver?.summary?.totals) {
+          openPayoutDialog(nextDriver.driver.id, nextDriver.driver.full_name);
+          toast({ title: "Next driver ready", description: nextDriver.driver.full_name });
+        } else {
+          setPayoutDialog(null);
+          toast({ title: "All eligible drivers settled", description: "No other unpaid driver is ready for payout in this period." });
+        }
+      } else {
+        setPayoutDialog(null);
+      }
     } catch (e: any) {
       captureException(e, {
-        tags: { route: "/admin/driver-settlement", step: "mark-paid", companyId: user?.company_id },
+          tags: { route: "/admin/driver-settlement", step: "mark-paid", companyId: user?.company_id },
       });
       toast({ title: "Payout failed", description: e?.message || "Try again.", variant: "destructive" });
       setPayoutDialog((d) => (d ? { ...d, busy: false } : d));
@@ -685,11 +711,13 @@ function DriverSettlementPage() {
     if (!user?.company_id) return;
     const candidates = rows.filter((r) => {
       const t = r.summary?.totals;
-      if (!t || t.grand_total <= 0) return false;
+      if (!t || t.grand_total <= 0 || (t.shifts_needing_review || 0) > 0) return false;
       return payoutsByDriver.get(r.driver.id)?.status !== "paid";
     });
     if (candidates.length === 0) {
-      toast({ title: "Nothing to settle", description: "Every driver with hours is already paid." });
+      toast({ title: "Nothing eligible to settle", description: rows.some((r) => (r.summary?.totals.shifts_needing_review || 0) > 0)
+        ? "Correct flagged shift clocks first. Other unpaid drivers may already be settled."
+        : "Every driver with payable totals is already paid." });
       return;
     }
     const owedSum = candidates.reduce((s, r) => s + (r.summary?.totals.grand_total || 0), 0);
@@ -766,19 +794,47 @@ function DriverSettlementPage() {
     });
   };
 
+  const getNextEligibleDriver = (currentDriverId: string) => {
+    const ordered = [...rows].sort((a, b) => {
+      const at = a.summary?.totals;
+      const bt = b.summary?.totals;
+      if (driverSort === "hours_desc") return Number(bt?.hours_total || 0) - Number(at?.hours_total || 0);
+      if (driverSort === "name_asc") return a.driver.full_name.localeCompare(b.driver.full_name);
+      return Number(bt?.grand_total || 0) - Number(at?.grand_total || 0);
+    });
+    const currentIndex = ordered.findIndex((row) => row.driver.id === currentDriverId);
+    const candidates = currentIndex < 0
+      ? ordered
+      : [...ordered.slice(currentIndex + 1), ...ordered.slice(0, currentIndex)];
+    return candidates.find((row) => {
+      const totals = row.summary?.totals;
+      return !!totals
+        && totals.grand_total > 0
+        && !(totals.shifts_needing_review || 0)
+        && payoutsByDriver.get(row.driver.id)?.status !== "paid";
+    }) || null;
+  };
+  const nextEligibleDriver = payoutDialog ? getNextEligibleDriver(payoutDialog.driverId) : null;
+
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Driver settlement - CateringMS</title></Head>
+      <Head><title>Driver settlement - {companyProfile?.companyName || "CateringMS"}</title></Head>
       <AdminNav />
 
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             variant="hero"
-            title="Driver settlement"
-            icon={Wallet}
-            subtitle="Review driver pay for the selected period and record completed payouts."
+            title={
+              <span className="flex min-w-0 items-center gap-2">
+                {companyProfile?.companyLogoUrl && (
+                  <img src={companyProfile.companyLogoUrl} alt="" className="h-6 w-6 shrink-0 rounded-md border border-white/20 bg-white object-contain p-0.5" />
+                )}
+                <span>Driver settlement</span>
+              </span>
+            }
+            subtitle="Driver shift hours and delivery pay for this period. Clock records needing correction are held before payout."
             meta={
               !loadingDrivers && !driversError && totals.roster > 0 ? (
                 <>
@@ -792,32 +848,41 @@ function DriverSettlementPage() {
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
                     {from} to {to}
                   </span>
+                  {totals.shiftsToReview > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/40 bg-amber-300/15 px-2.5 py-1 text-[11px] font-semibold text-amber-50">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      {totals.shiftsToReview} shift{totals.shiftsToReview === 1 ? "" : "s"} to review
+                    </span>
+                  )}
                 </>
               ) : undefined
             }
             actions={
-              <>
+              <div className="flex w-full min-w-0 items-center justify-end gap-2 xl:w-auto">
                 {/* DRV-C: bulk Mark all paid. Walks every unsettled row
                     with a positive total, drafts + flips each to paid
                     via EFT in sequence. window.confirm is the hurdle. */}
                 <Button
                   variant="outline"
                   size="sm"
+                  className="!h-8 !min-h-8 w-auto gap-1.5 px-2 text-xs sm:!h-9 sm:!min-h-9 sm:px-3 sm:text-sm"
+                  aria-label="Settle eligible drivers"
                   onClick={bulkMarkAllPaid}
                   disabled={bulkPayBusy || rows.length === 0}
                   title="Draft + mark all unsettled drivers as paid via EFT. Reversible per row."
                 >
                   {bulkPayBusy ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 sm:mr-1.5 animate-spin" />
                   ) : (
-                    <CheckCheck className="w-4 h-4 mr-2" />
+                    <CheckCheck className="h-3.5 w-3.5 sm:mr-1.5" />
                   )}
-                  Mark all paid
+                  <span className="hidden sm:inline">Mark eligible paid</span>
+                  <span className="sm:hidden">Settle</span>
                 </Button>
-                <Button variant="outline" size="sm" onClick={exportCsv} disabled={rows.length === 0}>
-                  <Download className="w-4 h-4 mr-2" /> Export CSV
+                <Button variant="outline" size="sm" className="!h-8 !min-h-8 w-auto gap-1.5 px-2 text-xs sm:!h-9 sm:!min-h-9 sm:px-3 sm:text-sm" aria-label="Export settlement CSV" onClick={exportCsv} disabled={rows.length === 0} title="Export settlement CSV">
+                  <Download className="h-3.5 w-3.5 sm:mr-1.5" /> <span className="hidden sm:inline">Export CSV</span>
                 </Button>
-              </>
+              </div>
             }
           />
           <PageWorkbench />
@@ -836,13 +901,13 @@ function DriverSettlementPage() {
 
           {/* Period picker */}
           <Card className="mb-6">
-            <CardContent className="p-4 flex flex-wrap items-end gap-3">
-              <div>
+            <CardContent className="grid grid-cols-2 items-end gap-2 p-3 sm:flex sm:flex-wrap sm:gap-3 sm:p-4">
+              <div className="col-span-2 min-w-0 sm:col-span-1">
                 <Label className="text-xs text-slate-500">Period</Label>
                 <select
                   value={preset}
                   onChange={(e) => setPreset(e.target.value as Preset)}
-                  className="mt-1 border border-slate-200 rounded-md px-3 py-2 text-sm bg-white"
+                  className="mt-1 w-full border border-slate-200 rounded-md px-2.5 py-2 text-sm bg-white sm:w-auto sm:px-3"
                 >
                   <option value="last_7">Last 7 days</option>
                   <option value="last_30">Last 30 days</option>
@@ -851,20 +916,20 @@ function DriverSettlementPage() {
                   <option value="custom">Custom</option>
                 </select>
               </div>
-              <div>
+              <div className="min-w-0">
                 <Label className="text-xs text-slate-500">From</Label>
-                <Input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPreset("custom"); }} className="mt-1 w-44" />
+                <Input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPreset("custom"); }} className="mt-1 w-full sm:w-44" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <Label className="text-xs text-slate-500">To</Label>
-                <Input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPreset("custom"); }} className="mt-1 w-44" />
+                <Input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPreset("custom"); }} className="mt-1 w-full sm:w-44" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <Label className="text-xs text-slate-500">Sort by</Label>
                 <select
                   value={driverSort}
                   onChange={(e) => setDriverSort(e.target.value as any)}
-                  className="mt-1 border border-slate-200 rounded-md px-3 py-2 text-sm bg-white"
+                  className="mt-1 w-full border border-slate-200 rounded-md px-2.5 py-2 text-sm bg-white sm:w-auto sm:px-3"
                 >
                   <option value="total_desc">Total owed (high to low)</option>
                   <option value="hours_desc">Hours (high to low)</option>
@@ -876,12 +941,12 @@ function DriverSettlementPage() {
                   hides anyone already marked paid for this window;
                   "Settled" shows only paid drivers (useful for a
                   pay-day reconciliation against the bank export). */}
-              <div>
+              <div className="min-w-0">
                 <Label className="text-xs text-slate-500">Settlement</Label>
                 <select
                   value={settledFilter}
                   onChange={(e) => setSettledFilter(e.target.value as "all" | "unsettled" | "settled")}
-                  className="mt-1 border border-slate-200 rounded-md px-3 py-2 text-sm bg-white"
+                  className="mt-1 w-full border border-slate-200 rounded-md px-2.5 py-2 text-sm bg-white sm:w-auto sm:px-3"
                 >
                   <option value="all">All drivers</option>
                   <option value="unsettled">Unsettled only</option>
@@ -900,6 +965,20 @@ function DriverSettlementPage() {
             </CardContent>
           </Card>
 
+          <p className="-mt-3 mb-4 text-[11px] leading-4 text-slate-500 sm:text-xs">
+            This view combines driver shift pay with delivery mileage and callouts. Staff Hours also includes order-linked work and payroll sessions, so its overall worked-hours totals cover a wider scope.
+          </p>
+
+          {totals.shiftsToReview > 0 && (
+            <div className="mb-4 flex min-w-0 items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-950 sm:text-sm">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+              <p className="min-w-0">
+                <strong>{totals.shiftsToReview} driver shift{totals.shiftsToReview === 1 ? " needs" : "s need"} review.</strong>{" "}
+                Mismatched, missing, or over-24-hour clock records are excluded from pay and held until corrected. Open a flagged driver row to edit its times.
+              </p>
+            </div>
+          )}
+
           {/* DRV-C (task #216, 2026-05-25): top intel chip row. Sits
               above the KPI tile strip so the manager can read the
               state of settlement at a glance:
@@ -914,12 +993,12 @@ function DriverSettlementPage() {
                   up vs prev, slate when first period (no baseline).
               */}
           {(() => {
-            const unsettledRows = rows.filter((r) => {
+      const unsettledRows = rows.filter((r) => {
               const t = r.summary?.totals;
-              if (!t || t.grand_total <= 0) return false;
+        if (!t || t.grand_total <= 0 || (t.shifts_needing_review || 0) > 0) return false;
               return payoutsByDriver.get(r.driver.id)?.status !== "paid";
             });
-            const owed = unsettledRows.reduce(
+      const owed = unsettledRows.reduce(
               (s, r) => s + (r.summary?.totals.grand_total || 0),
               0,
             );
@@ -966,9 +1045,9 @@ function DriverSettlementPage() {
             );
             const capacity = totals.active * days * 8;
             const utilPct = capacity > 0 ? Math.round((totals.hours / capacity) * 100) : null;
-            const settledCount = rows.filter((r) => {
+      const settledCount = rows.filter((r) => {
               const t = r.summary?.totals;
-              if (!t || t.grand_total <= 0) return false;
+        if (!t || t.grand_total <= 0 || (t.shifts_needing_review || 0) > 0) return false;
               return payoutsByDriver.get(r.driver.id)?.status === "paid";
             }).length;
             return (
@@ -989,13 +1068,18 @@ function DriverSettlementPage() {
                     </Badge>
                   </button>
                 )}
-                {owed === 0 && totals.active > 0 && (
+                {owed === 0 && totals.active > 0 && totals.shiftsToReview === 0 && (
                   <Badge
                     variant="outline"
                     className="px-3 py-1.5 text-sm border-brand-primary/30 text-brand-primary bg-brand-primary/10"
                   >
                     <BadgeCheck className="w-3 h-3 mr-1" />
                     All settled for this period
+                  </Badge>
+                )}
+                {totals.shiftsToReview > 0 && (
+                  <Badge variant="outline" className="border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-800">
+                    <AlertTriangle className="mr-1 h-3 w-3" /> {totals.shiftsToReview} shift{totals.shiftsToReview === 1 ? "" : "s"} held for review
                   </Badge>
                 )}
                 {dormant > 0 && (
@@ -1039,24 +1123,28 @@ function DriverSettlementPage() {
               chip row above; active/roster is a hero chip. */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatTile
+              compact
               label="Grand total"
               value={formatR(totals.grand)}
               hint="Hourly + distance + callout pay"
               icon={Wallet}
             />
             <StatTile
+              compact
               label="Hourly pay"
               value={formatR(totals.hourlyPay)}
               hint={`${totals.hours.toFixed(1)}h worked this period`}
               icon={Clock}
             />
             <StatTile
+              compact
               label="Distance pay"
               value={formatR(totals.distancePay)}
               hint={`${totals.distanceKm.toFixed(1)} km driven, round trip`}
               icon={Route}
             />
             <StatTile
+              compact
               label="Callout pay"
               value={formatR(totals.callout)}
               hint="Flat fee per completed delivery"
@@ -1122,8 +1210,8 @@ function DriverSettlementPage() {
             return (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Wallet className="w-5 h-5 text-brand-primary" />
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Wallet className="h-4 w-4 text-brand-primary sm:h-5 sm:w-5" />
                     Per-driver breakdown
                   </CardTitle>
                 </CardHeader>
@@ -1207,6 +1295,12 @@ function DriverSettlementPage() {
                             onMarkPaid={() => openPayoutDialog(r.driver.id, r.driver.full_name)}
                             onReverse={(payoutId) => reversePayout(payoutId, r.driver.full_name)}
                             formatR={formatR}
+                            companyId={user?.company_id || ""}
+                            periodFrom={from}
+                            periodTo={to}
+                            actorUserId={user?.id}
+                            onShiftChanged={() => setRefreshTick((n) => n + 1)}
+                            toast={toast}
                           />
                         ))}
                       </div>
@@ -1289,7 +1383,7 @@ function DriverSettlementPage() {
                   </div>
                 </div>
               )}
-              <DialogFooter>
+              <DialogFooter className="gap-2 sm:gap-2">
                 <button
                   type="button"
                   onClick={() => setPayoutDialog(null)}
@@ -1300,9 +1394,20 @@ function DriverSettlementPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={confirmMarkPaid}
+                  onClick={() => confirmMarkPaid(true)}
+                  disabled={!payoutDialog || payoutDialog.busy || !nextEligibleDriver}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-md border border-brand-primary/30 bg-brand-primary/5 px-3 py-2 text-sm font-medium text-brand-primary hover:bg-brand-primary/10 disabled:opacity-50"
+                  title={nextEligibleDriver ? `Record this payout and continue to ${nextEligibleDriver.driver.full_name}` : "No other eligible driver is waiting for payout"}
+                >
+                  <CheckCheck className="h-4 w-4" />
+                  <span className="hidden sm:inline">Mark paid &amp; next</span>
+                  <span className="sm:hidden">Pay + next</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => confirmMarkPaid(false)}
                   disabled={!payoutDialog || payoutDialog.busy}
-                  className="px-3 py-2 text-sm bg-brand-primary hover:bg-brand-primary/90 text-white rounded-md flex items-center gap-1.5 disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-md bg-brand-primary px-3 py-2 text-sm text-white hover:bg-brand-primary/90 disabled:opacity-60"
                 >
                   {payoutDialog?.busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CircleCheck className="w-4 h-4" />}
                   Mark as paid
@@ -1322,7 +1427,7 @@ function FragmentRows({
   payout, onMarkPaid, onReverse,
 }: {
   row: SettlementRow;
-  t: { hours_total: number; hourly_pay: number; distance_total_km: number; distance_pay: number; callout_pay: number; grand_total: number } | undefined;
+  t: { hours_total: number; hourly_pay: number; distance_total_km: number; distance_pay: number; callout_pay: number; grand_total: number; shifts_needing_review?: number } | undefined;
   isOpen: boolean;
   onToggle: () => void;
   periodFrom: string;
@@ -1352,6 +1457,7 @@ function FragmentRows({
   // 20+ drivers.
   const [detail, setDetail] = useState<DriverPaySummary | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  useEffect(() => { setDetail(null); }, [periodFrom, periodTo]);
   // TIGHTEN I.101 (2026-06-02): per-action busy guards. PDF + Email
   // buttons previously only gated on !hasPay, so a double-tap could
   // fire two PDF renders or two outbound emails to the driver. Now
@@ -1378,10 +1484,9 @@ function FragmentRows({
       }
     })();
     return () => { cancelled = true; };
-    // We only want to re-trigger when the user opens the row, not
-    // on every period tweak.
+    // Keep expanded details tied to the selected date window.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, row.driver.id, companyId]);
+  }, [isOpen, row.driver.id, companyId, periodFrom, periodTo, detail]);
 
   const detailSummary = detail || row.summary;
   // Phase 8 #1: per-shift edit / delete state. Lives at the row
@@ -1403,6 +1508,9 @@ function FragmentRows({
     const pad = (n: number) => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
+  const clockLabel = (iso: string | null | undefined) => iso
+    ? new Date(iso).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })
+    : "missing";
   const openEditShift = (s: any) => {
     setEditingShift({
       shift_id: s.shift_id,
@@ -1414,10 +1522,20 @@ function FragmentRows({
   };
   const saveShiftEdit = async () => {
     if (!editingShift) return;
+    const startMs = new Date(editingShift.actual_start).getTime();
+    const endMs = new Date(editingShift.actual_end).getTime();
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs || endMs - startMs > 24 * 60 * 60 * 1000) {
+      toast({
+        title: "Check the clock times",
+        description: "Enter a valid clock-in and clock-out. A payable shift must be longer than zero and no more than 24 hours.",
+        variant: "destructive",
+      });
+      return;
+    }
     setShiftBusy(true);
     try {
-      const startIso = editingShift.actual_start ? new Date(editingShift.actual_start).toISOString() : null;
-      const endIso = editingShift.actual_end ? new Date(editingShift.actual_end).toISOString() : null;
+      const startIso = new Date(editingShift.actual_start).toISOString();
+      const endIso = new Date(editingShift.actual_end).toISOString();
       const res = await driverPayService.updateShift(
         editingShift.shift_id,
         {
@@ -1425,6 +1543,7 @@ function FragmentRows({
           actual_end: endIso as any,
           notes: editingShift.notes.trim() || null,
           rate_multiplier: editingShift.rate_multiplier === 1 ? null : editingShift.rate_multiplier,
+          status: "completed",
         },
         undefined,
         actorUserId ?? null,
@@ -1432,6 +1551,7 @@ function FragmentRows({
       if (!res.ok) throw new Error(res.error || "Update failed");
       toast({ title: "Shift updated", description: "Settlement totals will refresh." });
       setEditingShift(null);
+      setDetail(null);
       onShiftChanged?.();
     } catch (e: any) {
       toast({ title: "Edit failed", description: e?.message, variant: "destructive" });
@@ -1447,6 +1567,7 @@ function FragmentRows({
       if (!res.ok) throw new Error(res.error || "Delete failed");
       toast({ title: "Shift removed", description: "Settlement totals will refresh." });
       setDeletingShiftId(null);
+      setDetail(null);
       onShiftChanged?.();
     } catch (e: any) {
       toast({ title: "Delete failed", description: e?.message, variant: "destructive" });
@@ -1546,10 +1667,19 @@ function FragmentRows({
     }
   };
   const hasPay = !!(row.summary && t && t.grand_total > 0);
+  const shiftReviewCount = t?.shifts_needing_review || 0;
   // DRV-B: per-driver settlement chip. payout state comes from the
   // parent map (already loaded once per period change). Reverse
   // action only on the paid state.
   const isPaid = payout?.status === "paid";
+  const paidTotalsChanged = !!(isPaid && t && payout && (
+    Math.abs(Number(payout.gross_total || 0) - t.grand_total) > 0.01
+    || Math.abs(Number(payout.hours_total || 0) - t.hours_total) > 0.01
+    || Math.abs(Number(payout.hourly_pay || 0) - t.hourly_pay) > 0.01
+    || Math.abs(Number(payout.distance_total_km || 0) - t.distance_total_km) > 0.01
+    || Math.abs(Number(payout.distance_pay || 0) - t.distance_pay) > 0.01
+    || Math.abs(Number(payout.callout_pay || 0) - t.callout_pay) > 0.01
+  ));
   return (
     <>
       <tr id={`driver-row-${row.driver.id}`} className="border-t border-slate-100 hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
@@ -1608,16 +1738,26 @@ function FragmentRows({
             open the mark-as-paid dialog. Empty when there's nothing
             to settle (zero total). */}
         <td className="px-2 py-3 text-center">
-          {!hasPay ? (
+          {shiftReviewCount > 0 ? (
+            <button
+              type="button"
+              onClick={onToggle}
+              className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 hover:bg-amber-100"
+              title="Expand and correct clock records before paying this driver"
+            >
+              <AlertTriangle className="h-3 w-3" /> Review {shiftReviewCount}
+            </button>
+          ) : !hasPay ? (
             <span className="text-[10px] text-slate-300">-</span>
           ) : isPaid ? (
             <button
               type="button"
               onClick={() => onReverse(payout!.id)}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-brand-primary/10 text-brand-primary border border-brand-primary/20 hover:bg-brand-primary/15"
-              title={`Paid via ${payout!.paid_method || "-"}${payout!.paid_reference ? ` (${payout!.paid_reference})` : ""}. Click to reverse.`}
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${paidTotalsChanged ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100" : "border-brand-primary/20 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/15"}`}
+              title={`${paidTotalsChanged ? "Current totals differ from the recorded payout. " : ""}Paid via ${payout!.paid_method || "-"}${payout!.paid_reference ? ` (${payout!.paid_reference})` : ""}. Click to reverse and reconcile.`}
             >
-              <BadgeCheck className="w-3 h-3" /> Paid
+              {paidTotalsChanged ? <AlertTriangle className="h-3 w-3" /> : <BadgeCheck className="w-3 h-3" />}
+              {paidTotalsChanged ? "Paid · changed" : "Paid"}
             </button>
           ) : (
             <button
@@ -1725,10 +1865,14 @@ function FragmentRows({
                       const hasMultiplier = s.multiplier !== 1;
                       const hasOvertime = !!buckets?.some((b) => b.overtimeHours > 0);
                       return (
-                        <li key={s.shift_id} className="border-l-2 border-slate-200 pl-2 group">
+                        <li key={s.shift_id} className={`border-l-2 pl-2 ${s.needs_review ? "border-amber-400 bg-amber-50/70 py-1.5 pr-1" : "border-slate-200"}`}>
                           <div className="flex justify-between items-start gap-2">
                             <span className="flex-1">
                               {s.hours.toFixed(2)}h @ {formatR(s.hourly_rate)}/hr{" "}
+                              <span className="block text-[10px] font-normal text-slate-500">{s.shift_date || "Date unknown"} · {clockLabel(s.actual_start)}–{clockLabel(s.actual_end)}</span>
+                              {s.needs_review && (
+                                <span className="block font-semibold text-amber-800">Held: {s.review_reason || "Clock record needs review"}</span>
+                              )}
                               {hasMultiplier && (
                                 <span className="text-amber-700 font-medium">× {s.multiplier}</span>
                               )}
@@ -1736,12 +1880,12 @@ function FragmentRows({
                                 <span className="text-amber-700 font-medium"> (includes overtime)</span>
                               )}
                             </span>
-                            <span className="font-medium tabular-nums">{formatR(s.pay)}</span>
+                            <span className={`font-medium tabular-nums ${s.needs_review ? "text-amber-800" : ""}`}>{formatR(s.pay)}</span>
                             {/* Phase 8 #1: admin edit / soft-delete
                                 actions per shift. Visible on hover
                                 so they don't crowd the row. Audit log
                                 handled inside driverPayService. */}
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 -my-0.5">
+                            <div className="flex shrink-0 gap-0.5 -my-0.5">
                               <button
                                 type="button"
                                 onClick={() => openEditShift(s)}
@@ -1958,24 +2102,92 @@ function FragmentRows({
 /**
  * DRV-B: per-driver mobile card. The desktop table is unusable on
  * phones (10 columns); this card carries the same headline numbers
- * + status + actions in a stacked layout. Per-shift / per-delivery
- * drilldown intentionally lives on desktop only - on a phone the
- * operator is looking at "who do I still owe?", not "audit this
- * specific shift".
+ * + status + actions in a stacked layout. Shift details stay
+ * collapsed until needed, with clock editing available on phones.
  */
 function DriverSettlementCard({
   row, payout, onMarkPaid, onReverse, formatR = formatRDefault,
+  companyId, periodFrom, periodTo, actorUserId, onShiftChanged, toast,
 }: {
   row: SettlementRow;
   payout: DriverPayoutRow | null;
   onMarkPaid: () => void;
   onReverse: (payoutId: string) => void;
+  companyId: string;
+  periodFrom: string;
+  periodTo: string;
+  actorUserId?: string | null;
+  onShiftChanged: () => void;
+  toast: (options: any) => void;
   /** TIGHTEN I.107: tenant-aware money formatter passed from parent. */
   formatR?: (n: number) => string;
 }) {
   const t = row.summary?.totals;
   const hasPay = !!(t && t.grand_total > 0);
+  const reviewCount = t?.shifts_needing_review || 0;
   const isPaid = payout?.status === "paid";
+  const paidTotalsChanged = !!(isPaid && t && payout && (
+    Math.abs(Number(payout.gross_total || 0) - t.grand_total) > 0.01
+    || Math.abs(Number(payout.hours_total || 0) - t.hours_total) > 0.01
+    || Math.abs(Number(payout.hourly_pay || 0) - t.hourly_pay) > 0.01
+    || Math.abs(Number(payout.distance_total_km || 0) - t.distance_total_km) > 0.01
+    || Math.abs(Number(payout.distance_pay || 0) - t.distance_pay) > 0.01
+    || Math.abs(Number(payout.callout_pay || 0) - t.callout_pay) > 0.01
+  ));
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detail, setDetail] = useState<DriverPaySummary | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [editingShift, setEditingShift] = useState<{
+    shift_id: string; actual_start: string; actual_end: string; notes: string; rate_multiplier: number;
+  } | null>(null);
+  const [shiftBusy, setShiftBusy] = useState(false);
+
+  useEffect(() => {
+    if (!detailsOpen || detail || !companyId) return;
+    let cancelled = false;
+    setDetailLoading(true);
+    driverPayService.getPaySummary({ companyId, driverId: row.driver.id, range: { from: periodFrom, to: periodTo } })
+      .then((summary) => { if (!cancelled) setDetail(summary); })
+      .catch(() => { if (!cancelled) setDetail(null); })
+      .finally(() => { if (!cancelled) setDetailLoading(false); });
+    return () => { cancelled = true; };
+  }, [detailsOpen, detail, companyId, row.driver.id, periodFrom, periodTo]);
+
+  const asLocalInput = (value?: string | null) => {
+    if (!value) return "";
+    const date = new Date(value);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+  const clockLabel = (value?: string | null) => value
+    ? new Date(value).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })
+    : "missing";
+  const saveEditedShift = async () => {
+    if (!editingShift) return;
+    const start = new Date(editingShift.actual_start).getTime();
+    const end = new Date(editingShift.actual_end).getTime();
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || end - start > 24 * 60 * 60 * 1000) {
+      toast({ title: "Check the clock times", description: "A shift must be longer than zero and no more than 24 hours.", variant: "destructive" });
+      return;
+    }
+    setShiftBusy(true);
+    const result = await driverPayService.updateShift(editingShift.shift_id, {
+      actual_start: new Date(start).toISOString(),
+      actual_end: new Date(end).toISOString(),
+      notes: editingShift.notes.trim() || null,
+      rate_multiplier: editingShift.rate_multiplier === 1 ? null : editingShift.rate_multiplier,
+      status: "completed",
+    }, undefined, actorUserId ?? null);
+    setShiftBusy(false);
+    if (!result.ok) {
+      toast({ title: "Could not update shift", description: result.error || "Try again.", variant: "destructive" });
+      return;
+    }
+    setEditingShift(null);
+    setDetail(null);
+    onShiftChanged();
+    toast({ title: "Shift updated", description: "Settlement totals are refreshing." });
+  };
   return (
     <div
       id={`driver-row-card-${row.driver.id}`}
@@ -2006,8 +2218,8 @@ function DriverSettlementCard({
             <span className="text-[11px] text-rose-500 italic">Failed</span>
           ) : (
             <>
-              <p className="text-lg font-bold text-brand-primary tabular-nums">{formatR(t.grand_total)}</p>
-              <p className="text-[11px] text-slate-500 tabular-nums">{t.hours_total.toFixed(2)}h</p>
+              <p className="text-base font-bold text-brand-primary tabular-nums sm:text-lg">{formatR(t.grand_total)}</p>
+              <p className="text-[10px] text-slate-500 tabular-nums sm:text-[11px]">{t.hours_total.toFixed(2)}h payable</p>
             </>
           )}
         </div>
@@ -2036,16 +2248,29 @@ function DriverSettlementCard({
           </div>
         </div>
       )}
+      {reviewCount > 0 && (
+        <div className="mt-2 flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] leading-4 text-amber-900">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>{reviewCount} shift{reviewCount === 1 ? "" : "s"} held from pay. Correct the clock times below before settling.</span>
+        </div>
+      )}
       <div className="mt-3 flex items-center justify-between gap-2">
-        {!hasPay ? (
+        {reviewCount > 0 ? (
+          <button type="button" onClick={() => setDetailsOpen((open) => !open)} className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-800">
+            {detailsOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+            {detailsOpen ? "Hide shift details" : "Review & edit shifts"}
+          </button>
+        ) : !hasPay ? (
           <span className="text-[11px] text-slate-400">Nothing to settle</span>
         ) : isPaid ? (
           <button
             type="button"
             onClick={() => onReverse(payout!.id)}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium bg-brand-primary/10 text-brand-primary border border-brand-primary/20"
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium ${paidTotalsChanged ? "border-amber-300 bg-amber-50 text-amber-800" : "border-brand-primary/20 bg-brand-primary/10 text-brand-primary"}`}
+            title={paidTotalsChanged ? "Current totals differ from the recorded payout. Tap to reverse and reconcile." : "Tap to reverse the recorded payout."}
           >
-            <BadgeCheck className="w-3 h-3" /> Paid - tap to reverse
+            {paidTotalsChanged ? <AlertTriangle className="h-3 w-3" /> : <BadgeCheck className="w-3 h-3" />}
+            {paidTotalsChanged ? "Paid · changed" : "Paid · reverse"}
           </button>
         ) : (
           <button
@@ -2056,7 +2281,59 @@ function DriverSettlementCard({
             <CircleDashed className="w-3 h-3" /> Mark as paid
           </button>
         )}
+        {reviewCount === 0 && (
+          <button type="button" onClick={() => setDetailsOpen((open) => !open)} className="ml-auto inline-flex min-h-9 items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50">
+            {detailsOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            {detailsOpen ? "Hide details" : "Shift details"}
+          </button>
+        )}
       </div>
+      {detailsOpen && (
+        <div className="mt-3 border-t border-slate-100 pt-3">
+          {detailLoading && !detail ? (
+            <p className="flex items-center gap-1.5 py-2 text-xs text-slate-500"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading shift details…</p>
+          ) : !detail ? (
+            <p className="py-2 text-xs text-rose-700">Could not load shift details. Close and reopen to retry.</p>
+          ) : detail.shifts.length === 0 ? (
+            <p className="py-2 text-xs text-slate-500">No shifts in this period.</p>
+          ) : (
+            <ul className="space-y-2">
+              {detail.shifts.map((shift) => (
+                <li key={shift.shift_id} className={`flex min-w-0 items-start justify-between gap-2 rounded-md border p-2 text-xs ${shift.needs_review ? "border-amber-200 bg-amber-50" : "border-slate-100 bg-slate-50/60"}`}>
+                  <div className="min-w-0">
+                    <p className="font-medium text-slate-800">{shift.shift_date || "Shift"} · {shift.hours.toFixed(2)}h</p>
+                    <p className="text-[11px] text-slate-500">{clockLabel(shift.actual_start)} – {clockLabel(shift.actual_end)}</p>
+                    {shift.needs_review ? <p className="mt-0.5 text-[11px] font-medium text-amber-800">Held: {shift.review_reason}</p> : <p className="text-[11px] text-slate-500">{formatR(shift.pay)}</p>}
+                  </div>
+                  <button type="button" onClick={() => setEditingShift({ shift_id: shift.shift_id, actual_start: asLocalInput(shift.actual_start), actual_end: asLocalInput(shift.actual_end), notes: shift.notes || "", rate_multiplier: shift.multiplier || 1 })} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-[11px] font-medium text-slate-700">
+                    <Pencil className="h-3 w-3" /> Edit
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+      <Dialog open={!!editingShift} onOpenChange={(open) => !open && !shiftBusy && setEditingShift(null)}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit driver shift</DialogTitle>
+            <DialogDescription>Correct the clock times and notes. Changes are audit logged and refresh this settlement.</DialogDescription>
+          </DialogHeader>
+          {editingShift && (
+            <div className="grid grid-cols-1 gap-3 py-1 sm:grid-cols-2">
+              <div><Label htmlFor={`mobile-shift-start-${editingShift.shift_id}`}>Clock in</Label><Input id={`mobile-shift-start-${editingShift.shift_id}`} type="datetime-local" value={editingShift.actual_start} onChange={(e) => setEditingShift({ ...editingShift, actual_start: e.target.value })} className="mt-1 min-w-0 text-xs" /></div>
+              <div><Label htmlFor={`mobile-shift-end-${editingShift.shift_id}`}>Clock out</Label><Input id={`mobile-shift-end-${editingShift.shift_id}`} type="datetime-local" value={editingShift.actual_end} onChange={(e) => setEditingShift({ ...editingShift, actual_end: e.target.value })} className="mt-1 min-w-0 text-xs" /></div>
+              <div className="sm:col-span-2"><Label htmlFor={`mobile-shift-notes-${editingShift.shift_id}`}>Notes</Label><Input id={`mobile-shift-notes-${editingShift.shift_id}`} value={editingShift.notes} onChange={(e) => setEditingShift({ ...editingShift, notes: e.target.value })} className="mt-1" /></div>
+              <div className="sm:col-span-2"><Label htmlFor={`mobile-shift-mult-${editingShift.shift_id}`}>Pay multiplier</Label><select id={`mobile-shift-mult-${editingShift.shift_id}`} value={String(editingShift.rate_multiplier)} onChange={(e) => setEditingShift({ ...editingShift, rate_multiplier: Number(e.target.value) })} className="mt-1 min-h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"><option value="1">1× standard</option><option value="1.5">1.5× overtime</option><option value="2">2× Sunday / public holiday</option></select></div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setEditingShift(null)} disabled={shiftBusy}>Cancel</Button>
+            <Button size="sm" onClick={saveEditedShift} disabled={shiftBusy} className="bg-brand-primary text-white hover:bg-brand-primary/90">{shiftBusy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Check className="mr-1.5 h-4 w-4" />}Save shift</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

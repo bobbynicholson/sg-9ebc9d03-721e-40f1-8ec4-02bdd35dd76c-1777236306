@@ -36,7 +36,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const { data: companies, error } = await supabase
       .from("companies")
-      .select("id, company_name")
+      .select("id, company_name, currency")
       .is("deleted_at", null);
     if (error) {
       await recordCronHeartbeat(supabase, CRON_NAME, "error", { source: auth.source, run_id: auth.runId, error_message: error.message });
@@ -47,7 +47,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       companiesScanned += 1;
       let result;
       try {
-        result = await findMoneyInconsistencies(supabase, c.id, { limit: 500 });
+        result = await findMoneyInconsistencies(supabase, c.id, { limit: 500, currencyCode: c.currency || "ZAR" });
       } catch (e: any) {
         console.warn("[money-reconciliation-check] scan failed for", c.id, e?.message);
         continue;

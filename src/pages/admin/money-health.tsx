@@ -5,10 +5,10 @@
  * Two reliability surfaces in one place:
  *   1. Money reconciliation - orders whose order/invoice/payment figures
  *      disagree, so drift is caught before a client notices.
- *   2. Email queue health - queued / failed / stale counts with a one-click
- *      "Send pending now" so a stuck email queue is never silent.
+ *   2. Email queue health - queued / held / failed / stale counts with
+ *      explicit paths to send due mail or review held messages.
  */
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Head from "next/head";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
@@ -25,7 +25,54 @@ import { useToast } from "@/hooks/use-toast";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
-import { Activity, AlertTriangle, CheckCircle2, ClipboardCheck, Loader2, Mail, MailX, RefreshCw, Send, Banknote } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, ClipboardCheck, Loader2, Mail, MailX, Send, Banknote, ChevronDown, Eye, ExternalLink } from "lucide-react";
+
+type MoneyIssue = {
+  orderId: string;
+  orderNumber: string | null;
+  clientName: string | null;
+  status: string | null;
+  kind: string;
+  severity: "warning" | "error";
+  detail: string;
+  orderTotal: number;
+  invoiceTotal: number;
+  outstanding: number;
+  moneyView: {
+    orderPaid: number;
+    ledgerPaid: number;
+    orderBalance: number | null;
+    invoicePaid: number;
+    invoiceBalance: number;
+  };
+};
+
+type MoneyHealth = {
+  scanned: number;
+  affectedOrders: number;
+  truncated: boolean;
+  issues: MoneyIssue[];
+};
+
+type EmailHealth = {
+  queued: number;
+  awaitingApproval: number;
+  inProgress: number;
+  failed: number;
+  sentLast24h: number;
+  oldestQueuedMinutes: number | null;
+  stale: boolean;
+  staleInProgress: boolean;
+};
+
+const ISSUE_LABELS: Record<string, string> = {
+  order_vs_invoice_total: "Order / invoice total",
+  order_vs_invoice_balance: "Outstanding balance",
+  order_vs_payment_ledger: "Payment ledger",
+  invoice_internal: "Invoice balance",
+  paid_flag_mismatch: "Payment status",
+  overpaid: "Overpayment",
+};
 
 function MoneyHealthPage() {
   const { toast } = useToast();
@@ -36,8 +83,10 @@ function MoneyHealthPage() {
   const { withSlug } = useTenantHref();
   const [loading, setLoading] = useState(true);
   const [draining, setDraining] = useState(false);
-  const [money, setMoney] = useState<any | null>(null);
-  const [email, setEmail] = useState<any | null>(null);
+  const [money, setMoney] = useState<MoneyHealth | null>(null);
+  const [email, setEmail] = useState<EmailHealth | null>(null);
+  const [expandedIssues, setExpandedIssues] = useState<Record<string, boolean>>({});
+  const loadSequence = useRef(0);
   // Audit fix: track per-endpoint failures. Previously both fetches
   // swallowed errors into null, and a null money payload rendered the
   // green "every order reconciles" state - a failed scan looked
@@ -47,34 +96,39 @@ function MoneyHealthPage() {
   const [emailError, setEmailError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true);
     try {
       const [m, e] = await Promise.all([
-        fetch("/api/admin/money-reconciliation")
+        fetch("/api/admin/money-reconciliation", { cache: "no-store" })
           .then(async (r) => {
             const j = await r.json().catch(() => null);
             if (!j?.ok) throw new Error(j?.error || `Scan failed (HTTP ${r.status})`);
-            return { data: j, error: null as string | null };
+            return { data: j as MoneyHealth, error: null as string | null };
           })
           .catch((err: any) => ({ data: null, error: err?.message || "Reconciliation scan failed" })),
-        fetch("/api/admin/email-health")
+        fetch("/api/admin/email-health", { cache: "no-store" })
           .then(async (r) => {
             const j = await r.json().catch(() => null);
             if (!j?.ok) throw new Error(j?.error || `Health check failed (HTTP ${r.status})`);
-            return { data: j.health, error: null as string | null };
+            return { data: j.health as EmailHealth, error: null as string | null };
           })
           .catch((err: any) => ({ data: null, error: err?.message || "Email health check failed" })),
       ]);
+      if (sequence !== loadSequence.current) return;
       setMoney(m.data);
       setMoneyError(m.error);
       setEmail(e.data);
       setEmailError(e.error);
     } finally {
-      setLoading(false);
+      if (sequence === loadSequence.current) setLoading(false);
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    return () => { loadSequence.current += 1; };
+  }, [load]);
 
   const drain = async () => {
     setDraining(true);
@@ -104,11 +158,17 @@ function MoneyHealthPage() {
   };
 
   const fmtMoney = (n: number) => tenantCurrency.format(Number(n || 0));
-  const issues = (money?.issues || []) as any[];
+  const issues = money?.issues || [];
   const errorCount = issues.filter((i) => i.severity === "error").length;
   const scanLabel = money?.truncated
     ? `Latest ${money.scanned} orders scanned`
-    : `${money?.scanned ?? 0} orders reconcile`;
+    : `${money?.scanned ?? 0} orders checked`;
+  const emailNeedsAttention = !!email && (
+    email.queued > 0 || email.awaitingApproval > 0 || email.failed > 0 ||
+    email.stale || email.staleInProgress
+  );
+  const toggleIssue = (key: string) => setExpandedIssues((current) => ({ ...current, [key]: !current[key] }));
+  const detailMoney = (amount: number | null) => amount == null ? "Not recorded" : fmtMoney(amount);
 
   return (
     <>
@@ -129,7 +189,7 @@ function MoneyHealthPage() {
             meta={
               <>
                 {money && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className={`h-1.5 w-1.5 rounded-full ${issues.length === 0 ? "bg-emerald-400" : "bg-rose-400"}`} />
                     {issues.length === 0
                       ? scanLabel
@@ -137,17 +197,12 @@ function MoneyHealthPage() {
                   </span>
                 )}
                 {email && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                    <span className={`h-1.5 w-1.5 rounded-full ${email.queued === 0 && email.failed === 0 && !email.staleInProgress ? "bg-emerald-400" : "bg-amber-400"}`} />
-                    {email.queued} queued, {email.inProgress || 0} processing, {email.failed} failed
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
+                    <span className={`h-1.5 w-1.5 rounded-full ${emailNeedsAttention ? "bg-amber-400" : "bg-emerald-400"}`} />
+                    {email.queued} queued · {email.awaitingApproval} held · {email.failed} failed
                   </span>
                 )}
               </>
-            }
-            actions={
-              <Button variant="outline" onClick={load} disabled={loading} className="gap-2">
-                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
-              </Button>
             }
           />
           <PageWorkbench />
@@ -170,6 +225,7 @@ function MoneyHealthPage() {
                 value={money ? money.scanned : "-"}
                 hint={money ? (money.truncated ? "Latest records only — refine the scan before calling all books clean" : "Order, invoice and payment figures compared") : "Scan did not run"}
                 icon={ClipboardCheck}
+                compact
               />
               <StatTile
                 label="Drift issues"
@@ -182,24 +238,25 @@ function MoneyHealthPage() {
                     : "Scan did not run"
                 }
                 icon={AlertTriangle}
+                compact
               />
               <StatTile
-                label="Emails queued"
-                value={email ? email.queued : "-"}
+                label="Emails waiting"
+                value={email ? email.queued + email.awaitingApproval : "-"}
                 hint={
                   email
-                    ? email.oldestQueuedMinutes != null
-                      ? `Oldest waiting ${email.oldestQueuedMinutes}m`
-                      : "Nothing waiting"
+                    ? `${email.queued} due · ${email.awaitingApproval} held for review`
                     : "Health check failed"
                 }
                 icon={Mail}
+                compact
               />
               <StatTile
                 label="Failed emails"
                 value={email ? email.failed : "-"}
                 hint={email ? `${email.sentLast24h} sent in the last 24 hours` : "Health check failed"}
                 icon={MailX}
+                compact
               />
             </div>
           )}
@@ -211,28 +268,46 @@ function MoneyHealthPage() {
               {loading && !email ? (
                 <div className="py-4 text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading...</div>
               ) : email ? (
-                <div className="flex flex-wrap items-center gap-4">
-                  <div><p className="text-xs text-slate-500">Queued</p><p className={`text-xl font-bold ${email.stale ? "text-amber-600" : "text-slate-900 dark:text-white"}`}>{email.queued}</p></div>
-                  <div><p className="text-xs text-slate-500">In progress</p><p className={`text-xl font-bold ${email.staleInProgress ? "text-amber-600" : "text-slate-900 dark:text-white"}`}>{email.inProgress}</p></div>
-                  <div><p className="text-xs text-slate-500">Failed</p><p className={`text-xl font-bold ${email.failed > 0 ? "text-rose-600" : "text-slate-900 dark:text-white"}`}>{email.failed}</p></div>
-                  <div><p className="text-xs text-slate-500">Sent (24h)</p><p className="text-xl font-bold text-brand-primary">{email.sentLast24h}</p></div>
-                  <div><p className="text-xs text-slate-500">Oldest waiting</p><p className="text-xl font-bold text-slate-900 dark:text-white">{email.oldestQueuedMinutes != null ? `${email.oldestQueuedMinutes}m` : "-"}</p></div>
-                  <div className="ml-auto flex items-center gap-2">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+                    <div className="rounded-lg border border-slate-200 p-2.5 dark:border-slate-800 sm:p-3"><p className="text-xs text-slate-500">Queued</p><p className={`mt-1 text-base font-semibold tabular-nums sm:text-lg ${email.stale ? "text-amber-600" : "text-slate-900 dark:text-white"}`}>{email.queued}</p></div>
+                    <div className="rounded-lg border border-slate-200 p-2.5 dark:border-slate-800 sm:p-3"><p className="text-xs text-slate-500">Held for review</p><p className="mt-1 text-base font-semibold tabular-nums text-amber-700 sm:text-lg">{email.awaitingApproval}</p></div>
+                    <div className="rounded-lg border border-slate-200 p-2.5 dark:border-slate-800 sm:p-3"><p className="text-xs text-slate-500">In progress</p><p className={`mt-1 text-base font-semibold tabular-nums sm:text-lg ${email.staleInProgress ? "text-amber-600" : "text-slate-900 dark:text-white"}`}>{email.inProgress}</p></div>
+                    <div className="rounded-lg border border-slate-200 p-2.5 dark:border-slate-800 sm:p-3"><p className="text-xs text-slate-500">Failed</p><p className={`mt-1 text-base font-semibold tabular-nums sm:text-lg ${email.failed > 0 ? "text-rose-600" : "text-slate-900 dark:text-white"}`}>{email.failed}</p></div>
+                    <div className="rounded-lg border border-slate-200 p-2.5 dark:border-slate-800 sm:p-3"><p className="text-xs text-slate-500">Sent · 24h</p><p className="mt-1 text-base font-semibold tabular-nums text-brand-primary sm:text-lg">{email.sentLast24h}</p></div>
+                    <div className="rounded-lg border border-slate-200 p-2.5 dark:border-slate-800 sm:p-3"><p className="text-xs text-slate-500">Oldest queued</p><p className="mt-1 text-base font-semibold tabular-nums text-slate-900 dark:text-white sm:text-lg">{email.oldestQueuedMinutes != null ? `${email.oldestQueuedMinutes}m` : "—"}</p></div>
+                  </div>
+                  <div className="flex flex-col gap-3 border-t border-slate-200 pt-3 dark:border-slate-800 sm:flex-row sm:flex-wrap sm:items-center">
+                    <div className="flex flex-wrap items-center gap-2">
                     {email.stale && (
-                      <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 gap-1"><AlertTriangle className="w-3 h-3" /> Queue stale - worker may be down</Badge>
+                      <Badge variant="outline" className="gap-1 border-amber-200 bg-amber-50 text-xs text-amber-800"><AlertTriangle className="w-3 h-3" /> Queue may be stalled</Badge>
                     )}
                     {email.staleInProgress && (
-                      <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 gap-1"><AlertTriangle className="w-3 h-3" /> Stalled claim will be recovered</Badge>
+                      <Badge variant="outline" className="gap-1 border-amber-200 bg-amber-50 text-xs text-amber-800"><AlertTriangle className="w-3 h-3" /> Stalled send can be recovered</Badge>
                     )}
+                    </div>
+                    <div className="flex flex-col gap-2 sm:ml-auto sm:flex-row sm:flex-wrap sm:items-center">
                     {(email.queued > 0 || email.staleInProgress) && (
-                      <Button onClick={drain} disabled={draining} className="gap-2 bg-brand-primary hover:bg-brand-primary/90">
-                        {draining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Retry stalled / send pending
+                      <Button onClick={drain} disabled={draining || loading} className="h-9 gap-2 bg-brand-primary text-sm hover:bg-brand-primary/90">
+                        {draining ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Send due emails now
                       </Button>
                     )}
-                    {email.queued === 0 && email.inProgress === 0 && email.failed === 0 && (
+                    {email.awaitingApproval > 0 && (
+                      <Link href={withSlug("/admin/email-settings")} className="inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 text-sm font-medium text-amber-900 hover:bg-amber-100">
+                        <Mail className="h-4 w-4" /> Review held emails ({email.awaitingApproval}) <ExternalLink className="h-3.5 w-3.5" />
+                      </Link>
+                    )}
+                    {email.failed > 0 && (
+                      <Link href={withSlug("/admin/email-templates?tab=sent-log")} className="inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 text-sm font-medium text-rose-800 hover:bg-rose-100">
+                        <MailX className="h-4 w-4" /> Review failures ({email.failed}) <ExternalLink className="h-3.5 w-3.5" />
+                      </Link>
+                    )}
+                    {email.queued === 0 && email.awaitingApproval === 0 && email.inProgress === 0 && email.failed === 0 && !email.staleInProgress && (
                       <span className="text-sm text-emerald-600 inline-flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> All clear</span>
                     )}
+                    </div>
                   </div>
+                  <p className="text-xs leading-5 text-slate-500">The send action processes due emails only. Held emails stay paused until an admin reviews them.</p>
                 </div>
               ) : (
                 <div className="flex flex-wrap items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3">
@@ -268,25 +343,48 @@ function MoneyHealthPage() {
                 </div>
               ) : issues.length === 0 ? (
                 <div className="py-8 text-center text-slate-500">
-                  <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-emerald-500" />
-                  <p className="text-sm">{money.truncated ? `The latest ${money.scanned} orders'` : "Every order's"} order / invoice / payment figures agree. {errorCount === 0 ? "No drift in this scan." : ""}</p>
+                  <CheckCircle2 className="mx-auto mb-2 h-9 w-9 text-emerald-500" />
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{money.truncated ? `No drift found in the latest ${money.scanned} orders scanned.` : `All ${money.scanned} scanned orders reconcile.`}</p>
+                  <p className="mt-1 text-xs">Order totals, invoice balances, and settled payment records were compared.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
+                  <p className="mb-3 text-xs text-slate-500">{money.affectedOrders} affected orders · {issues.length} checks to review{money.truncated ? ` · latest ${money.scanned} orders only` : ""}</p>
                   {issues.map((i, idx) => (
-                    <div key={idx} className="flex items-start justify-between gap-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-800/40">
-                      <div className="min-w-0">
+                    <div key={`${i.orderId}:${i.kind}:${idx}`} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Link href={withSlug(`/admin/orders?orderId=${i.orderId}`)} className="font-semibold text-slate-900 dark:text-white hover:underline">{i.orderNumber || i.orderId.slice(0, 8)}</Link>
+                          <Link href={withSlug(`/admin/orders?orderId=${i.orderId}`)} className="font-semibold text-slate-900 hover:underline dark:text-white">{i.orderNumber || i.orderId.slice(0, 8)}</Link>
                           {i.clientName && <span className="max-w-[16rem] truncate text-xs text-slate-500">{i.clientName}</span>}
-                          <Badge variant="outline" className={`text-[10px] ${i.severity === "error" ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-amber-50 text-amber-800 border-amber-200"}`}>{i.kind.replace(/_/g, " ")}</Badge>
+                          <Badge variant="outline" className={`text-xs ${i.severity === "error" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{ISSUE_LABELS[i.kind] || i.kind.replace(/_/g, " ")}</Badge>
                         </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{i.detail}</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-400">{i.detail}</p>
                       </div>
-                      <div className="text-right text-xs text-slate-500 whitespace-nowrap">
-                        <p>Order {fmtMoney(i.orderTotal)}</p>
-                        <p>Invoice {fmtMoney(i.invoiceTotal)}</p>
+                      <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
+                        <div className="flex gap-3 text-xs tabular-nums text-slate-600 dark:text-slate-300 sm:text-right">
+                          <span>Order <strong className="font-semibold">{fmtMoney(i.orderTotal)}</strong></span>
+                          <span>Invoice <strong className="font-semibold">{fmtMoney(i.invoiceTotal)}</strong></span>
+                        </div>
+                        <Button type="button" variant="outline" size="sm" onClick={() => toggleIssue(`${i.orderId}:${i.kind}:${idx}`)} aria-expanded={!!expandedIssues[`${i.orderId}:${i.kind}:${idx}`]} className="h-8 gap-1.5 px-2.5 text-xs">
+                          <Eye className="h-3.5 w-3.5" /> View money <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expandedIssues[`${i.orderId}:${i.kind}:${idx}`] ? "rotate-180" : ""}`} />
+                        </Button>
                       </div>
+                    </div>
+                    {expandedIssues[`${i.orderId}:${i.kind}:${idx}`] && (
+                      <div className="mt-3 rounded-md bg-slate-50 p-3 dark:bg-slate-900/70">
+                        <p className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200">Money breakdown</p>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3 xl:grid-cols-6">
+                          <div><p className="text-slate-500">Order total</p><p className="mt-0.5 font-semibold tabular-nums">{fmtMoney(i.orderTotal)}</p></div>
+                          <div><p className="text-slate-500">Invoice total</p><p className="mt-0.5 font-semibold tabular-nums">{fmtMoney(i.invoiceTotal)}</p></div>
+                          <div><p className="text-slate-500">Order paid</p><p className="mt-0.5 font-semibold tabular-nums">{fmtMoney(i.moneyView.orderPaid)}</p></div>
+                          <div><p className="text-slate-500">Settled payment ledger</p><p className="mt-0.5 font-semibold tabular-nums">{fmtMoney(i.moneyView.ledgerPaid)}</p></div>
+                          <div><p className="text-slate-500">Order balance</p><p className="mt-0.5 font-semibold tabular-nums">{detailMoney(i.moneyView.orderBalance)}</p></div>
+                          <div><p className="text-slate-500">Invoice paid / due</p><p className="mt-0.5 font-semibold tabular-nums">{fmtMoney(i.moneyView.invoicePaid)} / {fmtMoney(i.moneyView.invoiceBalance)}</p></div>
+                        </div>
+                        <Link href={withSlug(`/admin/orders?orderId=${i.orderId}`)} className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-brand-primary hover:underline">Open order <ExternalLink className="h-3 w-3" /></Link>
+                      </div>
+                    )}
                     </div>
                   ))}
                 </div>

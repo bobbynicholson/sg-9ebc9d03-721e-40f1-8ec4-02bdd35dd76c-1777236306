@@ -140,12 +140,11 @@ export const paymentLedgerService = {
       `)
       .order("payment_date", { ascending: false });
 
-    if (startDate) {
-      query = query.gte("payment_period_start", startDate.toISOString().split("T")[0]);
-    }
-    if (endDate) {
-      query = query.lte("payment_period_end", endDate.toISOString().split("T")[0]);
-    }
+    // This method lists payouts, so range by when money was paid.
+    // payment_period_start / end describe the work covered by a payout
+    // and remain available in the returned rows for payroll review.
+    if (startDate) query = query.gte("payment_date", startDate.toISOString());
+    if (endDate) query = query.lte("payment_date", endDate.toISOString());
 
     const { data, error } = await query;
     if (error) throw error;
@@ -226,11 +225,33 @@ export const paymentLedgerService = {
       .select("*")
       .in("id", sessionIds)
       .eq("staff_id", staffId)
-      .eq("payment_status", "unpaid");
+      .eq("payment_status", "unpaid")
+      .not("clock_out", "is", null);
     if (sessionsErr) console.error("[paymentLedgerService] staff_work_sessions lookup failed:", sessionsErr);
 
     if (!sessions || sessions.length === 0) {
-      throw new Error("No unpaid sessions found");
+      throw new Error("No completed unpaid sessions found. Clock out before processing payment.");
+    }
+
+    const clockHours = (s: (typeof sessions)[number]) => {
+      const start = s.clock_in ? new Date(s.clock_in).getTime() : NaN;
+      const end = s.clock_out ? new Date(s.clock_out).getTime() : NaN;
+      return Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, (end - start) / 3_600_000) : null;
+    };
+    const invalidHours = sessions.filter((s) => Number(s.total_hours || 0) > 24 || (clockHours(s) ?? 0) > 24);
+    if (invalidHours.length > 0) {
+      throw new Error("One or more shifts exceed 24 hours. Correct those sessions before processing payment.");
+    }
+    const mismatchedHours = sessions.filter((s) => {
+      const calculated = clockHours(s);
+      return calculated == null || Math.abs(Number(s.total_hours || 0) - calculated) > 0.05;
+    });
+    if (mismatchedHours.length > 0) {
+      throw new Error("One or more recorded hour totals do not match their clock times. Correct those sessions before processing payment.");
+    }
+    const missingPay = sessions.filter((s) => Number(s.total_earnings || 0) <= 0);
+    if (missingPay.length > 0) {
+      throw new Error("One or more shifts have no recorded earnings. Set the staff pay rate or correct the session before processing payment.");
     }
 
     const totalHours = sessions.reduce((sum, s) => sum + Number(s.total_hours || 0), 0);

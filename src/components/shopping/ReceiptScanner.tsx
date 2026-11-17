@@ -288,7 +288,7 @@ export function ReceiptScanner({
       {/* Upload card */}
       <Card className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm mb-6">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2 text-slate-900 dark:text-slate-50">
+          <CardTitle className="flex items-center gap-2 text-sm text-slate-900 dark:text-slate-50 sm:text-base">
             <Upload className={`w-4 h-4 ${accentText}`} />
             Upload receipts
             <InfoTooltip content={"Pick up to 20 receipt photos at once. The clearer the photo (whole slip in frame, decent light), the cleaner the extraction.\n\nWe also handle phone screenshots of supplier emails and PDF receipts you've saved as JPG."} />
@@ -340,7 +340,7 @@ export function ReceiptScanner({
             <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
               Tap to choose photos from your gallery or files
             </p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               {picked.length} of {MAX_FILES} selected
             </p>
           </div>
@@ -381,7 +381,7 @@ export function ReceiptScanner({
                 Clear all
               </Button>
             )}
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 ml-2">
+            <p className="text-xs text-slate-500 dark:text-slate-400 ml-2">
               {quota
                 ? <>About 3 seconds per slip. <strong className={quota.exceeded ? "text-rose-700 dark:text-rose-400" : quota.remaining <= 5 ? "text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"}>{quota.used} of {quota.limit}</strong> scans used this month.</>
                 : <>About 3 seconds per slip. Up to 60 scans a month.</>}
@@ -517,7 +517,7 @@ export function ReceiptScanner({
                     <div>
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">#{idx + 1}</span>
-                        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-50">
+                        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50 sm:text-base">
                           {hasError ? "Read failed" : (m.supplier_name || "(supplier unclear)")}
                         </h3>
                         {hasError ? (
@@ -546,8 +546,8 @@ export function ReceiptScanner({
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Total</p>
-                      <p className="text-xl font-bold text-slate-900 dark:text-slate-50">{fmtR(m.total)}</p>
+                      <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Total</p>
+                      <p className="break-words text-base font-bold text-slate-900 dark:text-slate-50 sm:text-lg">{fmtR(m.total)}</p>
                       {!hasError && (
                         savedRowIds.has(r.id) ? (
                           <Badge className={`mt-1 ${accentPalette.badge}`}>
@@ -584,7 +584,7 @@ export function ReceiptScanner({
                       {lines.length > 0 && (
                         <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
                           <table className="w-full text-sm">
-                            <thead className="bg-slate-50 dark:bg-slate-800 text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400 text-left">
+                            <thead className="bg-slate-50 dark:bg-slate-800 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 text-left">
                               <tr>
                                 <th className="py-1.5 px-3 font-medium">Item</th>
                                 <th className="py-1.5 px-3 font-medium">Qty</th>
@@ -610,7 +610,7 @@ export function ReceiptScanner({
                         </div>
                       )}
                       {(m.subtotal || m.vat) && (
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 flex flex-wrap gap-3">
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 flex flex-wrap gap-3">
                           {m.subtotal != null && <span>Subtotal {fmtR(m.subtotal)}</span>}
                           {m.vat != null && <span>VAT {fmtR(m.vat)}</span>}
                         </div>
@@ -623,7 +623,7 @@ export function ReceiptScanner({
           })}
 
           {jobId && historyHref && (
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 text-center pt-2">
+            <p className="text-xs text-slate-500 dark:text-slate-400 text-center pt-2">
               Job ID <code className="font-mono">{jobId}</code>, visible on{" "}
               <Link
                 href={historyHref}
@@ -682,7 +682,7 @@ function ReceiptThumb({
       >
         <X className="w-3 h-3" />
       </button>
-      <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-1.5 py-0.5 truncate">
+      <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs px-1.5 py-0.5 truncate">
         {file.name}
       </div>
     </div>

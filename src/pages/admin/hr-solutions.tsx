@@ -42,7 +42,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -65,7 +65,7 @@ import { mergeTeamDirectoryMemberships } from "@/lib/teamDirectoryMemberships";
 import {
   Users, Clock, Calendar, TrendingUp, Award, FileText,
   Banknote, UserPlus, Loader2, ChefHat, Sparkles, Truck,
-  Flame, MailPlus, ArrowRight,
+  Flame, MailPlus,
 } from "lucide-react";
 
 function startOfWeek(): Date {
@@ -498,31 +498,31 @@ function AdminHRSolutions() {
               /* HRS-B chip row, relocated into the hero band. Same
                  live numbers, links preserved. */
               <>
-                <Link href={withSlug("/admin/users")} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-white/20">
-                  {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Users className="w-3 h-3" />}
+                <Link href={withSlug("/admin/users")} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white hover:bg-white/20">
+                  {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Users className="h-3.5 w-3.5" />}
                   {stats.staffTotal} active
                 </Link>
-                <Link href={withSlug("/admin/staff-hours")} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-white/20">
-                  <Clock className="w-3 h-3" />
+                <Link href={withSlug("/admin/staff-hours")} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white hover:bg-white/20">
+                  <Clock className="h-3.5 w-3.5" />
                   {stats.hoursWeek}h this week
                 </Link>
                 {stats.staffTotal > 0 && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className={`h-1.5 w-1.5 rounded-full ${stats.clockedNow > 0 ? "bg-emerald-400" : "bg-slate-500"}`} />
-                    <Flame className="w-3 h-3" />
+                    <Flame className="h-3.5 w-3.5" />
                     {stats.clockedNow} clocked now
                   </span>
                 )}
                 {stats.pendingInvites > 0 && (
-                  <Link href={withSlug("/admin/users?tab=invitations")} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-white/20">
+                  <Link href={withSlug("/admin/users?tab=invitations")} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white hover:bg-white/20">
                     <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                    <MailPlus className="w-3 h-3" />
+                    <MailPlus className="h-3.5 w-3.5" />
                     {stats.pendingInvites} pending invite{stats.pendingInvites === 1 ? "" : "s"}
                   </Link>
                 )}
                 {canSeeFinance && stats.wageBurnWeekZar > 0 && (
-                  <Link href={withSlug("/admin/wages")} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-white hover:bg-white/20">
-                    <Banknote className="w-3 h-3" />
+                  <Link href={withSlug("/admin/wages")} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold tabular-nums text-white hover:bg-white/20">
+                    <Banknote className="h-3.5 w-3.5" />
                     {formatZAR(stats.wageBurnWeekZar, { currency: tenantCurrency.code })} burn this week
                   </Link>
                 )}
@@ -532,10 +532,10 @@ function AdminHRSolutions() {
           <PageWorkbench />
 
           {loadError && (
-            <div className="mb-6 rounded-lg border border-rose-200 bg-white p-4 shadow-sm">
-              <p className="text-sm font-semibold text-rose-900">Couldn&apos;t load the HR overview</p>
-              <p className="mt-1 text-sm text-slate-600">{loadError}</p>
-              <Button size="sm" variant="outline" className="mt-3" onClick={() => setRefreshTick((n) => n + 1)} disabled={loading}>
+            <div className="mb-4 rounded-lg border border-rose-200 bg-white p-3 shadow-sm sm:mb-6 sm:p-4">
+              <p className="text-sm font-semibold text-rose-900 sm:text-base">Couldn&apos;t load the HR overview</p>
+              <p className="mt-1 break-words text-xs leading-5 text-slate-600 sm:text-sm">{loadError}</p>
+              <Button size="sm" variant="outline" className="mt-3 min-h-10" onClick={() => setRefreshTick((n) => n + 1)} disabled={loading}>
                 Retry
               </Button>
             </div>
@@ -546,20 +546,20 @@ function AdminHRSolutions() {
               renders a skeleton inside the shell so the nav rail
               never disappears and zeros never read as real counts. */}
           {loading && !loadError ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" aria-hidden="true">
+            <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-4 lg:grid-cols-4" aria-hidden="true">
               {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white/70 dark:border-slate-800 dark:bg-slate-900/60" />
               ))}
             </div>
           ) : !loadError ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <StatTile
+            <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-4 lg:grid-cols-4">
+              <StatTile compact
                 label="Active staff"
                 value={stats.staffTotal}
                 icon={Users}
                 hint="Every department, active accounts"
               />
-              <StatTile
+              <StatTile compact
                 label="Hours this week"
                 value={`${stats.hoursWeek}h`}
                 icon={Clock}
@@ -567,7 +567,7 @@ function AdminHRSolutions() {
                   ? `${formatZAR(stats.wageBurnWeekZar, { currency: tenantCurrency.code })} wage burn`
                   : "Kitchen, cleaning and driver shifts"}
               />
-              <StatTile
+              <StatTile compact
                 label="Clocked now"
                 value={stats.clockedNow}
                 icon={Flame}
@@ -575,7 +575,7 @@ function AdminHRSolutions() {
                   ? "Nobody on duty right now"
                   : "On duty across departments"}
               />
-              <StatTile
+              <StatTile compact
                 label="Pending invites"
                 value={stats.pendingInvites > 0
                   ? <span className="text-amber-700">{stats.pendingInvites}</span>
@@ -587,39 +587,42 @@ function AdminHRSolutions() {
           ) : null}
 
           {/* HRS-B: intel grid - department breakdown + hours + invites. */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
+          <div className="mb-4 grid grid-cols-1 gap-2 sm:mb-6 sm:gap-3 md:grid-cols-3 md:gap-4">
 
             {/* Staff by department. */}
-            <Card className="border border-slate-200 bg-white shadow-sm">
-              <CardContent className="p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <Users className="w-5 h-5 text-blue-600" />
-                  <p className="font-semibold text-slate-900">Staff by department</p>
-                </div>
-                <ul className="text-sm space-y-1.5">
+            <Card collapsible defaultOpen={false} collapseLabel="staff by department" className="border border-slate-200 bg-white shadow-sm">
+              <CardHeader className="p-3 sm:p-4">
+                <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+                  <Users className="h-4 w-4 shrink-0 text-blue-600 sm:h-5 sm:w-5" />
+                  <span className="min-w-0">Staff by department</span>
+                </CardTitle>
+                <CardDescription className="text-xs">Active staff across each team</CardDescription>
+              </CardHeader>
+              <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
+                <ul className="space-y-2 text-sm">
                   <li className="flex items-center justify-between">
-                    <Link href={withSlug("/admin/teams/kitchen")} className="flex items-center gap-1.5 hover:underline">
+                    <Link href={withSlug("/admin/teams/kitchen")} className="flex min-w-0 items-center gap-1.5 hover:underline">
                       <ChefHat className="w-3.5 h-3.5 text-amber-600" />
                       <span>Kitchen</span>
                     </Link>
                     <span className="tabular-nums text-slate-700">{stats.byDept.kitchen}</span>
                   </li>
                   <li className="flex items-center justify-between">
-                    <Link href={withSlug("/admin/teams/cleaning")} className="flex items-center gap-1.5 hover:underline">
+                    <Link href={withSlug("/admin/teams/cleaning")} className="flex min-w-0 items-center gap-1.5 hover:underline">
                       <Sparkles className="w-3.5 h-3.5 text-slate-600" />
                       <span>Cleaning</span>
                     </Link>
                     <span className="tabular-nums text-slate-700">{stats.byDept.cleaning}</span>
                   </li>
                   <li className="flex items-center justify-between">
-                    <Link href={withSlug("/admin/teams/drivers")} className="flex items-center gap-1.5 hover:underline">
+                    <Link href={withSlug("/admin/teams/drivers")} className="flex min-w-0 items-center gap-1.5 hover:underline">
                       <Truck className="w-3.5 h-3.5 text-sky-600" />
                       <span>Drivers</span>
                     </Link>
                     <span className="tabular-nums text-slate-700">{stats.byDept.drivers}</span>
                   </li>
                   <li className="flex items-center justify-between">
-                    <Link href={withSlug("/admin/users")} className="flex items-center gap-1.5 hover:underline">
+                    <Link href={withSlug("/admin/users")} className="flex min-w-0 items-center gap-1.5 hover:underline">
                       <Users className="w-3.5 h-3.5 text-slate-500" />
                       <span>Other / admin</span>
                     </Link>
@@ -630,12 +633,15 @@ function AdminHRSolutions() {
             </Card>
 
             {/* Hours by department. */}
-            <Card className="border border-slate-200 bg-white shadow-sm">
-              <CardContent className="p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <Clock className="w-5 h-5 text-brand-primary" />
-                  <p className="font-semibold text-slate-900">Hours this week</p>
-                </div>
+            <Card collapsible defaultOpen={false} collapseLabel="hours by department" className="border border-slate-200 bg-white shadow-sm">
+              <CardHeader className="p-3 sm:p-4">
+                <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+                  <Clock className="h-4 w-4 shrink-0 text-brand-primary sm:h-5 sm:w-5" />
+                  <span className="min-w-0">Hours this week</span>
+                </CardTitle>
+                <CardDescription className="text-xs">Breakdown by department</CardDescription>
+              </CardHeader>
+              <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
                 {stats.hoursWeek === 0 ? (
                   <p className="text-sm text-slate-500">No shifts logged yet this week.</p>
                 ) : (
@@ -658,17 +664,15 @@ function AdminHRSolutions() {
             </Card>
 
             {/* Pending invitations. */}
-            <Card className={`border shadow-sm ${stats.pendingInvites > 0 ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <MailPlus className={`w-5 h-5 ${stats.pendingInvites > 0 ? "text-amber-600" : "text-slate-400"}`} />
-                    <p className="font-semibold text-slate-900">Pending invites</p>
-                  </div>
-                  <Link href={withSlug("/admin/users?tab=invitations")} className="text-slate-400 hover:text-slate-600">
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
-                </div>
+            <Card collapsible defaultOpen={false} collapseLabel="pending invitations" className={`border shadow-sm ${stats.pendingInvites > 0 ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
+              <CardHeader className="p-3 sm:p-4">
+                <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+                  <MailPlus className={`h-4 w-4 shrink-0 sm:h-5 sm:w-5 ${stats.pendingInvites > 0 ? "text-amber-600" : "text-slate-400"}`} />
+                  <span className="min-w-0">Pending invites</span>
+                </CardTitle>
+                <CardDescription className="text-xs">{stats.pendingInvites} awaiting acceptance</CardDescription>
+              </CardHeader>
+              <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
                 {stats.recentInvites.length === 0 ? (
                   <p className="text-sm text-slate-500">No outstanding invitations.</p>
                 ) : (
@@ -692,8 +696,15 @@ function AdminHRSolutions() {
             </Card>
           </div>
 
+          <div className="mb-2 flex min-w-0 flex-wrap items-end justify-between gap-2 sm:mb-3">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-slate-900 sm:text-lg">HR tools</h2>
+              <p className="text-xs leading-5 text-slate-600 sm:text-sm">Open a tool to manage your staff and workplace.</p>
+            </div>
+          </div>
+
           {/* Feature tile grid. */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 lg:gap-4">
             {features.map((feature) => {
               const isActive = feature.status === "active";
               const Icon = feature.Icon;
@@ -702,28 +713,28 @@ function AdminHRSolutions() {
                   key={feature.id}
                   className={`border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300 ${!isActive ? "opacity-75" : ""}`}
                 >
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className={`p-3 rounded-lg ${isActive ? "bg-blue-100" : "bg-slate-100"}`}>
-                        <Icon className={`w-6 h-6 ${isActive ? "text-blue-600" : "text-slate-400"}`} />
+                  <CardContent className="p-3 sm:p-4">
+                    <div className="mb-2 flex items-start justify-between gap-3 sm:mb-3">
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${isActive ? "bg-blue-100" : "bg-slate-100"}`}>
+                        <Icon className={`h-5 w-5 sm:h-6 sm:w-6 ${isActive ? "text-blue-600" : "text-slate-400"}`} />
                       </div>
                       {!isActive && <Badge className={isActive ? "bg-brand-primary/15 text-brand-primary hover:bg-brand-primary/15" : "bg-orange-100 text-orange-800 hover:bg-orange-100"}>
                         {isActive ? "Active" : "Coming Soon"}
                       </Badge>}
                     </div>
-                    <p className="font-semibold text-slate-900 text-lg">{feature.title}</p>
-                    <p className="text-sm text-slate-600 mt-1 mb-3">{feature.description}</p>
+                    <p className="text-base font-semibold leading-6 text-slate-900 sm:text-lg">{feature.title}</p>
+                    <p className="mb-3 mt-1 text-xs leading-5 text-slate-600 sm:text-sm">{feature.description}</p>
                     {feature.chip && (
                       <p className="text-xs text-brand-primary mb-3 tabular-nums">{feature.chip}</p>
                     )}
                     {isActive ? (
                       <Link href={withSlug(feature.link)}>
-                        <Button variant="outline" className="w-full">Open</Button>
+                        <Button variant="outline" className="min-h-10 w-full text-sm">Open</Button>
                       </Link>
                     ) : (
                       // HRS-3: no anchor wrap on coming-soon - plain
                       // disabled button.
-                      <Button variant="outline" className="w-full" disabled>
+                      <Button variant="outline" className="min-h-10 w-full text-sm" disabled>
                         Coming Soon
                       </Button>
                     )}

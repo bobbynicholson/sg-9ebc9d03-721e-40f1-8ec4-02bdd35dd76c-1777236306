@@ -44,11 +44,11 @@ export function RegionFilterDropdown() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:border-brand-primary/50 hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/70 dark:border-white/20 dark:bg-white/10 dark:text-white/90 dark:hover:border-white/35 dark:hover:bg-white/15 dark:hover:text-white dark:focus-visible:ring-white/80"
+          className="inline-flex min-h-11 min-w-48 max-w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:border-brand-primary/50 hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/70 dark:border-white/20 dark:bg-white/10 dark:text-white/90 dark:hover:border-white/35 dark:hover:bg-white/15 dark:hover:text-white dark:focus-visible:ring-white/80"
           aria-label="Filter by branch"
         >
           <Building2 className="h-4 w-4 shrink-0" />
-          <span className="max-w-28 truncate">{label}</span>
+          <span className="min-w-0 flex-1 truncate">{label}</span>
           <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" />
         </button>
       </DropdownMenuTrigger>
