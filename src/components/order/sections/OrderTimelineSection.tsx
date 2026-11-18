@@ -93,10 +93,28 @@ function fmtStamp(iso: string | null): string {
   return d.toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
+function toDatetimeLocalValue(date: Date): string {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+function defaultServiceStartInput(order: OrderForTimeline): string {
+  if (order.event_date && order.event_time) {
+    return `${String(order.event_date).slice(0, 10)}T${String(order.event_time).slice(0, 5)}`;
+  }
+  return toDatetimeLocalValue(new Date());
+}
+
 export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBanner = false, onChanged }: Props) {
   const { profile } = useAuth() as any;
   const { toast } = useToast();
   const canForceClose = !!profile?.role && isAdmin(profile.role as UserRole);
+  const activeRole = String(profile?.active_role || profile?.role || "").toLowerCase();
+  const canRecordServiceStart = ["super_admin", "company_admin", "owner", "admin", "region_admin"].includes(activeRole);
+  const [editingServiceStart, setEditingServiceStart] = useState(false);
+  const [serviceStartInput, setServiceStartInput] = useState("");
+  const [savingServiceStart, setSavingServiceStart] = useState(false);
+  const [serviceStartError, setServiceStartError] = useState<string | null>(null);
   // Closeout money - the order prop doesn't carry the balance, so fetch what
   // we need to tell the admin "still R X to pay before this auto-closes".
   const [closeMoney, setCloseMoney] = useState<{ balance_amount: number | null; balance_paid: boolean | null; payment_status: string | null } | null>(null);
@@ -142,6 +160,42 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
       toast({ title: "Could not close", description: e?.message || "Try again.", variant: "destructive" });
     } finally {
       setForcingClose(false);
+    }
+  };
+
+  const recordServiceStart = async () => {
+    if (!serviceStartInput || savingServiceStart) return;
+    const selected = new Date(serviceStartInput);
+    if (Number.isNaN(selected.getTime())) {
+      setServiceStartError("Choose a valid date and time for when service began.");
+      return;
+    }
+    setSavingServiceStart(true);
+    setServiceStartError(null);
+    try {
+      const response = await fetch(`/api/orders/${order.id}/service-started`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ started_at: selected.toISOString() }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result?.ok) {
+        throw new Error(result?.error || "The service start time could not be saved. Try again.");
+      }
+      toast({
+        title: result.audit_logged === false ? "Service time saved, audit log failed" : "Service start recorded",
+        description: result.audit_logged === false
+          ? `${fmtStamp(result.service_started_at || selected.toISOString())} was saved, but the audit history entry could not be written.`
+          : fmtStamp(result.service_started_at || selected.toISOString()),
+        variant: result.audit_logged === false ? "destructive" : "default",
+      });
+      setEditingServiceStart(false);
+      if (onChanged) await onChanged();
+      else if (typeof window !== "undefined") window.location.reload();
+    } catch (error: any) {
+      setServiceStartError(error?.message || "The service start time could not be saved. Try again.");
+    } finally {
+      setSavingServiceStart(false);
     }
   };
 
@@ -955,6 +1009,64 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
             hideOperatorBanner={hideNowBanner}
             disableSourceLinks
           />
+          {canRecordServiceStart && needsService && !order.service_started_at && !cancelled && !postponed && (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/80 p-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-amber-950">Service start time isn’t recorded</p>
+                  <p className="mt-1 max-w-2xl text-xs leading-5 text-amber-900">
+                    There is no saved timestamp for this step, so the timeline may infer completion from later updates. Record the actual start time here; the field is prefilled with the booked event time, so adjust it if service began at a different time.
+                  </p>
+                </div>
+                {!editingServiceStart && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0 border-amber-300 bg-white text-amber-950 hover:bg-amber-100"
+                    onClick={() => {
+                      setServiceStartInput(defaultServiceStartInput(order));
+                      setServiceStartError(null);
+                      setEditingServiceStart(true);
+                    }}
+                  >
+                    <Clock className="mr-1.5 h-3.5 w-3.5" />
+                    Add actual time
+                  </Button>
+                )}
+              </div>
+              {editingServiceStart && (
+                <div className="mt-3 border-t border-amber-200 pt-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                    <label className="min-w-0 flex-1 text-xs font-medium text-amber-950">
+                      Date and time service began
+                      <input
+                        type="datetime-local"
+                        value={serviceStartInput}
+                        onChange={(event) => setServiceStartInput(event.target.value)}
+                        disabled={savingServiceStart}
+                        className="mt-1 block h-9 w-full rounded-md border border-amber-300 bg-white px-2.5 text-sm text-slate-900 shadow-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 disabled:opacity-60 sm:max-w-xs"
+                      />
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" onClick={recordServiceStart} disabled={!serviceStartInput || savingServiceStart}>
+                        {savingServiceStart && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                        Save time
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => { setEditingServiceStart(false); setServiceStartError(null); }}
+                        disabled={savingServiceStart}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                  {serviceStartError && <p role="alert" className="mt-2 text-xs font-medium text-red-700">{serviceStartError}</p>}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Compatibility fallback for the older summary/stuck logic. */}
