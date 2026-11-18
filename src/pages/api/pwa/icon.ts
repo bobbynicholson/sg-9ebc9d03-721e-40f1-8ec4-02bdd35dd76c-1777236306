@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { withApiRequestLogging } from "@/lib/withApiLogging";
-import { isCompanySlug } from "@/lib/pwa/metadata";
+import { CATERINGMS_ICON_REVISION, isCompanySlug } from "@/lib/pwa/metadata";
 import { getPwaBranding } from "@/lib/pwa/serverBranding";
 import { renderCompanyIcon } from "@/lib/pwa/logoImage";
 
@@ -14,7 +14,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const slug = req.query.slug;
   const size = Number(req.query.size || 192);
   if (!isCompanySlug(slug) || ![180, 192, 512].includes(size)) return res.status(400).end();
-  const fallback = `/icons/cateringms-${size === 512 ? 512 : 192}.png`;
+  const fallback = `/icons/cateringms-${size === 512 ? 512 : 192}.png?v=${CATERINGMS_ICON_REVISION}`;
   try {
     const branding = await getPwaBranding({ slug });
     if (!branding) return res.status(404).end();

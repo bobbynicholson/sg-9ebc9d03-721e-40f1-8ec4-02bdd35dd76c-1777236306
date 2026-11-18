@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ChefHat, Phone, MapPin, ArrowRight, Facebook, Linkedin, Instagram, Sparkles } from "lucide-react";
+import { ChefHat, Phone, MapPin, ArrowRight, Facebook, Linkedin, Instagram } from "lucide-react";
+import { CateringMark } from "@/components/CateringMark";
 
 const PHONE_DISPLAY = "+27 83 652 5755";
 const PHONE_TEL = "+27836525755";
@@ -65,10 +66,12 @@ export function LandingFooter({
               {logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={logoUrl} alt={displayName} className="h-9 max-w-[180px] object-contain" />
-              ) : (
+              ) : isWhiteLabeled ? (
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-700">
                   <ChefHat className="h-5 w-5 text-white" />
                 </span>
+              ) : (
+                <CateringMark className="h-9 w-9 shrink-0" />
               )}
               <span className="font-display text-2xl font-semibold tracking-tight text-white">
                 {displayName}
@@ -162,7 +165,7 @@ export function LandingFooter({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 transition-colors duration-150 hover:text-amber-400"
             >
-              <Sparkles className="h-3.5 w-3.5" />
+              <CateringMark className="h-4 w-4 shrink-0" />
               Powered by CateringMS
             </a>
           ) : (

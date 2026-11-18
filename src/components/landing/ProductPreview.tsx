@@ -2,6 +2,7 @@ import {
   LayoutDashboard, FileText, Calendar, ChefHat, Truck, Users, BarChart3,
   Plus, Search, ArrowUpRight, MapPin, Bell,
 } from "lucide-react";
+import { CateringMark } from "@/components/CateringMark";
 
 /**
  * A realistic, hand-built CateringMS admin dashboard mock for the landing
@@ -67,9 +68,7 @@ export function ProductPreview() {
           {/* Sidebar */}
           <aside className="hidden w-44 shrink-0 border-r border-stone-200/80 bg-stone-50/60 p-3 sm:block">
             <div className="mb-4 flex items-center gap-2 px-1">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-orange-500">
-                <ChefHat className="h-4 w-4 text-white" />
-              </span>
+              <CateringMark className="h-7 w-7 shrink-0" />
               <span className="font-display text-base font-semibold text-stone-900">CateringMS</span>
             </div>
             <nav className="space-y-0.5">

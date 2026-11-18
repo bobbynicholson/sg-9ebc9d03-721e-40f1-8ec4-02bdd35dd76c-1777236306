@@ -35,13 +35,16 @@
 // v5: never retain authenticated HTML between accounts on a shared device.
 // v6: clear old shell caches and do not cache localhost's stable Next dev
 // chunk URLs. Dev chunks can change in place, unlike production hashes.
-const CACHE_VERSION = "v6";
+const CACHE_VERSION = "v7";
 const SHELL_CACHE = `cms-app-shell-${CACHE_VERSION}`;
+const BRAND_REVISION = "20261118-3";
+const DEFAULT_ICON = `/icons/cateringms-192.png?v=${BRAND_REVISION}`;
 const IS_LOCAL_DEV = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(self.location.hostname);
 const SHELL_URLS = [
   "/auth/login",
-  "/icons/cateringms-192.png",
-  "/icons/cateringms-512.png",
+  DEFAULT_ICON,
+  `/icons/cateringms-512.png?v=${BRAND_REVISION}`,
+  `/icons/cateringms-mark-128-${BRAND_REVISION}.png`,
   "/manifest.webmanifest",
 ];
 
@@ -108,8 +111,8 @@ self.addEventListener("push", (event) => {
       String(payload.title || "CateringMS notification"),
       {
         body: String(payload.body || "You have a new update."),
-        icon: String(payload.icon || "/icons/cateringms-192.png"),
-        badge: String(payload.badge || payload.icon || "/icons/cateringms-192.png"),
+        icon: String(payload.icon || DEFAULT_ICON),
+        badge: String(payload.badge || payload.icon || DEFAULT_ICON),
         tag: `cateringms-${notificationId}`,
         renotify: false,
         // The foreground app plays its own chime. Let the operating system

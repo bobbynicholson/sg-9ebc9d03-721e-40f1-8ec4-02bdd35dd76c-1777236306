@@ -2,6 +2,7 @@
 import Link from "next/link";
 import Head from "next/head";
 import { ChefHat, CheckCircle2 } from "lucide-react";
+import { CateringMark } from "@/components/CateringMark";
 
 const DEFAULT_ACCENT = "#f59e0b";
 const DEFAULT_PILLS = ["Quotes & invoices", "Live delivery tracking", "Online payments"];
@@ -30,6 +31,9 @@ export function AuthShell({
   footerNote,
 }: AuthShellProps) {
   const LogoChip = ({ size }: { size: "lg" | "sm" }) => {
+    if (!brandLogoUrl && brandName === "CateringMS") {
+      return <CateringMark className={`${size === "lg" ? "h-11 w-11" : "h-10 w-10"} shrink-0`} />;
+    }
     const box = size === "lg" ? "h-11 w-11 rounded-2xl" : "h-10 w-10 rounded-xl";
     const img = size === "lg" ? "h-9 w-9" : "h-8 w-8";
     const icon = size === "lg" ? "h-6 w-6" : "h-5 w-5";

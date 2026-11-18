@@ -2,7 +2,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { ArrowRight, ChefHat, Menu, Moon, X } from "lucide-react";
+import { ArrowRight, Menu, Moon, X } from "lucide-react";
+import { CateringMark } from "@/components/CateringMark";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/authContextCore";
 import { useAfterIdle } from "@/hooks/useAfterIdle";
@@ -126,9 +127,7 @@ export function LandingHeader() {
     <header className="sticky top-0 z-50 w-full border-b border-stone-200/70 bg-stone-50/95 backdrop-blur-md">
       <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3.5 lg:px-8">
         <Link href={homeHref} className="flex shrink-0 items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500">
-            <ChefHat className="h-5 w-5 text-white" aria-hidden="true" />
-          </span>
+          <CateringMark className="h-10 w-10 shrink-0" />
           <span className="font-display text-2xl font-semibold tracking-tight text-stone-900">
             CateringMS
           </span>

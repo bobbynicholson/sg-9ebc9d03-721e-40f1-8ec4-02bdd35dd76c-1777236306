@@ -3,9 +3,7 @@ import { LandingHomeContent } from "@/components/landing/LandingHomeContent";
 import { FAQS } from "@/components/landing/home/FaqSection";
 
 const SITE_URL = "https://cateringms.com";
-// The only image guaranteed to exist in /public today. Swap for a proper
-// /logo.png (and an og-image) when brand assets land - one constant to change.
-const BRAND_IMAGE = `${SITE_URL}/favicon.ico`;
+const BRAND_IMAGE = `${SITE_URL}/logo.png`;
 
 // ---- Structured data ----
 const organizationSchema = {
@@ -68,7 +66,10 @@ export default function HomePage() {
         <meta property="og:url" content={SITE_URL} />
         <meta property="og:site_name" content="CateringMS" />
         <meta property="og:locale" content="en_ZA" />
+        <meta property="og:image" content={BRAND_IMAGE} />
+        <meta property="og:image:alt" content="CateringMS logo" />
         <meta name="twitter:card" content="summary" />
+        <meta name="twitter:image" content={BRAND_IMAGE} />
 
         {/* JSON-LD Schema */}
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }} />

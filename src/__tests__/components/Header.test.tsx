@@ -30,6 +30,7 @@ jest.mock('@/hooks/useCompanySlug', () => ({
 describe('Header', () => {
   it('renders successfully without crashing', () => {
     const { container } = render(<Header />);
-    expect(container).toBeTruthy();
+    const homeLink = container.querySelector('a[href="/"]');
+    expect(homeLink?.querySelector('img')?.getAttribute('src')).toContain('/icons/cateringms-mark-128-');
   });
 });

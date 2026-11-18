@@ -11,6 +11,7 @@ export type PwaBranding = {
 // phone's status/address bar.
 export const PWA_THEME_COLOR = "#ffffff";
 export const PWA_BACKGROUND_COLOR = "#ffffff";
+export const CATERINGMS_ICON_REVISION = "20261118-3";
 
 export const isCompanySlug = (value: unknown): value is string =>
   typeof value === "string" && /^[a-z0-9][a-z0-9-]{0,99}$/.test(value);
@@ -33,7 +34,8 @@ export function pwaBrandRevision(branding: PwaBranding | null): string {
 
 export function pwaIconUrl(branding: PwaBranding | null, size: 180 | 192 | 512): string {
   if (!branding?.slug || !isCompanySlug(branding.slug)) {
-    return `/icons/cateringms-${size === 180 ? 192 : size}.png`;
+    const name = size === 180 ? "cateringms-apple-touch-180" : `cateringms-${size}`;
+    return `/icons/${name}.png?v=${CATERINGMS_ICON_REVISION}`;
   }
   const query = new URLSearchParams({
     slug: branding.slug,

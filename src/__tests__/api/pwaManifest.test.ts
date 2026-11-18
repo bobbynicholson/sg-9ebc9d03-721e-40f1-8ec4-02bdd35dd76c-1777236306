@@ -5,6 +5,8 @@ import { getPwaBranding } from "@/lib/pwa/serverBranding";
 import { buildPwaManifest, pwaIconUrl, pwaManifestUrl, shouldOpenCompanyInstallPage } from "@/lib/pwa/metadata";
 import { pwaRouteInfo } from "@/lib/pwa/routes";
 import { isPublicIpv4, renderCompanyIcon } from "@/lib/pwa/logoImage";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import sharp from "sharp";
 
 jest.mock("@/lib/pwa/serverBranding", () => ({ getPwaBranding: jest.fn() }));
@@ -31,6 +33,21 @@ test("installed apps keep a white launch background independent of company color
   expect(buildPwaManifest(null).background_color).toBe("#ffffff");
   expect(buildPwaManifest(brand).background_color).toBe("#ffffff");
   expect(buildPwaManifest({ ...brand, primaryColor: "invalid" }).background_color).toBe("#ffffff");
+});
+test("platform manifests use matching transparent brand icons", async () => {
+  const manifest = JSON.parse(await readFile(join(process.cwd(), "public", "manifest.webmanifest"), "utf8"));
+  expect(manifest.icons).toEqual(buildPwaManifest(null).icons);
+  for (const icon of manifest.icons) {
+    const pathname = new URL(icon.src, "https://cateringms.com").pathname;
+    const image = join(process.cwd(), "public", pathname.replace(/^\//, ""));
+    const size = Number(icon.sizes.split("x")[0]);
+    expect(await sharp(image).metadata()).toMatchObject({ width: size, height: size, format: "png", hasAlpha: true });
+    expect((await sharp(image).extract({ left: 0, top: 0, width: 1, height: 1 }).raw().toBuffer())[3]).toBe(0);
+  }
+  const applePath = new URL(pwaIconUrl(null, 180), "https://cateringms.com").pathname;
+  const appleImage = join(process.cwd(), "public", applePath.replace(/^\//, ""));
+  expect(await sharp(appleImage).metadata()).toMatchObject({ width: 180, height: 180, hasAlpha: true });
+  expect((await sharp(appleImage).extract({ left: 0, top: 0, width: 1, height: 1 }).raw().toBuffer())[3]).toBe(0);
 });
 test("company install prompts open the server-rendered branded install page", () => {
   expect(shouldOpenCompanyInstallPage(false, "company-a")).toBe(true);

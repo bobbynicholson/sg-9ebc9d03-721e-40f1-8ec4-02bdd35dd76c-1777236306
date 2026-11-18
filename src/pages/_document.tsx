@@ -1,5 +1,6 @@
 import { Html, Head, Main, NextScript } from "next/document";
 import { BRANDING_BOOT_SCRIPT, BRANDING_BOOT_STYLE } from "@/lib/branding/bootScript";
+import { CATERINGMS_ICON_REVISION } from "@/lib/pwa/metadata";
 
 const PWA_START_SCRIPT = `(function(){try{var standalone=(window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches)||(navigator.standalone===true);if(standalone){var root=document.documentElement;root.classList.add("cms-pwa-starting");window.setTimeout(function(){root.classList.remove("cms-pwa-starting");},8000);}}catch(e){}})();`;
 
@@ -31,9 +32,9 @@ export default function Document() {
     <Html lang="en">
       <Head>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <link rel="shortcut icon" href="/favicon.ico?v=20261118-2" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/icons/cateringms-favicon-16.png?v=20261118-2" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/icons/cateringms-favicon-32.png?v=20261118-2" />
+        <link rel="shortcut icon" href={`/favicon.ico?v=${CATERINGMS_ICON_REVISION}`} />
+        <link rel="icon" type="image/png" sizes="16x16" href={`/icons/cateringms-favicon-16.png?v=${CATERINGMS_ICON_REVISION}`} />
+        <link rel="icon" type="image/png" sizes="32x32" href={`/icons/cateringms-favicon-32.png?v=${CATERINGMS_ICON_REVISION}`} />
         <meta name="robots" content="noindex, nofollow" />
         <meta name="googlebot" content="noindex, nofollow" />
         {/* Paint the company's saved colours before the first frame so tenant
@@ -48,7 +49,7 @@ export default function Document() {
         <div id="cms-pwa-launch-screen" role="status" aria-live="polite">
           <div className="cms-pwa-launch-content">
             <div className="cms-pwa-launch-mark">
-              <img id="cms-pwa-launch-logo" src="/icons/cateringms-192.png" width="76" height="76" alt="" style={{ display: "none" }} />
+              <img id="cms-pwa-launch-logo" src={`/icons/cateringms-192.png?v=${CATERINGMS_ICON_REVISION}`} width="76" height="76" alt="" style={{ display: "none" }} />
               <span id="cms-pwa-launch-monogram" aria-hidden="true" style={{ display: "flex" }}>C</span>
             </div>
             <p id="cms-pwa-launch-name">Opening your workspace</p>

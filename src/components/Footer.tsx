@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { Sparkles } from "lucide-react";
+import { CateringMark } from "@/components/CateringMark";
 import { useBrandingRow } from "@/lib/branding/useBranding";
 import { isWhiteLabelRow } from "@/lib/branding/applyBranding";
 import { useAuth } from "@/contexts/authContextCore";
@@ -88,7 +88,7 @@ export function SlimInternalFooter({
                 rel="noopener noreferrer"
                 className="inline-flex min-h-10 items-center gap-1 rounded-md px-1.5 transition-colors hover:bg-slate-50 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50"
               >
-                <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <CateringMark className="h-4 w-4 shrink-0" />
                 <span>Powered by CateringMS</span>
               </Link>
             )}
