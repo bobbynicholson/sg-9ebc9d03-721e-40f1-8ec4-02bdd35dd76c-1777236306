@@ -247,6 +247,7 @@ const ADMIN_SEGMENT_LABELS: Record<string, string> = {
   "exceptions": "Attention center",
   "order-assignments": "Dispatch",
   "tracking": "Live operations",
+  "daily-operations": "Daily operations",
   "route-planning": "Routes",
   "financial-dashboard": "Finance overview",
   "cashflow-dashboard": "Cashflow",

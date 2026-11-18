@@ -120,7 +120,7 @@ export function OrderQuickActions({ order }: Props) {
   const menuIconClass = "mr-2 h-4 w-4 shrink-0 text-slate-500";
 
   return (
-    <div className="mb-3 flex min-w-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white p-2 shadow-sm print:hidden sm:gap-2">
+    <div className="mb-3 flex min-w-0 max-w-full flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-white p-2 shadow-sm print:hidden sm:gap-2">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="sm" className={triggerClass} aria-label="Team actions" title="Team actions">

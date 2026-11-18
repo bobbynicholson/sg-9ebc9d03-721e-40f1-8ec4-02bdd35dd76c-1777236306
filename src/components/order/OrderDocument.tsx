@@ -585,6 +585,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
         : "admin";
   const chatLabel = isClient ? "Message catering team" : "Message client";
   const [chatOpen, setChatOpen] = useState(false);
+  const [orderActionsOpen, setOrderActionsOpen] = useState(false);
 
   // ODOC role-relevance (driver feedback 2026-07-04, Pic 81): each
   // staff role sees only the sections that carry information they act
@@ -845,8 +846,33 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
   const activeNavLabel = navItems.find((item) => item.id === activeSectionId)?.label || "Choose a section";
 
   return (
-    <div className={mode === "print" ? "order-print-document max-w-5xl mx-auto px-4 py-8 print:px-0 print:py-0" : "mx-auto max-w-[90rem] px-3 sm:px-4 md:px-6 py-4 sm:py-6"}>
+    <div className={mode === "print" ? "order-print-document mx-auto w-full min-w-0 max-w-5xl overflow-x-clip px-4 py-8 print:px-0 print:py-0" : "mx-auto w-full min-w-0 max-w-[90rem] overflow-x-clip px-3 py-4 sm:px-4 sm:py-6 md:px-6"}>
       {!isClient && mode !== "print" && <ImportReadinessBanner orderId={order.id} />}
+      {mode === "print" && (
+        <div className="order-print-toolbar no-print print:hidden sticky top-0 z-30 -mx-4 mb-4 flex min-w-0 items-center justify-between gap-2 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:mx-0 sm:rounded-xl sm:border">
+          <Link
+            href={{ pathname: router.pathname, query: { ...router.query, print: undefined } }}
+            className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to order</span>
+          </Link>
+          <div className="hidden min-w-0 flex-1 text-center sm:block">
+            <p className="truncate text-sm font-semibold text-slate-900">Print-ready order</p>
+            {order.order_number && <p className="truncate text-xs text-slate-500">{order.order_number}</p>}
+          </div>
+          <Button
+            type="button"
+            onClick={() => window.print()}
+            className="min-h-10 shrink-0 gap-2 bg-brand-primary px-3 text-white hover:bg-brand-primary/90"
+            aria-label="Print order"
+            title="Open print options"
+          >
+            <Printer className="h-4 w-4" />
+            <span>Print order</span>
+          </Button>
+        </div>
+      )}
       {/* Toolbar - hidden in print mode */}
       {mode !== "print" && (
         <div className="mb-3 flex min-w-0 items-center justify-between gap-2">
@@ -879,13 +905,13 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
                 <span className="hidden sm:inline">{chatLabel}</span>
               </Button>
             )}
-            <DropdownMenu>
+            <DropdownMenu modal={false} open={orderActionsOpen} onOpenChange={setOrderActionsOpen}>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-10 w-10 shrink-0 p-0 sm:h-9 sm:w-9" aria-label="More order actions" title="More order actions">
+                <Button type="button" variant="outline" size="sm" className="h-10 w-10 shrink-0 p-0 data-[state=open]:border-brand-primary/40 data-[state=open]:bg-brand-primary/5 sm:h-9 sm:w-9" aria-label="More order actions" title="More order actions">
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="z-[80] w-48">
                 <DropdownMenuItem onSelect={() => void load()}>
                   <RefreshCw className="mr-2 h-4 w-4" />Refresh order
                 </DropdownMenuItem>
@@ -1149,8 +1175,8 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
             )}
         </div>
 
-        <aside className={mode === "print" ? "space-y-3 sm:space-y-4" : "contents lg:sticky lg:top-16 lg:block lg:space-y-4"} aria-label="Order details and actions">
-          <div className="order-1 space-y-3 sm:space-y-4 lg:order-none">
+        <aside className={mode === "print" ? "min-w-0 space-y-3 sm:space-y-4" : "order-1 min-w-0 space-y-3 sm:space-y-4 lg:order-none lg:sticky lg:top-16"} aria-label="Order details and actions">
+          <div className="min-w-0 space-y-3 sm:space-y-4">
               {/* ODOC H.4: admin quick-action chip strip. Mirrors what the
                   old OrderDetailsModal toolbar carried so the row-click
                   migration from modal to doc keeps the same affordances:
@@ -1186,7 +1212,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
               paidInFull={Boolean(order.balance_paid) || String(order.payment_status || "").toLowerCase() === "paid"}
             />
           )}
-          <div className="order-3 space-y-3 sm:space-y-4 lg:order-none">
+          <div className="min-w-0 space-y-3 sm:space-y-4">
             {/* ODOC: Finance section is permission-gated at render time.
                 Staff roles + magic-link client mode never see it - data
                 never fetched, component never mounted. */}

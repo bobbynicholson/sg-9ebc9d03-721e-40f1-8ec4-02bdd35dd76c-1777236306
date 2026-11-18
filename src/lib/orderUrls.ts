@@ -83,12 +83,13 @@ export function appBaseUrl(): string {
 export function staffOrderHref(
   orderId: string,
   role?: StaffOrderRole | null,
-  options: { openChat?: boolean } = {},
+  options: { openChat?: boolean; print?: boolean } = {},
 ): string {
   if (!orderId) return "/order/";
   const params = new URLSearchParams();
   if (role) params.set("role", role);
   if (options.openChat) params.set("chat", "1");
+  if (options.print) params.set("print", "1");
   const query = params.toString();
   return `/order/${orderId}${query ? `?${query}` : ""}`;
 }

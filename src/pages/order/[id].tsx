@@ -78,8 +78,8 @@ function OrderDocumentInner({ id, print, forceSection }: {
       <main
         className={
           print
-            ? "min-h-screen bg-white"
-            : "min-h-screen bg-slate-50 lg:pl-72 xl:pl-80 pt-20 lg:pt-0"
+            ? "min-h-screen w-full min-w-0 max-w-full overflow-x-clip bg-white"
+            : "min-h-screen w-full min-w-0 max-w-full overflow-x-clip bg-slate-50 pt-20 lg:pl-72 lg:pt-0 xl:pl-80"
         }
       >
         {/* Padding, not margin: the bar is w-full, so side margins pushed it past the screen edge. */}

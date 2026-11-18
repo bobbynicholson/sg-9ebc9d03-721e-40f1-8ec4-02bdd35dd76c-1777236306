@@ -64,7 +64,7 @@ export function DriverOneOffTasks() {
         .in("status", ["scheduled", "in_progress"])
         .gte("task_date", dayOffset(today, -14))
         .lte("task_date", dayOffset(today, 14))
-        .or(`assigned_to.is.null,assigned_to.eq.${user.id}`)
+        .eq("assigned_to", user.id)
         .order("task_date", { ascending: true })
         .order("scheduled_time", { ascending: true })
         .limit(50);
@@ -149,10 +149,10 @@ export function DriverOneOffTasks() {
 
   return <PortalCard id="driver-tasks" className="mb-5 scroll-mt-24 border-sky-200 bg-sky-50/70 dark:border-sky-900 dark:bg-slate-900/70">
     <PortalCardHeader title={<span className="flex items-center gap-2"><Route className="h-4 w-4 text-sky-700 dark:text-sky-300" />One-off driver tasks</span>} />
-    <p className="-mt-4 mb-4 text-sm leading-5 text-slate-600 dark:text-slate-400">Claim a route to start recording work time. Mark each stop as you travel, arrive and finish; complete the task when you return to the kitchen.</p>
+    <p className="-mt-4 mb-4 text-sm leading-5 text-slate-600 dark:text-slate-400">Routes assigned to you appear here. Start the timer when you leave, mark each stop as you travel, arrive and finish, then complete the route when you return to the kitchen. No roster shift is required.</p>
     {loading && <div className="flex items-center gap-2 py-4 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Loading driver routes</div>}
     {!loading && loadError && <div role="alert" className="flex flex-col gap-3 rounded-lg border border-rose-200 bg-white p-4 text-sm text-rose-800 dark:border-rose-900 dark:bg-slate-950 dark:text-rose-200"><p>Driver routes could not be loaded. {loadError}</p><Button type="button" variant="outline" onClick={() => void load()} className="h-11 self-start">Reload driver routes</Button></div>}
-    {!loading && !loadError && tasks.length === 0 && <p className="rounded-lg border border-dashed border-slate-300 bg-white/70 p-4 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-400">No one-off routes are scheduled. New routes assigned to the driver team will appear here.</p>}
+    {!loading && !loadError && tasks.length === 0 && <p className="rounded-lg border border-dashed border-slate-300 bg-white/70 p-4 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-400">No routes are assigned to you right now. A manager will assign driver routes directly.</p>}
     {!loading && !loadError && tasks.length > 0 && <div className="space-y-3">{tasks.map((task) => {
       const currentStop = task.driver_stops.find((stop) => stop.stop_number === task.route_current_stop_number) || null;
       const nextAction: RouteAction = task.status === "scheduled" ? "start"

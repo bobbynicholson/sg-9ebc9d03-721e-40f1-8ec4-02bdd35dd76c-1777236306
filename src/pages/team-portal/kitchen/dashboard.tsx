@@ -1458,7 +1458,7 @@ function KitchenDashboardInner() {
                               <span className="xs:hidden sm:hidden">Open</span>
                             </Link>
                             <Link
-                              href={withSlug(`${staffOrderHref(order.id, "kitchen_staff")}&print=1#section-kitchen`)}
+                              href={withSlug(`${staffOrderHref(order.id, "kitchen_staff", { print: true })}#section-kitchen`)}
                               className="inline-flex items-center justify-center min-h-11 w-11 rounded-md text-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors duration-150"
                               title="Print order document"
                             >
@@ -2347,7 +2347,7 @@ function KitchenDashboardInner() {
                                     Open order
                                   </Link>
                                   <Link
-                                    href={withSlug(`${staffOrderHref(order.id, "kitchen_staff")}&print=1#section-kitchen`)}
+                                    href={withSlug(`${staffOrderHref(order.id, "kitchen_staff", { print: true })}#section-kitchen`)}
                                     className="inline-flex items-center justify-center min-h-11 w-11 rounded-md text-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors duration-150"
                                     title="Print order document"
                                   >

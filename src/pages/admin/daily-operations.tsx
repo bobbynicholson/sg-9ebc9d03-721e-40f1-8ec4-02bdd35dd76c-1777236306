@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { formatClock } from "@/lib/portalTime";
 import Head from "next/head";
 import Link from "next/link";
-import { Bell, CalendarDays, CheckCircle2, Clock3, CookingPot, Droplets, Loader2, Save, Settings2, Users, ClipboardPlus, MapPin, Plus, Truck, X } from "lucide-react";
+import { Bell, CalendarDays, CheckCircle2, Clock3, CookingPot, Droplets, Loader2, Save, Users, ClipboardList, ClipboardPlus, MapPin, Plus, Truck, X } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalHeader, PageWorkbench, PortalShell, PortalCard } from "@/components/portal/ui";
@@ -71,6 +71,7 @@ type DailyOperationsStaff = {
 
 type OneOffTaskDraft = {
   task_kind: OneOffTaskKind;
+  assigned_to: string;
   task_date: string;
   scheduled_time: string;
   title: string;
@@ -301,15 +302,20 @@ function ScheduleCard({
 function OneOffTaskForm({
   creating,
   today,
+  drivers,
+  kitchenManagers,
   onCreate,
 }: {
   creating: boolean;
   today: string;
+  drivers: DailyOperationsStaff[];
+  kitchenManagers: DailyOperationsStaff[];
   onCreate: (draft: OneOffTaskDraft) => Promise<boolean>;
 }) {
   const { withSlug } = useTenantHref();
   const [draft, setDraft] = useState<OneOffTaskDraft>(() => ({
     task_kind: "custom_kitchen",
+    assigned_to: "",
     task_date: today,
     scheduled_time: "09:00",
     title: "",
@@ -333,12 +339,15 @@ function OneOffTaskForm({
   const updateStop = (index: number, patch: Partial<DriverStopDraft>) => setDraft((current) => ({ ...current, stops: current.stops.map((stop, stopIndex) => stopIndex === index ? { ...stop, ...patch } : stop) }));
   const removeStop = (index: number) => setDraft((current) => current.stops.length <= 1 ? current : ({ ...current, stops: current.stops.filter((_, stopIndex) => stopIndex !== index) }));
   const routeStopsValid = draft.task_kind !== "custom_driver" || (draft.stops.length > 0 && draft.stops.every((stop) => stop.stop_name.trim() && stop.address.trim()));
+  const requiresAssignee = draft.task_kind === "custom_driver" || draft.task_kind === "custom_kitchen";
+  const assigneeOptions = draft.task_kind === "custom_driver" ? drivers : kitchenManagers;
+  const assigneeValid = !requiresAssignee || assigneeOptions.some((member) => member.id === draft.assigned_to);
 
   return (
     <PortalCard id="one-off-task" className="min-w-0 scroll-mt-24">
       <div className="mb-5 flex items-start gap-3">
         <div className="shrink-0 rounded-xl bg-brand-primary/10 p-2.5 text-brand-primary"><ClipboardPlus className="h-5 w-5" /></div>
-        <div><h2 className="font-semibold text-slate-900 dark:text-white">Create a one-off task</h2><p className="mt-1 text-sm leading-5 text-slate-500 dark:text-slate-400">Assign work to a team dashboard. The first eligible team member to start it claims the task and records work time.</p></div>
+        <div className="min-w-0"><h2 className="font-semibold text-slate-900 dark:text-white">Create a one-off task</h2><p className="mt-1 max-w-3xl text-sm leading-5 text-slate-500 dark:text-slate-400">Send driver routes to a named driver and kitchen tasks to a kitchen manager for delegation. Cleaning and shared tasks appear on eligible team dashboards.</p></div>
       </div>
       <form onSubmit={(event) => void submit(event)} className="space-y-5">
         <div className="grid min-w-0 gap-4 sm:grid-cols-2">
@@ -346,7 +355,7 @@ function OneOffTaskForm({
             <Label htmlFor="one-off-kind">Task type and dashboard</Label>
             <select id="one-off-kind" value={draft.task_kind} onChange={(event) => {
               const nextKind = event.target.value as OneOffTaskDraft["task_kind"];
-              setDraft((current) => ({ ...current, task_kind: nextKind }));
+              setDraft((current) => ({ ...current, task_kind: nextKind, assigned_to: "" }));
             }} className="mt-1.5 h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30 dark:border-slate-700 dark:bg-slate-900 sm:text-sm">
               <option value="custom_kitchen">Kitchen task · Kitchen dashboard</option>
               <option value="custom_cleaning">Cleaning task · Kitchen + cleaning dashboards</option>
@@ -358,8 +367,22 @@ function OneOffTaskForm({
           <div className="min-w-0"><Label htmlFor="one-off-date">Task date</Label><Input id="one-off-date" type="date" min={today} value={draft.task_date} onChange={(event) => update("task_date", event.target.value)} required className="mt-1.5 h-11 w-full" /></div>
           <div className="min-w-0"><Label htmlFor="one-off-time">Task time</Label><Input id="one-off-time" type="time" value={draft.scheduled_time} onChange={(event) => update("scheduled_time", event.target.value)} required className="mt-1.5 h-11 w-full" /></div>
           <div className="min-w-0 sm:col-span-2">
-            <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">{draft.task_kind === "custom_kitchen" ? "Kitchen staff can see and complete this task." : draft.task_kind === "custom_cleaning" ? "Cleaning staff can complete it; kitchen staff can also see it." : draft.task_kind === "custom_driver" ? "Drivers can see and claim this route from their dashboard. They mark each stop and finish when they return to the kitchen." : draft.task_kind === "custom_both" ? "Kitchen and cleaning staff can see and complete the same task." : "Assigned to the eligible team; no individual is selected."}</p>
+            <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">{draft.task_kind === "custom_kitchen" ? "Assign this to the kitchen manager. They will assign a kitchen staff member to do the work." : draft.task_kind === "custom_cleaning" ? "Cleaning staff can complete it; kitchen staff can also see it." : draft.task_kind === "custom_driver" ? "Assign this route to a specific driver. They can start it at the task time without a roster shift." : draft.task_kind === "custom_both" ? "Kitchen and cleaning staff can see and complete the same task." : "Assigned to the eligible team; no individual is selected."}</p>
           </div>
+          {requiresAssignee && <div className="min-w-0 sm:col-span-2">
+            <Label htmlFor="one-off-assignee">{draft.task_kind === "custom_driver" ? "Assign driver" : "Assign kitchen manager"}</Label>
+            <select
+              id="one-off-assignee"
+              value={draft.assigned_to}
+              onChange={(event) => update("assigned_to", event.target.value)}
+              required
+              aria-invalid={!assigneeValid}
+              className="mt-1.5 h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30 dark:border-slate-700 dark:bg-slate-900 sm:text-sm"
+            >
+              <option value="">{assigneeOptions.length ? `Choose a ${draft.task_kind === "custom_driver" ? "driver" : "kitchen manager"}` : `No active ${draft.task_kind === "custom_driver" ? "drivers" : "kitchen managers"} found`}</option>
+              {assigneeOptions.map((member) => <option key={member.id} value={member.id}>{staffLabel(member)}</option>)}
+            </select>
+          </div>}
           {draft.task_kind === "custom_driver" && <div className="space-y-3 sm:col-span-2">
             <div className="flex flex-wrap items-end justify-between gap-2"><div><Label>Route stops</Label><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Add collections or deliveries in visit order. Returning to the kitchen is the final step.</p></div><Button type="button" variant="outline" onClick={addStop} disabled={draft.stops.length >= 20} className="h-11"><Plus className="mr-2 h-4 w-4" />Add stop</Button></div>
             <div className="space-y-3">{draft.stops.map((stop, index) => <div key={index} className="grid min-w-0 gap-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-900/50 sm:grid-cols-2">
@@ -380,7 +403,7 @@ function OneOffTaskForm({
           </div>
           <p className="text-xs leading-5 text-slate-500 sm:col-span-2">WhatsApp can send this reminder at the same lead time. Configure the <Link href={withSlug("/admin/whatsapp?message=whatsapp_staff_task_assigned#wa-message-library")} className="font-medium text-brand-primary underline underline-offset-2">One-off task reminder</Link> template before creating the task. It follows these team/admin notification switches and skips people who opted out or have no mobile number.</p>
         </div>
-        <div className="flex justify-end"><Button type="submit" disabled={creating || !draft.title.trim() || !draft.task_date || !draft.scheduled_time || !routeStopsValid} className="h-11 bg-brand-primary text-white hover:bg-brand-primary/90">{creating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Checking roster</> : draft.task_kind === "custom_driver" ? <><Truck className="mr-2 h-4 w-4" />Create driver route</> : "Create task"}</Button></div>
+        <div className="flex justify-end"><Button type="submit" disabled={creating || !draft.title.trim() || !draft.task_date || !draft.scheduled_time || !routeStopsValid || !assigneeValid} className="h-11 bg-brand-primary text-white hover:bg-brand-primary/90">{creating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{draft.task_kind === "custom_cleaning" || draft.task_kind === "custom_both" ? "Checking roster" : "Creating task"}</> : draft.task_kind === "custom_driver" ? <><Truck className="mr-2 h-4 w-4" />Assign driver route</> : "Create task"}</Button></div>
       </form>
     </PortalCard>
   );
@@ -469,42 +492,42 @@ function DailyOperationsPageInner() {
         toast({ title: "Choose today or a future date", description: "Tasks can't be scheduled for a date that has already passed in your company timezone.", variant: "destructive" });
         return false;
       }
-      const shiftTypes = shiftTypesForOneOffTask(draft.task_kind);
-      const { data: roster, error: rosterError } = await (supabase as any)
-        .from("kitchen_shifts")
-        .select("id, staff_id, shift_type, planned_start, planned_end, status")
-        .eq("company_id", user.company_id)
-        .eq("shift_date", draft.task_date)
-        .in("shift_type", shiftTypes)
-        .in("status", ["scheduled", "active"])
-        .is("deleted_at", null);
-      if (rosterError) {
-        toast({ title: "Could not check the roster", description: "Nothing was created. Check the roster connection and try again.", variant: "destructive" });
-        return false;
-      }
-      const atTaskTime = ((roster || []) as Array<{ staff_id: string | null; shift_type: string; planned_start: string | null; planned_end: string | null; status: string }>).filter((shift) => {
-        if (!shiftCoversTaskTime(shift, draft.scheduled_time) || !shift.staff_id) return false;
-        if (draft.task_kind === "custom_driver") return driverIds.has(shift.staff_id);
-        if (shift.shift_type === "kitchen") return draft.task_kind !== "custom_cleaning" && kitchenIds.has(shift.staff_id);
-        if (shift.shift_type === "cleaning") return draft.task_kind !== "custom_kitchen" && cleaningIds.has(shift.staff_id);
-        if (shift.shift_type === "kitchen_and_cleaning") {
-          return (draft.task_kind !== "custom_cleaning" && kitchenIds.has(shift.staff_id)
-            || draft.task_kind !== "custom_kitchen" && cleaningIds.has(shift.staff_id));
+      const requiresRosterCoverage = draft.task_kind === "custom_cleaning" || draft.task_kind === "custom_both";
+      if (requiresRosterCoverage) {
+        const shiftTypes = shiftTypesForOneOffTask(draft.task_kind);
+        const { data: roster, error: rosterError } = await (supabase as any)
+          .from("kitchen_shifts")
+          .select("id, staff_id, shift_type, planned_start, planned_end, status")
+          .eq("company_id", user.company_id)
+          .eq("shift_date", draft.task_date)
+          .in("shift_type", shiftTypes)
+          .in("status", ["scheduled", "active"])
+          .is("deleted_at", null);
+        if (rosterError) {
+          toast({ title: "Could not check the roster", description: "Nothing was created. Check the roster connection and try again.", variant: "destructive" });
+          return false;
         }
-        return false;
-      });
-      if (atTaskTime.length === 0) {
-        const dateLabel = new Date(`${draft.task_date}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
-        const timeLabel = formatClock(draft.scheduled_time);
-        const teamLabel = draft.task_kind === "custom_kitchen" ? "Kitchen staff"
-          : draft.task_kind === "custom_cleaning" ? "Cleaning staff"
-            : draft.task_kind === "custom_driver" ? "Drivers" : "Kitchen or cleaning staff";
-        toast({
-          title: "No roster coverage for this time",
-          description: `No ${teamLabel.toLowerCase()} are scheduled at ${timeLabel} on ${dateLabel}. Nothing was created; add a matching shift to the roster or choose a time when the team is working.`,
-          variant: "destructive",
+        const atTaskTime = ((roster || []) as Array<{ staff_id: string | null; shift_type: string; planned_start: string | null; planned_end: string | null; status: string }>).filter((shift) => {
+          if (!shiftCoversTaskTime(shift, draft.scheduled_time) || !shift.staff_id) return false;
+          if (shift.shift_type === "kitchen") return draft.task_kind !== "custom_cleaning" && kitchenIds.has(shift.staff_id);
+          if (shift.shift_type === "cleaning") return draft.task_kind !== "custom_kitchen" && cleaningIds.has(shift.staff_id);
+          if (shift.shift_type === "kitchen_and_cleaning") {
+            return (draft.task_kind !== "custom_cleaning" && kitchenIds.has(shift.staff_id)
+              || draft.task_kind !== "custom_kitchen" && cleaningIds.has(shift.staff_id));
+          }
+          return false;
         });
-        return false;
+        if (atTaskTime.length === 0) {
+          const dateLabel = new Date(`${draft.task_date}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+          const timeLabel = formatClock(draft.scheduled_time);
+          const teamLabel = draft.task_kind === "custom_cleaning" ? "Cleaning staff" : "Kitchen or cleaning staff";
+          toast({
+            title: "No roster coverage for this time",
+            description: `No ${teamLabel.toLowerCase()} are scheduled at ${timeLabel} on ${dateLabel}. Nothing was created; add a matching shift to the roster or choose a time when the team is working.`,
+            variant: "destructive",
+          });
+          return false;
+        }
       }
 
       if (draft.task_kind === "custom_driver") {
@@ -516,6 +539,7 @@ function DailyOperationsPageInner() {
           p_notify_before_hours: draft.notify_before_hours,
           p_notify_staff: draft.notify_staff,
           p_notify_admins: draft.notify_admins,
+          p_assigned_to: draft.assigned_to,
           p_stops: draft.stops.map((stop) => ({
             stop_type: stop.stop_type,
             stop_name: stop.stop_name.trim(),
@@ -534,10 +558,12 @@ function DailyOperationsPageInner() {
           p_notify_before_hours: draft.notify_before_hours,
           p_notify_staff: draft.notify_staff,
           p_notify_admins: draft.notify_admins,
+          p_assigned_to: draft.assigned_to || null,
         });
         if (error) throw error;
       }
-      toast({ title: draft.task_kind === "custom_driver" ? "Driver route scheduled" : "Task added to the dashboard", description: `${draft.title} is scheduled for ${draft.task_date} at ${formatClock(draft.scheduled_time)}.` });
+      const assignee = staff.find((member) => member.id === draft.assigned_to);
+      toast({ title: draft.task_kind === "custom_driver" ? "Driver route assigned" : "Task added to the dashboard", description: `${draft.title} is scheduled for ${draft.task_date} at ${formatClock(draft.scheduled_time)}${assignee ? ` and assigned to ${staffLabel(assignee)}` : ""}.` });
       await load();
       return true;
     } catch (error: any) {
@@ -576,22 +602,72 @@ function DailyOperationsPageInner() {
       <AdminNav />
       <div className="admin-page-shell">
         <PortalShell>
-          <PortalHeader variant="hero" title="Daily operations" subtitle="Set recurring cleaning schedules or add a kitchen, cleaning or driver task for a specific date." icon={Settings2} actions={<Button onClick={() => void save()} disabled={!loaded || saving || hasInvalidWeekdaySchedule || hasInvalidTaskTitle} className="bg-white text-slate-900 hover:bg-white/90">{saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving</> : <><Save className="mr-2 h-4 w-4" />Save schedules</>}</Button>} meta={<><span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white"><Clock3 className="h-3 w-3" />Company timezone</span><span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white"><Bell className="h-3 w-3" />Checks every 15 min</span></>} />
+          <PortalHeader
+            variant="hero"
+            title="Daily operations"
+            subtitle="Schedule recurring cleaning and assign dated tasks to kitchen, cleaning or drivers."
+            icon={ClipboardList}
+            actions={
+              <Button
+                type="button"
+                onClick={() => void save()}
+                disabled={!loaded || saving || hasInvalidWeekdaySchedule || hasInvalidTaskTitle}
+                aria-label={saving ? "Saving schedules" : "Save schedules"}
+                title={saving ? "Saving schedules" : "Save schedules"}
+                className="ml-auto h-10 w-10 justify-self-end bg-white p-0 text-slate-900 hover:bg-white/90 sm:ml-0 sm:h-10 sm:w-auto sm:justify-self-auto sm:gap-2 sm:px-4"
+              >
+                {saving ? <><Loader2 className="h-4 w-4 animate-spin sm:mr-0" /><span className="hidden sm:inline">Saving</span></> : <><Save className="h-4 w-4 sm:mr-0" /><span className="hidden sm:inline">Save schedules</span></>}
+              </Button>
+            }
+            meta={
+              <>
+                <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
+                  <Clock3 className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{companyTimezone}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
+                  <Bell className="h-3 w-3 shrink-0" />Reminder check every 15 min
+                </span>
+              </>
+            }
+          />
           <PageWorkbench />
           {!loaded ? <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div> : <div className="space-y-4">
-            <PortalCard className="border-brand-primary/20 bg-brand-primary/5 dark:bg-brand-primary/10"><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div className="flex items-start gap-3"><Bell className="mt-0.5 h-5 w-5 shrink-0 text-brand-primary" /><div><h2 className="font-semibold text-slate-900 dark:text-white">Schedule rules</h2><p className="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">Recurring tasks can follow the roster, selected weekdays, or run every day. Roster-based tasks are created only when the assigned team has a shift at the task time. In-app reminders can be sent up to three days ahead.</p></div></div><div className="flex shrink-0 items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"><Label htmlFor="notify-recurring-admins" className="cursor-pointer text-sm">Notify admins in app too</Label><Switch id="notify-recurring-admins" checked={settings.admin_notifications_enabled} onCheckedChange={(checked) => setSettings((current) => ({ ...current, admin_notifications_enabled: checked }))} aria-label="Notify admins for recurring task reminders" /></div></div></PortalCard>
+            <PortalCard className="border-brand-primary/20 bg-brand-primary/5 dark:bg-brand-primary/10"><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div className="flex min-w-0 items-start gap-3"><Bell className="mt-0.5 h-5 w-5 shrink-0 text-brand-primary" /><div className="min-w-0"><h2 className="font-semibold text-slate-900 dark:text-white">Schedule rules</h2><p className="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">Recurring tasks can follow the roster, selected weekdays, or run every day. “Follow roster” creates a task only when the team has a shift at that time. In-app reminders can be sent up to three days ahead.</p></div></div><div className="flex shrink-0 items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"><Label htmlFor="notify-recurring-admins" className="cursor-pointer text-sm">Notify admins in app too</Label><Switch id="notify-recurring-admins" checked={settings.admin_notifications_enabled} onCheckedChange={(checked) => setSettings((current) => ({ ...current, admin_notifications_enabled: checked }))} aria-label="Notify admins for recurring task reminders" /></div></div></PortalCard>
             <div className="grid min-w-0 items-start gap-4 xl:grid-cols-2">
               <ScheduleCard kind="kitchen" settings={settings} setSettings={setSettings} staff={staff} />
               <ScheduleCard kind="equipment" settings={settings} setSettings={setSettings} staff={staff} />
             </div>
-            <OneOffTaskForm creating={creatingTask} today={toZonedISO(new Date(), companyTimezone)} onCreate={createOneOffTask} />
+            <OneOffTaskForm
+              creating={creatingTask}
+              today={toZonedISO(new Date(), companyTimezone)}
+              drivers={staff.filter((member) => driverIds.has(member.id))}
+              kitchenManagers={staff.filter((member) => staffMatchesRoles(member, ["kitchen_manager"]))}
+              onCreate={createOneOffTask}
+            />
+            <div className="flex min-w-0 flex-col gap-3 border-t border-slate-200 pt-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+              <p className="max-w-2xl text-xs leading-5 text-slate-500 dark:text-slate-400">Save recurring kitchen and equipment-cleaning schedule changes here. One-off tasks are created separately above.</p>
+              <Button
+                type="button"
+                onClick={() => void save()}
+                disabled={!loaded || saving || hasInvalidWeekdaySchedule || hasInvalidTaskTitle}
+                className="h-10 w-full gap-2 sm:w-auto"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {saving ? "Saving schedules" : "Save schedules"}
+              </Button>
+            </div>
             <PortalCard className="min-w-0"><div className="mb-4 flex items-center justify-between gap-3"><div className="min-w-0"><h2 className="font-semibold text-slate-900 dark:text-white">Upcoming tasks</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Open recurring and one-off work on the kitchen, cleaning or driver dashboards.</p></div><Users className="h-5 w-5 shrink-0 text-slate-400" /></div>{openTasks.length === 0 ? <p className="py-5 text-sm leading-5 text-slate-500 dark:text-slate-400">No upcoming tasks. One-off tasks will appear here after they are created.</p> : <div className="divide-y divide-slate-100 dark:divide-slate-800">{openTasks.map((task) => {
               const taskTeam = dashboardLabelForRoles(task.visible_roles?.length ? task.visible_roles : task.target_roles);
               const assignee = task.assigned_to ? staff.find((member) => member.id === task.assigned_to) : null;
               const actionTeam = dashboardLabelForRoles(task.target_roles);
               const routeStops = task.driver_stops || [];
               const routeStage = task.route_stage?.replace(/_/g, " ") || "ready to start";
-              return <div key={task.id} className="flex min-w-0 flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"><div className="min-w-0"><p className="break-words font-medium text-slate-900 dark:text-white">{task.title}</p><p className="text-xs text-slate-500 dark:text-slate-400">{new Date(`${task.task_date}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })} at {formatClock(task.scheduled_time)} · {task.status.replace("_", " ")}</p>{task.task_kind === "custom_driver" && <p className="mt-1 break-words text-xs leading-5 text-slate-600 dark:text-slate-400">Route: {routeStage}{routeStops.length ? ` · ${routeStops.length} stops: ${routeStops.map((stop) => `${stop.stop_number}. ${stop.stop_name}`).join(" → ")}` : ""}</p>}</div><div className="flex min-w-0 flex-col items-start gap-1 sm:items-end"><span className="inline-flex min-w-0 items-center gap-1 text-xs text-slate-500 dark:text-slate-400"><CheckCircle2 className="h-3.5 w-3.5 shrink-0" /><span className="break-words">Visible on {taskTeam}</span></span><span className="text-xs text-slate-500 dark:text-slate-400">{assignee ? `Claimed by ${staffLabel(assignee)}` : `Available to ${actionTeam} team`}</span></div></div>;
+              const assignmentLabel = assignee ? `Assigned to ${staffLabel(assignee)}`
+                : task.task_kind === "custom_driver" ? "Needs a driver assignment"
+                  : task.task_kind === "custom_kitchen" ? "Awaiting kitchen manager assignment"
+                    : `Available to ${actionTeam} team`;
+              return <div key={task.id} className="flex min-w-0 flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"><div className="min-w-0"><p className="break-words font-medium text-slate-900 dark:text-white">{task.title}</p><p className="text-xs text-slate-500 dark:text-slate-400">{new Date(`${task.task_date}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })} at {formatClock(task.scheduled_time)} · {task.status.replace("_", " ")}</p>{task.task_kind === "custom_driver" && <p className="mt-1 break-words text-xs leading-5 text-slate-600 dark:text-slate-400">Route: {routeStage}{routeStops.length ? ` · ${routeStops.length} stops: ${routeStops.map((stop) => `${stop.stop_number}. ${stop.stop_name}`).join(" → ")}` : ""}</p>}</div><div className="flex min-w-0 flex-col items-start gap-1 sm:items-end"><span className="inline-flex min-w-0 items-center gap-1 text-xs text-slate-500 dark:text-slate-400"><CheckCircle2 className="h-3.5 w-3.5 shrink-0" /><span className="break-words">Visible on {taskTeam}</span></span><span className="break-words text-xs text-slate-500 dark:text-slate-400">{assignmentLabel}</span></div></div>;
             })}</div>}</PortalCard>
           </div>}
         </PortalShell>

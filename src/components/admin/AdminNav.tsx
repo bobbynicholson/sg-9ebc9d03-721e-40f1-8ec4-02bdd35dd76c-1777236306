@@ -220,6 +220,12 @@ export function AdminNav(_: AdminNavProps = {}) {
           icon: Calendar,
           description: "Event schedule",
         },
+        {
+          title: "Daily operations",
+          href: "/admin/daily-operations",
+          icon: ClipboardList,
+          description: "Schedules and assigned team tasks",
+        },
       ],
     },
     {
@@ -359,7 +365,6 @@ export function AdminNav(_: AdminNavProps = {}) {
         { title: "Company",               href: "/admin/company-profile",       icon: Building2,     description: "Address and routing" },
         { title: "Branding",              href: "/admin/white-label",           icon: Palette,       description: "Logo, colours, fonts" },
         { title: "Kitchen",               href: "/admin/kitchen-settings",      icon: CookingPot,    description: "Prep and dietary rules" },
-        { title: "Cleaning schedules",    href: "/admin/daily-operations",      icon: Sparkles,      description: "Kitchen and equipment cleaning tasks" },
         { title: "Email",                 href: "/admin/email-settings",        icon: Mail,          description: "SMTP and providers" },
         { title: "Integrations",          href: "/admin/integrations",          icon: Zap,           description: "Apps and webhooks" },
         { title: "Lead forms",            href: "/admin/integrations/embed",    icon: Code2,         description: "Public forms" },

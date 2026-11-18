@@ -146,6 +146,35 @@ export function OrderDetailsModal({
   const C = tenantCurrency.symbol;
 const [editedOrder, setEditedOrder] = useState<AppOrder | null>(null);
 const [saving, setSaving] = useState(false);
+const [headerActionsOpen, setHeaderActionsOpen] = useState(false);
+const headerActionsRef = useRef<HTMLDivElement>(null);
+const headerActionsTriggerRef = useRef<HTMLButtonElement>(null);
+
+useEffect(() => {
+  if (!headerActionsOpen) return;
+  const closeOnOutsidePointer = (event: PointerEvent) => {
+    if (!headerActionsRef.current?.contains(event.target as Node)) {
+      setHeaderActionsOpen(false);
+    }
+  };
+  const closeOnEscape = (event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      setHeaderActionsOpen(false);
+      headerActionsTriggerRef.current?.focus();
+    }
+  };
+  document.addEventListener("pointerdown", closeOnOutsidePointer);
+  document.addEventListener("keydown", closeOnEscape, true);
+  return () => {
+    document.removeEventListener("pointerdown", closeOnOutsidePointer);
+    document.removeEventListener("keydown", closeOnEscape, true);
+  };
+}, [headerActionsOpen]);
+useEffect(() => {
+  setHeaderActionsOpen(false);
+}, [selectedOrder?.id, isModalOpen]);
 
 // Wave 70.42 - conductor view facts. Fetched from the role-
 // scoped API endpoint when the modal opens for an order.
@@ -989,25 +1018,45 @@ const changeOrderDetailTab = (value: string) => {
                 <Edit className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Edit</span>
               </Button>
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-10 w-10 p-0 sm:h-9 sm:w-9" aria-label="More actions" title="More order actions">
-                    <MoreHorizontal className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  {selectedOrder && ["confirmed", "preparing", "ready"].includes(String((selectedOrder as any).status)) && (
-                    <DropdownMenuItem
-                      onClick={() => setPauseDialogOrderId(selectedOrder.id)}
-                      className="text-blue-700 focus:text-blue-800"
+              <div ref={headerActionsRef} className="relative">
+                <Button
+                  ref={headerActionsTriggerRef}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={`h-10 w-10 p-0 sm:h-9 sm:w-9 ${headerActionsOpen ? "border-brand-primary/40 bg-brand-primary/5" : ""}`}
+                  aria-label="More order actions"
+                  aria-haspopup="true"
+                  aria-expanded={headerActionsOpen}
+                  title="More order actions"
+                  onClick={() => setHeaderActionsOpen((open) => !open)}
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+                {headerActionsOpen && (
+                  <div
+                    role="group"
+                    aria-label="Order actions"
+                    className="absolute right-0 top-full z-[90] mt-2 max-h-[min(70dvh,28rem)] w-[min(14rem,calc(100vw-2rem))] overflow-y-auto rounded-lg border border-slate-200 bg-white p-1.5 text-slate-800 shadow-lg"
+                  >
+                    {selectedOrder && ["confirmed", "preparing", "ready"].includes(String((selectedOrder as any).status)) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHeaderActionsOpen(false);
+                        setPauseDialogOrderId(selectedOrder.id);
+                      }}
+                      className="flex min-h-10 w-full items-center rounded-md px-2.5 py-2 text-left text-sm font-medium text-blue-700 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
                     >
-                      <Pause className="w-4 h-4 mr-2" />
+                      <Pause className="mr-2 h-4 w-4 shrink-0" />
                       Pause order
-                    </DropdownMenuItem>
-                  )}
-                  {selectedOrder && (selectedOrder as any).status === "paused" && (
-                    <DropdownMenuItem
+                    </button>
+                    )}
+                    {selectedOrder && (selectedOrder as any).status === "paused" && (
+                    <button
+                      type="button"
                       onClick={async () => {
+                        setHeaderActionsOpen(false);
                         const ok = await confirm({
                           title: "Resume this order?",
                           description: "Pre-event reminders and kitchen prep tasks will be restored.",
@@ -1028,14 +1077,17 @@ const changeOrderDetailTab = (value: string) => {
                           toast({ title: "Resume failed", description: dbErrorMessage(e, { entity: "order" }), variant: "destructive" });
                         }
                       }}
+                      className="flex min-h-10 w-full items-center rounded-md px-2.5 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
                     >
-                      <Play className="w-4 h-4 mr-2" />
+                      <Play className="mr-2 h-4 w-4 shrink-0" />
                       Resume order
-                    </DropdownMenuItem>
-                  )}
-                  {selectedOrder && (
-                    <DropdownMenuItem
+                    </button>
+                    )}
+                    {selectedOrder && (
+                    <button
+                      type="button"
                       onClick={() => {
+                        setHeaderActionsOpen(false);
                         // The dialog reads `defaultDate` on open
                         // and snaps its own input to it; seeding
                         // here keeps the +7d operator convention.
@@ -1046,44 +1098,61 @@ const changeOrderDetailTab = (value: string) => {
                         })());
                         setDuplicateDialogOpen(true);
                       }}
+                      className="flex min-h-10 w-full items-center rounded-md px-2.5 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
                     >
-                      <Copy className="w-4 h-4 mr-2" />
+                      <Copy className="mr-2 h-4 w-4 shrink-0" />
                       Duplicate
-                    </DropdownMenuItem>
-                  )}
-                  {selectedOrder && (
-                    <DropdownMenuItem asChild>
-                      <Link href={withSlug(`${staffOrderHref(selectedOrder.id, "kitchen_staff")}&print=1#section-kitchen`)} target="_blank">
-                        <FileText className="w-4 h-4 mr-2" />
-                        Print order document
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-                  {selectedOrder && (
-                    <DropdownMenuItem onClick={() => downloadOrderIcs(selectedOrder as any)}>
-                      <Calendar className="w-4 h-4 mr-2" />
+                    </button>
+                    )}
+                    {selectedOrder && (
+                    <Link
+                      href={withSlug(staffOrderHref(selectedOrder.id, "kitchen_staff", { print: true }))}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setHeaderActionsOpen(false)}
+                      className="flex min-h-10 items-center rounded-md px-2.5 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
+                    >
+                      <FileText className="mr-2 h-4 w-4 shrink-0" />
+                      Print order document
+                    </Link>
+                    )}
+                    {selectedOrder && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        downloadOrderIcs(selectedOrder as any);
+                        setHeaderActionsOpen(false);
+                      }}
+                      className="flex min-h-10 w-full items-center rounded-md px-2.5 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
+                    >
+                      <Calendar className="mr-2 h-4 w-4 shrink-0" />
                       Add to calendar
-                    </DropdownMenuItem>
-                  )}
-                  {selectedOrder && (selectedOrder as any).status !== "cancelled" && (
+                    </button>
+                    )}
+                    {selectedOrder && (selectedOrder as any).status !== "cancelled" && (
                     <>
-                      <DropdownMenuSeparator />
+                      <div role="separator" className="my-1.5 border-t border-slate-200" />
                       {/* TIGHTEN I.122: this single entry opens the
                           unified Cancel / Purge dialog. The label
                           covers both because the dialog itself is the
                           mode picker - cancel for real cancellations,
                           purge for test data / mistakes. */}
-                      <DropdownMenuItem
-                        onClick={openRemoveOrderDialog}
-                        className="text-rose-700 focus:text-rose-800 focus:bg-rose-50"
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHeaderActionsOpen(false);
+                          openRemoveOrderDialog();
+                        }}
+                        className="flex min-h-10 w-full items-center rounded-md px-2.5 py-2 text-left text-sm font-medium text-rose-700 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50"
                       >
-                        <Trash2 className="w-4 h-4 mr-2" />
+                        <Trash2 className="mr-2 h-4 w-4 shrink-0" />
                         Cancel or remove order
-                      </DropdownMenuItem>
+                      </button>
                     </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="col-span-2 row-start-3 flex min-w-0 flex-wrap justify-end gap-1.5 sm:col-span-1 sm:col-start-2 sm:row-start-2 sm:w-auto sm:gap-2">
