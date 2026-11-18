@@ -31,8 +31,9 @@ export default function Document() {
     <Html lang="en">
       <Head>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <link rel="icon" type="image/png" sizes="192x192" href="/icons/cateringms-192.png?v=20261109" />
-        <link rel="shortcut icon" href="/favicon.ico?v=20261109" />
+        <link rel="shortcut icon" href="/favicon.ico?v=20261118-2" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/icons/cateringms-favicon-16.png?v=20261118-2" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/icons/cateringms-favicon-32.png?v=20261118-2" />
         <meta name="robots" content="noindex, nofollow" />
         <meta name="googlebot" content="noindex, nofollow" />
         {/* Paint the company's saved colours before the first frame so tenant
