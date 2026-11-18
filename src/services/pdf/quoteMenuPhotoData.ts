@@ -14,10 +14,32 @@ function readMenuItems(raw: unknown): any[] {
   }
 }
 
-async function pdfSafePhotoSource(rawUrl: unknown): Promise<string | null> {
+export async function pdfSafePhotoSource(rawUrl: unknown, thumbnailSize?: number): Promise<string | null> {
   if (typeof rawUrl !== "string" || !rawUrl.trim()) return null;
   const url = rawUrl.trim();
-  if (/^data:image\/(?:png|jpe?g);base64,/i.test(url)) return url;
+  const makeJpeg = async (source: Buffer) => {
+    const sharpModule = await import("sharp");
+    const size = thumbnailSize ?? 480;
+    const jpeg = await sharpModule.default(source, { limitInputPixels: 32_000_000 })
+      .rotate()
+      .resize({ width: size, height: size, fit: "inside", withoutEnlargement: true })
+      .flatten({ background: "#ffffff" })
+      .jpeg({ quality: thumbnailSize ? 76 : 78 })
+      .toBuffer();
+    return `data:image/jpeg;base64,${jpeg.toString("base64")}`;
+  };
+
+  const inlineImage = /^data:image\/(?:png|jpe?g|webp);base64,/i.exec(url);
+  if (inlineImage) {
+    if (!thumbnailSize && !/^data:image\/webp/i.test(url)) return url;
+    const encoded = url.slice(inlineImage[0].length);
+    if (encoded.length > Math.ceil(MAX_PHOTO_BYTES / 3) * 4) return null;
+    try {
+      return await makeJpeg(Buffer.from(encoded, "base64"));
+    } catch {
+      return null;
+    }
+  }
 
   // Menu uploads are stored in this app's public Supabase bucket. Restrict
   // server-side image fetches to that same origin so a quote row cannot make
@@ -37,7 +59,7 @@ async function pdfSafePhotoSource(rawUrl: unknown): Promise<string | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PHOTO_TIMEOUT_MS);
   try {
-    const response = await fetch(photoUrl, { signal: controller.signal });
+    const response = await fetch(photoUrl, { signal: controller.signal, redirect: "error" });
     if (!response.ok) return null;
     const contentType = (response.headers.get("content-type") || "").split(";")[0].toLowerCase();
     if (!/^image\/(?:png|jpe?g|webp)$/.test(contentType)) return null;
@@ -59,13 +81,7 @@ async function pdfSafePhotoSource(rawUrl: unknown): Promise<string | null> {
     const source = Buffer.concat(chunks, received);
     if (!source.length) return null;
 
-    const sharpModule = await import("sharp");
-    const jpeg = await sharpModule.default(source)
-      .rotate()
-      .resize({ width: 480, height: 480, fit: "inside", withoutEnlargement: true })
-      .jpeg({ quality: 78 })
-      .toBuffer();
-    return `data:image/jpeg;base64,${jpeg.toString("base64")}`;
+    return await makeJpeg(source);
   } catch {
     return null;
   } finally {

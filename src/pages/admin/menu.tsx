@@ -27,7 +27,7 @@ import {
   BookOpen, Plus, Pencil, Archive, ArchiveRestore, Search, Image as ImageIcon,
   ChefHat, Trash2, AlertTriangle, ChevronDown, ChevronUp, Package, Loader2,
   Upload, X, ShoppingBag, Download, RefreshCw, Sparkles, Copy, CheckSquare,
-  Square, TrendingUp, Camera, Printer,
+  Square, TrendingUp, Camera, FileDown,
 } from "lucide-react";
 import { captureException } from "@/lib/observability";
 import { supabase } from "@/integrations/supabase/client";
@@ -439,20 +439,26 @@ function MenuPage() {
   const downloadCustomerMenuPdf = async () => {
     setDownloadingMenuPdf(true);
     try {
-      const response = await fetch("/api/admin/menu-customer-pdf");
+      const response = await fetch("/api/admin/menu-customer-pdf", {
+        cache: "no-store",
+        headers: { Accept: "application/pdf" },
+      });
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
         throw new Error(payload?.error || "Could not create the customer menu PDF.");
+      }
+      if (!response.headers.get("content-type")?.startsWith("application/pdf")) {
+        throw new Error("The download did not return a PDF. Refresh the Menu page and try again.");
       }
       const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = objectUrl;
-      anchor.download = "customer-menu.pdf";
+      anchor.download = /filename="([^"]+)"/i.exec(response.headers.get("content-disposition") || "")?.[1] || "customer-menu.pdf";
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
-      URL.revokeObjectURL(objectUrl);
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
       toast({ title: "Customer menu downloaded", description: "A print-ready menu PDF is ready to share." });
     } catch (error: any) {
       toast({ title: "Could not download the menu", description: error?.message || "Please try again.", variant: "destructive" });
@@ -1298,8 +1304,8 @@ function MenuPage() {
                 aria-label="Download customer menu PDF"
                 title="Download customer menu PDF"
               >
-                {downloadingMenuPdf ? <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin sm:mr-2" /> : <Printer aria-hidden="true" className="h-4 w-4 shrink-0 sm:mr-2" />}
-                <span className="sr-only sm:not-sr-only">Menu PDF</span>
+                {downloadingMenuPdf ? <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin sm:mr-2" /> : <FileDown aria-hidden="true" className="h-4 w-4 shrink-0 sm:mr-2" />}
+                <span className="sr-only sm:not-sr-only">{downloadingMenuPdf ? "Preparing PDF…" : "Download menu PDF"}</span>
               </Button>
               <Button onClick={openAdd} aria-label="Add menu item" title="Add menu item" className="h-10 w-10 shrink-0 justify-center gap-0 bg-brand-primary px-0 text-sm hover:opacity-90 sm:h-9 sm:w-auto sm:gap-2 sm:px-3">
                 <Plus aria-hidden="true" className="h-4 w-4 shrink-0" /><span className="sr-only sm:not-sr-only">Add menu item</span>

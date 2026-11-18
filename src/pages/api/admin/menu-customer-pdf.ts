@@ -1,69 +1,20 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/withApiLogging";
-import { NON_FOOD_CATEGORIES } from "@/services/menuService";
 import type { CustomerMenuPdfData } from "@/services/pdf/CustomerMenuDocument";
 
 const ALLOWED_ROLES = new Set([
   "super_admin", "company_admin", "owner", "admin", "sales_admin", "region_admin",
 ]);
-const CUSTOMER_MENU_CATEGORY_ORDER = ["Starters", "Mains", "Sides", "Salads", "Desserts", "Other"];
-
-function normaliseCategory(raw: unknown): string {
-  const value = typeof raw === "string" && raw.trim() ? raw.trim() : "Other";
-  const key = value.toLowerCase();
-  const aliases: Record<string, string> = {
-    starter: "Starters", starters: "Starters", appetizer: "Starters", appetizers: "Starters",
-    main: "Mains", mains: "Mains", side: "Sides", sides: "Sides",
-    salad: "Salads", salads: "Salads", dessert: "Desserts", desserts: "Desserts",
-    drink: "Other", drinks: "Other", beverage: "Other", beverages: "Other",
-    kid: "Other", kids: "Other", equipment: "Equipment", service: "Service", other: "Other",
-  };
-  const category = aliases[key] || value;
-  return CUSTOMER_MENU_CATEGORY_ORDER.includes(category) ? category : "Other";
-}
-
-function categoryRank(category: string): number {
-  const index = CUSTOMER_MENU_CATEGORY_ORDER.indexOf(category);
-  return index < 0 ? CUSTOMER_MENU_CATEGORY_ORDER.length : index;
-}
-
-async function safeMenuImageData(raw: unknown): Promise<string | null> {
-  if (typeof raw !== "string" || !raw.trim()) return null;
-  const value = raw.trim();
-  const maxBytes = 3 * 1024 * 1024;
-  if (/^data:image\/(?:png|jpe?g);base64,/i.test(value)) {
-    return value.length <= maxBytes * 1.5 ? value : null;
-  }
-
-  // The catalogue stores public Supabase URLs. Keep server-side image
-  // fetching restricted to that host, and embed only React-PDF-supported
-  // formats. WebP/unsupported images use the clean branded fallback.
-  try {
-    const origin = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "").origin;
-    const url = new URL(value);
-    if (url.origin !== origin || !["http:", "https:"].includes(url.protocol)) return null;
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
-    try {
-      const response = await fetch(url, { signal: controller.signal });
-      if (!response.ok || !response.body) return null;
-      const contentType = (response.headers.get("content-type") || "").split(";")[0].toLowerCase();
-      if (!["image/png", "image/jpeg", "image/jpg"].includes(contentType)) return null;
-      const declaredLength = Number(response.headers.get("content-length") || 0);
-      if (declaredLength > maxBytes) return null;
-      const bytes = Buffer.from(await response.arrayBuffer());
-      if (!bytes.length || bytes.length > maxBytes) return null;
-      const normalizedType = contentType === "image/jpg" ? "image/jpeg" : contentType;
-      return `data:${normalizedType};base64,${bytes.toString("base64")}`;
-    } finally {
-      clearTimeout(timeout);
-    }
-  } catch {
-    return null;
-  }
-}
+const CUSTOMER_MENU_CATEGORIES = [
+  { label: "Starters", aliases: ["starter", "starters", "appetizer", "appetizers"] },
+  { label: "Mains", aliases: ["main", "mains"] },
+  { label: "Sides", aliases: ["side", "sides"] },
+  { label: "Salads", aliases: ["salad", "salads"] },
+  { label: "Desserts", aliases: ["dessert", "desserts"] },
+  { label: "Other", aliases: [] },
+];
+const EXCLUDED_CATEGORIES = new Set(["equipment", "service", "services"]);
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -101,47 +52,49 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (menuResult.error) throw menuResult.error;
 
     const company = companyResult.data;
-    const sourceItems = (menuResult.data || []).filter((item) => {
-      const category = normaliseCategory(item.category);
-      return item.is_available !== false && !NON_FOOD_CATEGORIES.has(category)
-        && !["equipment", "service"].includes(String(item.category || "").trim().toLowerCase());
+    const groups: CustomerMenuPdfData["groups"] = CUSTOMER_MENU_CATEGORIES.map(({ label }) => ({
+      category: label,
+      items: [],
+    }));
+    const sourceItems = (menuResult.data || []).flatMap((item) => {
+      const key = (item.category || "").trim().toLowerCase();
+      if (item.is_available === false || EXCLUDED_CATEGORIES.has(key)) return [];
+      const categoryIndex = CUSTOMER_MENU_CATEGORIES.findIndex(({ aliases }) => aliases.includes(key));
+      const group = groups[categoryIndex < 0 ? groups.length - 1 : categoryIndex];
+      return [{ item, group }];
     });
     if (!sourceItems.length) {
       return res.status(422).json({ error: "No available food items to include in the customer menu" });
     }
 
-    // Embed only trusted, same-company Supabase images. Missing catalogue photos
-    // become a tidy accent marker in the PDF instead of an empty grey tile.
-    const resolved: Array<{ id: string; name: string; category: string; image_url: string | null }> = [];
+    const { pdfSafePhotoSource } = await import("@/services/pdf/quoteMenuPhotoData");
+    const logo = pdfSafePhotoSource(company?.logo_url, 256);
+    const photos = new Map<string, Promise<string | null>>();
+    function getThumbnail(url: string | null) {
+      if (!url) return null;
+      let photo = photos.get(url);
+      if (!photo) {
+        photo = pdfSafePhotoSource(url, 192);
+        photos.set(url, photo);
+      }
+      return photo;
+    }
+
     for (let start = 0; start < sourceItems.length; start += 4) {
       const batch = sourceItems.slice(start, start + 4);
-      const prepared = await Promise.all(batch.map(async (item) => ({
-        id: String(item.id),
-        name: String(item.item_name || "Menu item"),
-        category: normaliseCategory(item.category),
-        image_url: await safeMenuImageData(item.image_url),
-      })));
-      resolved.push(...prepared);
+      const thumbnails = await Promise.all(batch.map(({ item }) => getThumbnail(item.image_url)));
+      batch.forEach(({ item, group }, index) => {
+        group.items.push({
+          id: item.id,
+          name: item.item_name?.trim() || "Menu item",
+          image_url: thumbnails[index],
+        });
+      });
     }
-
-    const logoUrl = await safeMenuImageData(company?.logo_url);
-    const grouped = new Map<string, CustomerMenuPdfData["groups"][number]["items"]>();
-    for (const item of resolved) {
-      const items = grouped.get(item.category) || [];
-      items.push({ id: item.id, name: item.name, image_url: item.image_url });
-      grouped.set(item.category, items);
-    }
-
-    const groups: CustomerMenuPdfData["groups"] = [...grouped.entries()]
-      .sort(([left], [right]) => categoryRank(left) - categoryRank(right) || left.localeCompare(right))
-      .map(([category, items]) => ({
-        category,
-        items: items.sort((left, right) => left.name.localeCompare(right.name)),
-      }));
 
     const data: CustomerMenuPdfData = {
-      companyName: String(company?.company_name || "Our Menu"),
-      logoUrl,
+      companyName: company?.company_name?.trim() || "",
+      logoUrl: await logo,
       accentColor: company?.primary_color || null,
       groups,
     };

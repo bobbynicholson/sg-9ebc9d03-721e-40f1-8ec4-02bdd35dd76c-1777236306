@@ -31,108 +31,102 @@ export interface CustomerMenuPdfData {
 const styles = StyleSheet.create({
   page: {
     backgroundColor: "#ffffff",
-    color: "#172033",
-    paddingTop: 82,
-    paddingHorizontal: 34,
-    paddingBottom: 30,
+    paddingTop: 76,
+    paddingHorizontal: 27,
+    paddingBottom: 24,
     fontFamily: "Helvetica",
   },
   header: {
     position: "absolute",
     top: 20,
-    left: 34,
-    right: 34,
-    height: 48,
+    left: 27,
+    right: 27,
+    minHeight: 46,
     flexDirection: "row",
     alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5eaf1",
-    paddingBottom: 9,
+    backgroundColor: "#faf6f2",
+    borderLeftWidth: 3,
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  logo: {
+  logoTile: {
     width: 34,
     height: 34,
-    objectFit: "contain",
+    flexShrink: 0,
     marginRight: 9,
-  },
-  brandMark: {
-    width: 7,
-    height: 32,
+    backgroundColor: "#ffffff",
     borderRadius: 4,
-    marginRight: 11,
+    padding: 2,
   },
-  headerCopy: { flexGrow: 1 },
+  logo: { width: 30, height: 30, objectFit: "contain" },
+  headerCopy: { flex: 1 },
   company: {
     fontSize: 9,
-    color: "#64748b",
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-    marginBottom: 3,
-  },
-  title: { fontSize: 19, fontWeight: 700, color: "#101828" },
-  group: { marginBottom: 12 },
-  groupHeading: {
-    fontSize: 12,
     fontWeight: 700,
-    color: "#152238",
-    paddingBottom: 5,
-    marginBottom: 7,
-    borderBottomWidth: 1.25,
+    color: "#5e4e44",
+    marginBottom: 1,
   },
-  grid: {
+  title: { fontSize: 20, fontWeight: 700, color: "#282019" },
+  groupHeading: { flexDirection: "row", alignItems: "center", marginBottom: 4, marginTop: 5 },
+  category: { fontSize: 13, fontWeight: 700, color: "#282019", marginRight: 8 },
+  categoryRule: { flex: 1, height: 1, opacity: 0.45 },
+  row: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
+    columnGap: 6,
+    marginBottom: 4,
   },
   card: {
-    width: "31.8%",
-    minHeight: 50,
+    width: "32.5%",
+    minHeight: 36,
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 6,
-    padding: 6,
-    borderWidth: 1,
-    borderColor: "#e6ebf2",
-    borderRadius: 8,
+    padding: 3,
+    borderWidth: 0.65,
+    borderColor: "#e8ded6",
+    borderRadius: 5,
     backgroundColor: "#ffffff",
   },
   photo: {
-    width: 38,
-    height: 38,
-    borderRadius: 6,
+    width: 29,
+    height: 29,
+    flexShrink: 0,
+    borderRadius: 3,
     objectFit: "cover",
-    marginRight: 7,
+    marginRight: 6,
   },
   photoFallback: {
-    width: 38,
-    height: 38,
-    borderRadius: 6,
-    marginRight: 10,
-    backgroundColor: "#fff2ef",
+    width: 29,
+    height: 29,
+    flexShrink: 0,
+    borderRadius: 3,
+    marginRight: 6,
+    backgroundColor: "#faf6f2",
     alignItems: "center",
     justifyContent: "center",
   },
   fallbackPlate: {
-    width: 23,
-    height: 23,
-    borderWidth: 2,
-    borderRadius: 12,
+    width: 16,
+    height: 16,
+    borderWidth: 1,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
   fallbackPlateInner: {
-    width: 12,
-    height: 12,
-    borderWidth: 1,
-    borderRadius: 6,
+    width: 8,
+    height: 8,
+    borderWidth: 0.65,
+    borderRadius: 4,
   },
   itemName: {
     flexGrow: 1,
     flexShrink: 1,
-    fontSize: 9,
-    lineHeight: 1.25,
-    fontWeight: 600,
-    color: "#172033",
+    paddingRight: 2,
+    fontSize: 9.5,
+    lineHeight: 1.18,
+    fontWeight: 700,
+    color: "#282019",
   },
 });
 
@@ -145,6 +139,25 @@ function safeAccentColor(value?: string | null): string {
 export function CustomerMenuDocument({ data }: { data: CustomerMenuPdfData }) {
   const accent = safeAccentColor(data.accentColor);
 
+  const renderRow = (items: CustomerMenuPdfItem[]) => (
+    <View key={items[0].id} style={styles.row} wrap={false}>
+      {items.map((item) => (
+        <View key={item.id} style={styles.card}>
+          {item.image_url ? (
+            <Image src={item.image_url} style={styles.photo} />
+          ) : (
+            <View style={styles.photoFallback}>
+              <View style={[styles.fallbackPlate, { borderColor: accent }]}>
+                <View style={[styles.fallbackPlateInner, { borderColor: accent }]} />
+              </View>
+            </View>
+          )}
+          <Text style={styles.itemName}>{item.name}</Text>
+        </View>
+      ))}
+    </View>
+  );
+
   return (
     <Document
       title={`${data.companyName} Menu`}
@@ -152,11 +165,11 @@ export function CustomerMenuDocument({ data }: { data: CustomerMenuPdfData }) {
       subject="Food menu"
     >
       <Page size="A4" style={styles.page} wrap>
-        <View style={styles.header} fixed wrap={false}>
-          {data.logoUrl ? (
-            <Image src={data.logoUrl} style={styles.logo} />
-          ) : (
-            <View style={[styles.brandMark, { backgroundColor: accent }]} />
+        <View style={[styles.header, { borderLeftColor: accent }]} fixed>
+          {data.logoUrl && (
+            <View style={styles.logoTile}>
+              <Image src={data.logoUrl} style={styles.logo} />
+            </View>
           )}
           <View style={styles.headerCopy}>
             <Text style={styles.company}>{data.companyName}</Text>
@@ -164,29 +177,22 @@ export function CustomerMenuDocument({ data }: { data: CustomerMenuPdfData }) {
           </View>
         </View>
 
-        {data.groups.map((group) => (
-          <View key={group.category} style={styles.group}>
-            <Text style={[styles.groupHeading, { borderBottomColor: accent }]}>
-              {group.category}
-            </Text>
-            <View style={styles.grid}>
-              {group.items.map((item) => (
-                <View key={item.id} style={styles.card} wrap={false}>
-                  {item.image_url ? (
-                    <Image src={item.image_url} style={styles.photo} />
-                  ) : (
-                    <View style={styles.photoFallback}>
-                      <View style={[styles.fallbackPlate, { borderColor: accent }]}>
-                        <View style={[styles.fallbackPlateInner, { borderColor: accent }]} />
-                      </View>
-                    </View>
-                  )}
-                  <Text style={styles.itemName}>{item.name}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        ))}
+        {data.groups.filter((group) => group.items.length > 0).flatMap((group) => {
+          const rows: CustomerMenuPdfItem[][] = [];
+          for (let index = 0; index < group.items.length; index += 3) {
+            rows.push(group.items.slice(index, index + 3));
+          }
+          return [
+            <View key={group.category} wrap={false}>
+              <View style={styles.groupHeading}>
+                <Text style={styles.category}>{group.category}</Text>
+                <View style={[styles.categoryRule, { backgroundColor: accent }]} />
+              </View>
+              {renderRow(rows[0])}
+            </View>,
+            ...rows.slice(1).map(renderRow),
+          ];
+        })}
       </Page>
     </Document>
   );
