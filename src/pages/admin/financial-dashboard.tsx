@@ -85,7 +85,7 @@ interface CashFlowAlert {
 }
 
 function FinancialDashboardInner() {
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
   const refreshSignal = useOrderRefreshSignal(user?.company_id);
   // Wave 27.3: tenant-slug wrapper for internal navigations.
@@ -629,6 +629,8 @@ function FinancialDashboardInner() {
           <PageLoader
             label="Loading financial dashboard"
             detail="Preparing your latest financial figures."
+            brandName={company?.company_name || user?.company_name || undefined}
+            brandLogoUrl={company?.logo_url || null}
             className="mx-auto w-full max-w-md"
           />
         </div>

@@ -3,11 +3,12 @@
  * API route, getServerSideProps, or another Node context.
  */
 
-export { renderQuotePdf, renderInvoicePdf, renderReceiptPdf, sanitiseFilename } from "./renderPdf";
+export { renderQuotePdf, renderInvoicePdf, renderReceiptPdf, renderCustomerMenuPdf, sanitiseFilename } from "./renderPdf";
 export type {
   QuotePdfRenderOptions,
   InvoicePdfRenderOptions,
   ReceiptPdfRenderOptions,
+  CustomerMenuPdfData,
 } from "./renderPdf";
 export { QuoteDocument } from "./QuoteDocument";
 export { InvoiceDocument } from "./InvoiceDocument";

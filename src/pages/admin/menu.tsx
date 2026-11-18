@@ -176,6 +176,7 @@ function MenuPage() {
   // error state so the operator sees what broke and can retry.
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [downloadingMenuPdf, setDownloadingMenuPdf] = useState(false);
   const [items, setItems] = useState<MenuItemWithRecipeSummary[]>([]);
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
@@ -435,31 +436,29 @@ function MenuPage() {
     return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [visible]);
 
-  // Customer handout: only currently available food items, grouped by
-  // catalogue category. Prices, recipes and costing fields never enter
-  // this print-only view.
-  const customerMenuGroups = useMemo(() => {
-    const m = new Map<string, MenuItemWithRecipeSummary[]>();
-    for (const item of items) {
-      const category = (item.category || "Other").trim() || "Other";
-      if (item.deleted_at || item.is_available === false || NON_FOOD_CATEGORIES.has(category)) continue;
-      const list = m.get(category) || [];
-      list.push(item);
-      m.set(category, list);
+  const downloadCustomerMenuPdf = async () => {
+    setDownloadingMenuPdf(true);
+    try {
+      const response = await fetch("/api/admin/menu-customer-pdf");
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error || "Could not create the customer menu PDF.");
+      }
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = "customer-menu.pdf";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+      toast({ title: "Customer menu downloaded", description: "A print-ready menu PDF is ready to share." });
+    } catch (error: any) {
+      toast({ title: "Could not download the menu", description: error?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setDownloadingMenuPdf(false);
     }
-    return Array.from(m.entries())
-      .map(([category, list]) => [category, [...list].sort((a, b) => a.item_name.localeCompare(b.item_name))] as const)
-      .sort(([a], [b]) => a.localeCompare(b));
-  }, [items]);
-
-  const printCustomerMenu = async () => {
-    if (customerMenuGroups.length === 0) {
-      toast({ title: "No available menu items", description: "Add or mark food items as available before printing the customer menu." });
-      return;
-    }
-    const images = Array.from(document.querySelectorAll<HTMLImageElement>("#print-customer-menu img"));
-    await Promise.all(images.map((image) => image.decode().catch(() => undefined)));
-    window.print();
   };
 
   // Stat strip + cost rollup across the menu. Active items only - archived
@@ -1183,73 +1182,6 @@ function MenuPage() {
     ]}>
       <Head><title>Menu - CateringMS</title></Head>
       <NoIndexMeta />
-      <div id="print-customer-menu" className="print-only mx-auto max-w-5xl bg-white text-slate-900">
-        <header className="mb-8 flex items-center gap-4 border-b border-slate-300 pb-5">
-          {(profile as any)?.logo_url && (
-            <img src={(profile as any).logo_url} alt="" className="h-16 w-16 shrink-0 object-contain" />
-          )}
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">{(profile as any)?.company_name || "Our Menu"}</h1>
-            <p className="mt-1 text-sm text-slate-600">Food made for sharing</p>
-          </div>
-        </header>
-        {customerMenuGroups.map(([category, list]) => (
-          <section key={category} className="menu-print-category mb-7">
-            <h2 className="mb-3 border-b border-slate-200 pb-2 text-xl font-semibold">{category}</h2>
-            <div className="menu-print-grid grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {list.map((item) => (
-                <article key={item.id} className="menu-print-item flex min-w-0 items-center gap-3 rounded-lg border border-slate-200 p-2.5">
-                  <div className="menu-print-photo h-20 w-20 shrink-0 overflow-hidden rounded-md bg-slate-100">
-                    {item.image_url && <img src={item.image_url} alt="" className="h-full w-full object-cover" />}
-                  </div>
-                  <h3 className="min-w-0 text-base font-medium leading-snug">{item.item_name}</h3>
-                </article>
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
-      <style jsx global>{`
-        @page { size: A4; margin: 14mm; }
-        @media print {
-          body * { visibility: hidden !important; }
-          #print-customer-menu,
-          #print-customer-menu * { visibility: visible !important; }
-          #print-customer-menu {
-            display: block !important;
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            max-width: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #fff !important;
-            color: #0f172a !important;
-          }
-          #print-customer-menu .menu-print-grid {
-            display: grid !important;
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-            gap: 4mm !important;
-          }
-          #print-customer-menu .menu-print-item {
-            break-inside: avoid;
-            page-break-inside: avoid;
-            padding: 3mm !important;
-          }
-          #print-customer-menu .menu-print-photo {
-            width: 22mm !important;
-            height: 22mm !important;
-          }
-          #print-customer-menu .menu-print-category {
-            break-inside: auto;
-          }
-          #print-customer-menu h2 {
-            break-after: avoid;
-            page-break-after: avoid;
-          }
-        }
-      `}</style>
       <AdminNav />
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
@@ -1360,13 +1292,14 @@ function MenuPage() {
               </Button>
               <Button
                 variant="outline"
-                onClick={printCustomerMenu}
+                onClick={downloadCustomerMenuPdf}
+                disabled={downloadingMenuPdf}
                 className="h-10 w-10 shrink-0 justify-center px-0 text-sm sm:h-9 sm:w-auto sm:px-3"
-                aria-label="Print customer menu or save as PDF"
-                title="Print customer menu or save as PDF"
+                aria-label="Download customer menu PDF"
+                title="Download customer menu PDF"
               >
-                <Printer aria-hidden="true" className="h-4 w-4 shrink-0 sm:mr-2" />
-                <span className="sr-only sm:not-sr-only">Customer menu</span>
+                {downloadingMenuPdf ? <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin sm:mr-2" /> : <Printer aria-hidden="true" className="h-4 w-4 shrink-0 sm:mr-2" />}
+                <span className="sr-only sm:not-sr-only">Menu PDF</span>
               </Button>
               <Button onClick={openAdd} aria-label="Add menu item" title="Add menu item" className="h-10 w-10 shrink-0 justify-center gap-0 bg-brand-primary px-0 text-sm hover:opacity-90 sm:h-9 sm:w-auto sm:gap-2 sm:px-3">
                 <Plus aria-hidden="true" className="h-4 w-4 shrink-0" /><span className="sr-only sm:not-sr-only">Add menu item</span>

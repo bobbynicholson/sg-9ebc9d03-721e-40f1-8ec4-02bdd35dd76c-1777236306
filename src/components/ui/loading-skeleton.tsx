@@ -31,8 +31,12 @@ export function PageLoader({
   label = "Loading…",
   detail,
   brandName,
+  brandLogoUrl,
   className,
-}: BaseProps & { label?: string; detail?: string; brandName?: string }) {
+}: BaseProps & { label?: string; detail?: string; brandName?: string; brandLogoUrl?: string | null }) {
+  const [logoFailed, setLogoFailed] = React.useState(false);
+  const showBrandLogo = Boolean(brandLogoUrl) && !logoFailed;
+  React.useEffect(() => setLogoFailed(false), [brandLogoUrl]);
   return (
     <div
       role="status"
@@ -49,8 +53,21 @@ export function PageLoader({
             {brandName}
           </p>
         ) : null}
-        <span className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-brand-primary/10 text-brand-primary">
-          <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+        <span className="relative mx-auto grid h-14 w-14 place-items-center rounded-2xl border border-brand-primary/15 bg-white p-2 shadow-sm dark:bg-slate-950">
+          {showBrandLogo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={brandLogoUrl || undefined}
+              alt={`${brandName || "Company"} logo`}
+              onError={() => setLogoFailed(true)}
+              className="h-full w-full object-contain"
+            />
+          ) : (
+            <Loader2 className="h-6 w-6 animate-spin text-brand-primary" aria-hidden="true" />
+          )}
+          {showBrandLogo && (
+            <Loader2 className="absolute -right-1 -top-1 h-4 w-4 animate-spin rounded-full bg-white text-brand-primary dark:bg-slate-950" aria-hidden="true" />
+          )}
         </span>
         <p className="mt-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
           {label}

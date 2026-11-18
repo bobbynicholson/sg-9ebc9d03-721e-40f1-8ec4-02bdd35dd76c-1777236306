@@ -24,6 +24,7 @@ import React from "react";
 import { QuoteDocument, type QuotePdfData } from "./QuoteDocument";
 import { InvoiceDocument, type InvoicePdfData } from "./InvoiceDocument";
 import { ReceiptDocument, type ReceiptPdfData } from "./ReceiptDocument";
+import { CustomerMenuDocument, type CustomerMenuPdfData } from "./CustomerMenuDocument";
 import {
   buildQuoteCacheKey,
   buildInvoiceCacheKey,
@@ -33,6 +34,7 @@ import {
 } from "./pdfCache";
 
 export type { QuotePdfData, InvoicePdfData, ReceiptPdfData };
+export type { CustomerMenuPdfData };
 
 /**
  * Optional cache hint. When the caller passes one we look up a
@@ -117,6 +119,13 @@ async function streamToBuffer(stream: any): Promise<Buffer> {
     stream.on("end", () => resolve(Buffer.concat(chunks)));
     stream.on("error", reject);
   });
+}
+
+/** Render the customer-facing menu without browser print headers, dates or URLs. */
+export async function renderCustomerMenuPdf(data: CustomerMenuPdfData): Promise<Buffer> {
+  const reactPdf = await loadReactPdf();
+  const instance = reactPdf.pdf(React.createElement(CustomerMenuDocument, { data }));
+  return streamToBuffer(await instance.toBuffer());
 }
 
 /**
