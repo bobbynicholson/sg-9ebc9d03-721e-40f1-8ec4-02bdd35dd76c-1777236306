@@ -171,8 +171,12 @@ const STAGE_GLOSSARY: Record<StageKey, { trigger: string; owner: string }> = {
     trigger: "Collection assignment exists, or post-event cleaning has started for this order.",
     owner: "Dispatcher",
   },
+  collection_picked_up: {
+    trigger: "The collection driver marks the equipment picked up at the venue.",
+    owner: "Driver",
+  },
   collection_done: {
-    trigger: "Collection assignment marked picked up/completed, or all post-event cleaning jobs are complete.",
+    trigger: "The collection trip is completed at base, or equipment return is recorded.",
     owner: "Driver",
   },
   post_event_cleaning: {
@@ -357,6 +361,10 @@ function StageDot({
               <span className="text-slate-500">Done: </span>
               <span className="font-semibold text-green-700">{completedAt}</span>
             </div>
+          )}
+
+          {stage.meta?.note && (
+            <div className="text-[11px] text-slate-500">{stage.meta.note}</div>
           )}
 
           {glossary && !hideOperatorGlossary && (

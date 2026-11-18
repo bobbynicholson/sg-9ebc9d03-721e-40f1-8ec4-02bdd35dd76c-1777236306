@@ -83,6 +83,7 @@ export type StageKey =
   | "event_complete"
   | "departed_venue"
   | "collection_scheduled"
+  | "collection_picked_up"
   | "collection_done"
   | "post_event_cleaning"
   | "final_invoice_issued"
@@ -295,6 +296,7 @@ const STAGE_DEFS: Array<{
   { key: "event_complete",            label: "Event complete",     group: "on_site" },
   { key: "departed_venue",            label: "Departed venue",     group: "on_site" },
   { key: "collection_scheduled",      label: "Collection scheduled", group: "post_event" },
+  { key: "collection_picked_up",      label: "Collected from venue", group: "post_event" },
   { key: "collection_done",           label: "Equipment back",     group: "post_event" },
   { key: "post_event_cleaning",       label: "Post-event cleaning", group: "post_event" },
   { key: "final_invoice_issued",      label: "Final invoice",      group: "closure" },
@@ -319,7 +321,17 @@ export const STAGE_GROUP_LABELS: Record<StageGroup, string> = {
 function deriveFlags(input: OrderTimelineInput): OrderTimelineFlags {
   const o = input.order || {};
   const hasDeposit = Number(o.deposit_amount || 0) > 0;
-  const hasBalance = Number(o.balance_amount || 0) > 0;
+  const totalAmount = Number(o.total_amount || 0)
+    || Number(o.subtotal || 0) + Number(o.tax_amount || 0);
+  const invoiceBalance = Math.max(0, ...(input.invoices || []).map((invoice) => Number(invoice?.balance_due || 0)));
+  // Some imported/legacy orders have balance_amount unset or zero even
+  // though total - deposit leaves a real second payment due. Infer whether
+  // the balance stage applies from the order and invoice amounts as well.
+  const hasBalance = Math.max(
+    Number(o.balance_amount || 0),
+    invoiceBalance,
+    totalAmount - Number(o.deposit_amount || 0),
+  ) > 0.01;
   const hasExternalHire =
     (input.equipmentHireOrders || []).length > 0;
   const activeCleaningJobs = (input.cleaningJobsForOrder || []).filter(
@@ -445,13 +457,13 @@ function resolveStage(
       if (!flags.hasDeposit) {
         return notApplicable();
       }
-      const paid = !!o.deposit_paid;
-      const completedAt = paid ? firstTs(o.deposit_paid_at) : null;
       const depositPayment = (input.payments || []).find(
         (p) =>
           String(p?.payment_type || "").toLowerCase() === "deposit" &&
           String(p?.status || "").toLowerCase() === "completed",
       );
+      const paid = !!o.deposit_paid || !!depositPayment;
+      const completedAt = paid ? firstTs(o.deposit_paid_at, depositPayment?.processed_at) : null;
       return {
         status: paid ? "completed" : "upcoming",
         startedAt: null,
@@ -708,7 +720,12 @@ function resolveStage(
         input.hasOnSiteService ||
         o.requires_waiter ||
         o.waiter_service_required ||
-        o.service_started_at
+        o.service_started_at ||
+        input.serviceEndedAt ||
+        o.service_ended_at ||
+        input.eventCompleteAt ||
+        o.event_complete_at ||
+        o.departed_venue_at
       )) return notApplicable();
       const at =
         key === "setup_started"   ? firstTs(o.setup_started_at) :
@@ -716,12 +733,24 @@ function resolveStage(
         key === "service_ended"   ? firstTs(input.serviceEndedAt, o.service_ended_at) :
         key === "event_complete"  ? firstTs(input.eventCompleteAt, o.event_complete_at) :
                                     firstTs(o.departed_venue_at);
+      const laterEvidenceAt =
+        key === "setup_started"
+          ? firstTs(o.service_started_at, input.serviceEndedAt, o.service_ended_at, input.eventCompleteAt, o.event_complete_at, o.departed_venue_at)
+          : key === "service_started"
+            ? firstTs(input.serviceEndedAt, o.service_ended_at, input.eventCompleteAt, o.event_complete_at, o.departed_venue_at)
+            : key === "service_ended"
+              ? firstTs(input.eventCompleteAt, o.event_complete_at, o.departed_venue_at)
+              : key === "event_complete"
+                ? firstTs(o.departed_venue_at)
+                : null;
+      const completedAt = at || laterEvidenceAt;
       return {
-        status: at ? "completed" : "upcoming",
+        status: completedAt ? "completed" : "upcoming",
         startedAt: null,
-        completedAt: at,
+        completedAt,
         blockedReason: null,
         sourceLink: adminLink,
+        meta: !at && laterEvidenceAt ? { note: "Inferred from a later recorded service milestone." } : undefined,
       };
     }
 
@@ -749,30 +778,43 @@ function resolveStage(
       };
     }
 
+    case "collection_picked_up": {
+      if (!flags.isDeliverAndCollect) return notApplicable();
+      const collection = (input.driverAssignments || []).find(
+        (a) => String(a?.assignment_type || "") === "collection",
+      );
+      const cstatus = collection ? String(collection.status || "") : "";
+      // This marks physical collection from the venue. Return to base is a
+      // separate milestone below so the operator timeline never implies the
+      // equipment is back before the driver closes the trip.
+      const done = cstatus === "picked_up" || cstatus === "completed" || !!postEvent.returnedAt || !!postEvent.cleaningCompletedAt;
+      return {
+        status: done ? "completed" : "upcoming",
+        startedAt: collection ? firstTs(collection.started_at) : null,
+        completedAt: done
+          ? firstTs(collection?.picked_up_at || collection?.completed_at, postEvent.returnedAt)
+          : null,
+        blockedReason: null,
+        // Wave 66.6 - same destination as collection_scheduled.
+        sourceLink: `/admin/order-assignments?orderId=${orderId}`,
+      };
+    }
+
     case "collection_done": {
       if (!flags.isDeliverAndCollect) return notApplicable();
       const collection = (input.driverAssignments || []).find(
         (a) => String(a?.assignment_type || "") === "collection",
       );
-      // From the client's side the collection is done the moment the gear
-      // is physically collected ('picked_up'); they no longer wait for the
-      // driver's return drive to base ('completed'). Treat either as done,
-      // and prefer the picked_up time as the completion stamp when present.
       const cstatus = collection ? String(collection.status || "") : "";
-      const collectionDone = cstatus === "picked_up" || cstatus === "completed";
-      // Delivered orders can queue cleaning work before the collection driver
-      // taps the gear as picked up. For legacy/import/E2E orders without a
-      // collection assignment, a returned booking or active/complete cleaning
-      // handover proves the equipment made it back.
-      const done = collectionDone || !!postEvent.returnedAt || !!postEvent.cleaningCompletedAt;
+      // "Equipment back" means the trip is closed at base, not merely that
+      // the driver has taken the equipment from the venue. Legacy orders can
+      // prove return through equipment-return or cleaning-handover records.
+      const done = cstatus === "completed" || !!postEvent.returnedAt || !!postEvent.cleaningCompletedAt;
       return {
         status: done ? "completed" : "upcoming",
         startedAt: collection ? firstTs(collection.started_at) : null,
-        completedAt: done
-          ? firstTs(collection?.picked_up_at || collection?.completed_at, postEvent.returnedAt, postEvent.cleaningCompletedAt)
-          : null,
+        completedAt: done ? firstTs(collection?.completed_at, postEvent.returnedAt, postEvent.cleaningCompletedAt) : null,
         blockedReason: null,
-        // Wave 66.6 - same destination as collection_scheduled.
         sourceLink: `/admin/order-assignments?orderId=${orderId}`,
       };
     }
@@ -912,13 +954,11 @@ function resolveStage(
 
     case "balance_paid": {
       if (!flags.hasBalance) return notApplicable();
-      const paid = !!o.balance_paid;
-      const completedAt = paid ? firstTs(o.balance_paid_at) : null;
-      const balancePayment = (input.payments || []).find(
-        (p) =>
-          ["order", "balance"].includes(String(p?.payment_type || "").toLowerCase()) &&
-          String(p?.status || "").toLowerCase() === "completed",
-      );
+      const balancePayment = completedBalancePayments(input);
+      const paid = isBalancePaid(input);
+      const completedAt = paid
+        ? firstTs(o.balance_paid_at, ...balancePayment.map((payment) => payment?.processed_at))
+        : null;
       // Block when balance is past due.
       let blocked = false;
       let blockedReason: string | null = null;
@@ -934,7 +974,7 @@ function resolveStage(
       return {
         status: paid ? "completed" : blocked ? "blocked" : "upcoming",
         startedAt: null,
-        completedAt: completedAt || (balancePayment ? firstTs(balancePayment.processed_at) : null),
+        completedAt,
         blockedReason,
         sourceLink: `/admin/invoices?orderId=${orderId}`,
       };
@@ -945,14 +985,7 @@ function resolveStage(
       // Two signals: payments.receipt_sent_at (Wave 25.4 column) OR an
       // email_automation_log row of receipt template type. Until the
       // column ships, fall back to the email log heuristic.
-      const balancePayment = (input.payments || []).find(
-        (p) => String(p?.payment_type || "").toLowerCase() !== "deposit",
-      );
-      const colTs = balancePayment?.receipt_sent_at || null;
-      const emailReceipt = (input.emailLog || []).find((e) =>
-        /receipt/i.test(String(e?.template_type || "")),
-      );
-      const completedAt = colTs || (emailReceipt ? firstTs(emailReceipt.sent_at, emailReceipt.created_at) : null);
+      const completedAt = balanceReceiptCompletedAt(input);
       return {
         status: completedAt ? "completed" : "upcoming",
         startedAt: null,
@@ -963,7 +996,20 @@ function resolveStage(
     }
 
     case "completed": {
-      const completed = o.status === "completed" || !!o.completed_at;
+      const collection = (input.driverAssignments || []).find(
+        (a) => String(a?.assignment_type || "") === "collection",
+      );
+      const equipmentReturnComplete =
+        String(collection?.status || "") === "completed"
+        || !!postEvent.returnedAt
+        || !!postEvent.cleaningCompletedAt;
+      const equipmentStillOut = flags.isDeliverAndCollect && !equipmentReturnComplete;
+      const balanceOutstanding = flags.hasBalance && !isBalancePaid(input);
+      const balanceReceiptMissing = flags.hasBalance && !balanceReceiptCompletedAt(input);
+      const completed = (o.status === "completed" || !!o.completed_at)
+        && !equipmentStillOut
+        && !balanceOutstanding
+        && !balanceReceiptMissing;
       return {
         status: completed ? "completed" : "upcoming",
         startedAt: null,
@@ -1011,6 +1057,46 @@ function earliestTs(...values: Array<string | null | undefined>): string | null 
 function latestTs(...values: Array<string | null | undefined>): string | null {
   const sorted = values.filter((v): v is string => !!v).map(String).sort();
   return sorted[sorted.length - 1] || null;
+}
+
+function completedBalancePayments(input: OrderTimelineInput): any[] {
+  return (input.payments || []).filter((payment) =>
+    ["order", "balance"].includes(String(payment?.payment_type || "").toLowerCase())
+    && String(payment?.status || "").toLowerCase() === "completed",
+  );
+}
+
+function isBalancePaid(input: OrderTimelineInput): boolean {
+  const order = input.order || {};
+  const total = Number(order.total_amount || 0)
+    || Number(order.subtotal || 0) + Number(order.tax_amount || 0);
+  const balanceTarget = Math.max(
+    Number(order.balance_amount || 0),
+    total - Number(order.deposit_amount || 0),
+  );
+  const orderPayments = completedBalancePayments(input);
+  const balancePaymentsTotal = orderPayments.reduce(
+    (sum, payment) => sum + Math.max(0, Number(payment?.amount || 0)),
+    0,
+  );
+  const amountPaid = Number(order.amount_paid || 0);
+  return !!order.balance_paid
+    || !!order.balance_paid_at
+    || String(order.payment_status || "").toLowerCase() === "paid"
+    || (total > 0 && amountPaid >= total - 0.01)
+    || (balanceTarget > 0.01 && balancePaymentsTotal >= balanceTarget - 0.01);
+}
+
+function balanceReceiptCompletedAt(input: OrderTimelineInput): string | null {
+  const paymentReceiptAt = latestTs(
+    ...completedBalancePayments(input).map((payment) => payment?.receipt_sent_at),
+  );
+  const emailReceiptAt = latestTs(
+    ...(input.emailLog || [])
+      .filter((row) => /receipt/i.test(String(row?.template_type || "")))
+      .map((row) => row?.sent_at || row?.created_at),
+  );
+  return latestTs(paymentReceiptAt, emailReceiptAt);
 }
 
 function statusIsComplete(status: unknown): boolean {
@@ -1126,40 +1212,6 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
       if (stage.status === "not_applicable" || stage.status === "skipped" || stage.status === "completed") continue;
       stage.status = "completed";
       if (!stage.completedAt) stage.completedAt = opCompletedAt;
-    }
-  }
-
-  // A fully COMPLETED order is wrapped up by definition: it can't reach
-  // 'completed' without its deposit + final invoices having been issued,
-  // its balance settled (when there was one), and its closing comms done.
-  // The /admin/orders list builds this timeline from a BATCHED invoice +
-  // email join under the viewer's session; when that batch doesn't surface
-  // a row (RLS scoping, a partial batch, soft-delete filters) a finished
-  // order showed phantom "Deposit invoice / Final invoice / no email" gaps
-  // on the at-a-glance card even though its own detail page (per-order
-  // fetch) reads complete. Force the money + closure stages complete on a
-  // completed order so the list matches the authoritative detail view and
-  // never nags about wrap-up on an order that's already done. The granular
-  // per-email nudges still apply to IN-FLIGHT orders, which is where they
-  // actually help the operator.
-  const isCompleted = String(ord.status || "") === "completed" || !!ord.completed_at;
-  if (isCompleted) {
-    const CLOSURE_DEFINITIONAL = new Set<StageKey>([
-      "collection_scheduled", "collection_done", "post_event_cleaning",
-      "deposit_invoice_issued", "deposit_paid",
-      "final_invoice_issued", "final_invoice_sent",
-      "balance_paid", "receipt_issued",
-      "completed", "thank_you_sent",
-    ]);
-    const closedAt =
-      (ord.completed_at as string) || (ord.updated_at as string) || null;
-    for (const stage of resolved) {
-      if (!CLOSURE_DEFINITIONAL.has(stage.key)) continue;
-      // Respect n/a (e.g. no deposit / no balance on this order) and
-      // already-green stages; only promote genuine 'upcoming'/'current'.
-      if (stage.status === "not_applicable" || stage.status === "skipped" || stage.status === "completed") continue;
-      stage.status = "completed";
-      if (!stage.completedAt) stage.completedAt = closedAt;
     }
   }
 
@@ -1421,7 +1473,7 @@ const CLIENT_VISIBLE_STAGES: StageKey[] = [
   "kitchen_prep_in_progress",
   "in_transit",
   "delivered",
-  "collection_done",
+  "collection_picked_up",
   "balance_paid",
   "completed",
 ];
@@ -1433,18 +1485,9 @@ const CLIENT_LABELS: Partial<Record<StageKey, { label: string; group: StageGroup
   kitchen_prep_in_progress: { label: "Preparing your food", group: "logistics" },
   in_transit:               { label: "On the way",          group: "dispatch" },
   delivered:                { label: "Delivered",           group: "dispatch" },
-  // Wave 70.49d - relabelled from "Equipment collected" to "Equipment
-  // returned". Two reasons. First, the old label collided semantically
-  // with the admin-only "Collection scheduled" stage (operators
-  // comparing the two views couldn't tell whether "Equipment collected"
-  // meant scheduling-done or collection-done - the latter, but the
-  // name read like the former). Second, "Equipment returned" is the
-  // accurate post-event verb for the client's vantage point ("the team
-  // came and picked up our gear after the event"). The admin-side
-  // label stays "Equipment back" (warehouse-vantage); both describe
-  // the same `collection_done` stage from different sides of the
-  // transaction.
-  collection_done:          { label: "Equipment returned",  group: "post_event" },
+  // The client milestone completes when the team collects equipment from
+  // the venue; the operator timeline separately tracks its return to base.
+  collection_picked_up:     { label: "Equipment collected", group: "post_event" },
   balance_paid:             { label: "Final payment received", group: "closure" },
   completed:                { label: "All wrapped up",      group: "closure" },
 };

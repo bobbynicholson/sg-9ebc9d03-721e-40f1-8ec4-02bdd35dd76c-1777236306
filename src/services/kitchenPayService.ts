@@ -346,7 +346,7 @@ export async function summariseStaffPay(
     const workedMin = grossMin > 0 && breakMin >= 0 && breakMin <= grossMin
       ? grossMin - breakMin
       : 0;
-    let hours = Math.round((workedMin / 60) * 100) / 100;
+    const hours = Math.round((workedMin / 60) * 100) / 100;
 
     // Current rows already hold the BCEA split calculated when the person
     // clocked out (including the weekly cap and public-holiday bucket).

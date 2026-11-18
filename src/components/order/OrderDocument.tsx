@@ -251,6 +251,7 @@ function stageSectionId(stage: OrderTimelineStage | null | undefined, isClient: 
     case "delivered":
     case "departed_venue":
     case "collection_scheduled":
+    case "collection_picked_up":
     case "collection_done":
       return "section-driver";
     case "setup_started":
@@ -299,6 +300,7 @@ function stageOwner(stage: OrderTimelineStage | null | undefined, isClient: bool
     case "delivered":
     case "departed_venue":
     case "collection_scheduled":
+    case "collection_picked_up":
     case "collection_done":
       return "Driver";
     case "setup_started":

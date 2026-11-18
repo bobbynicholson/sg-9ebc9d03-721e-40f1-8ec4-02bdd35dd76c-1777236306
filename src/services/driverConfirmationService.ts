@@ -207,9 +207,13 @@ export const driverConfirmationService = {
     // email signalled the driver was en route. Non-blocking.
     try {
       const { updateOrderStatus } = await import("@/services/order/orderWorkflow");
-      await updateOrderStatus(orderId, "in_transit" as any, driverId);
+      const transition = await updateOrderStatus(orderId, "in_transit" as any, driverId);
+      if (!transition?.success) {
+        throw new Error(transition?.error || "The order status could not be changed to in transit.");
+      }
     } catch (statusErr) {
-      console.warn("[confirmDepartedKitchen] order status flip failed (non-blocking):", statusErr);
+      console.error("[confirmDepartedKitchen] order status flip failed:", statusErr);
+      throw statusErr;
     }
 
     // Credit this driver on the order's "who helped" list. Best-effort.
@@ -432,9 +436,13 @@ export const driverConfirmationService = {
     // collection scheduler, pending_reviews queue, after-sales.
     try {
       const { updateOrderStatus } = await import("@/services/order/orderWorkflow");
-      await updateOrderStatus(orderId, "delivered" as any, driverId);
+      const transition = await updateOrderStatus(orderId, "delivered" as any, driverId);
+      if (!transition?.success) {
+        throw new Error(transition?.error || "Delivery proof was saved, but the order status could not be changed to delivered.");
+      }
     } catch (statusErr) {
-      console.warn("[completeSetupWithPod] order status flip failed (non-blocking):", statusErr);
+      console.error("[completeSetupWithPod] order status flip failed:", statusErr);
+      throw statusErr;
     }
 
     // Credit this driver on the order's "who helped" list. Best-effort.
@@ -657,14 +665,30 @@ export const driverConfirmationService = {
     // collected time. Only advances a live trip; a no-op if it isn't
     // en_route (e.g. already collected or completed).
     try {
-      await (supabase as any)
+      const { data: updated, error } = await (supabase as any)
         .from("driver_assignments")
         .update({ status: "picked_up", picked_up_at: new Date().toISOString() })
         .eq("order_id", orderId)
         .eq("assignment_type", "collection")
-        .eq("status", "en_route");
+        .eq("status", "en_route")
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      if (!updated) {
+        const { data: current, error: readError } = await (supabase as any)
+          .from("driver_assignments")
+          .select("status")
+          .eq("order_id", orderId)
+          .eq("assignment_type", "collection")
+          .maybeSingle();
+        if (readError) throw readError;
+        if (!current || !["picked_up", "completed"].includes(String(current.status || ""))) {
+          throw new Error("The collection trip is not en route, so it cannot be marked as collected.");
+        }
+      }
     } catch (e) {
-      console.warn("[markEquipmentCollected] assignment flip failed (non-blocking):", e);
+      console.error("[markEquipmentCollected] assignment flip failed:", e);
+      throw e;
     }
 
     // Tell the client the gear is collected and their event is wrapped up
@@ -796,6 +820,18 @@ export const driverConfirmationService = {
       }>;
     },
   ) {
+    const { data: assignment, error: assignmentError } = await (supabase as any)
+      .from("driver_assignments")
+      .select("id, status")
+      .eq("order_id", orderId)
+      .eq("assignment_type", "collection")
+      .maybeSingle();
+    if (assignmentError) throw assignmentError;
+    if (!assignment) throw new Error("No collection trip is assigned to this order.");
+    if (!["picked_up", "completed"].includes(String(assignment.status || ""))) {
+      throw new Error("Mark the equipment collected at the venue before closing the trip at base.");
+    }
+
     const { data: confirmation, error } = await (supabase as any)
       .from('driver_confirmations')
       .insert([{
@@ -834,14 +870,30 @@ export const driverConfirmationService = {
     // Flip the collection driver_assignment to completed so dispatch
     // stops surfacing it as outstanding.
     try {
-      await (supabase as any)
+      if (assignment.status !== "completed") {
+        const { data: closedAssignment, error: closeError } = await (supabase as any)
         .from("driver_assignments")
         .update({ status: "completed", completed_at: new Date().toISOString() } as any)
-        .eq("order_id", orderId)
-        .eq("assignment_type", "collection")
-        .not("status", "in", "(completed,cancelled)");
+        .eq("id", assignment.id)
+        .eq("status", "picked_up")
+        .select("id")
+        .maybeSingle();
+        if (closeError) throw closeError;
+        if (!closedAssignment) {
+          const { data: latest, error: latestError } = await (supabase as any)
+            .from("driver_assignments")
+            .select("status")
+            .eq("id", assignment.id)
+            .maybeSingle();
+          if (latestError) throw latestError;
+          if (latest?.status !== "completed") {
+            throw new Error("The collection trip could not be closed. Refresh and try again.");
+          }
+        }
+      }
     } catch (e) {
-      console.warn("[completeCollection] driver_assignments close failed (non-blocking):", e);
+      console.error("[completeCollection] driver_assignments close failed:", e);
+      throw e;
     }
 
     // Damage (charged to the driver, not cleaning), free the bookings

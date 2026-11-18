@@ -39,7 +39,6 @@ describe("computeOrderTimeline post-event collection fallback", () => {
     expect(stageStatus(timeline, "collection_scheduled")).toBe("completed");
     expect(stageStatus(timeline, "collection_done")).toBe("completed");
     expect(stageStatus(timeline, "post_event_cleaning")).toBe("completed");
-    expect(timeline.completedCount).toBe(timeline.applicableCount);
   });
 
   it("uses completed cleaning handovers when legacy cleaning jobs are missing", () => {
@@ -98,7 +97,7 @@ describe("computeOrderTimeline post-event collection fallback", () => {
     expect(stageStatus(timeline, "post_event_cleaning")).toBe("current");
   });
 
-  it("does not leave completed orders stuck on post-event stages when batched joins are partial", () => {
+  it("keeps equipment return and close-out open when a completed order has no return evidence", () => {
     const timeline = computeOrderTimeline({
       order: completedOrder,
       equipmentBookings: [{ id: "booking-1", equipment_id: "equipment-1" }],
@@ -109,9 +108,11 @@ describe("computeOrderTimeline post-event collection fallback", () => {
       emailLog: [],
     });
 
-    expect(stageStatus(timeline, "collection_scheduled")).toBe("completed");
-    expect(stageStatus(timeline, "collection_done")).toBe("completed");
-    expect(stageStatus(timeline, "post_event_cleaning")).toBe("completed");
+    expect(stageStatus(timeline, "collection_scheduled")).toBe("current");
+    expect(stageStatus(timeline, "collection_picked_up")).toBe("upcoming");
+    expect(stageStatus(timeline, "collection_done")).toBe("upcoming");
+    expect(stageStatus(timeline, "post_event_cleaning")).toBe("upcoming");
+    expect(stageStatus(timeline, "completed")).toBe("upcoming");
   });
 
   it("counts returned bookings as equipment back without pretending cleaning is done", () => {

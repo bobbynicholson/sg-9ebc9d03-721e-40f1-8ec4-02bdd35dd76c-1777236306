@@ -633,6 +633,44 @@ export function computeOrderReadiness(
     failingMedium.sort((a, b) => _signalWeight(b.key) - _signalWeight(a.key));
   }
 
+  // Pre-event checks are suppressed once the event has passed, but an order
+  // still in an open delivery state needs follow-up instead of a green result.
+  const pastEventNeedsStatusReview = isEventPast && !isTerminalStatus;
+  if (pastEventNeedsStatusReview) {
+    const signal: ReadinessSignal = {
+      key: "past_event_order_status",
+      severity: "high",
+      passing: false,
+      message: `The event has passed, but the order is still marked "${orderStatus}". Verify delivery and update the order status.`,
+      actionLink: `/admin/orders?orderId=${orderId}`,
+    };
+    signals.push(signal);
+    failingHigh.push(signal);
+    failingHigh.sort((a, b) => _signalWeight(b.key) - _signalWeight(a.key));
+  }
+
+  const openPostEventStage = timeline.stages.find((stage) =>
+    ["collection_scheduled", "collection_picked_up", "collection_done", "post_event_cleaning"].includes(stage.key)
+    && ["current", "upcoming", "blocked"].includes(stage.status),
+  );
+  const pastEventCloseoutOpen = isEventPast
+    && ["delivered", "completed"].includes(orderStatus)
+    && !!openPostEventStage;
+  if (pastEventCloseoutOpen && openPostEventStage) {
+    const closeoutSignal: ReadinessSignal = {
+      key: "past_event_closeout_open",
+      severity: orderStatus === "completed" ? "high" : "medium",
+      passing: false,
+      message: orderStatus === "completed"
+        ? `The order is marked complete, but ${openPostEventStage.label.toLowerCase()} is still open.`
+        : `Delivery is complete, but ${openPostEventStage.label.toLowerCase()} is still open.`,
+      actionLink: openPostEventStage.sourceLink || `/admin/orders?orderId=${orderId}`,
+    };
+    signals.push(closeoutSignal);
+    if (closeoutSignal.severity === "high") failingHigh.push(closeoutSignal);
+    else failingMedium.push(closeoutSignal);
+  }
+
   const stageBlocked = !!timeline.blocked;
   const hasErrorBlocker = (timeline.crossSystemBlockers || []).some((b) => b.severity === "error");
 
@@ -641,6 +679,8 @@ export function computeOrderReadiness(
     stageBlocked
     || hasErrorBlocker
     || balanceOverdue
+    || pastEventNeedsStatusReview
+    || (orderStatus === "completed" && pastEventCloseoutOpen)
     || (failingHigh.length > 0 && within48h)
     || (failingMedium.length > 0 && within24h)
   ) {
@@ -656,14 +696,28 @@ export function computeOrderReadiness(
   let subhead: string;
 
   if (chip === "green") {
-    headline = `All set for ${orderLabel}${eventWhen ? " " + eventWhen : ""}. ✨`;
-    subhead = "Driver, kitchen, equipment all confirmed. Nothing to do.";
+    if (isEventPast && orderStatus === "completed") {
+      headline = `${orderLabel} is closed out.`;
+      subhead = "The event and order close-out are complete.";
+    } else if (isEventPast && orderStatus === "delivered") {
+      headline = `Delivery confirmed for ${orderLabel}.`;
+      subhead = "Review equipment return, cleaning, and any open balance in the timeline.";
+    } else {
+      if (!isEventPast) {
+        headline = `All set for ${orderLabel}${eventWhen ? " " + eventWhen : ""}. ✨`;
+        subhead = "Driver, kitchen, equipment all confirmed. Nothing to do.";
+      }
+    }
   } else if (chip === "orange") {
     const count = failingHigh.length + failingMedium.length;
-    headline = `Almost there - ${count} thing${count === 1 ? "" : "s"} to wrap up`;
+    headline = pastEventCloseoutOpen
+      ? `Past event close-out remains open for ${orderLabel}`
+      : `Almost there - ${count} thing${count === 1 ? "" : "s"} to wrap up`;
     subhead = (failingHigh[0] || failingMedium[0])?.message || "Check the breakdown.";
   } else {
-    headline = `Needs your attention before ${orderLabel}${eventWhen ? " " + eventWhen : ""}`;
+    headline = pastEventNeedsStatusReview || pastEventCloseoutOpen
+      ? `Past event needs follow-up for ${orderLabel}`
+      : `Needs your attention before ${orderLabel}${eventWhen ? " " + eventWhen : ""}`;
     const top = failingHigh[0] || failingMedium[0];
     subhead = top?.message || "Multiple gaps - open the order.";
   }
