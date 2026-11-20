@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { formatClock } from "@/lib/portalTime";
 import Head from "next/head";
 import Link from "next/link";
@@ -410,7 +410,8 @@ function OneOffTaskForm({
 }
 
 function DailyOperationsPageInner() {
-  const { user } = useAuth() as any;
+  const { user, company } = useAuth() as any;
+  const companyId = company?.id || user?.company_id || null;
   const { toast } = useToast();
   const [settings, setSettings] = useState<DailyOperationsSettings>(DAILY_OPERATIONS_DEFAULTS);
   const [tasks, setTasks] = useState<DailyOperationsTask[]>([]);
@@ -422,6 +423,7 @@ function DailyOperationsPageInner() {
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [creatingTask, setCreatingTask] = useState(false);
+  const loadVersion = useRef(0);
 
   const hasInvalidWeekdaySchedule = (
     settings.kitchen_cleaning_schedule_mode === "selected_weekdays" && settings.kitchen_cleaning_weekdays.length === 0
@@ -431,14 +433,24 @@ function DailyOperationsPageInner() {
   const hasInvalidTaskTitle = !settings.kitchen_cleaning_title.trim() || !settings.equipment_cleaning_title.trim();
 
   const load = async () => {
-    if (!user?.company_id) return;
+    const version = ++loadVersion.current;
+    setLoaded(false);
+    setSettings(DAILY_OPERATIONS_DEFAULTS);
+    setTasks([]);
+    setStaff([]);
+    setDriverIds(new Set());
+    setKitchenIds(new Set());
+    setCleaningIds(new Set());
+    setCompanyTimezone(DEFAULT_TENANT_TIMEZONE);
+    if (!companyId) { setLoaded(true); return; }
     try {
       const [loadedSettings, taskResult, staffResult, companyResult] = await Promise.all([
-        getDailyOperationsSettings(user.company_id),
-        (supabase as any).from("daily_operations_tasks").select("*").eq("company_id", user.company_id).gte("task_date", offsetIsoDay(toZonedISO(new Date(), "UTC"), -1)).in("status", ["scheduled", "in_progress"]).order("task_date", { ascending: true }).order("scheduled_time", { ascending: true }).limit(50),
-        (supabase as any).from("profiles").select("id, full_name, email, role, active_role").eq("company_id", user.company_id).neq("is_active", false).is("deleted_at", null).order("full_name", { ascending: true }),
-        (supabase as any).from("companies").select("timezone").eq("id", user.company_id).maybeSingle(),
+        getDailyOperationsSettings(companyId),
+        (supabase as any).from("daily_operations_tasks").select("*").eq("company_id", companyId).gte("task_date", offsetIsoDay(toZonedISO(new Date(), "UTC"), -1)).in("status", ["scheduled", "in_progress"]).order("task_date", { ascending: true }).order("scheduled_time", { ascending: true }).limit(50),
+        (supabase as any).from("profiles").select("id, full_name, email, role, active_role").eq("company_id", companyId).neq("is_active", false).is("deleted_at", null).order("full_name", { ascending: true }),
+        (supabase as any).from("companies").select("timezone").eq("id", companyId).maybeSingle(),
       ]);
+      if (version !== loadVersion.current) return;
       if (taskResult.error) throw taskResult.error;
       if (staffResult.error) throw staffResult.error;
       setSettings(loadedSettings);
@@ -449,6 +461,7 @@ function DailyOperationsPageInner() {
         const { data, error } = await (supabase as any).from("user_departments")
           .select("user_id, department")
           .in("user_id", staffIds);
+        if (version !== loadVersion.current) return;
         if (error) throw error;
         departmentRows = (data || []) as Array<{ user_id: string | null; department: string | null }>;
       }
@@ -465,7 +478,8 @@ function DailyOperationsPageInner() {
       const routeTaskIds = ((taskResult.data || []) as DailyOperationsTask[]).filter((task) => task.task_kind === "custom_driver").map((task) => task.id);
       const stopsByTask = new Map<string, any[]>();
       if (routeTaskIds.length) {
-        const { data: stops, error: stopError } = await (supabase as any).from("daily_operation_driver_task_stops").select("*").eq("company_id", user.company_id).in("task_id", routeTaskIds).order("stop_number", { ascending: true });
+        const { data: stops, error: stopError } = await (supabase as any).from("daily_operation_driver_task_stops").select("*").eq("company_id", companyId).in("task_id", routeTaskIds).order("stop_number", { ascending: true });
+        if (version !== loadVersion.current) return;
         if (!stopError) {
           for (const stop of stops || []) stopsByTask.set(stop.task_id, [...(stopsByTask.get(stop.task_id) || []), stop]);
         } else console.warn("[DailyOperationsPage] route stops are unavailable until the route update is installed:", stopError.message);
@@ -478,14 +492,18 @@ function DailyOperationsPageInner() {
           : task.title,
       })));
     } catch (error: any) {
+      if (version !== loadVersion.current) return;
       toast({ title: "Could not load daily operations", description: error?.message || "Check your connection and retry.", variant: "destructive" });
-    } finally { setLoaded(true); }
+    } finally { if (version === loadVersion.current) setLoaded(true); }
   };
 
-  useEffect(() => { void load(); }, [user?.company_id]);
+  useEffect(() => {
+    void load();
+    return () => { loadVersion.current += 1; };
+  }, [companyId]);
 
   const createOneOffTask = async (draft: OneOffTaskDraft): Promise<boolean> => {
-    if (!user?.company_id || creatingTask) return false;
+    if (!companyId || creatingTask) return false;
     setCreatingTask(true);
     try {
       if (draft.task_date < toZonedISO(new Date(), companyTimezone)) {
@@ -498,7 +516,7 @@ function DailyOperationsPageInner() {
         const { data: roster, error: rosterError } = await (supabase as any)
           .from("kitchen_shifts")
           .select("id, staff_id, shift_type, planned_start, planned_end, status")
-          .eq("company_id", user.company_id)
+          .eq("company_id", companyId)
           .eq("shift_date", draft.task_date)
           .in("shift_type", shiftTypes)
           .in("status", ["scheduled", "active"])
@@ -575,10 +593,10 @@ function DailyOperationsPageInner() {
   };
 
   const save = async () => {
-    if (!user?.company_id || saving) return;
+    if (!companyId || saving) return;
     setSaving(true);
     try {
-      await saveDailyOperationsSettings(user.company_id, settings);
+      await saveDailyOperationsSettings(companyId, settings);
       toast({ title: "Cleaning schedules saved", description: "Task dates and reminders will follow the selected schedule rules." });
       await load();
     } catch (error: any) {

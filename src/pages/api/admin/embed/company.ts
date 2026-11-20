@@ -7,8 +7,8 @@
  *   GET   /api/admin/embed/company        embed_token + pricing tiers
  *   PATCH /api/admin/embed/company        update embed_pricing_tiers (replace)
  *
- * Multi-tenant: pinned to caller's profile.company_id. No way to address
- * another tenant.
+ * Regular users are pinned to their profile company. Platform admins may
+ * supply company_id to operate on the tenant selected in the admin UI.
  */
 
 import type { NextApiRequest, NextApiResponse } from "next";
@@ -52,7 +52,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const role = (profile as any).active_role || (profile as any).role;
   if (!ALLOWED.has(role)) return res.status(403).json({ error: "Forbidden" });
-  const companyId = (profile as any).company_id as string | null;
+  const callerCompanyId = (profile as any).company_id as string | null;
+  const isSuperAdmin = role === "super_admin";
+  const requestedCompanyId = typeof req.query.company_id === "string"
+    ? req.query.company_id
+    : null;
+  const companyId = isSuperAdmin
+    ? requestedCompanyId || callerCompanyId
+    : callerCompanyId;
   if (!companyId) return res.status(400).json({ error: "Missing company" });
 
   const db = getServiceSupabase();

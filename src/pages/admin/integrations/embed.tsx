@@ -6,8 +6,8 @@
  * variants for the tenant, and a "+ New form" button that opens the
  * template gallery dialog. Empty state has a single big CTA.
  *
- * All queries are scoped to the caller's company by the API endpoint at
- * /api/admin/embed/forms - this page never passes a company_id.
+ * The API pins regular users to their own company and accepts an explicit
+ * company_id for platform admins browsing a selected tenant.
  */
 
 import { useEffect, useState } from "react";
@@ -93,6 +93,7 @@ const numberFmt = new Intl.NumberFormat("en-ZA");
 // screen instead of an API error wall.
 function AdminEmbedFormsPage() {
   const { user, company } = useAuth() as any;
+  const companyId = company?.id || user?.company_id || null;
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
   const { toast } = useToast();
@@ -107,6 +108,13 @@ function AdminEmbedFormsPage() {
   const [search, setSearch] = useState("");
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [snippetForm, setSnippetForm] = useState<EmbedFormRow | null>(null);
+  const formsUrl = (id?: string) => {
+    const params = new URLSearchParams();
+    if (id) params.set("id", id);
+    if (companyId) params.set("company_id", companyId);
+    const query = params.toString();
+    return `/api/admin/embed/forms${query ? `?${query}` : ""}`;
+  };
 
   const filteredForms = useFuzzyItems(
     forms,
@@ -123,7 +131,7 @@ function AdminEmbedFormsPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const resp = await fetch("/api/admin/embed/forms");
+      const resp = await fetch(formsUrl());
       const json = await resp.json();
       if (!resp.ok) throw new Error(json.error || "Failed to load forms");
       setForms((json.forms || []) as EmbedFormRow[]);
@@ -155,10 +163,10 @@ function AdminEmbedFormsPage() {
   }
 
   useEffect(() => {
-    if (!user?.company_id) return;
+    if (!companyId) { setLoading(false); return; }
     loadForms();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.company_id]);
+  }, [companyId]);
 
   // Allow `?gallery=1` deep-link (used by /admin/integrations/embed/new).
   useEffect(() => {
@@ -169,7 +177,7 @@ function AdminEmbedFormsPage() {
 
   async function togglePause(form: EmbedFormRow) {
     const next = !form.is_active;
-    const resp = await fetch(`/api/admin/embed/forms?id=${form.id}`, {
+    const resp = await fetch(formsUrl(form.id), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ is_active: next }),
@@ -186,14 +194,14 @@ function AdminEmbedFormsPage() {
 
   async function duplicateForm(form: EmbedFormRow) {
     // Fetch full source row - we need its fields/theme/success message.
-    const resp = await fetch("/api/admin/embed/forms");
+    const resp = await fetch(formsUrl());
     const json = await resp.json();
     const source = (json.forms || []).find((f: any) => f.id === form.id);
     if (!source) {
       toast({ title: "Couldn't load source form", variant: "destructive" });
       return;
     }
-    const create = await fetch("/api/admin/embed/forms", {
+    const create = await fetch(formsUrl(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -218,7 +226,7 @@ function AdminEmbedFormsPage() {
 
   async function deleteForm(form: EmbedFormRow) {
     if (!confirm(`Delete "${form.name}"? This will not delete past submissions.`)) return;
-    const resp = await fetch(`/api/admin/embed/forms?id=${form.id}`, { method: "DELETE" });
+    const resp = await fetch(formsUrl(form.id), { method: "DELETE" });
     if (resp.ok) {
       setForms((prev) => prev.filter((f) => f.id !== form.id));
       toast({ title: "Form deleted" });
@@ -407,6 +415,7 @@ function AdminEmbedFormsPage() {
       <TemplateGalleryDialog
         open={galleryOpen}
         onOpenChange={setGalleryOpen}
+        companyId={companyId || undefined}
         embedToken={company?.embed_token}
         companyName={company?.company_name}
         primaryColor={company?.primary_color}
@@ -436,7 +445,7 @@ function AdminEmbedFormsPage() {
       <ChatBot
         userRole={String(((user as { active_role?: string; role?: string } | null)?.active_role
           || (user as { role?: string } | null)?.role) || "admin")}
-        companyId={user?.company_id}
+        companyId={companyId}
       />
     </>
   );

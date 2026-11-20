@@ -32,7 +32,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .maybeSingle();
     const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
     if (!ALLOWED.has(role)) return res.status(403).json({ error: "Admin / owner only" });
-    const companyId = (profile as any)?.company_id as string | null;
+    const callerCompanyId = (profile as any)?.company_id as string | null;
+    const requestedCompanyId = typeof req.query.company_id === "string" ? req.query.company_id : null;
+    const companyId = role === "super_admin"
+      ? requestedCompanyId || callerCompanyId
+      : callerCompanyId;
     if (!companyId) return res.status(403).json({ error: "Account is not linked to a company" });
 
     const service = getServiceSupabase();

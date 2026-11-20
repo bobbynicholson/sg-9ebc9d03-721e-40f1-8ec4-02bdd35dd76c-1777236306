@@ -17,11 +17,9 @@ interface Props {
  *
  * The "live cron-driven sender" callout is intentional - the cron
  * infrastructure is in place (see process-email-queue +
- * quote-followup-send + balance-reminder), but the per-tenant
- * cadence values are not yet persisted to the company row; they
- * sit in user_metadata / localStorage for now. Operators can set
- * them and trust the queue picks them up the moment the persistence
- * link lands.
+ * quote-followup-send + balance-reminder). The cadence is persisted
+ * in the active company's dispatch_settings; the queue integration
+ * still needs to read these values before automated sends use them.
  *
  * Extracted from inline in src/pages/admin/settings.tsx (P2-13
  * Phase B settings split).

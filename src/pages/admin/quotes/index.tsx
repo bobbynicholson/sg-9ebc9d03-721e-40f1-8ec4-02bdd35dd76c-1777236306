@@ -412,6 +412,7 @@ const QUOTE_IMPORT_ROLES = new Set(["super_admin", "company_admin", "admin", "ow
 
 function AdminQuotesInner() {
   const { user, profile } = useAuth() as any;
+  const router = useRouter();
   const [importOpen, setImportOpen] = useState(false);
   const canImportQuotes = QUOTE_IMPORT_ROLES.has(String(profile?.active_role || profile?.role || ""));
   // Wave 27: tenant-slug wrapper for internal navigations.
@@ -486,19 +487,21 @@ function AdminQuotesInner() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  // Wave 17 audit: default landing was "all" which mixed accepted /
-  // expired / lost rows in with active selling work. Operators land
-  // on /admin/quotes to see what they need to PUSH today, not what
-  // they already closed. "in_play" excludes won/lost/expired and
-  // surfaces the pipeline. Won is one click away via the bucket
-  // chips. The "all" bucket stays available for audit / search.
-  const [bucket, setBucket] = useState<QuoteBucket>("in_play");
+  // Show the complete quote list by default; users can narrow it with
+  // the quote bucket chips when they want a focused follow-up queue.
+  const [bucket, setBucket] = useState<QuoteBucket>("all");
   // Phase 8 #8: list (default) vs pipeline kanban view. The kanban
   // groups by intelligence bucket (action_needed / in_play / stale /
   // won / lost / expired) so the sales lead can see where every
   // open quote sits in the pipeline at a glance.
   const [viewMode, setViewMode] = useState<"list" | "pipeline">("list");
-  const [showQuoteManagement, setShowQuoteManagement] = useState(false);
+  const showQuoteManagement = router.query.view !== "opportunity";
+  const setShowQuoteManagement = (show: boolean) => {
+    const query = { ...router.query };
+    if (show) delete query.view;
+    else query.view = "opportunity";
+    void router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+  };
   // Phase 9 #3: persist filter state (search + bucket + viewMode)
   // across reloads. Mirrors what /admin/orders does. Sales leads
   // usually camp on a working filter (e.g. action_needed + list)
@@ -506,12 +509,13 @@ function AdminQuotesInner() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const raw = window.localStorage.getItem("cateringms.adminQuotes.filters.v1");
+      const current = window.localStorage.getItem("cateringms.adminQuotes.filters.v2");
+      const raw = current || window.localStorage.getItem("cateringms.adminQuotes.filters.v1");
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (typeof saved.search === "string") setSearch(saved.search);
       const savedBucket = parseQuoteBucket(saved.bucket);
-      if (savedBucket) setBucket(savedBucket);
+      if (savedBucket) setBucket(!current && savedBucket === "in_play" ? "all" : savedBucket);
       if (saved.viewMode === "list" || saved.viewMode === "pipeline") setViewMode(saved.viewMode);
     } catch {
       /* corrupt storage - fall back to defaults */
@@ -522,7 +526,7 @@ function AdminQuotesInner() {
     if (typeof window === "undefined") return;
     try {
       window.localStorage.setItem(
-        "cateringms.adminQuotes.filters.v1",
+        "cateringms.adminQuotes.filters.v2",
         JSON.stringify({ search, bucket, viewMode }),
       );
     } catch {
@@ -636,7 +640,6 @@ function AdminQuotesInner() {
   // scroll the row into view with a temporary highlight ring after
   // the load completes. The query param gets stripped after handling
   // so a refresh doesn't re-trigger the focus indefinitely.
-  const router = useRouter();
   const [focusedQuoteId, setFocusedQuoteId] = useState<string | null>(null);
 
   // Count each booking once, whether represented by an order or an
@@ -1740,7 +1743,7 @@ function AdminQuotesInner() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Quotes - CateringMS</title>
+        <title>{showQuoteManagement ? "Quotes" : "Opportunity Lab"} - CateringMS</title>
       </Head>
 
       <AdminNav />
@@ -1782,8 +1785,8 @@ function AdminQuotesInner() {
             actions={(
               <div className="col-span-full flex w-full min-w-0 flex-wrap items-center justify-start gap-2 sm:justify-end xl:col-auto xl:w-auto">
               {showQuoteManagement ? <>
-                <Button variant="outline" className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3" onClick={() => setShowQuoteManagement(false)} aria-label="Opportunity calendar" title="Opportunity calendar">
-                  <CalendarDays className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Opportunity calendar</span>
+                <Button variant="outline" className="h-11 w-11 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3" onClick={() => setShowQuoteManagement(false)} aria-label="Opportunity Lab" title="Opportunity Lab">
+                  <CalendarDays className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Opportunity Lab</span>
                 </Button>
                 {/* Phase 11 #2: CSV export of the currently filtered
                     quote set. Respects bucket + search so the file

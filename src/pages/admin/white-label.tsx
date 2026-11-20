@@ -18,7 +18,12 @@ import {
   Clock,
   Loader2,
   CheckCircle2,
+  ChevronDown,
+  Type,
+  Trash2,
 } from "lucide-react";
+import settingsStyles from "@/styles/adminSettings.module.css";
+import { PortalHeaderIconAction } from "@/components/portal/PortalHeaderIconAction";
 import { captureException } from "@/lib/observability";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -95,11 +100,13 @@ function FontOptionList({
   value,
   defaultName,
   sampleName,
+  label,
   onChange,
 }: {
   value: string;
   defaultName: string;
   sampleName: string;
+  label: string;
   onChange: (name: string) => void;
 }) {
   const selected = value || "";
@@ -121,7 +128,21 @@ function FontOptionList({
   }, [catalogueHref]);
 
   return (
-    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2" role="listbox" aria-label="Font choices">
+    <>
+    <div className="relative mt-2 lg:hidden">
+      <Type aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
+      <select
+        aria-label={label}
+        value={selected}
+        onChange={(event) => onChange(event.target.value)}
+        className="min-h-[44px] w-full appearance-none rounded-md border border-slate-300 bg-white py-2 pl-10 pr-10 text-base text-slate-900 focus-visible:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/20"
+      >
+        <option value="">Default ({defaultName})</option>
+        {BRAND_FONTS.map((font) => <option key={font.name} value={font.name}>{font.label}</option>)}
+      </select>
+      <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
+    </div>
+    <div className="mt-2 hidden grid-cols-2 gap-2 lg:grid" role="listbox" aria-label={label}>
       <button
         type="button"
         role="option"
@@ -138,7 +159,7 @@ function FontOptionList({
         <p className="mt-1 text-lg text-slate-800" style={{ fontFamily: fontFamilyValue(defaultName) || undefined }}>
           {sampleName || "Your company"} — beautiful events, simply managed.
         </p>
-        <p className="mt-1 text-[10px] uppercase tracking-wide text-slate-500">Default typeface</p>
+        <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">Default typeface</p>
       </button>
 
       {BRAND_FONTS.map((font) => {
@@ -161,11 +182,12 @@ function FontOptionList({
             <p className="mt-1 text-lg text-slate-800" style={{ fontFamily: fontFamilyValue(font.name) || undefined }}>
               {sampleName || "Your company"} — beautiful events, simply managed.
             </p>
-            <p className="mt-1 text-[10px] uppercase tracking-wide text-slate-500">{categoryLabel(font.category)}</p>
+            <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">{categoryLabel(font.category)}</p>
           </button>
         );
       })}
     </div>
+    </>
   );
 }
 
@@ -716,14 +738,14 @@ function WhiteLabelPage() {
 
       <AdminNav />
 
-      <div className="admin-page-shell">
+      <div className={`admin-page-shell ${settingsStyles.page}`}>
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          <Link href={withSlug("/admin/settings")}>
-            <Button variant="ghost" className="mb-4">
+          <Button asChild variant="ghost" className="mb-4 min-h-[44px]">
+            <Link href={withSlug("/admin/settings")}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Settings
-            </Button>
-          </Link>
+            </Link>
+          </Button>
 
           {/* Command-centre hero. This band reads the --brand-*-rgb
               vars, so it re-paints in the operator's own palette when
@@ -732,8 +754,9 @@ function WhiteLabelPage() {
               restyle for the dark band. */}
           <PortalHeader
             variant="hero"
+            compactActions
             title={
-              <span className="flex items-center gap-2">
+              <span className="flex flex-wrap items-center gap-2">
                 White-label branding
                 <InfoTooltip content={"Set your logo, organisation name, and three brand colours that show up on client portals and emails.\n\nSaved to your tenant. Every admin and client logged into your account sees the same branding."} className="text-white/60 hover:text-white" />
               </span>
@@ -743,22 +766,22 @@ function WhiteLabelPage() {
             meta={
               !loading && !loadError ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     {isWhiteLabeled && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
                     {isWhiteLabeled ? "Custom branding active" : "Default CateringMS branding"}
                   </span>
                   {/* WL-B: unsaved / last-saved chip mirroring the
                       company-profile pattern. Amber stays semantic. */}
                   {isDirty ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/15 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/15 px-2.5 py-1 text-xs font-semibold text-amber-200">
                       <AlertTriangle className="w-3 h-3" /> Unsaved changes
                     </span>
                   ) : lastSavedAt ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/90">
                       <Clock className="w-3 h-3" /> Just saved
                     </span>
                   ) : null}
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     Fonts: {fontBody || "Inter"} / {fontDisplay || "Fraunces"}
                   </span>
                 </>
@@ -767,25 +790,19 @@ function WhiteLabelPage() {
             actions={
               !loading && !loadError ? (
                 <>
-                  <Button
-                    variant="outline"
-                    size="sm"
+                  <PortalHeaderIconAction
+                    icon={RotateCcw}
+                    label="Reset branding to default"
                     onClick={handleReset}
                     disabled={saving || !companyId}
-                    className="gap-2"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    Reset to default
-                  </Button>
-                  <Button
-                    size="sm"
+                  />
+                  <PortalHeaderIconAction
+                    icon={saving ? Loader2 : Save}
+                    iconClassName={saving ? "animate-spin" : undefined}
+                    label={saving ? "Saving branding" : "Save branding"}
                     onClick={handleSave}
                     disabled={saving || !companyId}
-                    className="gap-2"
-                  >
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    {isDirty ? "Save branding" : "Saved"}
-                  </Button>
+                  />
                 </>
               ) : undefined
             }
@@ -819,12 +836,12 @@ function WhiteLabelPage() {
             <div className="space-y-6">
               <Card collapsible defaultOpen={true} collapseLabel="Logo & Organization" className="overflow-hidden">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ImageIcon className="w-5 h-5" />
+                  <CardTitle className="flex flex-wrap items-center gap-2 text-base leading-6">
+                    <ImageIcon className="h-5 w-5 shrink-0 text-brand-primary" />
                     Logo & Organization
                     <InfoTooltip content={"The name and logo your clients will see across every page they land on."} />
                   </CardTitle>
-<CardDescription>The company logo and display name shown on client pages.</CardDescription>
+                  <CardDescription>The company logo and display name shown on client pages.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
@@ -836,7 +853,7 @@ function WhiteLabelPage() {
                       placeholder="Your Catering Company"
                       className="mt-1.5"
                     />
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="mt-1 text-sm leading-5 text-slate-600">
                       This name will appear across all client-facing areas
                     </p>
                   </div>
@@ -849,7 +866,7 @@ function WhiteLabelPage() {
                           <img
                             src={logoUrl}
                             alt="Logo preview"
-                            className="max-h-24 object-contain"
+                            className="max-h-24 max-w-full object-contain"
                           />
                         </div>
                       )}
@@ -864,15 +881,16 @@ function WhiteLabelPage() {
                         />
                         <Button
                           variant="outline"
-                          size="icon"
                           onClick={handleClearLogo}
                           disabled={!logoUrl || uploading || saving}
+                          className="min-h-[44px] w-full shrink-0 gap-2 sm:w-auto"
                         >
-                          <RotateCcw className="w-4 h-4" />
+                          <Trash2 aria-hidden="true" className="h-4 w-4" />
+                          Remove logo
                         </Button>
                       </div>
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="mt-1 text-sm leading-5 text-slate-600">
                       {uploading
                         ? "Uploading…"
                         : "PNG, JPG, SVG, or WebP. Max 2MB."}
@@ -883,12 +901,12 @@ function WhiteLabelPage() {
 
               <Card collapsible defaultOpen={false} collapseLabel="Color Palette" className="overflow-hidden">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Palette className="w-5 h-5" />
+                  <CardTitle className="flex flex-wrap items-center gap-2 text-base leading-6">
+                    <Palette className="h-5 w-5 shrink-0 text-brand-primary" />
                     Color Palette
                     <InfoTooltip content={"Three colours, primary, secondary, accent, that flow through buttons, gradients, and highlights across the app."} />
                   </CardTitle>
-<CardDescription>Choose the brand colours used for your company.</CardDescription>
+                  <CardDescription>Choose the brand colours used for your company.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* WL-B: click-to-apply palette presets. Each
@@ -905,7 +923,7 @@ function WhiteLabelPage() {
                           key={p.id}
                           type="button"
                           onClick={() => applyPreset(p)}
-                          className="group flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-slate-200 bg-white hover:border-slate-400 hover:shadow-sm transition-all"
+                          className="group flex min-h-[44px] items-center gap-2 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 transition-colors hover:border-slate-400 sm:min-h-9"
                           title={p.description}
                         >
                           <span className="flex -space-x-1">
@@ -925,7 +943,7 @@ function WhiteLabelPage() {
                         variant="outline"
                         size="sm"
                         onClick={handleAutoFixPalette}
-                        className="gap-2"
+                        className="min-h-[44px] gap-2 sm:min-h-9"
                       >
                         <CheckCircle2 className="w-4 h-4" />
                         Arrange colours
@@ -936,7 +954,7 @@ function WhiteLabelPage() {
                         size="sm"
                         onClick={handleSuggestPalette}
                         disabled={suggestingPalette}
-                        className="gap-2 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
+                        className="min-h-[44px] gap-2 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10 sm:min-h-9"
                       >
                         {suggestingPalette ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                         {suggestingPalette ? "Asking AI..." : "AI arrange colours"}
@@ -955,7 +973,7 @@ function WhiteLabelPage() {
                     if (ratio >= 4.5) return null;
                     const readable = arrangePaletteSuggestion(currentPalette);
                     return (
-                      <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 flex items-start gap-2">
+                      <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                         <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
                         <div>
                           <p className="font-semibold">Low contrast on primary buttons</p>
@@ -969,11 +987,11 @@ function WhiteLabelPage() {
                               type="button"
                               size="sm"
                               onClick={() => applyPalette(readable)}
-                              className="h-8 bg-amber-900 text-white hover:bg-amber-950"
+                              className="min-h-[44px] bg-amber-900 text-white hover:bg-amber-950 sm:min-h-8"
                             >
                               Use arranged safe palette
                             </Button>
-                            <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-white px-2 py-1 font-mono text-[11px] text-amber-950">
+                            <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-white px-2 py-1 font-mono text-xs text-amber-950">
                               Primary {readable.primary}
                             </span>
                           </div>
@@ -983,7 +1001,7 @@ function WhiteLabelPage() {
                   })()}
 
                   {paletteSuggestion && (
-                    <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3 text-xs text-slate-700">
+                    <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3 text-sm text-slate-700">
                       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                         <p className="flex items-center gap-1.5 font-semibold text-slate-900">
                           {paletteSuggestion.source === "ai" ? <Sparkles className="w-3.5 h-3.5 text-brand-primary" /> : <CheckCircle2 className="w-3.5 h-3.5 text-brand-primary" />}
@@ -994,7 +1012,7 @@ function WhiteLabelPage() {
                           size="sm"
                           variant="outline"
                           onClick={() => applyPalette(paletteSuggestion)}
-                          className="h-8"
+                          className="min-h-[44px] sm:min-h-8"
                         >
                           Apply again
                         </Button>
@@ -1008,8 +1026,8 @@ function WhiteLabelPage() {
                           <div key={label} className="rounded-md border border-slate-200 bg-white p-2">
                             <span className="mb-1 block h-6 rounded" style={{ backgroundColor: value }} />
                             <p className="font-medium text-slate-900">{label}</p>
-                            <p className="font-mono text-[11px] text-slate-600">{value}</p>
-                            <p className="text-[11px] text-slate-500">{ratioValue ? `${ratioValue.toFixed(2)}:1` : "contrast ok"}</p>
+                            <p className="font-mono text-xs text-slate-600">{value}</p>
+                            <p className="text-xs text-slate-600">{ratioValue ? `${ratioValue.toFixed(2)}:1` : "contrast ok"}</p>
                           </div>
                         ))}
                       </div>
@@ -1031,13 +1049,14 @@ function WhiteLabelPage() {
                         className="w-20 h-10 cursor-pointer"
                       />
                       <Input
+                        aria-label="Primary colour hex code"
                         value={primaryColor}
                         onChange={(e) => setPrimaryColor(e.target.value)}
                         placeholder="#2563eb"
                         className="min-w-0"
                       />
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="mt-1 text-sm leading-5 text-slate-600">
                       Your dominant brand colour. Drives the primary action buttons (Save, Confirm, Pay), the active sidebar item, and the left side of the brand gradient on the page header and email banners.
                     </p>
                   </div>
@@ -1053,13 +1072,14 @@ function WhiteLabelPage() {
                         className="w-20 h-10 cursor-pointer"
                       />
                       <Input
+                        aria-label="Secondary colour hex code"
                         value={secondaryColor}
                         onChange={(e) => setSecondaryColor(e.target.value)}
                         placeholder="#7c3aed"
                         className="min-w-0"
                       />
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="mt-1 text-sm leading-5 text-slate-600">
                       The complementary colour. Forms the right side of the brand gradient (sidebar logo tile, page hero, email header) and is used on secondary buttons and link hover states. Pick something that pairs with your primary.
                     </p>
                   </div>
@@ -1075,18 +1095,19 @@ function WhiteLabelPage() {
                         className="w-20 h-10 cursor-pointer"
                       />
                       <Input
+                        aria-label="Accent colour hex code"
                         value={accentColor}
                         onChange={(e) => setAccentColor(e.target.value)}
                         placeholder="#f59e0b"
                         className="min-w-0"
                       />
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="mt-1 text-sm leading-5 text-slate-600">
                       A bolder pop colour for things that need to grab attention: &quot;New&quot; badges, alert highlights, the active stage on a progress bar. Keep this distinct from your primary so it actually stands out.
                     </p>
                   </div>
 
-                  <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
                     <p className="font-semibold text-slate-700 mb-1">Where you&apos;ll see these</p>
                     <p>Sidebar logo tile, primary CTAs, page header gradients on tenant-scoped pages, email template accents, and success/active highlights throughout the admin, client, and team portals. Warning and error states stay semantic so urgent work remains readable.</p>
                   </div>
@@ -1098,7 +1119,7 @@ function WhiteLabelPage() {
                   <div className="space-y-4 border-t border-slate-200 pt-5">
                     <div>
                       <Label>Body font</Label>
-                      <FontOptionList value={fontBody} defaultName="Inter" sampleName={organizationName} onChange={setFontBody} />
+                      <FontOptionList label="Body font choices" value={fontBody} defaultName="Inter" sampleName={organizationName} onChange={setFontBody} />
                       <p
                         className="text-sm text-slate-600 mt-2"
                         style={{ fontFamily: fontFamilyValue(fontBody) || undefined }}
@@ -1109,7 +1130,7 @@ function WhiteLabelPage() {
 
                     <div>
                       <Label>Heading font</Label>
-                      <FontOptionList value={fontDisplay} defaultName="Fraunces" sampleName={organizationName} onChange={setFontDisplay} />
+                      <FontOptionList label="Heading font choices" value={fontDisplay} defaultName="Fraunces" sampleName={organizationName} onChange={setFontDisplay} />
                       <p
                         className="text-xl font-semibold text-slate-800 mt-2"
                         style={{ fontFamily: fontFamilyValue(fontDisplay) || undefined }}
@@ -1123,7 +1144,7 @@ function WhiteLabelPage() {
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="text-sm font-semibold text-slate-900">Apply branding changes</p>
-                        <p className="text-xs text-slate-600">
+                        <p className="text-sm text-slate-600">
                           Save the selected colours, logo, and fonts for this tenant.
                         </p>
                       </div>
@@ -1131,7 +1152,7 @@ function WhiteLabelPage() {
                         type="button"
                         onClick={handleSave}
                         disabled={saving || loading || !companyId}
-                        className="shrink-0 bg-brand-primary text-white hover:bg-brand-primary/90"
+                        className="min-h-[44px] shrink-0 bg-brand-primary text-white hover:bg-brand-primary/90 sm:min-h-9"
                         title="Save the current branding values"
                       >
                         <Save className="w-4 h-4 mr-2" />
@@ -1146,7 +1167,7 @@ function WhiteLabelPage() {
                 <Button
                   onClick={handleSave}
                   disabled={saving || loading || !companyId}
-                  className="w-full bg-brand-primary text-white hover:opacity-90"
+                  className="min-h-[44px] w-full bg-brand-primary text-white hover:opacity-90 sm:min-h-9"
                   title="Save the current branding values"
                 >
                   <Save className="w-4 h-4 mr-2" />
@@ -1156,7 +1177,7 @@ function WhiteLabelPage() {
                   onClick={handleReset}
                   disabled={saving || loading}
                   variant="outline"
-                  className="w-full"
+                  className="min-h-[44px] w-full sm:min-h-9"
                 >
                   <RotateCcw className="w-4 h-4 mr-2" />
                   Reset to Default
@@ -1167,11 +1188,11 @@ function WhiteLabelPage() {
             <div>
               <Card collapsible defaultOpen={false} collapseLabel="Live Preview" className="overflow-hidden xl:sticky xl:top-8">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Eye className="w-5 h-5" />
+                  <CardTitle className="flex flex-wrap items-center gap-2 text-base leading-6">
+                    <Eye className="h-5 w-5 shrink-0 text-brand-primary" />
                     Live Preview
                   </CardTitle>
-<CardDescription>Preview the current branding before saving.</CardDescription>
+                  <CardDescription>Preview the current branding before saving.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -1180,35 +1201,35 @@ function WhiteLabelPage() {
                         <img
                           src={logoUrl}
                           alt="Logo"
-                          className="h-12 object-contain"
+                          className="h-12 max-w-full object-contain"
                         />
                       ) : (
-                        <div className="h-12 flex items-center">
-                          <span className="text-2xl font-bold" style={{ color: primaryColor }}>
+                        <div className="flex min-h-12 items-center">
+                          <span className="max-w-full break-words text-2xl font-bold" style={{ color: primaryColor }}>
                             {organizationName || "Your Company"}
                           </span>
                         </div>
                       )}
                       
                       <div className="space-y-2">
-                        <button
-                          className="w-full py-2 px-4 rounded-lg font-semibold text-white transition-colors"
+                        <div
+                          className="w-full rounded-lg px-4 py-2 text-center font-semibold text-white"
                           style={{ backgroundColor: primaryColor }}
                         >
                           Primary Button
-                        </button>
-                        <button
-                          className="w-full py-2 px-4 rounded-lg font-semibold text-white transition-colors"
+                        </div>
+                        <div
+                          className="w-full rounded-lg px-4 py-2 text-center font-semibold text-white"
                           style={{ backgroundColor: secondaryColor }}
                         >
                           Secondary Button
-                        </button>
-                        <button
-                          className="w-full py-2 px-4 rounded-lg font-semibold text-white transition-colors"
+                        </div>
+                        <div
+                          className="w-full rounded-lg px-4 py-2 text-center font-semibold text-white"
                           style={{ backgroundColor: accentColor }}
                         >
                           Accent Button
-                        </button>
+                        </div>
                       </div>
 
                       <div className="pt-4 border-t">
@@ -1221,7 +1242,7 @@ function WhiteLabelPage() {
                       </div>
                     </div>
 
-                    <div className="p-4 bg-slate-50 rounded-lg text-xs text-slate-600">
+                    <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
                       <p className="font-medium mb-2">What this changes today:</p>
                       <ul className="space-y-1 list-disc list-inside">
                         <li>Saved to your tenant in the database. Every admin and client on your account sees the same branding</li>

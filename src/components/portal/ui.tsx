@@ -89,6 +89,7 @@ export function PortalHeader({
   variant = "default",
   appearance,
   meta,
+  compactActions = false,
   actionsAlign = "end",
 }: {
   title: React.ReactNode;
@@ -100,6 +101,7 @@ export function PortalHeader({
   /** "brand" is the company workspace tone; "dark" is the platform tone. */
   appearance?: "brand" | "dark";
   meta?: React.ReactNode;
+  compactActions?: boolean;
   /** Align action buttons beside the title when a page needs a tighter header. */
   actionsAlign?: "start" | "end";
 }) {
@@ -168,7 +170,7 @@ export function PortalHeader({
               </span>
             )}
             <div className="min-w-0">
-              <h1 className="font-brand-display max-w-full break-words text-balance text-xl font-semibold leading-tight tracking-tight sm:text-2xl">
+              <h1 className={cn("font-brand-display max-w-full break-words text-balance text-xl font-semibold leading-tight tracking-tight sm:text-2xl", compactActions && actions && "pr-24")}>
                 {title}
               </h1>
               {subtitle && (
@@ -193,6 +195,7 @@ export function PortalHeader({
                 "portal-header-actions grid w-full min-w-0 max-w-full shrink-0 grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] items-center gap-2 xl:flex xl:w-auto xl:flex-wrap xl:max-w-[60%] [&_button]:min-h-10 [&_button]:min-w-0 [&_button]:max-w-full [&_button]:text-sm [&_input]:min-w-0 [&_input]:max-w-full [&_select]:min-w-0 [&_select]:max-w-full [&_[role=combobox]]:min-w-0 [&_[role=combobox]]:max-w-full sm:[&_button]:min-h-9",
                 actionsAlign === "start" ? "xl:justify-start" : "xl:justify-end",
                 !isBrand && "dark",
+                compactActions && "absolute right-0 top-0 flex w-auto max-w-none gap-0 xl:max-w-none",
               )}
             >
               {actions}

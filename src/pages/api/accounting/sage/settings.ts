@@ -75,7 +75,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .maybeSingle();
     const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
     if (!ALLOWED_ROLES.has(role)) return res.status(403).json({ error: "Owner or admin only" });
-    const companyId = (profile as any)?.company_id as string | undefined;
+    const callerCompanyId = (profile as any)?.company_id as string | undefined;
+    const requestedCompanyId = typeof req.query.company_id === "string"
+      ? req.query.company_id
+      : undefined;
+    const companyId = role === "super_admin"
+      ? requestedCompanyId || callerCompanyId
+      : callerCompanyId;
     if (!companyId) return res.status(400).json({ error: "No company on profile" });
 
     const admin: any = getServiceSupabase();

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Package, Plus, Trash2, Save, AlertCircle } from "lucide-react";
+import { Package, Plus, Trash2, Save, AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { inventoryService } from "@/services/inventoryService";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -21,17 +21,25 @@ interface Props {
 export function InventorySettingsTab({ companyId: companyIdProp }: Props = {}) {
   const { toast } = useToast();
   const { user, profile } = useAuth() as any;
-  const companyId = companyIdProp ?? profile?.company_id ?? user?.company_id ?? null;
+  const companyId = companyIdProp !== undefined ? companyIdProp : profile?.company_id ?? user?.company_id ?? null;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   const [warningRows, setWarningRows] = useState<Array<{ id: string; category: string; days: string }>>([]);
   const [reorderBuffer, setReorderBuffer] = useState<string>("0");
 
   useEffect(() => {
-    if (!companyId) { setLoading(false); return; }
+    let cancelled = false;
+    setLoading(true);
+    setLoadError("");
+    setWarningRows([]);
+    setReorderBuffer("0");
+    if (!companyId) { setLoading(false); return () => { cancelled = true; }; }
     inventoryService.getCompanyInventorySettings(companyId).then(s => {
+      if (cancelled) return;
       const entries = Object.entries(s.expiryWarnings || {});
       const rows = entries.length > 0
         ? entries.map(([category, days]) => ({
@@ -50,8 +58,13 @@ export function InventorySettingsTab({ companyId: companyIdProp }: Props = {}) {
       setWarningRows(rows);
       setReorderBuffer(String(s.reorderBufferPercent ?? 0));
       setLoading(false);
-    }).catch(() => setLoading(false));
-  }, [companyId]);
+    }).catch((e) => {
+      if (cancelled) return;
+      setLoadError(e?.message ?? "Could not load this company's inventory settings.");
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [companyId, reloadNonce]);
 
   const updateRow = (id: string, patch: Partial<{ category: string; days: string }>) => {
     setWarningRows(rows => rows.map(r => r.id === id ? { ...r, ...patch } : r));
@@ -106,7 +119,18 @@ export function InventorySettingsTab({ companyId: companyIdProp }: Props = {}) {
   if (loading) {
     return (
       <Card className="border-0 shadow-lg">
-        <CardContent className="py-8 text-center text-sm text-slate-500">Loading...</CardContent>
+        <CardContent className="flex items-center justify-center gap-2 py-8 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Loading inventory settings…</CardContent>
+      </Card>
+    );
+  }
+
+  if (loadError || !companyId) {
+    return (
+      <Card className="border-0 shadow-lg">
+        <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
+          <p className="text-sm text-rose-700">{loadError || "Select a company to load inventory settings."}</p>
+          {companyId && <Button onClick={() => setReloadNonce(value => value + 1)} size="sm" variant="outline">Retry</Button>}
+        </CardContent>
       </Card>
     );
   }

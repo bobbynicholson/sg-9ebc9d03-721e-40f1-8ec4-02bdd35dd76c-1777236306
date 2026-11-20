@@ -16,7 +16,7 @@
  */
 import { MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
 import {
-  Wand2, UserPlus, Package, Calendar, FileSpreadsheet, MapPin, ClipboardList, Activity, BarChart3, Wallet, Receipt,
+  Wand2, UserPlus, Package, CalendarDays, FileSpreadsheet, MapPin, ClipboardList, BarChart3, Wallet, Receipt,
 } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useAdminPortalMode } from "@/hooks/useAdminPortalMode";
@@ -38,19 +38,19 @@ export function AdminSmartQuickActions({ onNavigate }: AdminSmartQuickActionsPro
       { href: "/admin/inventory",  label: "Stock setup",     sub: "Items + par levels",    icon: Package,   accent: BRAND_ACCENT },
     ],
     quiet: [
-      { href: "/admin/calendar",   label: "Today's events",  sub: "Calendar",              icon: Calendar,  accent: BRAND_ACCENT },
+      { href: "/admin/quotes?view=opportunity", label: "Opportunity Lab", sub: "Quote opportunities", icon: CalendarDays, accent: BRAND_ACCENT },
       { href: "/admin/leads",      label: "New leads",       sub: "Inbox",                 icon: UserPlus,  accent: BRAND_ACCENT },
       { href: "/admin/stock",      label: "Stock outlook",   sub: "Pressure feed",         icon: Package,   accent: BRAND_ACCENT },
     ],
     pipeline: [
       { href: "/admin/quotes",     label: "Quotes to chase", sub: "48h+ overdue",          icon: FileSpreadsheet, accent: BRAND_ACCENT },
       { href: "/admin/leads",      label: "Lead inbox",      sub: "New today",             icon: UserPlus,  accent: BRAND_ACCENT },
-      { href: "/admin/calendar",   label: "Calendar",        sub: "What's coming",         icon: Calendar,  accent: BRAND_ACCENT },
+      { href: "/admin/quotes?view=opportunity", label: "Opportunity Lab", sub: "Plan quote dates", icon: CalendarDays, accent: BRAND_ACCENT },
     ],
     ops: [
       { href: "/admin/tracking",          label: "Live ops",      sub: "Today's jobs in flight", icon: MapPin,        accent: BRAND_ACCENT },
       { href: "/admin/order-assignments", label: "Dispatch",      sub: "Assign drivers",         icon: ClipboardList, accent: BRAND_ACCENT },
-      { href: "/admin/calendar",          label: "Today",         sub: "Full schedule",          icon: Activity,      accent: BRAND_ACCENT },
+      { href: "/admin/quotes?view=opportunity", label: "Opportunity Lab", sub: "Plan quote capacity", icon: CalendarDays, accent: BRAND_ACCENT },
     ],
     review: [
       { href: "/admin/financial-dashboard", label: "Revenue today", sub: "Day's numbers",      icon: BarChart3, accent: BRAND_ACCENT },

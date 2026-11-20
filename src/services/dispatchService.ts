@@ -170,13 +170,23 @@ export const dispatchService = {
 
   // ── Settings ──────────────────────────────────────────────────────────────
 
-  async getDispatchSettings(companyId: string): Promise<DispatchSettings> {
+  async getDispatchSettings(
+    companyId: string,
+    options?: { throwOnError?: boolean },
+  ): Promise<DispatchSettings> {
     const { data, error } = await supabase
       .from("companies")
       .select("dispatch_settings")
       .eq("id", companyId)
       .maybeSingle();
-    if (error || !data) return DEFAULT_SETTINGS;
+    if (error) {
+      if (options?.throwOnError) throw error;
+      return DEFAULT_SETTINGS;
+    }
+    if (!data) {
+      if (options?.throwOnError) throw new Error("Company dispatch settings could not be found.");
+      return DEFAULT_SETTINGS;
+    }
     const raw = (data as any).dispatch_settings || {};
     return {
       slaAssignMinutes:       Number(raw.sla_assign_minutes        ?? DEFAULT_SETTINGS.slaAssignMinutes),

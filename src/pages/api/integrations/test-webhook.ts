@@ -20,7 +20,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const actor = await requireActiveApiProfile(req, res, new Set(["super_admin", "company_admin", "admin", "owner"]));
   if (!actor) return;
-  const companyId = actor.profile.company_id;
+  const requestedCompanyId = typeof req.query.company_id === "string" ? req.query.company_id : null;
+  const companyId = actor.role === "super_admin"
+    ? requestedCompanyId || actor.profile.company_id
+    : actor.profile.company_id;
   if (!companyId) return res.status(403).json({ error: "Company access required" });
 
   const subscriptionId = String(req.body?.subscription_id || "");

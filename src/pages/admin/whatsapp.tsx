@@ -177,6 +177,7 @@ function WhatsAppPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { user, company } = useAuth();
+  const companyId = (company as any)?.id || user?.company_id || null;
   const { withSlug } = useTenantHref();
   const [state, setState] = useState<WhatsAppState | null>(null);
   const [draft, setDraft] = useState<WhatsAppAutomationSettings | null>(null);
@@ -203,11 +204,13 @@ function WhatsAppPage() {
   const localWhatsAppHost = /localhost|127\.0\.0\.1/i.test(state?.webhookUrl || "");
 
   const url = useMemo(() => {
-    const companyId = user?.company_id;
     return `/api/admin/whatsapp/settings${companyId ? `?companyId=${encodeURIComponent(companyId)}` : ""}`;
-  }, [user?.company_id]);
+  }, [companyId]);
 
   const load = useCallback(async () => {
+    setState(null);
+    setDraft(null);
+    setRules(null);
     setLoadError(null);
     try {
       const response = await fetch(url);

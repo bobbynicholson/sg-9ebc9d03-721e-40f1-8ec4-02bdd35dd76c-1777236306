@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
-  Save, AlertCircle, ShieldAlert, Plus, Trash2, Calendar, Receipt, Users, Bold,
+  Save, AlertCircle, ShieldAlert, Plus, Trash2, Calendar, Receipt, Users, Bold, Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -57,11 +57,13 @@ interface Props {
 export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) {
   const { toast } = useToast();
   const { user, profile } = useAuth() as any;
-  const companyId = companyIdProp ?? profile?.company_id ?? user?.company_id ?? null;
+  const companyId = companyIdProp !== undefined ? companyIdProp : profile?.company_id ?? user?.company_id ?? null;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [policy, setPolicy] = useState<CancellationPolicy>(DEFAULT_POLICY);
   const [terms, setTerms] = useState<string>("");
   const termsEditorRef = useRef<HTMLDivElement | null>(null);
@@ -75,36 +77,49 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
   );
 
   useEffect(() => {
+    setLoading(true);
+    setLoadError("");
+    setError("");
+    setPolicy(DEFAULT_POLICY);
+    setTerms("");
+    setConfidentialityNotice(DEFAULT_CONFIDENTIALITY_NOTICE);
     if (!companyId) { setLoading(false); return; }
     // TIGHTEN I.89 (2026-06-02): cancellation guard so a fast company
     // switch (super-admin context-swapping tenants) can't paint stale
     // policy from the previous company.
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase
-        .from("companies")
-        .select(
-          "cancellation_policy, terms_and_conditions, confidentiality_notice" as any,
-        )
-        .eq("id", companyId)
-        .maybeSingle();
-      if (cancelled) return;
-      if (error) {
-        console.error("[CancellationPolicyTab] load failed", error);
+      try {
+        const { data, error } = await supabase
+          .from("companies")
+          .select(
+            "cancellation_policy, terms_and_conditions, confidentiality_notice" as any,
+          )
+          .eq("id", companyId)
+          .maybeSingle();
+        if (cancelled) return;
+        if (error) throw error;
+        if (!data) throw new Error("Company terms and policies could not be found.");
+        const loaded = (data as any)?.cancellation_policy as CancellationPolicy | null;
+        setPolicy(loaded && typeof loaded === "object"
+          ? { ...DEFAULT_POLICY, ...loaded, deposit_refund_tiers: loaded.deposit_refund_tiers || DEFAULT_POLICY.deposit_refund_tiers }
+          : DEFAULT_POLICY);
+        setTerms(((data as any)?.terms_and_conditions as string) || "");
+        setConfidentialityNotice(
+          ((data as any)?.confidentiality_notice as string) ||
+            DEFAULT_CONFIDENTIALITY_NOTICE,
+        );
+      } catch (loadError: any) {
+        if (!cancelled) {
+          console.error("[CancellationPolicyTab] load failed", loadError);
+          setLoadError(loadError?.message || "Could not load this company's terms and policies.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      const loaded = (data as any)?.cancellation_policy as CancellationPolicy | null;
-      setPolicy(loaded && typeof loaded === "object"
-        ? { ...DEFAULT_POLICY, ...loaded, deposit_refund_tiers: loaded.deposit_refund_tiers || DEFAULT_POLICY.deposit_refund_tiers }
-        : DEFAULT_POLICY);
-      setTerms(((data as any)?.terms_and_conditions as string) || "");
-      setConfidentialityNotice(
-        ((data as any)?.confidentiality_notice as string) ||
-          DEFAULT_CONFIDENTIALITY_NOTICE,
-      );
-      setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  }, [companyId, reloadNonce]);
 
   const sortedTiers = [...policy.deposit_refund_tiers].sort(
     (a, b) => b.min_days_before_event - a.min_days_before_event,
@@ -235,7 +250,18 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
   if (loading) {
     return (
       <Card className="border-0 shadow-lg">
-        <CardContent className="py-8 text-center text-sm text-slate-500">Loading...</CardContent>
+        <CardContent className="flex items-center justify-center gap-2 py-8 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Loading terms and policies…</CardContent>
+      </Card>
+    );
+  }
+
+  if (loadError || !companyId) {
+    return (
+      <Card className="border-0 shadow-lg">
+        <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
+          <p className="text-sm text-rose-700">{loadError || "Select a company to load terms and policies."}</p>
+          {companyId && <Button onClick={() => setReloadNonce(value => value + 1)} size="sm" variant="outline">Retry</Button>}
+        </CardContent>
       </Card>
     );
   }

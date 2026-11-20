@@ -20,6 +20,7 @@ import type { EmbedTemplateId } from "@/types/embedForms";
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  companyId?: string;
   embedToken?: string;
   /** LCF-H (task #229, 2026-05-25): tenant brand for the preview
    *  iframes. When supplied, the gallery thumbnails show the
@@ -33,7 +34,7 @@ interface Props {
   onCreated: (formId: string) => void;
 }
 
-export function TemplateGalleryDialog({ open, onOpenChange, embedToken, companyName, primaryColor, secondaryColor, logoUrl, currency, onCreated }: Props) {
+export function TemplateGalleryDialog({ open, onOpenChange, companyId, embedToken, companyName, primaryColor, secondaryColor, logoUrl, currency, onCreated }: Props) {
   const { toast } = useToast();
   const [creatingId, setCreatingId] = useState<string | null>(null);
 
@@ -43,7 +44,8 @@ export function TemplateGalleryDialog({ open, onOpenChange, embedToken, companyN
       const meta = EMBED_TEMPLATE_CATALOG.find((t) => t.id === templateId);
       if (!meta) throw new Error("Template not found");
 
-      const resp = await fetch("/api/admin/embed/forms", {
+      const query = companyId ? `?company_id=${encodeURIComponent(companyId)}` : "";
+      const resp = await fetch(`/api/admin/embed/forms${query}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

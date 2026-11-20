@@ -154,6 +154,8 @@ function EmbedFormCustomiser() {
   const { withSlug } = useTenantHref();
   const { id } = router.query;
   const { user, company } = useAuth() as any;
+  const companyId = company?.id || user?.company_id || null;
+  const tenantQuery = companyId ? `?company_id=${encodeURIComponent(companyId)}` : "";
   const { toast } = useToast();
 
   const [form, setForm] = useState<EmbedFormConfig | null>(null);
@@ -180,8 +182,8 @@ function EmbedFormCustomiser() {
       setLoadError(null);
       try {
         const [formsResp, companyResp] = await Promise.all([
-          fetch("/api/admin/embed/forms"),
-          fetch("/api/admin/embed/company"),
+          fetch(`/api/admin/embed/forms${tenantQuery}`),
+          fetch(`/api/admin/embed/company${tenantQuery}`),
         ]);
         const formsJson = await formsResp.json();
         const companyJson = await companyResp.json();
@@ -214,7 +216,7 @@ function EmbedFormCustomiser() {
       }
     })();
     return () => { cancelled = true; };
-  }, [id, loadNonce]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, loadNonce, tenantQuery]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Push the unsaved draft into the preview iframe whenever the form
   // mutates. loader.js (preview mode) re-renders on {type:'embed-draft'}
@@ -250,7 +252,7 @@ function EmbedFormCustomiser() {
     if (!form) return;
     setSaving(true);
     try {
-      const resp = await fetch(`/api/admin/embed/forms?id=${form.id}`, {
+      const resp = await fetch(`/api/admin/embed/forms?id=${encodeURIComponent(form.id)}${tenantQuery ? `&${tenantQuery.slice(1)}` : ""}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(next),
@@ -268,7 +270,7 @@ function EmbedFormCustomiser() {
     } finally {
       setSaving(false);
     }
-  }, [form, toast, user?.company_id]);
+  }, [form, toast, tenantQuery, user?.company_id]);
 
   // LCF-B (task #223, 2026-05-25): beforeunload guard while dirty,
   // mirroring the company-profile + white-label + kitchen-settings
@@ -347,7 +349,7 @@ function EmbedFormCustomiser() {
     }
     setSavingTiers(true);
     try {
-      const resp = await fetch("/api/admin/embed/company", {
+      const resp = await fetch(`/api/admin/embed/company${tenantQuery}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ embed_pricing_tiers: pricingTiers }),

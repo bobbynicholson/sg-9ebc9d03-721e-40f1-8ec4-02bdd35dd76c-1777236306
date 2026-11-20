@@ -20,19 +20,20 @@
  */
 import { useEffect, useState } from "react";
 import Head from "next/head";
-import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Mail, Shield, Server, CheckCircle2, AlertTriangle, Send, Loader2, ExternalLink, Inbox, BarChart3, Sparkles, Globe, ShieldCheck } from "lucide-react";
+import { Mail, Shield, Server, CheckCircle2, AlertTriangle, Send, Loader2, ExternalLink, Inbox, BarChart3, Sparkles, Globe, ShieldCheck, Save } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { PortalHeaderIconAction } from "@/components/portal/PortalHeaderIconAction";
+import settingsStyles from "@/styles/adminSettings.module.css";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
@@ -111,8 +112,9 @@ const PRICING_TIER_CAPS: Record<string, number> = {
 };
 
 function EmailSettingsPage() {
-  const { profile, user } = useAuth() as any;
-  const companyId = profile?.company_id || user?.company_id;
+  const { profile, user, company } = useAuth() as any;
+  const companyId = company?.id || profile?.company_id || user?.company_id || null;
+  const companyQuery = companyId ? `?company_id=${encodeURIComponent(companyId)}` : "";
   const subscriptionPlan = (profile?.subscription_plan || "trial") as string;
   const tierCap = PRICING_TIER_CAPS[subscriptionPlan] ?? 30;
   const { toast } = useToast();
@@ -128,9 +130,6 @@ function EmailSettingsPage() {
   // numbers can't be trusted. Shown as a small note instead of 0s.
   const [countsUnavailable, setCountsUnavailable] = useState(false);
   const [saving, setSaving] = useState(false);
-  // Audit fix: the Mailchimp save had no in-flight state, so a
-  // double-click fired two upserts and the button gave no feedback.
-  const [savingMailchimp, setSavingMailchimp] = useState(false);
   const [testing, setTesting] = useState(false);
   const [todayCount, setTodayCount] = useState(0);
   // Dirty-state tracking so the test-email button can tell the user
@@ -168,9 +167,6 @@ function EmailSettingsPage() {
   const [sendingQueueId, setSendingQueueId] = useState<string | null>(null);
   const [smtpPass, setSmtpPass] = useState("");
   const [smtpPasswordConfigured, setSmtpPasswordConfigured] = useState(false);
-  const [mailchimpApiKey, setMailchimpApiKey] = useState("");
-  const [mailchimpAudienceId, setMailchimpAudienceId] = useState("");
-  const [mailchimpConfigured, setMailchimpConfigured] = useState(false);
   // ES-B (task #221, 2026-05-25): custom recipient for the test
   // send. Pre-ES-B the test always landed in row.from_email so an
   // operator wanting to see what an actual client sees had to
@@ -300,27 +296,11 @@ function EmailSettingsPage() {
         });
       }
 
-      // Mailchimp row
-      const { data: mc, error: mcError } = await supabase
-        .from("email_provider_settings")
-        .select("mailchimp_audience_id")
-        .eq("company_id", companyId)
-        .eq("provider", "mailchimp")
-        .maybeSingle();
-      if (mcError) {
-        captureException(mcError, {
-          tags: { route: "/admin/email-settings", step: "load-mailchimp", companyId },
-        });
-      }
-      if (mc) {
-        setMailchimpAudienceId(mc.mailchimp_audience_id || "");
-      }
       try {
-        const credentialResponse = await fetch("/api/admin/email-provider-credentials");
+        const credentialResponse = await fetch(`/api/admin/email-provider-credentials${companyQuery}`);
         if (!credentialResponse.ok) throw new Error("Credential status unavailable");
         const credentialStatus = await credentialResponse.json();
         setSmtpPasswordConfigured(!!credentialStatus?.credentials?.smtp?.configured);
-        setMailchimpConfigured(!!credentialStatus?.credentials?.mailchimp?.configured);
       } catch (credentialError) {
         captureException(credentialError, {
           tags: { route: "/admin/email-settings", step: "load-credential-status", companyId },
@@ -450,7 +430,7 @@ function EmailSettingsPage() {
         .upsert(payload, { onConflict: "company_id,provider" });
       if (error) throw error;
       if (row.provider === "smtp" && smtpPass) {
-        const credentialResponse = await fetch("/api/admin/email-provider-credentials", {
+        const credentialResponse = await fetch(`/api/admin/email-provider-credentials${companyQuery}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ provider: "smtp", secret: smtpPass }),
@@ -611,52 +591,6 @@ function EmailSettingsPage() {
     }
   };
 
-  const saveMailchimp = async () => {
-    if (!companyId) return;
-    const audienceId = mailchimpAudienceId.trim();
-    if (!audienceId || (!mailchimpApiKey.trim() && !mailchimpConfigured)) {
-      toast({
-        title: "Complete Mailchimp setup",
-        description: "Enter both the Mailchimp API key and Audience ID. This connection is only for newsletters and campaigns, not quote, invoice, or order emails.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setSavingMailchimp(true);
-    try {
-      const { error } = await supabase
-        .from("email_provider_settings")
-        .upsert({
-          company_id: companyId,
-          provider: "mailchimp",
-          mailchimp_audience_id: audienceId,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "company_id,provider" });
-      if (error) throw error;
-      if (mailchimpApiKey.trim()) {
-        const credentialResponse = await fetch("/api/admin/email-provider-credentials", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ provider: "mailchimp", secret: mailchimpApiKey.trim() }),
-        });
-        if (!credentialResponse.ok) {
-          const result = await credentialResponse.json().catch(() => ({}));
-          throw new Error(result?.error || "Could not save the encrypted Mailchimp key");
-        }
-      }
-      setMailchimpApiKey(""); // clear local field after save
-      setMailchimpConfigured(true);
-      toast({ title: "Mailchimp details saved", description: "The API key and Audience ID are stored for the Mailchimp integration. CateringMS transactional emails still use the selected sender above; bulk campaign sending is not active yet." });
-    } catch (e: any) {
-      captureException(e, {
-        tags: { route: "/admin/email-settings", step: "save-mailchimp", companyId },
-      });
-      toast({ title: "Save failed", description: e?.message || "Try again", variant: "destructive" });
-    } finally {
-      setSavingMailchimp(false);
-    }
-  };
-
   const providerLabel =
     row.provider === "resend" ? "CateringMS default"
     : row.provider === "gmail_oauth" ? "Gmail"
@@ -714,7 +648,7 @@ function EmailSettingsPage() {
   const runDueEmailsNow = async () => {
     setRunningQueue(true);
     try {
-      const response = await fetch("/api/admin/email-health", { method: "POST" });
+      const response = await fetch(`/api/admin/email-health${companyQuery}`, { method: "POST" });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || !body?.ok) {
         throw new Error(body?.error || `Email queue returned HTTP ${response.status}`);
@@ -741,7 +675,7 @@ function EmailSettingsPage() {
   const sendQueuedEmailNow = async (queueId: string) => {
     setSendingQueueId(queueId);
     try {
-      const response = await fetch("/api/admin/email-health", {
+      const response = await fetch(`/api/admin/email-health${companyQuery}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ queueId }),
@@ -777,13 +711,14 @@ function EmailSettingsPage() {
       <Head><title>Email settings - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="admin-page-shell">
+      <div className={`admin-page-shell ${settingsStyles.page}`}>
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           {/* Command-centre hero: brand-washed dark band with live
               send-volume chips from the queries this page already runs. */}
           <PortalHeader
             variant="hero"
+            compactActions
             title={
               <span className="flex items-center gap-2 flex-wrap">
                 Email settings
@@ -795,17 +730,17 @@ function EmailSettingsPage() {
             meta={
               !loading && !loadError ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     {providerLabel}
                   </span>
                   {!countsUnavailable && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                       {todayCount} sent today
                     </span>
                   )}
                   {!countsUnavailable && queuedCount > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/15 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/15 px-2.5 py-1 text-xs font-semibold text-amber-200">
                       {queuedCount} queued
                     </span>
                   )}
@@ -814,10 +749,13 @@ function EmailSettingsPage() {
             }
             actions={
               !loading && !loadError ? (
-                <Button size="sm" onClick={save} disabled={saving || !companyId} className="gap-2">
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
-                  {hasUnsavedChanges ? "Save settings" : "Saved"}
-                </Button>
+                <PortalHeaderIconAction
+                  icon={saving ? Loader2 : Save}
+                  iconClassName={saving ? "animate-spin" : undefined}
+                  label={saving ? "Saving email settings" : hasUnsavedChanges ? "Save email settings" : "Email settings up to date"}
+                  onClick={save}
+                  disabled={saving || !companyId || !hasUnsavedChanges}
+                />
               ) : undefined
             }
           />
@@ -850,8 +788,8 @@ function EmailSettingsPage() {
               nothing in the sending code enforces one, so none is shown. */}
           <Card className="mb-6 bg-gradient-to-r from-blue-50 to-blue-50">
             <CardContent className="py-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="flex min-w-0 items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-blue-600" />
                   <span className="font-semibold text-slate-900">Emails sent today</span>
                   <InfoTooltip content={"Emails CateringMS sent for your company today: quotes, invoices, receipts, reminders and order updates.\n\nEmails you send from your own inbox through a compose link aren't counted here."} />
@@ -885,9 +823,9 @@ function EmailSettingsPage() {
                 }).join(" ");
                 const total7 = last7Counts.reduce((s, c) => s + c.count, 0);
                 return (
-                  <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between gap-3 flex-wrap">
+                  <div className="mt-3 flex flex-col gap-3 border-t border-slate-200 pt-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                         Last 7 days
                       </p>
                       <p className="text-sm font-medium text-slate-700 tabular-nums">
@@ -896,7 +834,7 @@ function EmailSettingsPage() {
                     </div>
                     {/* Brand token, not a hard-coded blue: this is
                         chrome accent, not a semantic status colour. */}
-                    <svg width={W} height={H} className="overflow-visible">
+                    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${total7} emails sent over the last 7 days, with a peak of ${max} per day`} className="h-10 w-full max-w-[280px] overflow-visible sm:w-[280px]">
                       <polyline
                         fill="none"
                         stroke="rgb(var(--brand-primary-rgb))"
@@ -956,10 +894,10 @@ function EmailSettingsPage() {
           {/* Resend domain verification - optional upgrade path */}
           <Card collapsible defaultOpen={false} collapseLabel="Use your own sending domain" className="mb-6 bg-gradient-to-br from-white to-slate-50/40">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex flex-wrap items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-slate-600" />
                 Use your own sending domain
-                <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-700">Optional upgrade</span>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 sm:ml-1">Optional upgrade</span>
               </CardTitle>
               <CardDescription>
                 Skip this if you're happy with the default sender above. Verify your domain once and every quote, invoice and confirmation goes out as <code>you@yourdomain.com</code> with proper SPF + DKIM. Takes about 5 minutes of DNS work at your domain host.
@@ -1001,7 +939,7 @@ function EmailSettingsPage() {
               operator can verify a change without scrolling. */}
           <Card collapsible defaultOpen={true} collapseLabel="Sender identity" className="mb-6">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex flex-wrap items-center gap-2">
                 <Mail className="w-5 h-5 text-slate-600" />
                 Sender identity
               </CardTitle>
@@ -1073,18 +1011,18 @@ function EmailSettingsPage() {
                 />
               </div>
 
-              <div className="flex items-center justify-between gap-3 pt-2">
-                <p className="text-xs text-slate-500 truncate">
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="min-w-0 text-xs text-slate-500 sm:truncate">
                   {row.last_test_sent_at && (
                     <>Last test: {new Date(row.last_test_sent_at).toLocaleString("en-ZA")}</>
                   )}
                 </p>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-shrink-0 sm:items-center">
                   <Button
                     onClick={sendTestEmail}
                     disabled={testing || saving || !row.from_email}
                     variant="outline"
-                    className="gap-2"
+                    className="w-full gap-2 sm:w-auto"
                     title={hasUnsavedChanges
                       ? `Save and send a test to ${testRecipient.trim() || row.from_email}`
                       : `Send a test email to ${testRecipient.trim() || row.from_email}`}
@@ -1092,7 +1030,7 @@ function EmailSettingsPage() {
                     {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
                     {hasUnsavedChanges ? "Save & send test" : "Send test"}
                   </Button>
-                  <Button onClick={save} disabled={saving} className="gap-2">
+                  <Button onClick={save} disabled={saving} className="w-full gap-2 sm:w-auto">
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
                     {hasUnsavedChanges ? "Save" : "Saved"}
                   </Button>
@@ -1113,17 +1051,17 @@ function EmailSettingsPage() {
               touch this. The Resend (default) tile is always the
               correct choice unless the operator has a specific reason
               to route via their own Gmail/365/SMTP. */}
-          <details className="mb-6 rounded-lg bg-white overflow-hidden">
-            <summary className="cursor-pointer px-6 py-4 select-none flex items-center justify-between gap-3">
-              <span className="flex items-center gap-2 font-semibold text-slate-900">
+          <details className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <summary className="flex min-h-[52px] cursor-pointer select-none flex-col gap-1.5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6 sm:py-4">
+              <span className="flex min-w-0 items-center gap-2 font-semibold text-slate-900">
                 <Server className="w-5 h-5 text-slate-600" />
                 Switch to a different provider
               </span>
-              <span className="text-xs text-slate-500">
+              <span className="pl-7 text-xs text-slate-500 sm:pl-0">
                 Currently: {providerLabel}
               </span>
             </summary>
-            <div className="px-6 pb-6 pt-2 space-y-4 border-t border-slate-100">
+            <div className="space-y-4 border-t border-slate-100 px-4 pb-4 pt-3 sm:px-6 sm:pb-6 sm:pt-4">
               <p className="text-xs text-slate-600">
                 Transactional mail (quotes, invoices, confirmations and order updates) uses the selected sender below. The CateringMS default is already configured; only switch when you have your own SMTP credentials. Gmail and Microsoft 365 connection is not available yet.
               </p>
@@ -1250,8 +1188,8 @@ function EmailSettingsPage() {
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-                <Button onClick={save} disabled={saving} className="gap-2">
+              <div className="flex items-center justify-stretch gap-2 border-t border-slate-100 pt-3 sm:justify-end">
+                <Button onClick={save} disabled={saving} className="w-full gap-2 sm:w-auto">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
                   {hasUnsavedChanges ? "Save provider config" : "Saved"}
                 </Button>
@@ -1335,12 +1273,12 @@ function EmailSettingsPage() {
                             <div className="min-w-0">
                               <p className="truncate text-sm font-semibold text-slate-900" title={email.subject || templateLabel}>{email.subject || templateLabel}</p>
                               <p className="mt-0.5 truncate text-xs text-slate-600" title={email.to_email || ""}>{email.to_name ? `${email.to_name} · ` : ""}{email.to_email || "No recipient"}</p>
-                              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
-                                <Badge variant="outline" className="max-w-full truncate border-slate-200 bg-slate-50 text-[10px] font-medium text-slate-600">{templateLabel.replace(/[_\.]/g, " ")}</Badge>
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                                <Badge variant="outline" className="max-w-full truncate border-slate-200 bg-slate-50 text-xs font-medium text-slate-600">{templateLabel.replace(/[_\.]/g, " ")}</Badge>
                                 <span>{scheduleLabel}</span>
                               </div>
                             </div>
-                            <Button type="button" size="sm" onClick={() => sendQueuedEmailNow(email.id)} disabled={sendingQueueId !== null} className="w-full shrink-0 gap-2 sm:w-auto">
+                            <Button type="button" size="sm" onClick={() => sendQueuedEmailNow(email.id)} disabled={sendingQueueId !== null} className="min-h-[44px] w-full shrink-0 gap-2 sm:min-h-9 sm:w-auto">
                               {sendingQueueId === email.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                               {sendingQueueId === email.id ? "Sending..." : "Send now"}
                             </Button>
@@ -1350,7 +1288,7 @@ function EmailSettingsPage() {
                     </div>
                   )}
                   {queueReviewRows.length < queuedCount && (
-                    <p className="mt-2 text-[11px] text-slate-500">Showing the first {queueReviewRows.length} of {queuedCount} scheduled emails.</p>
+                    <p className="mt-2 text-xs text-slate-500">Showing the first {queueReviewRows.length} of {queuedCount} scheduled emails.</p>
                   )}
                 </div>
               )}
@@ -1399,9 +1337,9 @@ function EmailSettingsPage() {
                   onChange={(v) => setRow({ ...row, revoke_old_links_on_new: v })}
                 />
               </div>
-              <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
+              <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs text-slate-500">Save the automatic email choices for this company.</p>
-                <Button onClick={save} disabled={saving || !hasUnsavedChanges} className="gap-2">
+                <Button onClick={save} disabled={saving || !hasUnsavedChanges} className="w-full gap-2 sm:w-auto">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
                   {saving ? "Saving..." : hasUnsavedChanges ? "Save automatic email settings" : "Saved"}
                 </Button>
@@ -1412,38 +1350,36 @@ function EmailSettingsPage() {
           {/* Mailchimp integration */}
           <Card collapsible defaultOpen={false} collapseLabel="Mailchimp (bulk campaigns)" className="mb-6">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex flex-wrap items-center gap-2">
                 <Inbox className="w-5 h-5 text-brand-primary" />
-                Mailchimp (bulk campaigns)
-                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">Coming soon</span>
+                <span className="min-w-0">Mailchimp</span>
+                <span className="whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">Coming soon</span>
               </CardTitle>
-            <CardDescription>
-                Mailchimp is for newsletters, marketing campaigns, and audience management. It does not send quotes, invoices, confirmations, order updates, password links, or staff invites. The credential form is ready, but bulk campaign sending is not active in CateringMS yet; transactional mail uses the sender above.
+              <CardDescription>
+                Optional bulk marketing for newsletters and audience management.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-                <p className="font-semibold">Mailchimp integration is not active yet</p>
-                <p className="mt-1">Campaign sending, audience syncing, and subscriber management will be added in a future release. You do not need Mailchimp for any CateringMS transactional email.</p>
-              </div>
-              <div>
-                <Label htmlFor="mc_api">API key
-                  <InfoTooltip content={"In Mailchimp, head to Account > Extras > API keys to grab one.\n\nStored encrypted on our side."} />
-                </Label>
-                <Input disabled id="mc_api" type="password" value={mailchimpApiKey} onChange={(e) => setMailchimpApiKey(e.target.value)} placeholder="Available when Mailchimp launches" />
-              </div>
-              <div>
-                <Label htmlFor="mc_aud">Audience ID</Label>
-                <Input disabled id="mc_aud" value={mailchimpAudienceId} onChange={(e) => setMailchimpAudienceId(e.target.value)} placeholder="Available when Mailchimp launches" />
-              </div>
-              <div className="flex items-center justify-between pt-2">
-                <Link href="https://us1.admin.mailchimp.com/account/api/" target="_blank" rel="noopener" className="text-xs text-slate-600 hover:underline flex items-center gap-1">
-                  Get your API key from Mailchimp <ExternalLink className="w-3 h-3" />
-                </Link>
-                <Button variant="outline" onClick={() => toast({ title: "Mailchimp coming soon", description: "Bulk campaigns and audience syncing will be available in a future release." })} disabled className="gap-2">
-                  {savingMailchimp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  {savingMailchimp ? "Saving..." : "Save Mailchimp link"}
-                </Button>
+            <CardContent>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950 sm:p-5">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+                    <Sparkles className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">Bulk campaigns are coming later</p>
+                    <p className="mt-1 text-sm leading-6 text-amber-900">
+                      Mailchimp will be used for newsletters, marketing campaigns, audience syncing, and subscriber management.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 border-t border-amber-200 pt-4">
+                  <div className="flex items-start gap-2 text-sm leading-6 text-amber-950">
+                    <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
+                    <p>
+                      Quotes, invoices, confirmations, order updates, sign-in links, and staff invitations already use the transactional sender configured above. You do not need Mailchimp for them.
+                    </p>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -1468,7 +1404,7 @@ function ToggleRow({
   label, sub, checked, onChange,
 }: { label: string; sub?: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className="flex items-start justify-between gap-3 p-3 rounded-lg border border-slate-200 hover:border-slate-300 cursor-pointer transition-colors">
+    <label className="flex min-h-[52px] cursor-pointer items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 transition-colors hover:border-slate-300">
       <div className="min-w-0">
         <p className="text-sm font-semibold text-slate-900">{label}</p>
         {sub && <p className="text-xs text-slate-600 mt-0.5">{sub}</p>}
@@ -1534,7 +1470,7 @@ function ProviderOption({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`relative text-left rounded-xl border-2 p-4 transition-all flex flex-col gap-3 ${disabled ? "cursor-not-allowed opacity-60" : ""} ${
+      className={`relative flex min-h-[44px] flex-col gap-3 rounded-xl border-2 p-4 text-left transition-all ${disabled ? "cursor-not-allowed opacity-60" : ""} ${
         active
           ? "border-brand-primary bg-brand-primary/5 shadow-md"
           : disabled ? "border-slate-200 bg-slate-50" : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
@@ -1547,9 +1483,9 @@ function ProviderOption({
                 icon's colour class, leaving it with no text colour. */}
             <Icon className={`w-5 h-5 ${active ? "text-brand-primary" : "text-slate-600"}`} />
           </span>
-          <p className="font-semibold text-sm truncate text-slate-900">{title}</p>
+          <p className="min-w-0 break-words text-sm font-semibold text-slate-900">{title}</p>
         </div>
-        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold whitespace-nowrap ${statusColour}`}>
+        <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${statusColour}`}>
           {status.label}
         </span>
       </div>
@@ -1557,18 +1493,13 @@ function ProviderOption({
       <dl className="mt-1 space-y-1.5 border-t border-slate-200/70 pt-2">
         {meta.map((m, i) => (
           <div key={i} className="flex items-baseline gap-2">
-            <dt className="text-[10px] uppercase tracking-wide font-semibold text-slate-500 w-24 flex-shrink-0">
+            <dt className="w-24 flex-shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-500">
               {m.label}
             </dt>
-            <dd className="text-[11px] text-slate-700 leading-snug">{m.value}</dd>
+            <dd className="min-w-0 break-words text-xs leading-snug text-slate-700">{m.value}</dd>
           </div>
         ))}
       </dl>
-      {active && (
-        <div className="absolute top-2 right-2 sm:hidden">
-          <CheckCircle2 className="w-4 h-4 text-brand-primary" />
-        </div>
-      )}
     </button>
   );
 }

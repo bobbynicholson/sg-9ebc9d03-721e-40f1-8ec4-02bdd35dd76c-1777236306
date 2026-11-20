@@ -31,7 +31,7 @@
  * Network cost: 8 lightweight queries per minute per active admin
  * tab. Same shape as the staff portal hooks, proven negligible.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
@@ -65,8 +65,8 @@ const REFRESH_MS = 60_000;
 const QUOTES_OVERDUE_HOURS = 48;
 
 export function useAdminLiveCounts(): AdminLiveCounts {
-  const { user, profile } = useAuth();
-  const companyId = ((profile as { company_id?: string } | null)?.company_id)
+  const { user, profile, company } = useAuth() as any;
+  const companyId = company?.id || ((profile as { company_id?: string } | null)?.company_id)
     || ((user as { company_id?: string } | null)?.company_id);
   const userRole = ((profile as { role?: string } | null)?.role) as UserRole | undefined;
   const { regionFilterId } = useRegionFilter();
@@ -83,12 +83,24 @@ export function useAdminLiveCounts(): AdminLiveCounts {
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestVersion = useRef(0);
 
   const fetchCounts = useCallback(async () => {
     if (!companyId) {
+      setEventsToday(0);
+      setInTransitNow(0);
+      setNewLeadsToday(0);
+      setQuotesOverdue(0);
+      setDispatchGaps(0);
+      setAlertsTotal(0);
+      setRevenueToday(0);
+      setUnpaidValue(0);
+      setRefreshedAt(null);
+      setError(null);
       setLoading(false);
       return;
     }
+    const version = ++requestVersion.current;
     try {
       const todayIso = toLocalISO(new Date());
       const in7dIso = toLocalISO(new Date(Date.now() + 7 * 86400000));
@@ -235,6 +247,8 @@ export function useAdminLiveCounts(): AdminLiveCounts {
         unpaidQ,
       ]);
 
+      if (version !== requestVersion.current) return;
+
       setEventsToday(eventsRes?.count || 0);
       setInTransitNow(transitRes?.count || 0);
       setNewLeadsToday(leadsRes?.count || 0);
@@ -253,12 +267,28 @@ export function useAdminLiveCounts(): AdminLiveCounts {
       setRefreshedAt(new Date().toISOString());
       setError(null);
     } catch (e) {
+      if (version !== requestVersion.current) return;
       const msg = e instanceof Error ? e.message : "Could not refresh admin counts";
       setError(msg);
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }, [companyId, regionFilterId, canSeeFinance]);
+
+  useEffect(() => {
+    requestVersion.current += 1;
+    setEventsToday(0);
+    setInTransitNow(0);
+    setNewLeadsToday(0);
+    setQuotesOverdue(0);
+    setDispatchGaps(0);
+    setAlertsTotal(0);
+    setRevenueToday(0);
+    setUnpaidValue(0);
+    setRefreshedAt(null);
+    setError(null);
+    setLoading(Boolean(companyId));
+  }, [companyId]);
 
   useEffect(() => {
     void fetchCounts();

@@ -25,6 +25,9 @@ import { Label } from "@/components/ui/label";
 import { Building2, MapPin, Mail, Phone, Globe, Image as ImageIcon, Palette, Save, Loader2, ShieldCheck, ExternalLink, ArrowRight, Landmark, Hash, Calendar, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { CompanyProfileShortcuts } from "@/components/admin/CompanyProfileShortcuts";
+import { PortalHeaderIconAction } from "@/components/portal/PortalHeaderIconAction";
+import settingsStyles from "@/styles/adminSettings.module.css";
 import { PortalShell, PortalHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
@@ -380,7 +383,7 @@ function CompanyProfilePage() {
         <NoIndexMeta />
         <Head><title>Company profile - CateringMS</title></Head>
         <AdminNav />
-        <div className="admin-page-shell admin-page-shell--center">
+        <div className={`admin-page-shell admin-page-shell--center ${settingsStyles.page}`}>
           <div className="text-center max-w-md px-4">
             <AlertTriangle className="w-8 h-8 mx-auto text-rose-500" />
             <p className="font-medium text-slate-900 mt-3">Couldn&apos;t load your company profile</p>
@@ -400,7 +403,7 @@ function CompanyProfilePage() {
         <NoIndexMeta />
         <Head><title>Company profile - CateringMS</title></Head>
         <AdminNav />
-        <div className="admin-page-shell admin-page-shell--center">
+        <div className={`admin-page-shell admin-page-shell--center ${settingsStyles.page}`}>
           <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
         </div>
       </>
@@ -419,7 +422,7 @@ function CompanyProfilePage() {
       <Head><title>Company profile - CateringMS</title></Head>
       <AdminNav />
 
-      <div className="admin-page-shell">
+      <div className={`admin-page-shell ${settingsStyles.page}`}>
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           {/* Command-centre hero: dark band washed in this tenant's
@@ -427,6 +430,7 @@ function CompanyProfilePage() {
               actions into the meta row and restyle for the dark band. */}
           <PortalHeader
             variant="hero"
+            compactActions
             title={<span className="flex items-center gap-2">Company profile <InfoTooltip content={"Your business name, contacts, and HQ location all live here.\n\nThis feeds the sidebar header, client-facing pages, route planning, and delivery fees. Brand colours + logo live on the White Label page."} className="text-white/60 hover:text-white" /></span>}
             icon={Building2}
             subtitle="Update your company identity, EFT banking details and operating location."
@@ -437,25 +441,31 @@ function CompanyProfilePage() {
                     render (cheap; the page re-renders on any input edit
                     anyway). Amber stays semantic for "unsaved". */}
                 {isDirty ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/15 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/15 px-2.5 py-1 text-xs font-semibold text-amber-200">
                     <AlertTriangle className="w-3 h-3" /> Unsaved changes
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/90">
                     <Clock className="w-3 h-3" /> {formatRelativeSince(row.updated_at)}
                   </span>
                 )}
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                   {requiredDoneCount === requiredTotalCount && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
                   Setup {requiredDoneCount}/{requiredTotalCount} required
                 </span>
               </>
             }
             actions={
-              <Button onClick={save} disabled={saving || !isDirty} className="gap-2">
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                Save profile
-              </Button>
+              <>
+                <CompanyProfileShortcuts onSelect={(id) => revealSection(document.getElementById(id), true)} />
+                <PortalHeaderIconAction
+                  icon={saving ? Loader2 : Save}
+                  iconClassName={saving ? "animate-spin" : undefined}
+                  label={saving ? "Saving profile" : isDirty ? "Save profile" : "Profile up to date"}
+                  onClick={save}
+                  disabled={saving || !isDirty}
+                />
+              </>
             }
           />
           <PageWorkbench />
@@ -519,9 +529,9 @@ function CompanyProfilePage() {
           })()}
 
           {/* Identity */}
-          <Card collapsible defaultOpen={true} collapseLabel="Identity" id="section-identity" className="mb-6 scroll-mt-20">
+          <Card collapsible defaultOpen={true} collapseLabel="Identity" id="section-identity" tabIndex={-1} className="mb-6 scroll-mt-20">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex flex-wrap items-center gap-2 text-base leading-6">
                 <Building2 className="w-5 h-5 text-slate-600" />
                 Identity
                 <InfoTooltip content={"The name, phone, email, website, and registration details that show up everywhere clients and your team see your brand."} />
@@ -574,9 +584,9 @@ function CompanyProfilePage() {
               invoices / payslips. Pre-populated to Africa/Johannesburg
               + ZAR by the DB migration so existing tenants don't see
               an empty value. */}
-          <Card collapsible defaultOpen={false} collapseLabel="Region & currency" id="section-region" className="mb-6 scroll-mt-20">
+          <Card collapsible defaultOpen={false} collapseLabel="Region & currency" id="section-region" tabIndex={-1} className="mb-6 scroll-mt-20">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex flex-wrap items-center gap-2 text-base leading-6">
                 <Globe className="w-5 h-5 text-blue-600" />
                 Region &amp; currency
                 <InfoTooltip content={"Sets the wall clock for every date bucket in the system. Reports, kitchen prep lead times, driver pay windows and the daily cron all key off this. Get it wrong on a UK or US deploy and reports will show events on the wrong day."} />
@@ -605,7 +615,7 @@ function CompanyProfilePage() {
                     ))}
                   </optgroup>
                 </select>
-                <p className="mt-1 text-xs text-slate-500">Every date and time in the portal is shown in this time zone, for everyone on your team.</p>
+                <p className="mt-1 text-sm leading-5 text-slate-600">Every date and time in the portal is shown in this time zone, for everyone on your team.</p>
               </Field>
               {Object.prototype.hasOwnProperty.call(row, "time_format") && (
                 <Field id="time_format" label="Time format">
@@ -618,7 +628,7 @@ function CompanyProfilePage() {
                     <option value="24h">24-hour (14:30)</option>
                     <option value="12h">12-hour (2:30 PM)</option>
                   </select>
-                  <p className="mt-1 text-xs text-slate-500">How times are shown everywhere in the portal.</p>
+                  <p className="mt-1 text-sm leading-5 text-slate-600">How times are shown everywhere in the portal.</p>
                 </Field>
               )}
               <Field id="currency" label="Currency">
@@ -648,7 +658,7 @@ function CompanyProfilePage() {
                   placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4"
                 />
               </Field>
-              <p className="md:col-span-2 text-xs text-slate-500 leading-relaxed">
+              <p className="md:col-span-2 text-sm text-slate-600 leading-relaxed">
                 Find your place_id at{" "}
                 <a
                   href="https://developers.google.com/maps/documentation/places/web-service/place-id"
@@ -669,9 +679,9 @@ function CompanyProfilePage() {
               Empty values fall back to the SA wedding default (May-
               September) in aiFinancialService. End < start wraps
               year-end so US Q4 caterers can set 11..1. */}
-          <Card collapsible defaultOpen={false} collapseLabel="Peak season" id="section-peak" className="mb-6 scroll-mt-20">
+          <Card collapsible defaultOpen={false} collapseLabel="Peak season" id="section-peak" tabIndex={-1} className="mb-6 scroll-mt-20">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex flex-wrap items-center gap-2 text-base leading-6">
                 <Calendar className="w-5 h-5 text-amber-600" />
                 Peak season
                 <InfoTooltip content={"Tells the financial dashboard which months count as your peak. The Peak Season banner uses these to surface a count-down 6 weeks before peak starts and a 'peak is here' pulse for the first two weeks of the window.\n\nLeave both blank to inherit the SA wedding default (May - September). End month can be before start month to wrap year-end - e.g. set 11 to 1 for a US holiday catering peak (Nov - Jan)."} />
@@ -718,7 +728,7 @@ function CompanyProfilePage() {
                 </select>
               </Field>
               {row.peak_season_start_month != null && row.peak_season_end_month != null && (
-                <p className="md:col-span-2 text-xs text-slate-500 leading-relaxed">
+                <p className="md:col-span-2 text-sm text-slate-600 leading-relaxed">
                   Peak window:{" "}
                   <strong>
                     {new Date(2000, row.peak_season_start_month - 1, 1).toLocaleString("en-ZA", { month: "long" })}
@@ -732,7 +742,7 @@ function CompanyProfilePage() {
                 </p>
               )}
               {(row.peak_season_start_month == null) !== (row.peak_season_end_month == null) && (
-                <p className="md:col-span-2 text-xs text-amber-700 leading-relaxed">
+                <p className="md:col-span-2 text-sm text-amber-700 leading-relaxed">
                   Set both start and end, or leave both blank. The banner ignores a half-configured window and falls back to the default.
                 </p>
               )}
@@ -746,9 +756,9 @@ function CompanyProfilePage() {
               reconciles daily sets ~36; a once-a-week back office
               sets ~144. Capped at 30 days (720h) so the badge can
               never be permanently suppressed. */}
-          <Card collapsible defaultOpen={false} collapseLabel="Cash on hand staleness" className="mb-6">
+          <Card collapsible defaultOpen={false} collapseLabel="Cash on hand staleness" id="section-cash" tabIndex={-1} className="mb-6 scroll-mt-20">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex flex-wrap items-center gap-2 text-base leading-6">
                 <Calendar className="w-5 h-5 text-amber-600" />
                 Cash on hand staleness
                 <InfoTooltip content={"How long the cashflow dashboard waits after you last updated the Cash on hand value before it warns you the number is going stale.\n\nThe forecast is only as accurate as that bank-balance entry; the badge tells the bookkeeper when it's time to refresh.\n\nLeave blank to inherit the 72h default (matches a typical Mon/Wed/Fri reconciliation rhythm)."} />
@@ -780,7 +790,7 @@ function CompanyProfilePage() {
                 />
               </Field>
               {row.cash_on_hand_stale_after_hours != null && (
-                <p className="md:col-span-2 text-xs text-slate-500 leading-relaxed">
+                <p className="md:col-span-2 text-sm text-slate-600 leading-relaxed">
                   Stale after <strong>{row.cash_on_hand_stale_after_hours}h</strong>
                   {" "}({(row.cash_on_hand_stale_after_hours / 24).toFixed(1)} days).
                 </p>
@@ -792,9 +802,9 @@ function CompanyProfilePage() {
               and invoices: VAT-registered businesses issue 'Tax
               Invoice' (with a VAT number on the document); everyone
               else issues a plain 'Invoice'. SARS rule. */}
-          <Card collapsible defaultOpen={false} collapseLabel="VAT registration" id="section-vat" className="mb-6 scroll-mt-20">
+          <Card collapsible defaultOpen={false} collapseLabel="VAT registration" id="section-vat" tabIndex={-1} className="mb-6 scroll-mt-20">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex flex-wrap items-center gap-2 text-base leading-6">
                 <Globe className="w-5 h-5 text-brand-primary" />
                 VAT registration
                 <InfoTooltip content={"South African rule: VAT-registered businesses issue 'Tax Invoice' documents with their VAT number on every quote and invoice. Non-registered businesses issue plain 'Invoices'.\n\nFlip the toggle and the document templates + totals labels (incl. VAT) update everywhere automatically."} />
@@ -814,7 +824,7 @@ function CompanyProfilePage() {
                   />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-slate-900">This business is VAT registered</p>
-                    <p className="text-xs text-slate-500">When on, your quotes and invoices say &apos;Tax Invoice&apos; and show your VAT number.</p>
+                    <p className="text-sm leading-5 text-slate-600">When on, your quotes and invoices say &apos;Tax Invoice&apos; and show your VAT number.</p>
                   </div>
                 </label>
               </div>
@@ -849,7 +859,7 @@ function CompanyProfilePage() {
                   Pricing convention
                   <InfoTooltip content={"Pick how you enter prices into the system, then leave it alone:\n\n• On (inc VAT): the rand you type into menu items, equipment hire prices and ingredient costs is what the customer pays / what the supplier charges. Quotes show the same total at the top; ex-VAT subtotal + VAT line are derived for accounting display.\n\n• Off (ex VAT): you enter pre-VAT figures. The system adds VAT on top at quote time.\n\nThe convention has to match across every input field, otherwise the gross-profit per serving will be wrong because cost and sell sides won't be on the same basis. Default is off (ex VAT)."} />
                 </Label>
-                <p className="text-xs text-slate-500">
+                <p className="text-sm leading-5 text-slate-600">
                   Drives whether prices everywhere are entered including or excluding VAT. Pick one and stay consistent.
                 </p>
                 <label className="flex items-start gap-3 rounded-md border border-slate-200 p-3 cursor-pointer hover:bg-slate-50">
@@ -862,7 +872,7 @@ function CompanyProfilePage() {
                   />
                   <div>
                     <p className="text-sm font-medium text-slate-900">Prices include VAT</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-sm leading-5 text-slate-600">
                       What you type into menu items, equipment and ingredient cost fields is the customer-facing / supplier-facing price. The system derives the ex-VAT subtotal for the quote / invoice. Turn off if you'd rather enter net prices and let the system add VAT on top.
                     </p>
                   </div>
@@ -876,9 +886,9 @@ function CompanyProfilePage() {
               invoice. The reference clients use is the invoice
               number, hard-coded in the EFT flow - the only
               reconciliation rule that needs to hold. */}
-          <Card collapsible defaultOpen={false} collapseLabel="Banking details" id="section-banking" className="mb-6 scroll-mt-20">
+          <Card collapsible defaultOpen={false} collapseLabel="Banking details" id="section-banking" tabIndex={-1} className="mb-6 scroll-mt-20">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex flex-wrap items-center gap-2 text-base leading-6">
                 <Landmark className="w-5 h-5 text-blue-600" />
                 Banking details
                 <InfoTooltip content={"Shown to your clients when they pick EFT on their portal or on a public invoice link. The reference they use is always the invoice number, which is what your bank reconciliation will match against.\n\nLeave the whole section blank if you don't want EFT as an option."} />
@@ -947,7 +957,7 @@ function CompanyProfilePage() {
                   placeholder="Allow 1-2 business days for payment to reflect"
                 />
               </Field>
-              <div className="md:col-span-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900 space-y-1">
+              <div className="md:col-span-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900 space-y-1">
                 <p className="font-semibold">How EFT confirmation works</p>
                 <p>
                   Your client sees these details with the invoice number as a copyable reference. After they pay,
@@ -963,9 +973,9 @@ function CompanyProfilePage() {
           </Card>
 
           {/* Address + map coords */}
-          <Card collapsible defaultOpen={false} collapseLabel="Kitchen / HQ address" id="section-address" className="mb-6 scroll-mt-20">
+          <Card collapsible defaultOpen={false} collapseLabel="Kitchen / HQ address" id="section-address" tabIndex={-1} className="mb-6 scroll-mt-20">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex flex-wrap items-center gap-2 text-base leading-6">
                 <MapPin className="w-5 h-5 text-brand-primary" />
                 Kitchen / HQ address
                 <InfoTooltip content={"This is the starting point for every delivery distance and route plan.\n\nThe more accurate the address and coordinates, the more accurate every quote's delivery fee will be."} />
@@ -1025,14 +1035,14 @@ function CompanyProfilePage() {
                   href={`https://www.google.com/maps?q=${row.headquarters_lat},${row.headquarters_lng}`}
                   target="_blank"
                   rel="noopener"
-                  className="inline-flex items-center gap-1 text-xs text-slate-600 hover:underline"
+                  className="inline-flex items-center gap-1 text-sm text-slate-600 hover:underline"
                 >
                   Verify on Google Maps <ExternalLink className="w-3 h-3" />
                 </a>
               )}
 
               {!hasMapsKey && (
-                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 space-y-1">
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 space-y-1">
                   <p className="font-semibold flex items-center gap-1.5">
                     <ShieldCheck className="w-3.5 h-3.5" /> Google Maps not connected yet
                   </p>
@@ -1055,9 +1065,9 @@ function CompanyProfilePage() {
 
           {/* Brand colours - managed on the dedicated White Label page so
               there's a single source of truth for logo + palette. */}
-          <Card collapsible defaultOpen={false} collapseLabel="Brand colours + logo" id="section-brand" className="mb-6 scroll-mt-20">
+          <Card collapsible defaultOpen={false} collapseLabel="Brand colours + logo" id="section-brand" tabIndex={-1} className="mb-6 scroll-mt-20">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex flex-wrap items-center gap-2 text-base leading-6">
                 <Palette className="w-5 h-5 text-rose-600" />
                 Brand colours + logo
               </CardTitle>
@@ -1087,7 +1097,7 @@ function CompanyProfilePage() {
             {isDirty ? "Save profile" : "Profile up to date"}
           </Button>
 
-          <p className="text-[11px] text-slate-500 text-center mt-4">
+          <p className="mt-4 text-center text-sm text-slate-600">
             Saved details appear in the sidebar, on client order and account pages, and in delivery fee calculations.
           </p>
         </PortalShell>
@@ -1142,9 +1152,9 @@ function deriveCompleteness(r: CompanyRow): CompletenessItem[] {
 function Field({ id, label, hint, children }: any) {
   return (
     <div>
-      <Label htmlFor={id} className="text-xs font-semibold text-slate-700">{label}</Label>
+      <Label htmlFor={id} className="text-sm font-semibold text-slate-700">{label}</Label>
       <div className="mt-1">{children}</div>
-      {hint && <p className="text-[11px] text-slate-500 mt-1">{hint}</p>}
+      {hint && <p className="mt-1 text-sm leading-5 text-slate-600">{hint}</p>}
     </div>
   );
 }
@@ -1297,15 +1307,15 @@ function DocumentNumberingCard({ companyId }: { companyId: string }) {
   };
 
   return (
-    <Card collapsible defaultOpen={false} collapseLabel="Document numbering" className="mb-6">
+    <Card collapsible defaultOpen={false} collapseLabel="Document numbering" id="section-numbering" tabIndex={-1} className="mb-6 scroll-mt-20">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex flex-wrap items-center gap-2 text-base leading-6">
           <Hash className="w-5 h-5 text-blue-600" />
           Document numbering
           <InfoTooltip content={"Per-tenant counters for the invoice, quote, and order numbers your clients see.\n\nMigrating from another tool? Set the starting number to whatever comes next in the old sequence and the platform will pick up from there.\n\nValidation blocks regressing past numbers you've already issued, so you can't accidentally re-use a live invoice number."} />
         </CardTitle>
         <CardDescription>
-          Choose how {DOC_TYPE_META.invoice.label.toLowerCase()}s, quotes and orders are numbered.
+          Choose how invoices, quotes and orders are numbered. Save each numbering setup separately.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -1336,7 +1346,7 @@ function DocumentNumberingCard({ companyId }: { companyId: string }) {
                 >
                   <div>
                     <p className="text-sm font-semibold text-slate-900">{meta.label}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-sm leading-5 text-slate-600">
                       {row ? `Next: ${previewNumber(row, 0)}` : meta.description}
                       {stat.highest > 0 && ` · Highest issued: ${stat.sample || stat.highest}`}
                     </p>
@@ -1375,7 +1385,7 @@ function DocumentNumberingCard({ companyId }: { companyId: string }) {
                           />
                           <div className="flex-1">
                             <p className="text-sm font-medium text-slate-900">Include year</p>
-                            <p className="text-xs text-slate-500">Adds the calendar year between the prefix and the sequence, e.g. INV-2026-000123.</p>
+                            <p className="text-sm leading-5 text-slate-600">Adds the calendar year between the prefix and the sequence, e.g. INV-2026-000123.</p>
                           </div>
                         </label>
                       </div>
@@ -1402,7 +1412,7 @@ function DocumentNumberingCard({ companyId }: { companyId: string }) {
                               />
                               <div className="flex-1">
                                 <p className="text-sm font-medium text-slate-900">Reset annually</p>
-                                <p className="text-xs text-slate-500">Sequence kicks back to 1 on 1 January.</p>
+                                <p className="text-sm leading-5 text-slate-600">Sequence kicks back to 1 on 1 January.</p>
                               </div>
                             </label>
                           </div>

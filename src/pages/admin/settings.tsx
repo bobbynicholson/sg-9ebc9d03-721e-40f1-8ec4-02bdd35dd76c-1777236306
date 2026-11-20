@@ -191,12 +191,13 @@ export default function ProtectedSettingsPage() {
 }
 
 function SettingsPage() {
-  const { profile, user } = useAuth() as any;
-  const companyId = profile?.company_id || user?.company_id;
+  const { profile, user, company } = useAuth() as any;
+  const companyId = company?.id || profile?.company_id || user?.company_id || null;
   const { withSlug } = useTenantHref();
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
+  const [loadedCompanyId, setLoadedCompanyId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [savedSnapshot, setSavedSnapshot] = useState("");
@@ -207,6 +208,10 @@ function SettingsPage() {
 
   useEffect(() => {
     if (!companyId) {
+      setSettings(DEFAULT_SETTINGS);
+      setSavedSnapshot("");
+      setLoadedCompanyId(null);
+      setLoadFailed(null);
       setLoading(false);
       return;
     }
@@ -214,6 +219,10 @@ function SettingsPage() {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setSettings(DEFAULT_SETTINGS);
+      setSavedSnapshot("");
+      setLoadedCompanyId(null);
+      setSaved(false);
       setLoadFailed(null);
       try {
         const local = readLocalSettings(companyId);
@@ -237,14 +246,17 @@ function SettingsPage() {
         if (error) throw error;
         if (cancelled) return;
 
-        const next = companyToSettings(company || {}, local);
+        if (!company) throw new Error("Company settings could not be found for the active company.");
+        const next = companyToSettings(company, local);
         setSettings(next);
         setSavedSnapshot(JSON.stringify(next));
+        setLoadedCompanyId(companyId);
       } catch (error: any) {
         if (!cancelled) {
           const fallback = readLocalSettings(companyId);
           setSettings(fallback);
           setSavedSnapshot(JSON.stringify(fallback));
+          setLoadedCompanyId(companyId);
           // Persistent banner as well as the toast: cached values can
           // be stale and the operator must know before editing them.
           setLoadFailed(error?.message || "Could not read company settings from the database.");
@@ -263,6 +275,8 @@ function SettingsPage() {
       cancelled = true;
     };
   }, [companyId, toast, reloadNonce]);
+
+  const isLoadingCurrentCompany = Boolean(companyId) && (loading || loadedCompanyId !== companyId);
 
   const hasUnsavedChanges = useMemo(
     () => !!savedSnapshot && savedSnapshot !== JSON.stringify(settings),
@@ -302,6 +316,7 @@ function SettingsPage() {
       });
       return;
     }
+    if (isLoadingCurrentCompany || loadFailed || !savedSnapshot) return;
 
     setSaving(true);
     try {
@@ -440,8 +455,12 @@ function SettingsPage() {
             icon={Settings}
             subtitle="Open a setup area or update the operational defaults used by your company."
             meta={
-              !loading ? (
+              !isLoadingCurrentCompany && company ? (
                 <>
+                  <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <Building2 className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{company.company_name || company.name || "Company settings"}</span>
+                  </span>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
                     {settings.financial.currency} · VAT {settings.financial.taxRate}%
                   </span>
@@ -460,7 +479,7 @@ function SettingsPage() {
             actions={
               <Button
                 onClick={handleSave}
-                disabled={!hasUnsavedChanges || saving || loading}
+                disabled={!hasUnsavedChanges || saving || isLoadingCurrentCompany || !!loadFailed}
                 className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
                 size="sm"
               >
@@ -470,7 +489,7 @@ function SettingsPage() {
             }
           />
           <PageWorkbench />
-      {hasUnsavedChanges && (
+      {hasUnsavedChanges && !isLoadingCurrentCompany && companyId && (
         <div className="mb-6 flex justify-end">
           <div className="flex items-center gap-3 rounded-full border border-amber-400/40 bg-slate-900 px-4 py-2.5 text-white shadow-2xl">
             <span className="inline-flex items-center gap-2 text-xs font-medium">
@@ -479,7 +498,7 @@ function SettingsPage() {
             </span>
             <Button
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || isLoadingCurrentCompany || !!loadFailed}
               size="sm"
               className="h-8 gap-1.5 bg-brand-primary text-white hover:bg-brand-primary/90"
             >
@@ -513,7 +532,7 @@ function SettingsPage() {
             </Card>
           )}
 
-          <section className="mb-8">
+          {companyId && <section className="mb-8">
             <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="text-base font-semibold text-slate-900">Setup areas</h2>
@@ -527,7 +546,7 @@ function SettingsPage() {
                 <SettingsShortcutCard key={item.href} item={item} href={withSlug(item.href)} />
               ))}
             </div>
-          </section>
+          </section>}
 
           <section>
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -547,7 +566,14 @@ function SettingsPage() {
               )}
             </div>
 
-            {loading ? (
+            {!companyId ? (
+              <Card>
+                <CardContent className="py-8 text-center">
+                  <p className="text-sm font-semibold text-slate-900">Choose a company to edit settings</p>
+                  <p className="mt-1 text-sm text-slate-600">Company defaults stay separate. Open this page from a company workspace.</p>
+                </CardContent>
+              </Card>
+            ) : isLoadingCurrentCompany ? (
               <Card>
                 <CardContent className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -555,7 +581,7 @@ function SettingsPage() {
                 </CardContent>
               </Card>
             ) : (
-              <Tabs defaultValue="financial" className="space-y-4 md:space-y-6">
+              <Tabs key={companyId} defaultValue="financial" className="space-y-4 md:space-y-6">
                 <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
                   <TabsTrigger value="financial" className="whitespace-nowrap text-xs md:text-sm">Financial</TabsTrigger>
                   <TabsTrigger value="pricing" className="whitespace-nowrap text-xs md:text-sm">Pricing</TabsTrigger>
@@ -603,15 +629,15 @@ function SettingsPage() {
                 </TabsContent>
 
                 <TabsContent id="settings-inventory" data-chat-section="admin.settings.inventory" data-chat-section-label="Inventory settings" value="inventory">
-                  <InventorySettingsTab />
+                  <InventorySettingsTab key={companyId} companyId={companyId} />
                 </TabsContent>
 
                 <TabsContent id="settings-dispatch" data-chat-section="admin.settings.dispatch" data-chat-section-label="Dispatch settings" value="dispatch">
-                  <DispatchSettingsTab />
+                  <DispatchSettingsTab key={companyId} companyId={companyId} />
                 </TabsContent>
 
                 <TabsContent id="settings-cancellation" data-chat-section="admin.settings.cancellation" data-chat-section-label="Terms and policies" value="cancellation">
-                  <CancellationPolicyTab />
+                  <CancellationPolicyTab key={companyId} companyId={companyId} />
                 </TabsContent>
               </Tabs>
             )}
@@ -714,7 +740,7 @@ function companyToSettings(company: Record<string, any>, fallback: AdminSettings
 
 function readLocalSettings(companyId: string): AdminSettings {
   if (typeof window === "undefined") return DEFAULT_SETTINGS;
-  const keys = [`admin_settings.${companyId}`, "admin_settings"];
+  const keys = [`admin_settings.${companyId}`];
   for (const key of keys) {
     try {
       const raw = window.localStorage.getItem(key);
@@ -742,7 +768,6 @@ function mirrorSettingsCache(companyId: string, settings: AdminSettings) {
   try {
     const json = JSON.stringify(settings);
     window.localStorage.setItem(`admin_settings.${companyId}`, json);
-    window.localStorage.setItem("admin_settings", json);
   } catch {
     // Local cache is only a compatibility mirror. The DB save already succeeded.
   }

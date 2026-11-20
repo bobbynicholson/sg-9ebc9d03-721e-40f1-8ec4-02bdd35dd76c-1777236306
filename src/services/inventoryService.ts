@@ -778,7 +778,8 @@ export const inventoryService = {
       .select("inventory_settings")
       .eq("id", companyId)
       .maybeSingle();
-    if (error || !data) return defaults;
+    if (error) throw error;
+    if (!data) throw new Error("Company inventory settings could not be found.");
     const raw = (data as any).inventory_settings || {};
     return {
       expiryWarnings: raw.expiry_warnings || defaults.expiryWarnings,

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Truck, Save, AlertCircle, Sparkles } from "lucide-react";
+import { Truck, Save, AlertCircle, Sparkles, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { dispatchService, type DispatchSettings } from "@/services/dispatchService";
@@ -16,24 +16,42 @@ interface Props {
 export function DispatchSettingsTab({ companyId: companyIdProp }: Props = {}) {
   const { toast } = useToast();
   const { user, profile } = useAuth() as any;
-  const companyId = companyIdProp ?? profile?.company_id ?? user?.company_id ?? null;
+  const companyId = companyIdProp !== undefined ? companyIdProp : profile?.company_id ?? user?.company_id ?? null;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [settings, setSettings] = useState<DispatchSettings | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
-    if (!companyId) { setLoading(false); return; }
-    dispatchService.getDispatchSettings(companyId)
-      .then(s => { setSettings(s); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [companyId]);
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    setSettings(null);
+    if (!companyId) { setLoading(false); return () => { cancelled = true; }; }
+    dispatchService.getDispatchSettings(companyId, { throwOnError: true })
+      .then(s => { if (!cancelled) setSettings(s); })
+      .catch(e => { if (!cancelled) setError(e?.message ?? "Could not load this company's dispatch settings."); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [companyId, reloadNonce]);
 
-  if (loading || !settings) {
+  if (loading) {
     return (
       <Card className="border-0 shadow-lg">
-        <CardContent className="py-8 text-center text-sm text-slate-500">Loading...</CardContent>
+        <CardContent className="flex items-center justify-center gap-2 py-8 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Loading dispatch settings…</CardContent>
+      </Card>
+    );
+  }
+
+  if (error || !settings) {
+    return (
+      <Card className="border-0 shadow-lg">
+        <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
+          <p className="text-sm text-rose-700">{error || "Select a company to load dispatch settings."}</p>
+          {companyId && <Button onClick={() => setReloadNonce(value => value + 1)} size="sm" variant="outline">Retry</Button>}
+        </CardContent>
       </Card>
     );
   }

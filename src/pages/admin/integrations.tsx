@@ -25,7 +25,7 @@
  *  webhook subscription that POSTs a sample payload and shows the live
  *  response inline.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -221,8 +221,9 @@ const RECIPES: Recipe[] = [
 ];
 
 function IntegrationsPage() {
-  const { profile, user } = useAuth() as any;
-  const companyId = profile?.company_id || user?.company_id;
+  const { profile, user, company } = useAuth() as any;
+  const companyId = company?.id || profile?.company_id || user?.company_id || null;
+  const companyQuery = companyId ? `?company_id=${encodeURIComponent(companyId)}` : "";
   const companySlug = profile?.company_slug || user?.company_slug;
   const { toast } = useToast();
 
@@ -239,12 +240,18 @@ function IntegrationsPage() {
     target_url: "",
   });
   const [firingId, setFiringId] = useState<string | null>(null);
+  const loadVersion = useRef(0);
 
   const reload = async () => {
-    if (!companyId) return;
+    const version = ++loadVersion.current;
+    setLoading(true);
+    setLoadError(null);
+    setKeys([]);
+    setSubs([]);
+    if (!companyId) { setLoading(false); return; }
     const [keysRes, subsResponse] = await Promise.all([
       supabase.from("api_keys").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
-      fetch("/api/admin/webhook-subscriptions"),
+      fetch(`/api/admin/webhook-subscriptions${companyQuery}`),
     ]);
     let webhookRows: WebhookSub[] = [];
     let webhookError: Error | null = null;
@@ -258,6 +265,7 @@ function IntegrationsPage() {
         webhookError = new Error("Invalid webhook response");
       }
     }
+    if (version !== loadVersion.current) return;
     // Silent-failure audit: either query dying used to leave an empty
     // table that read as "no keys / no webhooks yet". Surface it.
     const failed = keysRes.error || webhookError;
@@ -275,8 +283,8 @@ function IntegrationsPage() {
   };
 
   useEffect(() => {
-    if (!companyId) return;
-    reload();
+    void reload();
+    return () => { loadVersion.current += 1; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
 
@@ -310,7 +318,7 @@ function IntegrationsPage() {
 
   const revokeKey = async (id: string) => {
     if (!confirm("Revoke this key? Anything using it will stop working immediately.")) return;
-    const { error } = await supabase.from("api_keys").update({ is_active: false, revoked_at: new Date().toISOString() }).eq("id", id);
+    const { error } = await supabase.from("api_keys").update({ is_active: false, revoked_at: new Date().toISOString() }).eq("id", id).eq("company_id", companyId);
     if (error) {
       toast({ title: "Couldn't revoke key", description: dbErrorMessage(error, { entity: "API key" }), variant: "destructive" });
       return;
@@ -331,7 +339,7 @@ function IntegrationsPage() {
       });
       return;
     }
-    const response = await fetch("/api/admin/webhook-subscriptions", {
+    const response = await fetch(`/api/admin/webhook-subscriptions${companyQuery}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ label: newSub.label, event_type: newSub.event_type, target_url: targetUrl }),
@@ -350,7 +358,7 @@ function IntegrationsPage() {
   };
 
   const toggleSub = async (id: string, is_active: boolean) => {
-    const response = await fetch("/api/admin/webhook-subscriptions", {
+    const response = await fetch(`/api/admin/webhook-subscriptions${companyQuery}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -367,7 +375,7 @@ function IntegrationsPage() {
 
   const deleteSub = async (id: string) => {
     if (!confirm("Delete this webhook subscription?")) return;
-    const response = await fetch("/api/admin/webhook-subscriptions", {
+    const response = await fetch(`/api/admin/webhook-subscriptions${companyQuery}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -385,7 +393,7 @@ function IntegrationsPage() {
   const fireTest = async (sub: WebhookSub) => {
     setFiringId(sub.id);
     try {
-      const r = await fetch("/api/integrations/test-webhook", {
+      const r = await fetch(`/api/integrations/test-webhook${companyQuery}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ subscription_id: sub.id }),
@@ -1019,6 +1027,9 @@ function SageCard({ companyId }: { companyId: string | null | undefined }) {
   const [options, setOptions] = useState<SageOptions>({ ledger_accounts: [], tax_rates: [], bank_accounts: [], payment_methods: [] });
   const [metadata, setMetadata] = useState<SageMetadata>({});
   const [saving, setSaving] = useState(false);
+  const settingsUrl = companyId
+    ? `/api/accounting/sage/settings?company_id=${encodeURIComponent(companyId)}`
+    : "/api/accounting/sage/settings";
 
   useEffect(() => {
     if (!companyId) return;
@@ -1026,7 +1037,7 @@ function SageCard({ companyId }: { companyId: string | null | undefined }) {
     (async () => {
       setLoading(true);
       try {
-        const r = await fetch("/api/accounting/sage/settings", { credentials: "include" });
+        const r = await fetch(settingsUrl, { credentials: "include" });
         const data = await r.json();
         if (cancelled) return;
         setConnected(!!data.connected);
@@ -1040,12 +1051,12 @@ function SageCard({ companyId }: { companyId: string | null | undefined }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId, toast]);
+  }, [companyId, settingsUrl, toast]);
 
   const save = async () => {
     setSaving(true);
     try {
-      const r = await fetch("/api/accounting/sage/settings", {
+      const r = await fetch(settingsUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

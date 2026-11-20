@@ -44,7 +44,6 @@ import {
   MessageSquare,
   Truck,
   Layers,
-  Calendar,
   CalendarHeart,
   UserPlus,
   FileSpreadsheet,
@@ -215,10 +214,10 @@ export function AdminNav(_: AdminNavProps = {}) {
             : null,
         },
         {
-          title: "Calendar",
-          href: "/admin/calendar",
-          icon: Calendar,
-          description: "Event schedule",
+          title: "Opportunity Lab",
+          href: "/admin/quotes?view=opportunity",
+          icon: Sparkles,
+          description: "Quote opportunities by date",
         },
         {
           title: "Daily operations",

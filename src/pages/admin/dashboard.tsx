@@ -27,6 +27,8 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { isAutomatedTestOrder, isAutomatedTestQuote } from "@/lib/testDataDetection";
 import { OPEN_REFUND_STATUSES } from "@/lib/refundStatus";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+import { loadStockShortfallCount, stockShortfallFailureReference } from "@/lib/dashboard/stockShortfalls";
+import { captureException } from "@/lib/observability";
 
 // Keep secondary dashboard features out of the first route bundle. These
 // sections either sit below the fold or are behind a disclosure, so their
@@ -312,11 +314,14 @@ function AdminDashboardPage() {
         // demand-outlook view (confirmed orders in next 7 days
         // need more than we have). RLS on the underlying tables
         // scopes the view to this tenant.
-        (supabase as any)
-          .from("inventory_demand_outlook")
-          .select("inventory_item_id", { count: "exact", head: true })
-          .eq("company_id", companyId)
-          .eq("status", "shortfall"),
+        loadStockShortfallCount((head) => {
+          const query = (supabase as any)
+            .from("inventory_demand_outlook")
+            .select("inventory_item_id", { count: "exact", head })
+            .eq("company_id", companyId)
+            .eq("status", "shortfall");
+          return head ? query : query.limit(1);
+        }),
         // Refunds are a dashboard tile too. Fetch them in parallel with
         // the other metrics instead of adding another network round trip.
         supabase
@@ -492,6 +497,12 @@ function AdminDashboardPage() {
       ].forEach(([label, result, metrics]: any) => {
         if (result?.error) {
           console.warn(`[admin/dashboard] ${label} query failed:`, result.error);
+          if (label === "stock shortfalls") {
+            captureException(result.error, {
+              tags: { route: "/admin/dashboard", companyId, query: "stock_shortfalls" },
+              extra: { status: result.status },
+            });
+          }
           failedTiles.push(label);
           failedMetrics.push(...metrics);
         }
@@ -538,9 +549,10 @@ function AdminDashboardPage() {
       // A partial-failure banner and per-tile unavailable state prevent
       // failed reads from looking like real zero values.
       setUnavailableMetrics(failedMetrics);
+      const shortfallReference = stockShortfallFailureReference(shortfallRes);
       setTileWarning(
         failedTiles.length
-          ? `Could not load ${failedTiles.join(", ")}. Affected tiles show Unavailable. Refresh to retry.`
+          ? `Could not load ${failedTiles.join(", ")}. Affected tiles show Unavailable. Use Retry to try again.${shortfallReference ? ` Stock shortfall reference: ${shortfallReference}.` : ""}`
           : null,
       );
       const liveRefundRows = (refundRows || []).filter((r: any) => !isAutomatedTestOrder(r.order));
@@ -1051,7 +1063,7 @@ function AdminDashboardPage() {
                     <PriorityRow
                       icon={AlertCircle} accent="border-amber-500" iconColor="text-amber-600"
                       title="Stock shortfalls unavailable"
-                      sub="The demand outlook could not be loaded. Refresh to retry."
+                      sub="The demand outlook could not be loaded. Use Retry above, or open shopping."
                       cta={{ href: withSlug("/admin/shopping?tab=buy_now"), label: "Open shopping", variant: "outline" }}
                     />
                   )}

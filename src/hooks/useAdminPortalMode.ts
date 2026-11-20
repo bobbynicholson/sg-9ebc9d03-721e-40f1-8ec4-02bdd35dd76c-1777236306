@@ -30,7 +30,7 @@
  *
  * Performance: 4 small queries per page load + 60s ticker. Negligible.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
@@ -104,8 +104,8 @@ function computeAutoMode(
 }
 
 export function useAdminPortalMode(): AdminPortalModeState {
-  const { user, profile } = useAuth();
-  const companyId = ((profile as { company_id?: string } | null)?.company_id)
+  const { user, profile, company } = useAuth() as any;
+  const companyId = company?.id || ((profile as { company_id?: string } | null)?.company_id)
     || ((user as { company_id?: string } | null)?.company_id);
   const { regionFilterId } = useRegionFilter();
 
@@ -118,6 +118,7 @@ export function useAdminPortalMode(): AdminPortalModeState {
   const [override, setOverrideState] = useState<AdminPortalMode | null>(() => readOverride());
   const [refreshTick, setRefreshTick] = useState(0);
   const [now, setNow] = useState(() => new Date());
+  const requestVersion = useRef(0);
 
   // Re-evaluate the time-of-day part every minute for accurate
   // review-window detection (17:00 cutoff).
@@ -128,9 +129,15 @@ export function useAdminPortalMode(): AdminPortalModeState {
 
   const fetchSignals = useCallback(async () => {
     if (!companyId) {
+      setEventsToday(0);
+      setInTransitNow(0);
+      setQuotesOverdue(0);
+      setOnboardingComplete(true);
+      setTenantAgeDays(null);
       setLoading(false);
       return;
     }
+    const version = ++requestVersion.current;
     try {
       const todayIso = toLocalISO(new Date());
       const overdueCutoff = new Date(Date.now() - QUOTES_OVERDUE_HOURS * 3_600_000).toISOString();
@@ -175,6 +182,8 @@ export function useAdminPortalMode(): AdminPortalModeState {
         eventsQ, transitQ, quotesQ, companyQ,
       ]);
 
+      if (version !== requestVersion.current) return;
+
       const transitCount = transitRes?.count || 0;
       setEventsToday(Math.max(eventsRes?.count || 0, transitCount));
       setInTransitNow(transitCount);
@@ -190,9 +199,19 @@ export function useAdminPortalMode(): AdminPortalModeState {
     } catch {
       // Silent fail - defaults preserve last-known mode.
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }, [companyId, regionFilterId]);
+
+  useEffect(() => {
+    requestVersion.current += 1;
+    setEventsToday(0);
+    setInTransitNow(0);
+    setQuotesOverdue(0);
+    setOnboardingComplete(true);
+    setTenantAgeDays(null);
+    setLoading(Boolean(companyId));
+  }, [companyId]);
 
   useEffect(() => {
     void fetchSignals();

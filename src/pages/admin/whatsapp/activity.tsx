@@ -71,7 +71,8 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 
 function ActivityPage() {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, company } = useAuth() as any;
+  const companyId = company?.id || user?.company_id || null;
   const { withSlug } = useTenantHref();
   const [days, setDays] = useState(30);
   const [status, setStatus] = useState("");
@@ -82,10 +83,17 @@ function ActivityPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState<string | null>(null);
 
-  const companyQuery = user?.company_id ? `companyId=${encodeURIComponent(user.company_id)}` : "";
+  const companyQuery = companyId ? `companyId=${encodeURIComponent(companyId)}` : "";
   const baseUrl = useMemo(() => `/api/admin/whatsapp/activity${companyQuery ? `?${companyQuery}` : ""}`, [companyQuery]);
 
   const summaryDays = useRef<number | null>(null);
+  useEffect(() => {
+    setData(null);
+    setLoadError(null);
+    setLoading(Boolean(companyId));
+    summaryDays.current = null;
+  }, [companyId]);
+
   const load = useCallback(async (fresh = false) => {
     setLoading(true);
     try {
