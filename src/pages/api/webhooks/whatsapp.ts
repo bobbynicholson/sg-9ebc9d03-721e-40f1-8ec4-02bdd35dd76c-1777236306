@@ -386,8 +386,26 @@ async function applyMessage(sb: any, companyId: string, message: any, contacts: 
     ({ error } = await sb.from("whatsapp_inbound_messages").insert(fallback));
   }
   if (error) {
-    if (String(error.code) !== "23505") console.error("[webhooks/whatsapp] reply not saved:", error.message);
-    return; // Meta resends webhooks, so a duplicate is expected.
+    if (String(error.code) === "23505") {
+      // A retried webhook may contain media metadata that an earlier app
+      // version could not store. Backfill only empty media references; don't
+      // create another unread event or alert for the duplicate.
+      if (typeof row.media_id === "string" && row.media_id) {
+        const { error: mediaUpdateError } = await sb.from("whatsapp_inbound_messages")
+          .update({
+            media_id: row.media_id,
+            media_mime_type: row.media_mime_type || null,
+            media_filename: row.media_filename || null,
+          })
+          .eq("company_id", companyId)
+          .eq("wa_message_id", message.id)
+          .is("media_id", null);
+        if (mediaUpdateError) console.warn("[webhooks/whatsapp] Retried media reference could not be backfilled", { code: mediaUpdateError.code || "unknown" });
+      }
+      return; // Meta may resend an event; duplicates must not alert again.
+    }
+    console.error("[webhooks/whatsapp] reply not saved:", error.message);
+    return;
   }
   // Reactions are transcript activity attached to an existing message, not
   // new client messages: retain the event for rendering, but don't alert,

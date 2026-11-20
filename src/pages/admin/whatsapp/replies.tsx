@@ -93,7 +93,7 @@ function WhatsAppMedia({ message, companyId }: { message: ThreadMessage; company
   const [failed, setFailed] = useState(false);
   if (!message.mediaId || failed) {
     return <p className="mt-1 text-xs opacity-75">
-      {failed ? "Media could not be loaded. It may have expired or WhatsApp may need reconnecting." : "This older message was saved without its media file."}
+      {failed ? "Media could not be loaded. It may have expired or WhatsApp may need reconnecting." : "This app did not save a media reference when the message arrived. Ask the sender to resend the attachment."}
     </p>;
   }
   const params = new URLSearchParams({ messageId: message.id });
@@ -655,7 +655,7 @@ function RepliesPage() {
                                           {message.text.trim() && <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.text}</p>}
                                           {message.mediaId && <WhatsAppMedia message={message} companyId={companyId} />}
                                           {!message.text.trim() && !message.mediaId && <p>{mediaFallback(message.kind, message.direction)}</p>}
-                                          {!message.mediaId && message.direction === "in" && !message.text.trim() && <p className="mt-1 text-xs opacity-75">{message.kind === "text" ? "The message text is not available in this conversation history." : "This message was saved without its media file."}</p>}
+                                          {!message.mediaId && message.direction === "in" && !message.text.trim() && <p className="mt-1 text-xs opacity-75">{message.kind === "text" ? "The message text is not available in this conversation history." : "This app did not save a media reference when the message arrived. Ask the sender to resend the attachment."}</p>}
                                         </div>
                                       )}
                                       <div className="flex items-center justify-end gap-1.5 pt-1 text-xs opacity-80">
