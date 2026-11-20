@@ -89,6 +89,23 @@ function mediaFallback(kind: string | undefined, direction: "in" | "out"): strin
   return `${label} sent`;
 }
 
+function WhatsAppMedia({ message, companyId }: { message: ThreadMessage; companyId: string | null }) {
+  const [failed, setFailed] = useState(false);
+  if (!message.mediaId || failed) {
+    return <p className="mt-1 text-xs opacity-75">
+      {failed ? "Media could not be loaded. It may have expired or WhatsApp may need reconnecting." : "This older message was saved without its media file."}
+    </p>;
+  }
+  const params = new URLSearchParams({ messageId: message.id });
+  if (companyId) params.set("companyId", companyId);
+  const src = `/api/admin/whatsapp/media?${params.toString()}`;
+  if (message.kind === "audio") return <audio className="mt-2 block w-full min-w-[min(16rem,70vw)] max-w-full" controls preload="metadata" src={src} onError={() => setFailed(true)} aria-label="WhatsApp voice message" />;
+  if (message.kind === "video") return <video className="mt-2 block max-h-[min(24rem,55vh)] w-full max-w-full rounded-lg bg-black" controls playsInline preload="metadata" src={src} onError={() => setFailed(true)} aria-label="WhatsApp video message" />;
+  if (message.kind === "image" || message.kind === "sticker") return <img className="mt-2 block max-h-[min(24rem,55vh)] max-w-full rounded-lg object-contain" src={src} alt={message.text || `WhatsApp ${message.kind}`} onError={() => setFailed(true)} />;
+  if (message.kind === "document") return <a className="mt-2 inline-flex max-w-full items-center gap-2 rounded-lg border border-current/20 px-3 py-2 font-medium underline underline-offset-2" href={src} target="_blank" rel="noreferrer">{message.mediaFilename || "Open shared document"}</a>;
+  return null;
+}
+
 function reactionTargetId(message: ThreadMessage): string | null {
   if (message.relatedMessageId) return message.relatedMessageId;
   return message.text.match(/(?:to|from) message (wamid\.[^\s]+)/i)?.[1] || null;
@@ -140,7 +157,8 @@ function summarizeReactions(reactions: ThreadMessage[]) {
 function RepliesPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, company } = useAuth() as any;
+  const companyId = company?.id || user?.company_id || null;
   const isMobile = useIsMobile();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -209,7 +227,7 @@ function RepliesPage() {
     previousThreadPhoneRef.current = thread.phone;
   }, [thread?.phone, thread?.messages.length]);
 
-  const companyQuery = user?.company_id ? `companyId=${encodeURIComponent(user.company_id)}` : "";
+  const companyQuery = companyId ? `companyId=${encodeURIComponent(companyId)}` : "";
   const listUrl = useCallback((cursor?: string | null) => {
     const params = new URLSearchParams();
     if (search.trim()) params.set("q", search.trim());
@@ -219,6 +237,18 @@ function RepliesPage() {
     return `/api/admin/whatsapp/inbox${query ? `?${query}` : ""}`;
   }, [companyQuery, search, unreadOnly]);
   const baseUrl = useMemo(() => `/api/admin/whatsapp/inbox${companyQuery ? `?${companyQuery}` : ""}`, [companyQuery]);
+
+  useEffect(() => {
+    setConversations([]);
+    setNextCursor(null);
+    setUnreadConversations(0);
+    setSelected(null);
+    selectedRef.current = null;
+    setThread(null);
+    setLoadError(null);
+    setRefreshError(null);
+    setLoading(Boolean(companyId));
+  }, [companyId]);
 
   const fetchJson = async (url: string, body?: unknown) => {
     const response = await fetch(url, body
@@ -598,7 +628,8 @@ function RepliesPage() {
                                 <>
                                   <div className={cn("flex w-full", message.direction === "out" ? "justify-end" : "justify-start")}>
                                     <div className={cn(
-                                      "w-fit min-w-0 max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm md:max-w-[78%]",
+                                      cn("w-fit min-w-0 max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm md:max-w-[78%]",
+                                        message.mediaId && ["audio", "video", "image", "sticker"].includes(message.kind || "") && "w-[min(30rem,88%)] md:max-w-[min(32rem,78%)]"),
                                       message.direction === "out"
                                         ? "rounded-tr-md bg-brand-primary text-white"
                                         : "rounded-tl-md border border-slate-200 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
@@ -619,12 +650,12 @@ function RepliesPage() {
                                           <p className="font-medium">{message.templateLabel || messageKindLabel(message.templateName || "template")}</p>
                                           <p className="mt-1 text-xs leading-relaxed opacity-80">The approved message content is managed in Meta and is not stored in this history.</p>
                                         </div>
-                                      ) : message.text.trim() ? (
-                                        <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.text}</p>
                                       ) : (
                                         <div>
-                                          <p>{mediaFallback(message.kind, message.direction)}</p>
-                                          {message.direction === "in" && <p className="mt-1 text-xs opacity-75">{message.kind === "text" ? "The message text is not available in this conversation history." : "This inbox stores the message type, but not its media preview."}</p>}
+                                          {message.text.trim() && <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.text}</p>}
+                                          {message.mediaId && <WhatsAppMedia message={message} companyId={companyId} />}
+                                          {!message.text.trim() && !message.mediaId && <p>{mediaFallback(message.kind, message.direction)}</p>}
+                                          {!message.mediaId && message.direction === "in" && !message.text.trim() && <p className="mt-1 text-xs opacity-75">{message.kind === "text" ? "The message text is not available in this conversation history." : "This message was saved without its media file."}</p>}
                                         </div>
                                       )}
                                       <div className="flex items-center justify-end gap-1.5 pt-1 text-xs opacity-80">

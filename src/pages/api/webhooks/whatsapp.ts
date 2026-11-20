@@ -22,6 +22,17 @@ export const config = { api: { bodyParser: false } };
 
 const OPT_OUT_REASON = "Replied STOP on WhatsApp";
 const REACTION_COLUMNS_MISSING = new Set(["42703", "PGRST204"]);
+const MEDIA_COLUMNS_MISSING = new Set(["42703", "PGRST204"]);
+
+function webhookMedia(message: any) {
+  const media = message?.[message?.type];
+  if (!media || typeof media !== "object") return {};
+  return {
+    ...(typeof media.id === "string" && media.id ? { media_id: media.id } : {}),
+    ...(typeof media.mime_type === "string" && media.mime_type ? { media_mime_type: media.mime_type.slice(0, 160) } : {}),
+    ...(typeof media.filename === "string" && media.filename ? { media_filename: media.filename.slice(0, 255) } : {}),
+  };
+}
 
 function webhookMessageAt(value: unknown): string {
   if (typeof value === "string" && !/^\d+$/.test(value)) {
@@ -80,6 +91,9 @@ type ExternalMessageRow = {
   status?: string;
   related_message_id?: string;
   reaction_emoji?: string;
+  media_id?: string;
+  media_mime_type?: string;
+  media_filename?: string;
 };
 
 function buildExternalMessageRow(
@@ -113,6 +127,7 @@ function buildExternalMessageRow(
     ...(typeof status === "string" && status ? { status: status.toLowerCase() } : {}),
     ...(relatedMessageId ? { related_message_id: relatedMessageId } : {}),
     ...(reactionEmoji ? { reaction_emoji: reactionEmoji } : {}),
+    ...webhookMedia(message),
   };
 }
 
@@ -127,6 +142,14 @@ async function saveExternalMessages(sb: any, rows: ExternalMessageRow[]) {
     });
     if (error && REACTION_COLUMNS_MISSING.has(String(error.code))) {
       const fallback = chunk.map(({ related_message_id: _related, reaction_emoji: _emoji, ...row }) => row);
+      ({ error } = await sb.from("whatsapp_external_messages").upsert(fallback, {
+        onConflict: "company_id,wa_message_id",
+      }));
+    }
+    if (error && MEDIA_COLUMNS_MISSING.has(String(error.code))) {
+      console.warn("[webhooks/whatsapp] Media references were not saved; apply the WhatsApp media references migration", { code: error.code || "unknown" });
+      const fallback = chunk.map(({ media_id: _mediaId, media_mime_type: _mime, media_filename: _filename,
+        related_message_id: _related, reaction_emoji: _emoji, ...row }) => row);
       ({ error } = await sb.from("whatsapp_external_messages").upsert(fallback, {
         onConflict: "company_id,wa_message_id",
       }));
@@ -349,10 +372,17 @@ async function applyMessage(sb: any, companyId: string, message: any, contacts: 
       ? { reaction_emoji: message.reaction.emoji } : {}),
     ...(messageType === "reaction" ? { read_at: receivedAt } : {}),
     received_at: receivedAt,
+    ...webhookMedia(message),
   };
   let { error } = await sb.from("whatsapp_inbound_messages").insert(row);
   if (error && REACTION_COLUMNS_MISSING.has(String(error.code))) {
     const { related_message_id: _related, reaction_emoji: _emoji, ...fallback } = row;
+    ({ error } = await sb.from("whatsapp_inbound_messages").insert(fallback));
+  }
+  if (error && MEDIA_COLUMNS_MISSING.has(String(error.code))) {
+    console.warn("[webhooks/whatsapp] Media reference was not saved; apply the WhatsApp media references migration", { code: error.code || "unknown" });
+    const { media_id: _mediaId, media_mime_type: _mime, media_filename: _filename,
+      related_message_id: _related, reaction_emoji: _emoji, ...fallback } = row;
     ({ error } = await sb.from("whatsapp_inbound_messages").insert(fallback));
   }
   if (error) {

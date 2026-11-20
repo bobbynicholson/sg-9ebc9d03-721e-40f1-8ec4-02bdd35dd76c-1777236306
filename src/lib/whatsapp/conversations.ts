@@ -16,6 +16,9 @@ export interface ThreadMessage {
   source?: "whatsapp_business_app" | "synced_history";
   relatedMessageId?: string | null;
   reactionEmoji?: string | null;
+  mediaId?: string | null;
+  mediaMimeType?: string | null;
+  mediaFilename?: string | null;
 }
 
 export const CONVERSATION_PAGE_SIZE = 25;
