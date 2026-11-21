@@ -260,7 +260,6 @@ function stageSectionId(stage: OrderTimelineStage | null | undefined, isClient: 
     case "event_complete":
       return "section-waiter";
     case "pre_event_cleaning":
-    case "post_event_cleaning":
       return "section-cleaning";
     case "deposit_invoice_issued":
     case "deposit_paid":
@@ -309,7 +308,6 @@ function stageOwner(stage: OrderTimelineStage | null | undefined, isClient: bool
     case "event_complete":
       return "Service";
     case "pre_event_cleaning":
-    case "post_event_cleaning":
       return "Cleaning";
     case "deposit_invoice_issued":
     case "deposit_paid":
@@ -1140,6 +1138,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
                 orderId={order.id}
                 companyId={order.company_id}
                 delivered={order.status === "delivered" || order.status === "completed" || !!order.delivered_at}
+                canSendReviewRequest={canSeeFinance && !isClient}
                 forceOpen={forceAll}
                 defaultOpen={false}
               />

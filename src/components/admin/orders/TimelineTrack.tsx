@@ -1,5 +1,5 @@
 /**
- * TimelineTrack - the 22-stage / 5-cluster order timeline UI.
+ * TimelineTrack - the order lifecycle / 5-cluster timeline UI.
  *
  * Wave 66.4 rewrite. Full UI audit (5 specialists, 3 passes) concluded
  * the previous design glanced well at cluster level but failed at the
@@ -179,10 +179,6 @@ const STAGE_GLOSSARY: Record<StageKey, { trigger: string; owner: string }> = {
     trigger: "The collection trip is completed at base, or equipment return is recorded.",
     owner: "Driver",
   },
-  post_event_cleaning: {
-    trigger: "All order-level post-event cleaning jobs are complete.",
-    owner: "Cleaning team",
-  },
   final_invoice_issued: {
     trigger: "Invoice matching order total exists.",
     owner: "Bookkeeping",
@@ -204,7 +200,7 @@ const STAGE_GLOSSARY: Record<StageKey, { trigger: string; owner: string }> = {
     owner: "Sales admin",
   },
   thank_you_sent: {
-    trigger: "Thank-you / order_completed / review_request email logged for this order.",
+    trigger: "Combined thank-you and review-request, or order_completed email logged for this order.",
     owner: "Sales admin",
   },
 };
@@ -262,7 +258,7 @@ function StageDot({
     if (isCompleted) return `${baseSize} bg-green-500 shadow-sm`;
     if (isUpcoming) return `${baseSize} bg-slate-300`;
     // not_applicable - render a faint hollow dot (instead of hiding it)
-    // so EVERY order shows the full 22-stage pipeline at a consistent
+    // so EVERY order shows the full lifecycle pipeline at a consistent
     // length. N/A steps are clearly de-emphasised, not missing.
     return `${baseSize} bg-slate-100 border border-dashed border-slate-300 opacity-60`;
   })();

@@ -7,8 +7,8 @@
  * chain" gap.
  *
  * Logic:
- *   - Walks orders with status NOT IN (delivered, completed, cancelled)
- *     where event_date < CURRENT_DATE.
+ *   - Walks past-event orders, including closed orders so stale alerts
+ *     can be cleared after delivery/completion.
  *   - For each, checks if a 'order_late_alert' notification has been
  *     fired in the last 24h. Skips if yes (idempotent across cron
  *     ticks).
@@ -25,6 +25,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { isOrderDeliveryComplete } from "@/services/order/orderTimeline";
 
 
 const CRON_NAME = "late-event-check";
@@ -46,10 +47,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Pull every order that's past event_date and not closed out.
   const { data: late, error } = await supabase
     .from("orders")
-    .select("id, company_id, user_id, order_number, client_name, event_date, status, venue_address")
+    .select("id, company_id, user_id, order_number, client_name, event_date, status, delivered_at, completed_at, departed_venue_at, event_complete_at, venue_address")
     .lt("event_date", todayIso)
-    .not("status", "in", "(delivered,completed,cancelled)")
     .is("deleted_at", null)
+    .order("event_date", { ascending: false })
     .limit(500);
   if (error) {
     console.error("[cron/late-event-check] read failed:", error);
@@ -57,6 +58,27 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       source: auth.source, run_id: auth.runId, error_message: error.message,
     });
     return res.status(500).json({ error: error.message });
+  }
+
+  const lateOrders = (late || []) as any[];
+  const lateOrderIds = lateOrders.map((order) => order.id).filter(Boolean);
+  const assignmentsByOrder = new Map<string, any[]>();
+  if (lateOrderIds.length > 0) {
+    const { data: assignments, error: assignmentError } = await supabase
+      .from("driver_assignments")
+      .select("order_id, assignment_type, status, delivered_at, completed_at")
+      .in("order_id", lateOrderIds);
+    if (assignmentError) {
+      // Keep alerting if assignment evidence cannot be read; never suppress
+      // an overdue alert based on a failed operational lookup.
+      console.warn("[cron/late-event-check] assignment lookup failed:", assignmentError);
+    } else {
+      for (const assignment of assignments || []) {
+        const rows = assignmentsByOrder.get(assignment.order_id) || [];
+        rows.push(assignment);
+        assignmentsByOrder.set(assignment.order_id, rows);
+      }
+    }
   }
 
   let alerted = 0;
@@ -84,20 +106,58 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // `alerted` and the operator never saw the alert.
   const errors: string[] = [];
 
-  for (const order of late || []) {
+  for (const order of lateOrders) {
     try {
-      // Idempotency: did we already alert in the last 24h?
-      const { count: recentAlerts, error: countErr } = await supabase
-        .from("notifications")
-        .select("id", { count: "exact", head: true })
-        .eq("company_id", order.company_id)
-        .eq("notification_type", ALERT_TYPE)
-        .ilike("message", `%${order.order_number || order.id}%`)
-        .gte("created_at", dayAgo);
-      if (countErr) {
-        errors.push(`${order.id}: dedupe check failed: ${countErr.message}`);
+      const terminal = ["cancelled", "canceled"].includes(String(order.status || "").toLowerCase());
+      if (terminal || isOrderDeliveryComplete(order, assignmentsByOrder.get(order.id) || [])) {
+        const notificationLabel = order.order_number || order.id.slice(0, 8);
+        const readAt = new Date().toISOString();
+        const [linkedAlerts, legacyAlerts] = await Promise.all([
+          supabase.from("notifications")
+            .update({ is_read: true, read_at: readAt })
+            .eq("company_id", order.company_id)
+            .eq("notification_type", ALERT_TYPE)
+            .eq("related_entity_id", order.id)
+            .eq("is_read", false),
+          supabase.from("notifications")
+            .update({ is_read: true, read_at: readAt })
+            .eq("company_id", order.company_id)
+            .eq("notification_type", ALERT_TYPE)
+            .is("related_entity_id", null)
+            .eq("is_read", false)
+            .ilike("title", `%${notificationLabel}%`),
+        ]);
+        if (linkedAlerts.error || legacyAlerts.error) {
+          errors.push(`${order.id}: could not clear resolved late alert: ${linkedAlerts.error?.message || legacyAlerts.error?.message}`);
+        }
+        skipped += 1;
         continue;
       }
+      // Idempotency: did we already alert in the last 24h?
+      // Prefer the foreign-key link. Older rows may have null
+      // related_entity_id, so dedupe those by the order number in the title
+      // (the alert message itself does not contain the order number).
+      const orderLabel = order.order_number || order.id.slice(0, 8);
+      const [linkedRecent, legacyRecent] = await Promise.all([
+        supabase.from("notifications")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", order.company_id)
+          .eq("notification_type", ALERT_TYPE)
+          .eq("related_entity_id", order.id)
+          .gte("created_at", dayAgo),
+        supabase.from("notifications")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", order.company_id)
+          .eq("notification_type", ALERT_TYPE)
+          .is("related_entity_id", null)
+          .ilike("title", `%${orderLabel}%`)
+          .gte("created_at", dayAgo),
+      ]);
+      if (linkedRecent.error || legacyRecent.error) {
+        errors.push(`${order.id}: dedupe check failed: ${linkedRecent.error?.message || legacyRecent.error?.message}`);
+        continue;
+      }
+      const recentAlerts = (linkedRecent.count || 0) + (legacyRecent.count || 0);
       if (typeof recentAlerts === "number" && recentAlerts > 0) {
         skipped += 1;
         continue;
@@ -124,6 +184,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           `Status is still "${order.status}" - check with the team and update or cancel.`,
         priority: "urgent",
         link: `/admin/orders?orderId=${order.id}`,
+        related_entity_type: "order",
+        related_entity_id: order.id,
       } as any);
       if (insertErr) {
         errors.push(`${order.id}: insert failed: ${insertErr.message}`);

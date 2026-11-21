@@ -670,7 +670,7 @@ function KitchenTeamPage() {
               <Link href={withSlug("/admin/kitchen-staff")} className="block">
                 <StatTile compact label="Active team" value={stats.active} icon={Users} hint="Roster, rates, departments." />
               </Link>
-              <Link href={withSlug("/admin/staff-hours")} className="block">
+              <Link href={withSlug("/admin/wages?audit=orders#order-coverage-audit")} className="block">
                 <StatTile compact label="Hours this week" value={`${stats.hoursWeek}h`} icon={Clock} hint="Kitchen shifts, Monday to now." />
               </Link>
               <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date())}`)} className="block">
@@ -766,7 +766,7 @@ function KitchenTeamPage() {
                   const overtime = hrs > 45;
                   const high = hrs > 38;
                   return (
-                    <Link key={m.id} href={withSlug(`/admin/staff-hours?staff=${m.id}`)}>
+                    <Link key={m.id} href={withSlug("/admin/wages?audit=orders#order-coverage-audit")}>
                       <Badge
                         variant="outline"
                         className={`max-w-full whitespace-normal break-words px-2.5 py-1 text-xs tabular-nums cursor-pointer ${

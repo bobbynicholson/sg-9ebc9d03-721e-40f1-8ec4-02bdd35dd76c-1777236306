@@ -42,6 +42,8 @@ export interface PortalSidebarNavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   description?: string;
+  /** Optional compact subgroup heading, shown immediately before this item. */
+  groupHeading?: string;
   /** Optional badge text shown on the right of the row. The value is
    *  read from this function so the badge can be live (e.g. count of
    *  overdue tasks) without the config object having to know how to
@@ -405,8 +407,16 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
       );
 
     return (
-      <Link
-        key={item.href}
+      <div key={item.href}>
+        {item.groupHeading && !collapsed && !footer && (
+          <div className={cn(
+            "mb-1 mt-3 border-t pt-3 px-2.5 text-xs font-semibold uppercase tracking-[0.12em]",
+            forceBrand ? "border-white/15 text-white/65" : "border-slate-200/70 text-slate-500 dark:border-slate-700/60 dark:text-slate-400",
+          )}>
+            {item.groupHeading}
+          </div>
+        )}
+        <Link
         href={hrefForItem(item.href)}
         onClick={handleNavClick(item, onClickAfterNav)}
         aria-current={active ? "page" : undefined}
@@ -525,7 +535,8 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             aria-hidden="true"
           />
         )}
-      </Link>
+        </Link>
+      </div>
     );
   };
 

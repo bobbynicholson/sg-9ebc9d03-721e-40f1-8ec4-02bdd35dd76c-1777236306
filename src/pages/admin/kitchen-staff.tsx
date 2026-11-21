@@ -67,6 +67,8 @@ interface DraftStaff {
   pay_type: "hourly" | "monthly" | "shift";
   hourly_rate: string;          // text inputs, parsed on submit
   overtime_rate: string;
+  sunday_holiday_rate: string;
+  sunday_holiday_shift_rate: string;
   monthly_salary: string;
   shift_rate: string;
   standard_hours_per_day: string;
@@ -89,6 +91,8 @@ const EMPTY_DRAFT: DraftStaff = {
   pay_type: "hourly",
   hourly_rate: "",
   overtime_rate: "",
+  sunday_holiday_rate: "",
+  sunday_holiday_shift_rate: "",
   monthly_salary: "",
   shift_rate: "",
   standard_hours_per_day: "9",
@@ -445,6 +449,8 @@ function KitchenStaffPage() {
       pay_type: s.pay_type || "hourly",
       hourly_rate: s.hourly_rate != null ? String(s.hourly_rate) : "",
       overtime_rate: s.overtime_rate != null ? String(s.overtime_rate) : "",
+      sunday_holiday_rate: s.sunday_holiday_rate != null ? String(s.sunday_holiday_rate) : "",
+      sunday_holiday_shift_rate: s.sunday_holiday_shift_rate != null ? String(s.sunday_holiday_shift_rate) : "",
       monthly_salary: s.monthly_salary != null ? String(s.monthly_salary) : "",
       shift_rate: s.shift_rate != null ? String(s.shift_rate) : "",
       standard_hours_per_day: String(s.standard_hours_per_day ?? 9),
@@ -469,6 +475,8 @@ function KitchenStaffPage() {
     }
     const rate = draft.hourly_rate.trim() ? Number(draft.hourly_rate) : null;
     const otRate = draft.overtime_rate.trim() ? Number(draft.overtime_rate) : null;
+    const sundayHolidayRate = draft.sunday_holiday_rate.trim() ? Number(draft.sunday_holiday_rate) : null;
+    const sundayHolidayShiftRate = draft.sunday_holiday_shift_rate.trim() ? Number(draft.sunday_holiday_shift_rate) : null;
     const stdHours = draft.standard_hours_per_day.trim() ? Number(draft.standard_hours_per_day) : 9;
     if (rate != null && (isNaN(rate) || rate < 0)) {
       setError("Hourly rate must be a positive number");
@@ -476,6 +484,14 @@ function KitchenStaffPage() {
     }
     if (otRate != null && (isNaN(otRate) || otRate < 0)) {
       setError("Overtime rate must be a positive number");
+      return;
+    }
+    if (sundayHolidayRate != null && (!Number.isFinite(sundayHolidayRate) || sundayHolidayRate <= 0)) {
+      setError("Sunday/public-holiday rate must be greater than zero");
+      return;
+    }
+    if (sundayHolidayShiftRate != null && (!Number.isFinite(sundayHolidayShiftRate) || sundayHolidayShiftRate <= 0)) {
+      setError("Sunday/public-holiday shift rate must be greater than zero");
       return;
     }
     if (isNaN(stdHours) || stdHours < 0 || stdHours > 24) {
@@ -524,6 +540,8 @@ function KitchenStaffPage() {
         pay_type: draft.pay_type,
         hourly_rate: rate,
         overtime_rate: otRate,
+        sunday_holiday_rate: sundayHolidayRate,
+        sunday_holiday_shift_rate: sundayHolidayShiftRate,
         monthly_salary: monthlySalary,
         shift_rate: shiftRate,
         standard_hours_per_day: stdHours,
@@ -717,7 +735,7 @@ function KitchenStaffPage() {
                   };
                   const headers = [
                     "Name", "Role", "Phone", "Email", "Pay type",
-                    "Hourly rate", "Overtime rate", "Monthly salary", "Shift rate",
+                    "Hourly rate", "Overtime rate", "Sunday/public-holiday rate (R/h)", "Sunday/public-holiday rate (R/shift)", "Monthly salary", "Shift rate",
                     "Std hours/day", "Departments", "Active", "Start date",
                   ];
                   const lines = [headers.join(",")];
@@ -730,6 +748,8 @@ function KitchenStaffPage() {
                       esc(s.pay_type || ""),
                       esc(s.hourly_rate ?? ""),
                       esc(s.overtime_rate ?? ""),
+                      esc(s.sunday_holiday_rate ?? ""),
+                      esc(s.sunday_holiday_shift_rate ?? ""),
                       esc(s.monthly_salary ?? ""),
                       esc(s.shift_rate ?? ""),
                       esc(s.standard_hours_per_day ?? ""),
@@ -1322,6 +1342,22 @@ function KitchenStaffPage() {
                               </div>
                             </div>
                           )}
+                          <div className="min-w-0 rounded-lg bg-slate-50 px-2.5 py-2 xl:rounded-none xl:bg-transparent xl:px-0 xl:py-0">
+                            <div className="text-xs uppercase tracking-wide text-slate-500">Sunday / holiday rate</div>
+                            <div className="break-words text-sm font-semibold text-slate-900 tabular-nums">
+                              {payType === "shift"
+                                ? s.sunday_holiday_shift_rate != null
+                                  ? `${formatZAR(Number(s.sunday_holiday_shift_rate))}/shift`
+                                  : s.shift_rate != null
+                                    ? `${formatZAR(Number(s.shift_rate) * 2)}/shift (2x default)`
+                                    : <span className="text-amber-700">Set base shift rate</span>
+                                : s.sunday_holiday_rate != null
+                                  ? `${formatZAR(Number(s.sunday_holiday_rate))}/h`
+                                  : payType === "hourly" && s.hourly_rate != null
+                                    ? `${formatZAR(Number(s.hourly_rate) * 2)}/h (2x default)`
+                                    : <span className="text-amber-700">Set for holiday premium</span>}
+                            </div>
+                          </div>
                         </div>
                         <div className="col-span-2 grid grid-cols-2 gap-2 xl:col-span-1 xl:flex xl:items-center">
                           <Button variant="outline" size="sm" className="h-10 text-xs sm:text-sm xl:h-9" onClick={() => openEdit(s)}>
@@ -1556,6 +1592,35 @@ function KitchenStaffPage() {
                   value={draft.shift_rate}
                   onChange={(e) => setDraft({ ...draft, shift_rate: e.target.value })}
                   placeholder="e.g. 250"
+                />
+              </div>
+            )}
+
+            {draft.pay_type !== "shift" && <div className="space-y-1.5 sm:col-span-2">
+              <Label className="flex items-center gap-1">
+                <Banknote className="w-3 h-3" />Sunday / public-holiday rate (R/h)
+                <InfoTooltip content={draft.pay_type === "hourly"
+                  ? "Optional full hourly rate for Sunday or public-holiday shifts. Leave blank to use 2x the standard hourly rate."
+                  : "Enter the full 2x hourly rate for Sunday or public-holiday work. The wage report adds half of this rate as the premium on top of monthly or per-shift base pay, for recorded holiday hours."} />
+              </Label>
+              <Input
+                type="number" step="0.01" min="0"
+                value={draft.sunday_holiday_rate}
+                onChange={(e) => setDraft({ ...draft, sunday_holiday_rate: e.target.value })}
+                placeholder={draft.pay_type === "hourly" ? "2x hourly rate if blank" : "Enter full 2x rate per hour"}
+              />
+            </div>}
+            {draft.pay_type === "shift" && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="flex items-center gap-1">
+                  <Banknote className="w-3 h-3" />Sunday / public-holiday rate (R/shift)
+                  <InfoTooltip content="Full amount payable for a Sunday or public-holiday shift. Leave blank to use 2x the normal per-shift rate; the wage report adds only the extra premium above the base shift amount." />
+                </Label>
+                <Input
+                  type="number" step="0.01" min="0"
+                  value={draft.sunday_holiday_shift_rate}
+                  onChange={(e) => setDraft({ ...draft, sunday_holiday_shift_rate: e.target.value })}
+                  placeholder="2x per-shift rate if blank"
                 />
               </div>
             )}

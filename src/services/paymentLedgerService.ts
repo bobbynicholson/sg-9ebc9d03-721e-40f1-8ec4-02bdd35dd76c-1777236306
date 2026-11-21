@@ -125,7 +125,7 @@ export const paymentLedgerService = {
     return data || [];
   },
 
-  async getAllPayments(startDate?: Date, endDate?: Date, companyId?: string) {
+  async getAllPayments(startDate?: Date, endDate?: Date, companyId?: string, coverageRange?: { from: string; to: string }) {
     let query = supabase
       .from("staff_payment_ledger")
       .select(`
@@ -145,6 +145,9 @@ export const paymentLedgerService = {
     // and remain available in the returned rows for payroll review.
     if (startDate) query = query.gte("payment_date", startDate.toISOString());
     if (endDate) query = query.lte("payment_date", endDate.toISOString());
+    if (coverageRange) {
+      query = query.lte("payment_period_start", coverageRange.to).gte("payment_period_end", coverageRange.from);
+    }
 
     const { data, error } = await query;
     if (error) throw error;

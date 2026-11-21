@@ -35,6 +35,8 @@ export interface KitchenStaffMember {
   // Rate fields - only fetched on the owner surface.
   hourly_rate: number | null;
   overtime_rate: number | null;
+  sunday_holiday_rate: number | null;
+  sunday_holiday_shift_rate: number | null;
   standard_hours_per_day: number;
   // Pay model: hourly (default), monthly (flat salary), shift (per-shift fee).
   pay_type: StaffPayType;
@@ -63,7 +65,7 @@ export interface KitchenStaffMember {
 /** Public view of a staff member - what the kitchen tablet sees. */
 export type KitchenStaffPublic = Omit<
   KitchenStaffMember,
-  "hourly_rate" | "overtime_rate" | "standard_hours_per_day"
+  "hourly_rate" | "overtime_rate" | "sunday_holiday_rate" | "sunday_holiday_shift_rate" | "standard_hours_per_day"
 >;
 
 export interface KitchenShift {
@@ -88,13 +90,30 @@ export interface KitchenShift {
   deleted_at: string | null;
 }
 
+/** Long or internally inconsistent clock rows need correction before their
+ * recorded minutes can be treated as payable working time. */
+export function needsKitchenShiftReview(shift: KitchenShift): boolean {
+  const startMs = new Date(shift.shift_start).getTime();
+  const endMs = shift.shift_end ? new Date(shift.shift_end).getTime() : Date.now();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return true;
+  const activeBreakMin = shift.break_started_at
+    ? Math.max(0, (endMs - new Date(shift.break_started_at).getTime()) / 60_000)
+    : 0;
+  const workedHours = Math.max(0, (endMs - startMs) / 3_600_000 - ((Number(shift.total_break_min) || 0) + activeBreakMin) / 60);
+  if (!shift.shift_end) return workedHours > 24;
+  const recordedHours = ((Number(shift.standard_min) || 0) + (Number(shift.overtime_min) || 0) + (Number(shift.sunday_holiday_min) || 0)) / 60;
+  return workedHours > 24 || Math.abs(recordedHours - workedHours) > 0.05;
+}
+
 /**
  * Roll-up shape for the owner wage dashboard. Hours and minutes mirrored so
  * the UI can show "8h 15m" without re-doing the math in the component.
  */
 export interface StaffWageSummary {
   staff_id: string;
+  linked_profile_id: string | null;
   full_name: string;
+  login_status: "linked" | "unlinked" | "none" | "ambiguous";
   role_title: string | null;
   // WAGE-A: departments[] now surfaces on the wage summary so the
   // /admin/wages page can render a department badge alongside the
@@ -107,9 +126,12 @@ export interface StaffWageSummary {
   hourly_rate: number | null;
   overtime_rate: number | null;
   sunday_holiday_rate: number | null;
+  sunday_holiday_shift_rate: number | null;
   monthly_salary: number | null;
   shift_rate: number | null;
   shifts_count: number;
+  review_shifts_count: number;
+  sunday_holiday_shifts_count: number;
   standard_min: number;
   overtime_min: number;
   sunday_holiday_min: number;
@@ -752,32 +774,52 @@ export const kitchenStaffService = {
     // but kitchen_staff_members rows aren't region-tagged today, so it's
     // a no-op at the data layer. Caller still uses it to badge the UI.
     void opts.region_id;
-    const [staff, shifts] = await Promise.all([
+    const [staff, shifts, profileResult] = await Promise.all([
       this.listStaffWithRates(companyId, { includeArchived: true, department: opts.department }),
       this.listShiftsInRange(companyId, fromISO, toISO, { department: opts.department }),
+      supabase.from("profiles").select("id, email").eq("company_id", companyId).is("deleted_at", null),
     ]);
     const staffMap = new Map<string, KitchenStaffMember>(staff.map(s => [s.id, s] as const));
+    const profileEmailCounts = new Map<string, number>();
+    for (const profile of profileResult.data || []) {
+      const email = profile.email?.trim().toLowerCase();
+      if (email) profileEmailCounts.set(email, (profileEmailCounts.get(email) || 0) + 1);
+    }
+    const rosterEmailCounts = new Map<string, number>();
+    for (const member of staff) {
+      const email = member.email?.trim().toLowerCase();
+      if (email) rosterEmailCounts.set(email, (rosterEmailCounts.get(email) || 0) + 1);
+    }
 
     const buckets = new Map<string, StaffWageSummary>();
     const seedFor = (id: string): StaffWageSummary => {
       const s = staffMap.get(id);
       const hourly = s ? Number(s.hourly_rate ?? 0) || null : null;
-      const explicitSunday = s ? (s as any).sunday_holiday_rate : null;
+      const explicitSunday = s?.sunday_holiday_rate ?? null;
       const sundayRate = explicitSunday != null
         ? Number(explicitSunday)
         : hourly != null ? hourly * 2 : null;
       return {
         staff_id: id,
+        linked_profile_id: s?.linked_profile_id || null,
         full_name: s?.full_name || "Unknown",
+        login_status: s?.linked_profile_id ? "linked" : s?.email
+          ? (rosterEmailCounts.get(s.email.trim().toLowerCase()) || 0) > 1 || (profileEmailCounts.get(s.email.trim().toLowerCase()) || 0) > 1
+            ? "ambiguous"
+            : profileEmailCounts.has(s.email.trim().toLowerCase()) ? "unlinked" : "none"
+          : "none",
         role_title: s?.role_title || null,
         departments: s?.departments || [],
         pay_type: (s?.pay_type as StaffPayType) || "hourly",
         hourly_rate: hourly,
         overtime_rate: s ? effectiveOvertimeRate(s) : null,
         sunday_holiday_rate: sundayRate,
+        sunday_holiday_shift_rate: s?.sunday_holiday_shift_rate != null ? Number(s.sunday_holiday_shift_rate) : null,
         monthly_salary: s?.monthly_salary != null ? Number(s.monthly_salary) : null,
         shift_rate: s?.shift_rate != null ? Number(s.shift_rate) : null,
         shifts_count: 0,
+        review_shifts_count: 0,
+        sunday_holiday_shifts_count: 0,
         standard_min: 0,
         overtime_min: 0,
         sunday_holiday_min: 0,
@@ -793,14 +835,22 @@ export const kitchenStaffService = {
 
     for (const sh of shifts) {
       const b = buckets.get(sh.staff_member_id) || seedFor(sh.staff_member_id);
-      b.shifts_count += 1;
-      b.break_min += sh.total_break_min || 0;
       if (sh.shift_end) {
+        b.shifts_count += 1;
+        if (needsKitchenShiftReview(sh)) {
+          b.review_shifts_count += 1;
+          b.total_min = b.standard_min + b.overtime_min + b.sunday_holiday_min;
+          buckets.set(sh.staff_member_id, b);
+          continue;
+        }
+        b.break_min += sh.total_break_min || 0;
         b.standard_min += sh.standard_min || 0;
         b.overtime_min += sh.overtime_min || 0;
         b.sunday_holiday_min += (sh as any).sunday_holiday_min || 0;
+        if ((sh.sunday_holiday_min || 0) > 0) b.sunday_holiday_shifts_count += 1;
       } else {
         b.open_shift = true;
+        if (needsKitchenShiftReview(sh)) b.review_shifts_count += 1;
       }
       b.total_min = b.standard_min + b.overtime_min + b.sunday_holiday_min;
       buckets.set(sh.staff_member_id, b);
@@ -835,10 +885,11 @@ export const kitchenStaffService = {
       return frac;
     })();
 
-    // Make sure salaried staff with zero clocked hours still appear in
-    // the dashboard - otherwise the owner thinks they vanished.
+    // Include every roster member, even if they have no shifts in this
+    // range. This keeps no-login tablet staff visible on the Wages page
+    // without adding anything to the period totals.
     for (const s of staff) {
-      if (s.pay_type === "monthly" && !buckets.has(s.id)) {
+      if (!buckets.has(s.id)) {
         buckets.set(s.id, seedFor(s.id));
       }
     }
@@ -848,14 +899,27 @@ export const kitchenStaffService = {
         const sal = b.monthly_salary || 0;
         b.standard_wage = Math.round(sal * monthFraction * 100) / 100;
         b.overtime_wage = 0;
-        b.total_wage = b.standard_wage;
+        // The monthly amount already covers ordinary pay. When an
+        // explicit full 2x Sunday/holiday rate exists, add its 1x
+        // premium portion for the recorded holiday minutes.
+        b.sunday_holiday_wage = b.sunday_holiday_rate != null
+          ? Math.round((b.sunday_holiday_rate * b.sunday_holiday_min / 60 / 2) * 100) / 100
+          : 0;
+        b.total_wage = Math.round((b.standard_wage + b.sunday_holiday_wage) * 100) / 100;
         continue;
       }
       if (b.pay_type === "shift") {
         const rate = b.shift_rate || 0;
         b.standard_wage = Math.round(rate * b.shifts_count * 100) / 100;
         b.overtime_wage = 0;
-        b.total_wage = b.standard_wage;
+        // Per-shift pay covers the base shift amount; add the 1x
+        // premium component of the full holiday rate when holiday
+        // minutes are recorded for that employee.
+        const holidayFullShift = b.sunday_holiday_shift_rate ?? (b.shift_rate != null ? b.shift_rate * 2 : null);
+        b.sunday_holiday_wage = holidayFullShift != null && b.shift_rate != null
+          ? Math.round(Math.max(0, holidayFullShift - b.shift_rate) * b.sunday_holiday_shifts_count * 100) / 100
+          : 0;
+        b.total_wage = Math.round((b.standard_wage + b.sunday_holiday_wage) * 100) / 100;
         continue;
       }
       // Default: hourly with overtime + Sunday/holiday split.

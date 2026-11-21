@@ -560,10 +560,13 @@ export function getRelevantNavigation(query: string, role: string, limit = 3, cu
     && Boolean(currentPage)
     && !/^\/[^/]+\/(?:admin|team-portal|client-portal|account)(?:\/|$)/.test(currentPage?.pathname || "");
   if (!platformScoped) {
-    const emailControls = matchingAutomatedEmailControls(query)
-      .map((key) => NAVIGATION_REFS.find((item) => item.ref === automatedEmailNavigationRef(key)))
-      .filter((item): item is ChatNavigationRef => Boolean(item) && isAllowed(item, role));
-    if (emailControls.length) return emailControls.slice(0, limit);
+    const asksForTemplateEditing = /\b(?:template|wording|email copy|message text|customi[sz](?:e|ation))\b/i.test(normalized);
+    if (!asksForTemplateEditing) {
+      const emailControls = matchingAutomatedEmailControls(query)
+        .map((key) => NAVIGATION_REFS.find((item) => item.ref === automatedEmailNavigationRef(key)))
+        .filter((item): item is ChatNavigationRef => Boolean(item) && isAllowed(item, role));
+      if (emailControls.length) return emailControls.slice(0, limit);
+    }
   }
   const directNavigation = getDirectNavigation(query, role, platformScoped);
   if (directNavigation) return directNavigation.slice(0, 1);

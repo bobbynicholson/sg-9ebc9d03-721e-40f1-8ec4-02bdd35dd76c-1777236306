@@ -124,6 +124,7 @@ export interface DeliveryPayLine {
    *  instead of a UUID fragment. Optional - the bulk-totals path
    *  and legacy callers don't populate it. */
   order_number?: string | null;
+  event_date?: string | null;
   /** Event name off the order when set. May be the literal
    *  "Untitled" placeholder; render-side should filter that. */
   event_name?: string | null;
@@ -202,7 +203,7 @@ export function calculateShiftPay(
  *  driver shift can contribute money to settlement. Valid shifts use the
  *  timestamp duration (hours_worked is a generated DB column, but legacy
  *  imports and stale rows still need a guard). */
-function driverShiftReviewReason(shift: DriverShift, now = Date.now()): string | null {
+export function driverShiftReviewReason(shift: DriverShift, now = Date.now()): string | null {
   const start = shift.actual_start ? new Date(shift.actual_start).getTime() : NaN;
   const end = shift.actual_end ? new Date(shift.actual_end).getTime() : NaN;
   if (!Number.isFinite(start)) return "Missing or invalid clock-in time";
@@ -457,6 +458,7 @@ type DeliveryPaySource = {
   id: string;
   line_id?: string;
   order_number?: string | null;
+  event_date?: string | null;
   event_name?: string | null;
   sitting_sequence?: number | null;
   distance_source?: "order" | "booking_route_split" | "gps_actual";
@@ -477,6 +479,7 @@ function calculateDeliveryPayLine(source: DeliveryPaySource, rates: DriverPayRat
   const oneWayKm = Math.max(0, Number(source.delivery_distance_km) || 0);
   const label = {
     order_number: source.order_number ?? null,
+    event_date: source.event_date ?? null,
     event_name: source.event_name ?? null,
     line_id: source.line_id || source.id,
     sitting_sequence: source.sitting_sequence ?? null,
@@ -643,8 +646,7 @@ async function listCompletedSittingDeliveries(
   const assignments = (data || []).flatMap((row: any) => {
     const order = relationOne(row.order) as SittingOrderForPay | null;
     const sitting = relationOne(row.sitting) as { id: string; sequence_number: number } | null;
-    if (!order || !sitting || !["delivered", "completed"].includes(order.status)
-      || order.event_date < opts.range.from || order.event_date > opts.range.to) return [];
+    if (!order || !sitting || order.event_date < opts.range.from || order.event_date > opts.range.to) return [];
     return [{ row, order, sitting }];
   });
   if (assignments.length === 0) return [];
@@ -680,6 +682,7 @@ async function listCompletedSittingDeliveries(
     line_id: row.id,
     driver_id: row.driver_id,
     order_number: order.order_number ?? null,
+    event_date: order.event_date ?? null,
     event_name: order.event_name ?? null,
     sitting_sequence: sitting.sequence_number,
     distance_source: row.gps_distance_status === "complete" ? "gps_actual" : "booking_route_split",
@@ -955,6 +958,7 @@ export const driverPayService = {
     id: string,
     client: Sb = defaultClient,
     actorUserId?: string | null,
+    reason?: string | null,
   ): Promise<{ ok: boolean; error?: string }> {
     let before: any = null;
     try {
@@ -983,7 +987,7 @@ export const driverPayService = {
           action: "driver_shift_deleted",
           entity_type: "driver_shift",
           entity_id: id,
-          details: { before },
+          details: { before, reason: reason?.trim() || null },
         });
       } catch {
         /* non-blocking */
@@ -1139,19 +1143,18 @@ export const driverPayService = {
         .then((r: any) => (r.data || []) as DriverShift[]),
       (client as any)
         .from("orders")
-        .select("id, assigned_driver_id, delivery_distance_km, quote:quotes!orders_quote_id_fkey(delivery_distance_km)")
+        .select("id, assigned_driver_id, status, delivered_at, completed_at, delivery_distance_km, quote:quotes!orders_quote_id_fkey(delivery_distance_km)")
         .eq("company_id", opts.companyId)
         .in("assigned_driver_id", opts.driverIds)
         .is("deleted_at", null)
-        // delivered orders auto-complete (status -> "completed") ~24h after
-        // delivery, so payroll must include both terminal states or a driver's
-        // distance/callout pay vanishes for every past period.
-        .in("status", ["delivered", "completed"])
         .gte("event_date", opts.range.from)
         .lte("event_date", opts.range.to)
         .then((r: any) => (r.data || []) as Array<{
           id: string;
           assigned_driver_id: string;
+          status: string | null;
+          delivered_at: string | null;
+          completed_at: string | null;
           delivery_distance_km: number | null;
           quote?: { delivery_distance_km: number | null } | Array<{ delivery_distance_km: number | null }> | null;
         }>),
@@ -1179,7 +1182,7 @@ export const driverPayService = {
     // driver again to resolve assignments.
     const orderIds = orderRows.map((o) => o.id);
     type AssignmentRow = {
-      order_id: string; driver_id: string; base_fee: number | null; distance_fee: number | null;
+      order_id: string; driver_id: string; status: string | null; delivered_at: string | null; completed_at: string | null; base_fee: number | null; distance_fee: number | null;
       total_earnings: number | null; calculated_distance: number | null; gps_distance_km: number | null;
       gps_trip_duration_minutes: number | null;
       gps_expected_distance_km: number | null; gps_distance_status: string | null;
@@ -1189,7 +1192,7 @@ export const driverPayService = {
     if (orderIds.length > 0) {
       const { data } = await (client as any)
         .from("driver_assignments")
-        .select("order_id, driver_id, base_fee, distance_fee, total_earnings, calculated_distance, gps_distance_km, gps_trip_duration_minutes, gps_expected_distance_km, gps_distance_status, gps_distance_review_required, gps_distance_review_reason")
+        .select("order_id, driver_id, status, delivered_at, completed_at, base_fee, distance_fee, total_earnings, calculated_distance, gps_distance_km, gps_trip_duration_minutes, gps_expected_distance_km, gps_distance_status, gps_distance_review_required, gps_distance_review_reason")
         .in("driver_id", opts.driverIds)
         .in("order_id", orderIds)
         .eq("assignment_type", "delivery")
@@ -1199,6 +1202,18 @@ export const driverPayService = {
     const assignmentByKey = new Map<string, AssignmentRow>();
     for (const a of assignmentRows) {
       assignmentByKey.set(`${a.driver_id}::${a.order_id}`, a);
+    }
+    let sittingOrderIds = new Set<string>();
+    if (orderIds.length > 0) {
+      const { data: sittingAssignments, error: sittingAssignmentsError } = await (client as any)
+        .from("driver_assignments")
+        .select("order_id")
+        .eq("company_id", opts.companyId)
+        .eq("assignment_type", "delivery")
+        .not("service_sitting_id", "is", null)
+        .in("order_id", orderIds);
+      if (sittingAssignmentsError) console.warn("[driverPayService] bulk sitting assignment lookup failed:", sittingAssignmentsError);
+      sittingOrderIds = new Set<string>((sittingAssignments || []).map((assignment: any) => assignment.order_id));
     }
 
     // Group rows by driver_id then run the same calc the per-
@@ -1211,8 +1226,14 @@ export const driverPayService = {
     }
     const ordersByDriver = new Map<string, DeliveryPaySource[]>();
     for (const o of orderRows) {
-      const list = ordersByDriver.get(o.assigned_driver_id) || [];
+      if (sittingOrderIds.has(o.id)) continue;
       const snap = assignmentByKey.get(`${o.assigned_driver_id}::${o.id}`);
+      const orderCompleted = ["delivered", "completed"].includes(String(o.status || "").toLowerCase())
+        || !!o.delivered_at || !!o.completed_at;
+      const assignmentCompleted = ["delivered", "completed"].includes(String(snap?.status || "").toLowerCase())
+        || !!snap?.delivered_at || !!snap?.completed_at;
+      if (!orderCompleted && !assignmentCompleted) continue;
+      const list = ordersByDriver.get(o.assigned_driver_id) || [];
       list.push({
         id: o.id,
         line_id: o.id,
@@ -1296,6 +1317,7 @@ export const driverPayService = {
       const assignmentType = opts.assignmentType || "delivery";
       let driverAssignmentId = opts.driverAssignmentId || null;
       let serviceSittingId = opts.serviceSittingId || null;
+      let assignmentScopeSupported = true;
       if (!driverAssignmentId) {
         let assignmentQuery = (client as any)
           .from("driver_assignments")
@@ -1307,7 +1329,10 @@ export const driverPayService = {
         assignmentQuery = serviceSittingId
           ? assignmentQuery.eq("service_sitting_id", serviceSittingId)
           : assignmentQuery.is("service_sitting_id", null);
-        const { data: assignment } = await assignmentQuery.maybeSingle();
+        const { data: assignment, error: assignmentError } = await assignmentQuery.maybeSingle();
+        if (assignmentError && /column .* does not exist|schema cache/i.test(assignmentError.message || "")) {
+          assignmentScopeSupported = false;
+        }
         driverAssignmentId = assignment?.id || null;
         serviceSittingId = assignment?.service_sitting_id || serviceSittingId;
       }
@@ -1331,39 +1356,61 @@ export const driverPayService = {
       // order must never reuse one another's timer or GPS trail.
       let existingQuery = (client as any)
         .from("driver_shifts")
-        .select("id")
+        .select("id, driver_assignment_id, service_sitting_id, assignment_type")
         .eq("company_id", opts.companyId)
         .eq("driver_id", opts.driverId)
         .eq("order_id", opts.orderId)
-        .eq("assignment_type", assignmentType)
         .is("actual_end", null)
         .is("deleted_at", null);
-      existingQuery = driverAssignmentId
-        ? existingQuery.eq("driver_assignment_id", driverAssignmentId)
-        : serviceSittingId
-          ? existingQuery.eq("service_sitting_id", serviceSittingId)
-          : existingQuery.is("service_sitting_id", null);
-      const { data: existing, error: existingErr } = await existingQuery.maybeSingle();
+      if (assignmentScopeSupported) {
+        existingQuery = existingQuery.eq("assignment_type", assignmentType);
+        existingQuery = driverAssignmentId
+          ? existingQuery.eq("driver_assignment_id", driverAssignmentId)
+          : serviceSittingId
+            ? existingQuery.eq("service_sitting_id", serviceSittingId)
+            : existingQuery.is("service_sitting_id", null);
+      }
+      let { data: existing, error: existingErr } = await existingQuery.maybeSingle();
+      // Older installations may not yet have the assignment-attribution
+      // migration. Keep basic order timers working until it is applied.
+      if (existingErr && /column .* does not exist|schema cache/i.test(existingErr.message || "")) {
+        assignmentScopeSupported = false;
+        const fallback = await (client as any)
+          .from("driver_shifts")
+          .select("id")
+          .eq("company_id", opts.companyId)
+          .eq("driver_id", opts.driverId)
+          .eq("order_id", opts.orderId)
+          .is("actual_end", null)
+          .is("deleted_at", null)
+          .limit(1)
+          .maybeSingle();
+        existing = fallback.data;
+        existingErr = fallback.error;
+      }
       if (existingErr) {
         console.error("[driverPayService] driver_shifts fetch failed:", existingErr);
       }
       if (existing) return { ok: true, shiftId: (existing as any).id };
 
       const nowIso = new Date().toISOString();
+      const shiftPayload: Record<string, unknown> = {
+        company_id: opts.companyId,
+        driver_id: opts.driverId,
+        shift_date: nowIso.slice(0, 10),
+        actual_start: nowIso,
+        status: "active",
+        source: "auto",
+        order_id: opts.orderId,
+      };
+      if (assignmentScopeSupported) {
+        shiftPayload.driver_assignment_id = driverAssignmentId;
+        shiftPayload.service_sitting_id = serviceSittingId;
+        shiftPayload.assignment_type = assignmentType;
+      }
       const { data, error } = await (client as any)
         .from("driver_shifts")
-        .insert({
-          company_id: opts.companyId,
-          driver_id: opts.driverId,
-          shift_date: nowIso.slice(0, 10),
-          actual_start: nowIso,
-          status: "active",
-          source: "auto",
-          order_id: opts.orderId,
-          driver_assignment_id: driverAssignmentId,
-          service_sitting_id: serviceSittingId,
-          assignment_type: assignmentType,
-        })
+        .insert(shiftPayload)
         .select("id")
         .single();
       if (error) return { ok: false, error: error.message };
@@ -1406,15 +1453,31 @@ export const driverPayService = {
         .eq("company_id", opts.companyId)
         .eq("driver_id", opts.driverId)
         .eq("order_id", opts.orderId)
-        .eq("assignment_type", opts.assignmentType || "delivery")
         .is("actual_end", null)
         .is("deleted_at", null);
-      openShiftQuery = opts.driverAssignmentId
-        ? openShiftQuery.eq("driver_assignment_id", opts.driverAssignmentId)
-        : opts.serviceSittingId
-          ? openShiftQuery.eq("service_sitting_id", opts.serviceSittingId)
-          : openShiftQuery.is("service_sitting_id", null);
-      const { data: openShift, error: openShiftErr } = await openShiftQuery.maybeSingle();
+      if (opts.driverAssignmentId || opts.serviceSittingId || opts.assignmentType) {
+        openShiftQuery = openShiftQuery.eq("assignment_type", opts.assignmentType || "delivery");
+        openShiftQuery = opts.driverAssignmentId
+          ? openShiftQuery.eq("driver_assignment_id", opts.driverAssignmentId)
+          : opts.serviceSittingId
+            ? openShiftQuery.eq("service_sitting_id", opts.serviceSittingId)
+            : openShiftQuery.is("service_sitting_id", null);
+      }
+      let { data: openShift, error: openShiftErr } = await openShiftQuery.maybeSingle();
+      if (openShiftErr && /column .* does not exist|schema cache/i.test(openShiftErr.message || "")) {
+        const fallback = await (client as any)
+          .from("driver_shifts")
+          .select("id, actual_start")
+          .eq("company_id", opts.companyId)
+          .eq("driver_id", opts.driverId)
+          .eq("order_id", opts.orderId)
+          .is("actual_end", null)
+          .is("deleted_at", null)
+          .limit(1)
+          .maybeSingle();
+        openShift = fallback.data;
+        openShiftErr = fallback.error;
+      }
       if (openShiftErr) {
         console.error("[driverPayService] driver_shifts fetch failed:", openShiftErr);
       }
@@ -1586,19 +1649,17 @@ export const driverPayService = {
     // re-assigned to another driver later.
     const { data: orderRows, error: orderErr } = await (client as any)
       .from("orders")
-      .select("id, order_number, event_name, delivery_distance_km, quote:quotes!orders_quote_id_fkey(delivery_distance_km)")
+      .select("id, event_date, order_number, event_name, status, delivered_at, completed_at, delivery_distance_km, quote:quotes!orders_quote_id_fkey(delivery_distance_km)")
       .eq("company_id", opts.companyId)
       .eq("assigned_driver_id", opts.driverId)
       .is("deleted_at", null)
-      // include completed too - delivered orders auto-complete ~24h later.
-      .in("status", ["delivered", "completed"])
       .gte("event_date", opts.range.from)
       .lte("event_date", opts.range.to);
     if (orderErr) {
       console.warn("[driverPayService._listCompletedDeliveries]", orderErr);
       return [];
     }
-    const orders = (orderRows || []) as Array<{ id: string; order_number: string | null; event_name: string | null; delivery_distance_km: number | null; quote?: { delivery_distance_km: number | null } | Array<{ delivery_distance_km: number | null }> | null }>;
+    const orders = (orderRows || []) as Array<{ id: string; event_date: string | null; order_number: string | null; event_name: string | null; status: string | null; delivered_at: string | null; completed_at: string | null; delivery_distance_km: number | null; quote?: { delivery_distance_km: number | null } | Array<{ delivery_distance_km: number | null }> | null }>;
     if (orders.length === 0) return [];
 
     const orderIds = orders.map((o) => o.id);
@@ -1608,7 +1669,7 @@ export const driverPayService = {
     // pay locked total. Now each leg owns its own row.
     const { data: assignmentRows, error: assignmentRowsErr } = await (client as any)
       .from("driver_assignments")
-      .select("order_id, base_fee, distance_fee, total_earnings, calculated_distance, gps_distance_km, gps_trip_duration_minutes, gps_expected_distance_km, gps_distance_status, gps_distance_review_required, gps_distance_review_reason")
+      .select("order_id, status, delivered_at, completed_at, base_fee, distance_fee, total_earnings, calculated_distance, gps_distance_km, gps_trip_duration_minutes, gps_expected_distance_km, gps_distance_status, gps_distance_review_required, gps_distance_review_reason")
       .eq("driver_id", opts.driverId)
       .eq("assignment_type", "delivery")
       .is("service_sitting_id", null)
@@ -1616,7 +1677,17 @@ export const driverPayService = {
     if (assignmentRowsErr) {
       console.error("[driverPayService] driver_assignments fetch failed:", assignmentRowsErr);
     }
+    const { data: sittingAssignmentRows, error: sittingAssignmentError } = await (client as any)
+      .from("driver_assignments")
+      .select("order_id")
+      .eq("company_id", opts.companyId)
+      .eq("assignment_type", "delivery")
+      .not("service_sitting_id", "is", null)
+      .in("order_id", orderIds);
+    if (sittingAssignmentError) console.warn("[driverPayService] sitting assignment lookup failed:", sittingAssignmentError);
+    const sittingOrderIds = new Set<string>((sittingAssignmentRows || []).map((row: any) => row.order_id));
     const lockedByOrder = new Map<string, {
+      status: string | null; deliveredAt: string | null; completedAt: string | null;
       base: number | null; distance: number | null; total: number | null; calculated: number | null;
       gpsDistance: number | null; gpsExpected: number | null; gpsStatus: string | null;
       gpsDuration: number | null;
@@ -1624,6 +1695,9 @@ export const driverPayService = {
     }>();
     for (const a of (assignmentRows || []) as Array<{
       order_id: string;
+      status: string | null;
+      delivered_at: string | null;
+      completed_at: string | null;
       base_fee: number | null;
       distance_fee: number | null;
       total_earnings: number | null;
@@ -1636,6 +1710,9 @@ export const driverPayService = {
       gps_distance_review_reason: string | null;
     }>) {
       lockedByOrder.set(a.order_id, {
+        status: a.status,
+        deliveredAt: a.delivered_at,
+        completedAt: a.completed_at,
         base: a.base_fee,
         distance: a.distance_fee,
         total: a.total_earnings,
@@ -1649,12 +1726,21 @@ export const driverPayService = {
       });
     }
 
-    return orders.map((o) => {
+    return orders.filter((o) => {
+      if (sittingOrderIds.has(o.id)) return false;
+      const assignment = lockedByOrder.get(o.id);
+      const orderCompleted = ["delivered", "completed"].includes(String(o.status || "").toLowerCase())
+        || !!o.delivered_at || !!o.completed_at;
+      const assignmentCompleted = ["delivered", "completed"].includes(String(assignment?.status || "").toLowerCase())
+        || !!assignment?.deliveredAt || !!assignment?.completedAt;
+      return orderCompleted || assignmentCompleted;
+    }).map((o) => {
       const locked = lockedByOrder.get(o.id);
       return {
         id: o.id,
         line_id: o.id,
         order_number: o.order_number ?? null,
+        event_date: o.event_date,
         event_name: o.event_name ?? null,
         delivery_distance_km: resolveDeliveryDistanceKm(o),
         locked_distance_fee: locked?.distance ?? null,

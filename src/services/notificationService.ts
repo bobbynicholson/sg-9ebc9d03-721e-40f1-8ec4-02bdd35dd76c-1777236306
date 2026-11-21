@@ -1112,7 +1112,7 @@ export const notificationService = {
   },
 
   /**
-   * Queue the 24h post-delivery review prompt on pending_reviews.
+   * Queue the review prompt on pending_reviews for immediate delivery.
    *
    * Previously this method created the in-app notification immediately
    * and triggerAutomatedEmailSequence wrapped it in a setTimeout(24h).
@@ -1148,7 +1148,7 @@ export const notificationService = {
       }
 
       const deliveredAt = new Date();
-      const dueAt = new Date(deliveredAt.getTime() + 24 * 60 * 60 * 1000);
+      const dueAt = deliveredAt;
 
       await (supabase as any)
         .from("pending_reviews")

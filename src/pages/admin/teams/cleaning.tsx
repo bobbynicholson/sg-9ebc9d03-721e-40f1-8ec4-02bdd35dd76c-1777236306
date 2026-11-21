@@ -591,7 +591,7 @@ function CleaningTeamPage() {
   // routes; admins keep the rich drill-downs.
   const isCleaningMgr = userRole === UserRole.CLEANING_MANAGER;
   const staffHref = isCleaningMgr ? "/admin/cleaning-schedule" : "/admin/staff?department=cleaning";
-  const hoursHref = isCleaningMgr ? "/admin/cleaning-schedule" : "/admin/staff-hours?department=cleaning";
+  const hoursHref = isCleaningMgr ? "/admin/cleaning-schedule" : "/admin/wages?audit=orders#order-coverage-audit";
   const eventsHref = isCleaningMgr ? "/team-portal/cleaning/dashboard" : `/admin/calendar?date=${toLocalISO(new Date())}`;
 
   const tiles = [
@@ -802,7 +802,7 @@ function CleaningTeamPage() {
                   const overtime = hrs > 45;
                   const high = hrs > 38;
                   return (
-                    <Link key={m.id} href={withSlug(isCleaningMgr ? "/admin/cleaning-schedule" : `/admin/staff-hours?staff=${m.id}`)}>
+                    <Link key={m.id} href={withSlug(isCleaningMgr ? "/admin/cleaning-schedule" : "/admin/wages?audit=orders#order-coverage-audit")}>
                       <Badge
                         variant="outline"
                         className={`px-2.5 py-1 text-xs tabular-nums cursor-pointer ${

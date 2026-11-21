@@ -42,7 +42,10 @@ const EMAIL_ALIASES: Record<string, string[]> = {
   balance_payment_received: ["payment receipt email", "balance receipt email", "balance paid email"],
   event_one_week_reminder: ["event reminder email", "one week reminder", "week before reminder"],
   event_day_before_reminder: ["event reminder email", "one day reminder", "day before reminder"],
-  review_request: ["review email", "review request email"],
+  review_request: [
+    "review email", "review request email", "thank you email", "thank-you email",
+    "thank you and review email", "post-event follow-up email", "rating link email",
+  ],
   equipment_collection_reminder: ["equipment collection email", "collection reminder email"],
   email_lead_quoted: ["quote follow up 1", "first quote follow up"],
   email_lead_quiet: ["quote follow up 2", "second quote follow up"],

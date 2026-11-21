@@ -36,7 +36,7 @@ export const SCHEDULED_EMAIL_TYPES = [
   ["email_lead_lost", "Quote follow-up 3", "client", "Quote follow-up"],
   ["deposit_reminder", "Deposit payment reminder", "client", "Money"],
   ["balance_reminder_email", "Balance payment reminder", "client", "Money"],
-  ["review_request", "Review request", "client", "Post-event"],
+  ["review_request", "Post-event thank-you + review request", "client", "Post-event"],
   ["equipment_collection_reminder", "Equipment collection reminder", "client", "Post-event"],
   ["quote_expired_client", "Expired quote notice", "client", "Quote"],
   ["quote_expired_admin", "Expired quote alert", "staff", "Quote"],

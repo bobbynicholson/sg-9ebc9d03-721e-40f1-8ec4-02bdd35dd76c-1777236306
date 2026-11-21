@@ -15,7 +15,7 @@
  * clock-in / clock-out + BCEA multipliers, which feed straight into
  * this view via the same path (multiplier already in the calc).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -152,6 +152,10 @@ function DriverSettlementPage() {
   const { withSlug } = useTenantHref();
   const { toast } = useToast();
   const router = useRouter();
+  const shiftParam = router.query.shift;
+  const targetShiftId = Array.isArray(shiftParam) ? shiftParam[0] : shiftParam;
+  const driverParam = router.query.driver;
+  const targetDriverId = Array.isArray(driverParam) ? driverParam[0] : driverParam;
   // DRV-B: scope drivers by the global region filter when active.
   // profiles.region_id has been backfilled and NOT NULL since
   // 20260523150000_profiles_region_id_backfill_and_default - so we
@@ -274,6 +278,16 @@ function DriverSettlementPage() {
     else if (preset === "month_to_date") { setFrom(startOfMonthIso()); setTo(todayIso()); }
     else if (preset === "last_month") { const r = lastMonthRange(); setFrom(r.from); setTo(r.to); }
   }, [preset]);
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    const queryFrom = Array.isArray(router.query.from) ? router.query.from[0] : router.query.from;
+    const queryTo = Array.isArray(router.query.to) ? router.query.to[0] : router.query.to;
+    if (!queryFrom || !queryTo || !/^\d{4}-\d{2}-\d{2}$/.test(queryFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(queryTo) || queryFrom > queryTo) return;
+    setPreset("custom");
+    setFrom(queryFrom);
+    setTo(queryTo);
+  }, [router.isReady, router.query.from, router.query.to]);
 
   // Command-centre audit: a custom range with From after To returns
   // all-zero totals from the pay service, which reads exactly like
@@ -1262,6 +1276,7 @@ function DriverSettlementPage() {
                                   onToggle={() => toggleExpand(r.driver.id)}
                                   periodFrom={from}
                                   periodTo={to}
+                                  targetShiftId={r.driver.id === targetDriverId ? targetShiftId || null : null}
                                   companyId={user?.company_id || ""}
                                   companyProfile={companyProfile}
                                   companyProfileLoading={companyProfileLoading}
@@ -1298,6 +1313,7 @@ function DriverSettlementPage() {
                             companyId={user?.company_id || ""}
                             periodFrom={from}
                             periodTo={to}
+                            targetShiftId={r.driver.id === targetDriverId ? targetShiftId || null : null}
                             actorUserId={user?.id}
                             onShiftChanged={() => setRefreshTick((n) => n + 1)}
                             toast={toast}
@@ -1423,7 +1439,7 @@ function DriverSettlementPage() {
 }
 
 function FragmentRows({
-  row, t, isOpen, onToggle, periodFrom, periodTo, companyId, companyProfile, companyProfileLoading, currencyCode, formatR = formatRDefault, toast, actorUserId, onShiftChanged,
+  row, t, isOpen, onToggle, periodFrom, periodTo, targetShiftId, companyId, companyProfile, companyProfileLoading, currencyCode, formatR = formatRDefault, toast, actorUserId, onShiftChanged,
   payout, onMarkPaid, onReverse,
 }: {
   row: SettlementRow;
@@ -1432,6 +1448,7 @@ function FragmentRows({
   onToggle: () => void;
   periodFrom: string;
   periodTo: string;
+  targetShiftId: string | null;
   companyId: string;
   companyProfile: DriverPayslipCompanyProfile | null;
   companyProfileLoading: boolean;
@@ -1520,6 +1537,26 @@ function FragmentRows({
       rate_multiplier: s.multiplier ?? 1,
     });
   };
+  const autoOpenedShiftRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isOpen || !targetShiftId || !detailSummary || autoOpenedShiftRef.current === targetShiftId) return;
+    const target = detailSummary.shifts.find((shift) => shift.shift_id === targetShiftId);
+    if (!target) return;
+    autoOpenedShiftRef.current = targetShiftId;
+    const toInputValue = (value: string | null) => {
+      if (!value) return "";
+      const date = new Date(value);
+      const pad = (part: number) => String(part).padStart(2, "0");
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    };
+    setEditingShift({
+      shift_id: target.shift_id,
+      actual_start: toInputValue(target.actual_start),
+      actual_end: toInputValue(target.actual_end),
+      notes: target.notes || "",
+      rate_multiplier: target.multiplier ?? 1,
+    });
+  }, [isOpen, targetShiftId, detailSummary]);
   const saveShiftEdit = async () => {
     if (!editingShift) return;
     const startMs = new Date(editingShift.actual_start).getTime();
@@ -2107,7 +2144,7 @@ function FragmentRows({
  */
 function DriverSettlementCard({
   row, payout, onMarkPaid, onReverse, formatR = formatRDefault,
-  companyId, periodFrom, periodTo, actorUserId, onShiftChanged, toast,
+  companyId, periodFrom, periodTo, targetShiftId, actorUserId, onShiftChanged, toast,
 }: {
   row: SettlementRow;
   payout: DriverPayoutRow | null;
@@ -2116,6 +2153,7 @@ function DriverSettlementCard({
   companyId: string;
   periodFrom: string;
   periodTo: string;
+  targetShiftId: string | null;
   actorUserId?: string | null;
   onShiftChanged: () => void;
   toast: (options: any) => void;
@@ -2162,6 +2200,22 @@ function DriverSettlementCard({
   const clockLabel = (value?: string | null) => value
     ? new Date(value).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })
     : "missing";
+  const autoOpenedShiftRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!targetShiftId) return;
+    setDetailsOpen(true);
+    if (!detail || autoOpenedShiftRef.current === targetShiftId) return;
+    const target = detail.shifts.find((shift) => shift.shift_id === targetShiftId);
+    if (!target) return;
+    autoOpenedShiftRef.current = targetShiftId;
+    setEditingShift({
+      shift_id: target.shift_id,
+      actual_start: asLocalInput(target.actual_start),
+      actual_end: asLocalInput(target.actual_end),
+      notes: target.notes || "",
+      rate_multiplier: target.multiplier || 1,
+    });
+  }, [targetShiftId, detail]);
   const saveEditedShift = async () => {
     if (!editingShift) return;
     const start = new Date(editingShift.actual_start).getTime();

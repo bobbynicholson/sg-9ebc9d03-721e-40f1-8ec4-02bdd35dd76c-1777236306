@@ -5534,6 +5534,7 @@ export type Database = {
           standard_hours_per_day: number
           start_date: string | null
           sunday_holiday_rate: number | null
+          sunday_holiday_shift_rate: number | null
           updated_at: string
           weekly_ordinary_hours: number
         }
@@ -5562,6 +5563,7 @@ export type Database = {
           standard_hours_per_day?: number
           start_date?: string | null
           sunday_holiday_rate?: number | null
+          sunday_holiday_shift_rate?: number | null
           updated_at?: string
           weekly_ordinary_hours?: number
         }
@@ -5590,6 +5592,7 @@ export type Database = {
           standard_hours_per_day?: number
           start_date?: string | null
           sunday_holiday_rate?: number | null
+          sunday_holiday_shift_rate?: number | null
           updated_at?: string
           weekly_ordinary_hours?: number
         }
@@ -9725,6 +9728,9 @@ export type Database = {
           total_earnings: number | null
           total_hours: number | null
           updated_at: string
+          voided_at: string | null
+          voided_by_user_id: string | null
+          void_reason: string | null
         }
         Insert: {
           clock_in: string
@@ -9741,6 +9747,9 @@ export type Database = {
           total_earnings?: number | null
           total_hours?: number | null
           updated_at?: string
+          voided_at?: string | null
+          voided_by_user_id?: string | null
+          void_reason?: string | null
         }
         Update: {
           clock_in?: string
@@ -9757,6 +9766,9 @@ export type Database = {
           total_earnings?: number | null
           total_hours?: number | null
           updated_at?: string
+          voided_at?: string | null
+          voided_by_user_id?: string | null
+          void_reason?: string | null
         }
         Relationships: [
           {

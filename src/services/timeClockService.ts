@@ -286,6 +286,7 @@ export const timeClockService = {
       .from("staff_work_sessions")
       .select("*")
       .eq("staff_id", staffId)
+      .is("voided_at", null)
       .order("clock_in", { ascending: false });
 
     if (startDate) {
@@ -294,7 +295,6 @@ export const timeClockService = {
     if (endDate) {
       query = query.lte("clock_in", endDate.toISOString());
     }
-
     const { data, error } = await query;
     if (error) throw error;
     return data || [];
@@ -321,14 +321,17 @@ export const timeClockService = {
     if (endDate) {
       query = query.lte("clock_in", endDate.toISOString());
     }
+    if (companyId) {
+      query = query.eq("company_id", companyId);
+    }
 
     const { data, error } = await query;
     if (error) throw error;
     if (!data) return [];
-    if (!companyId) return data;
-    // Filter by company at the application layer (Supabase doesn't let us
-    // filter by a joined column inline without an RPC).
-    return data.filter((row: any) => row?.staff?.company_id === companyId);
+    // Filter by the session's tenant key, not the optional joined profile.
+    // This keeps company-scoped clock rows visible if a staff profile was
+    // removed or the join cannot resolve.
+    return data;
   },
 
   async getStaffHoursSummary(staffId: string, period: "week" | "month") {
@@ -526,6 +529,7 @@ export const timeClockService = {
         .from("staff_work_sessions")
         .select("total_hours")
         .eq("company_id", companyId)
+        .is("voided_at", null)
         .gte("clock_in", startIso)
         .lte("clock_in", endIso),
       supabase

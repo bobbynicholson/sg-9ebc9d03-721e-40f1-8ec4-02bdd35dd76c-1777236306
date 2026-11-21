@@ -5,7 +5,7 @@
  *
  * Wave 46 T2. Sibling pure function to computeOrderTimeline.
  * Different mental model:
- *   - timeline = "where are we in the pipeline?" (22-stage walker)
+ *   - timeline = "where are we in the pipeline?" (lifecycle stage walker)
  *   - readiness = "what's missing pre-flight?" (logistics traffic light)
  *
  * Drives the green/orange/red chip on the order card. The chip
@@ -26,6 +26,7 @@ import type {
   OrderTimelineUrgency,
   CrossSystemBlocker,
 } from "./orderTimeline";
+import { isOrderDeliveryComplete } from "./orderTimeline";
 
 export type ReadinessChip = "green" | "orange" | "red";
 export type ReadinessSeverity = "high" | "medium";
@@ -125,7 +126,16 @@ export function computeOrderReadiness(
   // emit-time check and the post-process operational suppression
   // pass can read them without re-deriving.
   const orderStatus = (o.status || "").toString().toLowerCase();
-  const isTerminalStatus = ["delivered", "completed", "cancelled", "refunded"].includes(orderStatus);
+  // Persisted status can lag behind confirmed operational events (for
+  // example, a driver departs the venue but the order remains `ready`).
+  // Use the same timestamp/assignment evidence as the timeline so those
+  // orders don't keep raising a false past-event follow-up.
+  const deliveryComplete = isOrderDeliveryComplete(o, input.driverAssignments || []);
+  const effectiveOrderStatus = orderStatus === "ready" && deliveryComplete
+    ? "delivered"
+    : orderStatus;
+  const isTerminalStatus = ["delivered", "completed", "cancelled", "refunded"].includes(orderStatus)
+    || deliveryComplete;
   const isEventPast = hoursToEvent != null && hoursToEvent < 0;
 
   // ---- HIGH signals (MVP set) -------------------------------------------
@@ -650,18 +660,18 @@ export function computeOrderReadiness(
   }
 
   const openPostEventStage = timeline.stages.find((stage) =>
-    ["collection_scheduled", "collection_picked_up", "collection_done", "post_event_cleaning"].includes(stage.key)
+    ["collection_scheduled", "collection_picked_up", "collection_done"].includes(stage.key)
     && ["current", "upcoming", "blocked"].includes(stage.status),
   );
   const pastEventCloseoutOpen = isEventPast
-    && ["delivered", "completed"].includes(orderStatus)
+    && ["delivered", "completed"].includes(effectiveOrderStatus)
     && !!openPostEventStage;
   if (pastEventCloseoutOpen && openPostEventStage) {
     const closeoutSignal: ReadinessSignal = {
       key: "past_event_closeout_open",
-      severity: orderStatus === "completed" ? "high" : "medium",
+      severity: effectiveOrderStatus === "completed" ? "high" : "medium",
       passing: false,
-      message: orderStatus === "completed"
+      message: effectiveOrderStatus === "completed"
         ? `The order is marked complete, but ${openPostEventStage.label.toLowerCase()} is still open.`
         : `Delivery is complete, but ${openPostEventStage.label.toLowerCase()} is still open.`,
       actionLink: openPostEventStage.sourceLink || `/admin/orders?orderId=${orderId}`,
@@ -680,7 +690,7 @@ export function computeOrderReadiness(
     || hasErrorBlocker
     || balanceOverdue
     || pastEventNeedsStatusReview
-    || (orderStatus === "completed" && pastEventCloseoutOpen)
+    || (effectiveOrderStatus === "completed" && pastEventCloseoutOpen)
     || (failingHigh.length > 0 && within48h)
     || (failingMedium.length > 0 && within24h)
   ) {
@@ -696,10 +706,10 @@ export function computeOrderReadiness(
   let subhead: string;
 
   if (chip === "green") {
-    if (isEventPast && orderStatus === "completed") {
+    if (isEventPast && effectiveOrderStatus === "completed") {
       headline = `${orderLabel} is closed out.`;
       subhead = "The event and order close-out are complete.";
-    } else if (isEventPast && orderStatus === "delivered") {
+    } else if (isEventPast && effectiveOrderStatus === "delivered") {
       headline = `Delivery confirmed for ${orderLabel}.`;
       subhead = "Review equipment return, cleaning, and any open balance in the timeline.";
     } else {

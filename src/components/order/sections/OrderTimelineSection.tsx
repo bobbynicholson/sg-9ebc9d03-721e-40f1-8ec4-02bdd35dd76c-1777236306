@@ -36,6 +36,7 @@ const fmtZAR = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZA
 
 interface OrderForTimeline {
   id: string;
+  company_id: string;
   status: string;
   event_date: string;
   event_time: string | null;
@@ -115,6 +116,10 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
   const [serviceStartInput, setServiceStartInput] = useState("");
   const [savingServiceStart, setSavingServiceStart] = useState(false);
   const [serviceStartError, setServiceStartError] = useState<string | null>(null);
+  const [editingDeparture, setEditingDeparture] = useState(false);
+  const [departureInput, setDepartureInput] = useState("");
+  const [savingDeparture, setSavingDeparture] = useState(false);
+  const [departureError, setDepartureError] = useState<string | null>(null);
   // Closeout money - the order prop doesn't carry the balance, so fetch what
   // we need to tell the admin "still R X to pay before this auto-closes".
   const [closeMoney, setCloseMoney] = useState<{ balance_amount: number | null; balance_paid: boolean | null; payment_status: string | null } | null>(null);
@@ -199,6 +204,40 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
     }
   };
 
+  const recordDeparture = async () => {
+    if (!departureInput || savingDeparture) return;
+    const selected = new Date(departureInput);
+    if (Number.isNaN(selected.getTime())) {
+      setDepartureError("Choose a valid date and time for when the driver left the venue.");
+      return;
+    }
+    setSavingDeparture(true);
+    setDepartureError(null);
+    try {
+      const response = await fetch(`/api/orders/${order.id}/departed-venue`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ departed_at: selected.toISOString() }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result?.ok) {
+        throw new Error(result?.error || "The departure time could not be saved. Try again.");
+      }
+      toast({
+        title: result.audit_logged === false ? "Departure saved, audit log failed" : "Departure time recorded",
+        description: fmtStamp(result.departed_venue_at || selected.toISOString()),
+        variant: result.audit_logged === false ? "destructive" : "default",
+      });
+      setEditingDeparture(false);
+      if (onChanged) await onChanged();
+      else if (typeof window !== "undefined") window.location.reload();
+    } catch (error: any) {
+      setDepartureError(error?.message || "The departure time could not be saved. Try again.");
+    } finally {
+      setSavingDeparture(false);
+    }
+  };
+
   // Service-phase tail timestamps live on event_attendance (one row
   // per waiter). Take the earliest stamp across all waiters for each
   // phase to represent when the order moved through that step.
@@ -214,6 +253,8 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
   // falling back to the inferred-time view).
   const [orderServiceEnded, setOrderServiceEnded] = useState<string | null>(null);
   const [orderEventComplete, setOrderEventComplete] = useState<string | null>(null);
+  const [departureConfirmationAt, setDepartureConfirmationAt] = useState<string | null>(null);
+  const [timelineEmails, setTimelineEmails] = useState<any[]>([]);
   // ODOC H.11: the cleaning cycle is its own step in the lifecycle.
   // cleaning_jobs.triggered_by_event_id ties cleaning rows to orders;
   // when the first job exists for this order, the cleaning cycle has
@@ -236,6 +277,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
   // picked_up_at (or completed_at as a fallback if the trip was completed in
   // one go) so the step ticks the moment the driver collects the gear.
   const [collectionPickedUpAt, setCollectionPickedUpAt] = useState<string | null>(null);
+  const [actualDriverAssignments, setActualDriverAssignments] = useState<any[]>([]);
   // ODOC H.12: prereq readiness gates.
   //
   // shopping = shopping_list_items linked to the order via
@@ -251,6 +293,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
   // to hire in" question Bobby asked for, surfaced inline.
   const [shoppingTotal, setShoppingTotal] = useState(0);
   const [shoppingPurchased, setShoppingPurchased] = useState(0);
+  const [shoppingComplete, setShoppingComplete] = useState(false);
   const [shoppingReadyAt, setShoppingReadyAt] = useState<string | null>(null);
   const [shoppingBlockedReason, setShoppingBlockedReason] = useState<string | null>(null);
   const [equipmentSignals, setEquipmentSignals] = useState({
@@ -293,7 +336,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
           .eq("order_id", order.id)
           .is("deleted_at", null);
         if (cancelled) return;
-        const rows = ((data || []) as any[]).filter((r) => r.status !== "cancelled");
+        const rows = ((data || []) as any[]).filter((r) => !["cancelled", "canceled", "void", "voided"].includes(String(r.status || "").toLowerCase()));
         setHasCleaningHandover(rows.length > 0);
         if (rows.length === 0) {
           setHandoverStarted(null);
@@ -306,13 +349,15 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
           .filter((r) => {
             const expected = Number(r.total_items_expected || 0);
             const returnedCount = Number(r.total_items_returned || 0);
-            return r.status === "in_progress" || r.status === "complete" || returnedCount > 0 || (expected > 0 && returnedCount >= expected);
+            const status = String(r.status || "").toLowerCase();
+            return status === "in_progress" || status === "complete" || status === "completed"
+              || (expected > 0 && returnedCount >= expected);
           })
           .map((r) => r.in_progress_at || r.completed_at || r.updated_at || r.expected_at || r.created_at)
           .filter((v): v is string => !!v)
           .sort();
         setHandoverReturned(returned.length > 0 ? returned[0] : null);
-        const completed = rows.filter((r) => ["complete", "completed"].includes(String(r.status || "")));
+        const completed = rows.filter((r) => ["complete", "completed", "done"].includes(String(r.status || "").toLowerCase()));
         const done = completed
           .map((r) => r.completed_at || r.updated_at || r.expected_at || r.created_at)
           .filter((v): v is string => !!v)
@@ -348,6 +393,70 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
     return () => { cancelled = true; };
   }, [order.id, order.service_ended_at, order.event_complete_at]);
 
+  // The confirmation row is the driver's canonical event log. Read it as a
+  // fallback so a saved tap still appears with its actual time if the
+  // denormalised orders.departed_venue_at mirror is delayed or unavailable.
+  useEffect(() => {
+    let cancelled = false;
+    const loadDeparture = async () => {
+      const { data, error } = await (supabase as any)
+        .from("driver_confirmations")
+        .select("confirmed_at")
+        .eq("order_id", order.id)
+        .eq("confirmation_type", "departed_venue")
+        .order("confirmed_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (!cancelled && !error) setDepartureConfirmationAt(data?.confirmed_at || null);
+    };
+    void loadDeparture();
+    const channel = supabase
+      .channel(`order-departure-confirm:${order.id}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "driver_confirmations",
+        filter: `order_id=eq.${order.id}`,
+      }, () => { void loadDeparture(); })
+      .subscribe();
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [order.id]);
+
+  // The order detail timeline must use the same sent-email evidence as the
+  // admin order list. Without this, "Thank-you sent" stayed upcoming here
+  // even if a thank-you email was already recorded for the order.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [automation, outgoing] = await Promise.all([
+          (supabase as any)
+            .from("email_automation_log")
+            .select("template_type, status, sent_at, created_at")
+            .eq("order_id", order.id),
+          (supabase as any)
+            .from("outgoing_email_queue")
+            .select("template_type, trigger_event, status, sent_at, created_at")
+            .eq("company_id", order.company_id)
+            .eq("trigger_ref_id", order.id),
+        ]);
+        if (cancelled) return;
+        const automationRows = (automation.data || []) as any[];
+        const outgoingRows = ((outgoing.data || []) as any[]).map((row) => ({
+          ...row,
+          template_type: row.template_type || row.trigger_event || "",
+        }));
+        setTimelineEmails([...automationRows, ...outgoingRows]);
+      } catch (error: any) {
+        captureException(error, { tags: { route: "/order/[id]", step: "loadTimelineEmails", orderId: order.id } });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [order.id, order.company_id]);
+
   // ODOC H.11: cleaning cycle signal. Pulls cleaning_jobs linked to
   // this order via triggered_by_event_id. cleaningStarted = earliest
   // created_at across all jobs (whether complete or not). cleaningAllDone
@@ -365,17 +474,17 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
           .is("deleted_at", null);
         if (cancelled) return;
         const rows = (data || []) as Array<{ created_at: string | null; actual_end: string | null; status: string }>;
-        setHasCleaningJobs(rows.length > 0);
-        if (rows.length === 0) {
+        const active = rows.filter((r) => !["cancelled", "canceled", "void", "voided"].includes(String(r.status || "").toLowerCase()));
+        setHasCleaningJobs(active.length > 0);
+        if (active.length === 0) {
           setCleaningStarted(null);
           setCleaningAllDone(null);
           return;
         }
         // Earliest created_at = cycle started.
-        setCleaningStarted(earliest(...rows.map((r) => r.created_at)));
+        setCleaningStarted(earliest(...active.map((r) => r.created_at)));
         // Every active job complete? Take max actual_end as the cycle-done stamp.
-        const active = rows.filter((r) => r.status !== "cancelled");
-        const allComplete = active.length > 0 && active.every((r) => r.status === "complete");
+        const allComplete = active.every((r) => ["complete", "completed", "done"].includes(String(r.status || "").toLowerCase()));
         if (allComplete) {
           const ends = active.map((r) => r.actual_end).filter((e): e is string => !!e);
           ends.sort();
@@ -425,20 +534,21 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
       try {
         const { data } = await (supabase as any)
           .from("shopping_list_items")
-          // shopping_list_items has `name`/`created_at`, not item_name/updated_at;
-          // alias them so the downstream row shape is unchanged.
-          .select("purchased, updated_at:created_at, item_name:name")
+          // This table has no purchase timestamp. Keep the completion state
+          // without presenting item creation time as the time shopping ended.
+          .select("purchased, item_name:name")
           .eq("source_order_id", order.id)
           .is("removed_at", null);
         if (cancelled) return;
-        const rows = (data || []) as Array<{ purchased: boolean | null; updated_at: string | null; item_name: string | null }>;
+        const rows = (data || []) as Array<{ purchased: boolean | null; item_name: string | null }>;
         const total = rows.length;
         const purchased = rows.filter((r) => r.purchased === true).length;
         setShoppingTotal(total);
         setShoppingPurchased(purchased);
-        if (total > 0 && purchased === total) {
-          const stamps = rows.map((r) => r.updated_at).filter((s): s is string => !!s).sort();
-          setShoppingReadyAt(stamps.length > 0 ? stamps[stamps.length - 1] : null);
+        const complete = total > 0 && purchased === total;
+        setShoppingComplete(complete);
+        if (complete) {
+          setShoppingReadyAt(null);
           setShoppingBlockedReason(null);
         } else {
           setShoppingReadyAt(null);
@@ -592,15 +702,20 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
       try {
         const { data } = await (supabase as any)
           .from("driver_assignments")
-          .select("status, picked_up_at, completed_at")
+          .select("assignment_type, status, assigned_at, created_at, picked_up_at, delivered_at, completed_at")
           .eq("order_id", order.id)
-          .eq("assignment_type", "collection").neq("status", "cancelled");
+          ;
         if (cancelled) return;
-        const rows = (data || []) as Array<{ status: string | null; picked_up_at: string | null; completed_at: string | null }>;
+        const rows = (data || []) as Array<{ assignment_type: string | null; status: string | null; assigned_at?: string | null; created_at?: string | null; picked_up_at: string | null; delivered_at?: string | null; completed_at: string | null }>;
+        setActualDriverAssignments(rows);
+        const collectionRows = rows.filter((r) =>
+          String(r.assignment_type || "").toLowerCase() === "collection"
+          && String(r.status || "").toLowerCase() !== "cancelled",
+        );
         // Done = collection physically picked up (or the whole trip
         // completed). Take the earliest such stamp across any collection
         // rows on the order.
-        const stamps = rows
+        const stamps = collectionRows
           .filter((r) => r.status === "picked_up" || r.status === "completed")
           .map((r) => r.picked_up_at || r.completed_at)
           .filter((s): s is string => !!s);
@@ -639,13 +754,14 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
   // step rendered a real time AND an "N/A" chip at once. This mirrors the
   // `onSite` derivation in computeOrderTimeline() (orderTimeline.ts) so
   // the /order/[id] stepper and the admin/client timelines stay in sync.
+  const effectiveDepartureAt = order.departed_venue_at || departureConfirmationAt;
   const needsService = !!(
     order.requires_waiter ||
     order.waiter_service_required ||
     hasAttendance ||
     order.setup_started_at ||
     order.service_started_at ||
-    order.departed_venue_at ||
+    effectiveDepartureAt ||
     effServiceEnded ||
     effEventComplete
   );
@@ -680,6 +796,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
     label: string;
     Icon: any;
     at: string | null;
+    done?: boolean;
     /** Hide entirely when false (vs render as pending) */
     show?: boolean;
     /** Lane: kitchen / driver / service / closeout - drives the accent dot colour */
@@ -697,7 +814,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
 
   const shoppingLabel = shoppingTotal === 0
     ? "Stock & shopping"
-    : shoppingReadyAt
+    : shoppingComplete
       ? `Shopping complete (${shoppingPurchased}/${shoppingTotal})`
       : `Shopping (${shoppingPurchased}/${shoppingTotal})`;
   const equipmentLabel = !showEquipmentStep
@@ -717,7 +834,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
     // and the kitchen starting prep, because the kitchen physically
     // cannot start without ingredients and gear. They show only when
     // there's a signal worth surfacing.
-    { key: "shopping",      label: shoppingLabel,          Icon: ShoppingCart,   at: shoppingReadyAt,           show: showShoppingStep, lane: "open" },
+    { key: "shopping",      label: shoppingLabel,          Icon: ShoppingCart,   at: shoppingReadyAt, done: shoppingComplete, show: showShoppingStep, lane: "open" },
     { key: "equipment_ready", label: equipmentLabel,       Icon: Wrench,         at: equipmentReadyAt,          show: showEquipmentStep, lane: "open" },
     { key: "prep",          label: "Prep started",         Icon: ChefHat,        at: order.prep_started_at,     lane: "kitchen" },
     { key: "ready",         label: "Ready for collection", Icon: PackageCheck,   at: order.ready_at,            lane: "kitchen" },
@@ -730,16 +847,15 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
     { key: "service_start", label: "Service started",     Icon: Users,          at: order.service_started_at,  show: needsWaiterService, lane: "service" },
     { key: "service_end",   label: "Service ended",        Icon: Clock,          at: effServiceEnded,           show: needsService, lane: "service" },
     { key: "event_done",    label: "Event complete",       Icon: PartyPopper,    at: effEventComplete,          show: needsService, lane: "service" },
-    { key: "departed",      label: "Departed venue",       Icon: ArrowLeftRight, at: order.departed_venue_at,   lane: "closeout" },
+    { key: "departed",      label: "Departed venue",       Icon: ArrowLeftRight, at: effectiveDepartureAt,      lane: "closeout" },
     // ODOC H.11: equipment closeout now spans two steps. First the
     // driver / waiter brings the gear back from the venue (uses the
-    // existing equipment_returned_at stamp from event_attendance, or
-    // - failing that - the first cleaning_job created_at as a fallback
-    // proof that gear arrived back at base). Then the cleaning team
+    // equipment_returned_at stamp, a signed-off handover, or a completed
+    // cleaning job as return evidence). Then the cleaning team
     // takes over and the order can't close until every cleaning job
     // for it lands on status='complete'.
     { key: "equipment",     label: "Equipment collected",  Icon: PackageCheck,   at: equipmentReturned || collectionPickedUpAt || handoverReturned || handoverDone || cleaningStarted, show: hasEquipmentSignal, lane: "closeout" },
-    { key: "cleaning",      label: "In cleaning cycle",    Icon: Droplets,       at: cleaningAllDone || handoverDone || cleaningStarted || handoverReturned,   show: hasEquipmentSignal, lane: "closeout" },
+    { key: "cleaning",      label: "In cleaning cycle",    Icon: Droplets,       at: cleaningAllDone || cleaningStarted,   show: hasEquipmentSignal, lane: "closeout" },
     { key: "completed",     label: "Closed",               Icon: CheckCircle2,   at: order.completed_at,        lane: "closeout" },
   ] as Step[]);
   // "Stock & shopping" and "Equipment ready" are PARALLEL prereqs -
@@ -777,7 +893,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
   // N/A steps never carry a timestamp so they can't be "done".
   const lastDoneIdx = (() => {
     let idx = -1;
-    steps.forEach((s, i) => { if (s.at && s.show !== false) idx = i; });
+    steps.forEach((s, i) => { if ((s.at || s.done) && s.show !== false) idx = i; });
     return idx;
   })();
 
@@ -786,7 +902,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
   // lands on a step that doesn't apply to this order.
   const nextPendingIdx = (() => {
     for (let i = lastDoneIdx + 1; i < steps.length; i++) {
-      if (steps[i].show !== false && !steps[i].at) return i;
+      if (steps[i].show !== false && !steps[i].at && !steps[i].done) return i;
     }
     return -1;
   })();
@@ -833,6 +949,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
   const sharedTimelineInput: any = {
     order: {
       ...order,
+      departed_venue_at: effectiveDepartureAt,
       service_ended_at: effServiceEnded,
       event_complete_at: effEventComplete,
       // No saved choice: same inference the collection scheduler uses
@@ -861,15 +978,20 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
       : order.prep_started_at
         ? [{ id: "order-doc-prep", status: "in_progress", started_at: order.prep_started_at, completed_at: null }]
         : [],
-    driverAssignments: [
-      ...(order.picked_up_at || order.delivered_at || order.status === "in_transit"
+    driverAssignments: actualDriverAssignments.length > 0 ? actualDriverAssignments : [
+      ...(order.picked_up_at || order.delivered_at || order.departed_venue_at || order.status === "in_transit"
         ? [{
             id: "order-doc-delivery",
             assignment_type: "delivery",
-            status: order.delivered_at ? "completed" : "picked_up",
+            // An order-level delivery stamp proves delivery, not that the
+            // crew completed the return-to-base leg. Only a real departed
+            // stamp closes the inferred legacy assignment here.
+            status: order.departed_venue_at ? "completed" : order.delivered_at ? "delivered" : "picked_up",
+            assigned_at: order.confirmed_at || order.created_at,
             created_at: order.confirmed_at || order.created_at,
             picked_up_at: order.picked_up_at,
-            completed_at: order.delivered_at,
+            delivered_at: order.delivered_at,
+            completed_at: order.departed_venue_at || null,
           }]
         : []),
       ...(hasEquipmentSignal
@@ -903,10 +1025,19 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
     hasOnSiteService: needsService,
     serviceEndedAt: effServiceEnded,
     eventCompleteAt: effEventComplete,
+    equipmentReturnedAt: equipmentReturned,
     hasShopping: showShoppingStep,
+    shoppingComplete,
     shoppingReadyAt,
+    emailLog: timelineEmails,
   };
   const sharedTimeline = computeOrderTimeline(sharedTimelineInput);
+  const departureTimelineStage = sharedTimeline.stages.find((stage) => stage.key === "departed_venue");
+  const departureTimeNotRecorded = !!(
+    !effectiveDepartureAt &&
+    departureTimelineStage?.status === "completed" &&
+    departureTimelineStage.meta?.note
+  );
 
   const fmtRelative = (h: number): string => {
     if (h < 1) return `${Math.round(h * 60)}m ago`;
@@ -1009,6 +1140,12 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
             hideOperatorBanner={hideNowBanner}
             disableSourceLinks
           />
+          {departureTimeNotRecorded && (
+            <p role="status" className="mt-2 flex items-start gap-1.5 text-xs leading-5 text-slate-600">
+              <Clock className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+              <span>Departure confirmed; exact time not recorded. The timeline keeps the step complete without using the return-to-base time as a substitute.</span>
+            </p>
+          )}
           {canRecordServiceStart && needsService && !order.service_started_at && !cancelled && !postponed && (
             <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/80 p-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1067,6 +1204,60 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
               )}
             </div>
           )}
+          {canRecordServiceStart && needsService && !effectiveDepartureAt && !cancelled && !postponed && (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/80 p-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-amber-950">Venue departure time isn’t recorded</p>
+                  <p className="mt-1 max-w-2xl text-xs leading-5 text-amber-900">
+                    Drivers tap “Departed venue” as they leave, and that action records the actual time on future orders. For this order, enter a time only if it is verified; a later equipment collection time is not a substitute.
+                  </p>
+                </div>
+                {!editingDeparture && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0 border-amber-300 bg-white text-amber-950 hover:bg-amber-100"
+                    onClick={() => { setDepartureInput(""); setDepartureError(null); setEditingDeparture(true); }}
+                  >
+                    <Clock className="mr-1.5 h-3.5 w-3.5" />
+                    Add actual time
+                  </Button>
+                )}
+              </div>
+              {editingDeparture && (
+                <div className="mt-3 border-t border-amber-200 pt-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                    <label className="min-w-0 flex-1 text-xs font-medium text-amber-950">
+                      Date and time the team left the venue
+                      <input
+                        type="datetime-local"
+                        value={departureInput}
+                        onChange={(event) => setDepartureInput(event.target.value)}
+                        disabled={savingDeparture}
+                        className="mt-1 block h-9 w-full rounded-md border border-amber-300 bg-white px-2.5 text-sm text-slate-900 shadow-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 disabled:opacity-60 sm:max-w-xs"
+                      />
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" onClick={recordDeparture} disabled={!departureInput || savingDeparture}>
+                        {savingDeparture && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                        Save time
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => { setEditingDeparture(false); setDepartureError(null); }}
+                        disabled={savingDeparture}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                  {departureError && <p role="alert" className="mt-2 text-xs font-medium text-red-700">{departureError}</p>}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Compatibility fallback for the older summary/stuck logic. */}
@@ -1075,13 +1266,13 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
               we can highlight the owner whose turn it is. */}
           {(() => null)()}
           {steps.map((step, i) => {
-            const reached = !!step.at;
+            const reached = !!step.at || !!step.done;
             // A step that was actually reached (has a real timestamp) can
             // never be "not applicable" - guard against the show-flag and a
             // real stamp disagreeing (e.g. a driver-stamped service step on
             // an order we hadn't flagged as needing service). Without this a
             // row showed its timestamp AND a faint "N/A" chip at once.
-            const notApplicable = step.show === false && !step.at;
+            const notApplicable = step.show === false && !step.at && !step.done;
             // An applicable step that sits BEFORE the last completed step but
             // carries no stamp of its own has still been passed - the
             // lifecycle has provably moved beyond it (a later milestone is
@@ -1096,7 +1287,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
             // milestone that follows it. Shown with a "~" prefix + tooltip so
             // it reads as a complete, chronological timeline without claiming
             // an exact stamp that was never captured.
-            const passed = !step.at && !notApplicable && lastDoneIdx >= 0 && i < lastDoneIdx;
+            const passed = !step.at && !step.done && !notApplicable && lastDoneIdx >= 0 && i < lastDoneIdx;
             const inferredAt = passed
               ? (() => {
                   for (let j = i + 1; j < steps.length; j++) {
@@ -1200,7 +1391,10 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
           (() => {
             const outstanding = Number(closeMoney?.balance_amount ?? 0);
             const balanceUnpaid = !closeMoney?.balance_paid && outstanding > 0;
-            const delivered = order.status === "delivered" || !!order.delivered_at;
+            const delivered = order.status === "delivered"
+              || !!order.delivered_at
+              || !!order.departed_venue_at
+              || !!effEventComplete;
             if (!delivered && !balanceUnpaid) return null;
             return (
               <div className={`rounded-lg border p-3 ${balanceUnpaid ? "border-amber-300 bg-amber-50" : "border-brand-primary/30 bg-brand-primary/10"}`}>

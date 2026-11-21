@@ -29,6 +29,17 @@ async function companyIdForOrder(orderId: string): Promise<string | null> {
   return (data as any)?.company_id ?? null;
 }
 
+async function closeDeliveryTimer(orderId: string, driverId: string): Promise<void> {
+  const companyId = await companyIdForOrder(orderId);
+  if (!companyId) return;
+  const result = await driverPayService.autoClockOut({ companyId, driverId, orderId });
+  if (!result.ok) {
+    // The order status is already saved. Keep the driver action successful,
+    // but make a timer failure visible to operations for follow-up.
+    console.error("[driver/deliveryManagement] auto clock-out failed:", result.error);
+  }
+}
+
 export interface DeliveryUpdate {
   orderId: string;
   status: "pending" | "confirmed" | "preparing" | "ready" | "in_transit" | "delivered" | "completed";
@@ -91,13 +102,18 @@ export async function updateDeliveryStatus(
     // doc shows who ran the delivery. Best-effort.
     await recordOrderContributor(orderId, driverId, "driver");
 
-    // Auto shift bookkeeping (Stage 4 of driver hourly-rate build).
-    // Start on departure; the return-to-base checkpoint closes the timer
-    // after both delivery and return-leg GPS have been captured.
+    if (status === "delivered" || status === "completed") {
+      await closeDeliveryTimer(orderId, driverId);
+    }
+
+    // Auto shift bookkeeping (Stage 4 of driver hourly-rate build): start
+    // when the driver leaves with the order; the delivered/completed
+    // checkpoints above stop the order timer.
     if (status === "in_transit") {
       const companyId = await companyIdForOrder(orderId);
       if (companyId) {
-        await driverPayService.autoClockIn({ companyId, driverId, orderId });
+        const timer = await driverPayService.autoClockIn({ companyId, driverId, orderId });
+        if (!timer.ok) console.error("[driver/deliveryManagement] auto clock-in failed:", timer.error);
       }
     }
 
@@ -168,6 +184,7 @@ export async function confirmDelivery(
     const { updateOrderStatus } = await import("@/services/order/orderWorkflow");
     const result = await updateOrderStatus(orderId, "delivered", driverId);
     if (!result.success) return { success: false, error: (result as any).error };
+    await closeDeliveryTimer(orderId, driverId);
     // Credit this driver on the order's "who helped" list. Best-effort.
     await recordOrderContributor(orderId, driverId, "driver");
     if (notes) {
@@ -268,7 +285,8 @@ export async function markOrderPickedUp(
 
     const companyId = await companyIdForOrder(orderId);
     if (companyId) {
-      await driverPayService.autoClockIn({ companyId, driverId, orderId });
+      const timer = await driverPayService.autoClockIn({ companyId, driverId, orderId });
+      if (!timer.ok) console.error("[driver/deliveryManagement] auto clock-in failed:", timer.error);
     }
 
     return { success: true };

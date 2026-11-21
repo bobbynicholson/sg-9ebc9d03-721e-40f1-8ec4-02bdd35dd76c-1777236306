@@ -1320,7 +1320,9 @@ function OrderProcessDashboard() {
             emailLogRes,
             deliveryShiftsRes,
             handoversRes,
+            attendanceRes,
             orderItemsRes,
+            shoppingItemsRes,
             kitchenShiftsEventDayRes,
             vehiclesRes,
           ] = await Promise.all([
@@ -1367,7 +1369,7 @@ function OrderProcessDashboard() {
             supabase
               .from("driver_assignments")
               .select(
-                "order_id, assignment_type, status, accepted_at, started_at:en_route_at, completed_at, created_at",
+                "order_id, assignment_type, status, assigned_at, accepted_at, started_at:en_route_at, picked_up_at, delivered_at, completed_at, created_at",
               )
               .in("order_id", orderIds),
             // Wave 67 Phase E - outsource assignments joined with
@@ -1414,11 +1416,20 @@ function OrderProcessDashboard() {
               )
               .in("order_id", orderIds)
               .is("deleted_at", null),
+            (supabase as any)
+              .from("event_attendance")
+              .select("order_id, equipment_returned_at")
+              .in("order_id", orderIds),
             // Wave 46 T3 additions:
             (supabase as any)
               .from("order_items")
               .select("order_id, item_name, quantity")
               .in("order_id", orderIds),
+            (supabase as any)
+              .from("shopping_list_items")
+              .select("source_order_id, purchased")
+              .in("source_order_id", orderIds)
+              .is("removed_at", null),
             distinctEventDates.length > 0
               ? (supabase as any)
                   .from("kitchen_shifts")
@@ -1605,6 +1616,14 @@ function OrderProcessDashboard() {
           );
           const invoicesByOrder = bucket(invoicesRes.data as any[] | null);
           const emailLogByOrder = bucket(emailLogRes.data as any[] | null);
+          const shoppingByOrder = new Map<string, any[]>();
+          for (const row of ((shoppingItemsRes as any).data || []) as any[]) {
+            const key = String(row.source_order_id || "");
+            if (!key) continue;
+            const existing = shoppingByOrder.get(key) || [];
+            existing.push(row);
+            shoppingByOrder.set(key, existing);
+          }
           const pageAutoEmailMap = summariseAutoEmailsByOrder(
             (emailLogRes.data as any[] | null) || [],
           );
@@ -1613,6 +1632,7 @@ function OrderProcessDashboard() {
             deliveryShiftsRes.data as any[] | null,
           );
           const handoversByOrder = bucket(handoversRes.data as any[] | null);
+          const attendanceByOrder = bucket(attendanceRes.data as any[] | null);
           // Wave 67 Phase E - outsource assignments bucketed by order_id
           // with provider_name flattened for the timeline blocker chip.
           const outsourceByOrder = (() => {
@@ -1674,10 +1694,17 @@ function OrderProcessDashboard() {
               kitchenPrepTasks: prepByOrder.get(o.id) || [],
               driverAssignments: assignmentsByOrder.get(o.id) || [],
               invoices: invoicesByOrder.get(o.id) || [],
+              hasShopping: (shoppingByOrder.get(o.id) || []).length > 0,
+              shoppingComplete: (shoppingByOrder.get(o.id) || []).length > 0
+                && (shoppingByOrder.get(o.id) || []).every((item) => item.purchased === true),
               emailLog: emailLogByOrder.get(o.id) || [],
               cleaningJobsActive,
               cleaningJobsForOrder: cleaningJobsForOrderByOrder.get(o.id) || [],
               cleaningHandoversForOrder: handoversByOrder.get(o.id) || [],
+              equipmentReturnedAt: (attendanceByOrder.get(o.id) || [])
+                .map((row: any) => row.equipment_returned_at)
+                .filter(Boolean)
+                .sort()[0] || null,
               deliveryShifts: deliveryShiftsByOrder.get(o.id) || [],
               outsourceAssignments: outsourceByOrder.get(o.id) || [],
               tenantTimezone,

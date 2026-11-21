@@ -201,6 +201,21 @@ export const WORKFLOW_DEFINITIONS: WorkflowDefinition[] = [
     ],
   },
   {
+    id: "post-event-thank-you-review-email",
+    label: "Post-event thank-you and review email",
+    description: "Edit the single post-event email that thanks the client and links to the CateringMS rating form, then make sure automatic sending is on.",
+    keywords: [
+      "thank you and review email", "thank-you and review email", "thank you review link",
+      "post-event thank you email", "post event review email", "review request template",
+      "edit thank you email", "edit review email", "combined review email",
+    ],
+    roles: ADMIN,
+    steps: [
+      { id: "edit-post-event-template", title: "Edit the combined email", description: "In Email templates, edit Post-event thank-you + review request. It is one email with a thank-you and an in-app rating link. Save your wording there.", ref: "admin.email-templates.templates" },
+      { id: "enable-post-event-email", title: "Make sure automatic sending is enabled", description: "In Email settings, find Post-event thank-you + review request under Post-event emails, choose Automatic, then save. It sends immediately when an order becomes completed. Admins can also send it from that order's Customer feedback section.", ref: "admin.email-settings.template.review_request" },
+    ],
+  },
+  {
     id: "whatsapp-automation",
     label: "Automatic WhatsApp messages",
     description: "Connect your WhatsApp Business account and choose which messages send automatically. Anything left off is never sent automatically, and the manual WhatsApp buttons keep working.",

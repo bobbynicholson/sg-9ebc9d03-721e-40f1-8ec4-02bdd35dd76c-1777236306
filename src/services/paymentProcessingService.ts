@@ -275,8 +275,10 @@ class PaymentProcessingService {
             const subject = `Deposit Payment Received - Order #${order.order_number}`;
             const body = `Dear ${order.client_name}, your deposit of ${order.currency} ${schedule.deposit_amount.toFixed(2)} for order #${order.order_number} has been received.`;
 
-            await sendEmailViaAPI({
+            const receiptSent = await sendEmailViaAPI({
               companyId: userId,
+              orderId,
+              templateType: "deposit_payment_received",
               to: order.client_email,
               subject,
               body,
@@ -286,6 +288,7 @@ class PaymentProcessingService {
                 companyName: "Your Catering Company"
               }
             });
+            if (!receiptSent) throw new Error("The deposit receipt email was not accepted by the email service.");
             console.log("✅ Deposit receipt email sent to:", order.client_email);
           } catch (emailError) {
             console.error("⚠️ Failed to send deposit receipt email (non-blocking):", emailError);
@@ -427,8 +430,10 @@ class PaymentProcessingService {
             const subject = `Final Payment Received - Order #${order.order_number}`;
             const body = `Dear ${order.client_name}, your final payment for order #${order.order_number} has been received. Your order is now fully confirmed.`;
 
-            await sendEmailViaAPI({
+            const receiptSent = await sendEmailViaAPI({
               companyId: userId,
+              orderId,
+              templateType: "balance_payment_received",
               to: order.client_email,
               subject,
               body,
@@ -438,6 +443,7 @@ class PaymentProcessingService {
                 companyName: "Your Catering Company"
               }
             });
+            if (!receiptSent) throw new Error("The balance receipt email was not accepted by the email service.");
             console.log("✅ Balance payment receipt email sent to:", order.client_email);
           } catch (emailError) {
             console.error("⚠️ Failed to send balance payment receipt email (non-blocking):", emailError);

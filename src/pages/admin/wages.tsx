@@ -1,31 +1,30 @@
 /**
  * /admin/wages - payroll roll-up for the whole operation.
  *
- * Owner-only surface. Department tabs flip between Kitchen, Drivers,
- * Shopping, Cleaning and All. Drivers run on driverPayService (hourly +
+ * Owner-only, company-wide surface. Drivers run on driverPayService (hourly +
  * distance + callout); the other departments run on
  * kitchenStaffService.getWageSummary (clocked time x rates with a BCEA
  * Sunday/holiday split).
  *
- * The page never enters or stores rate data - it only reads. Region
- * pill is informational; kitchen_staff_members aren't region-tagged
- * yet, so the wage figures stay company-wide and the pill simply
- * notes which branch the user has scoped to.
+ * The page never enters or stores rate data - it only reads. Staff records
+ * are company-scoped and are not region-tagged, so this report is company-wide.
  */
 import { UserRole } from "@/types/app";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid,
 } from "recharts";
-import { Banknote, Calendar as CalendarIcon, Download, Loader2, Users, ChefHat, Truck, ShoppingBag, Sparkles, TrendingUp, AlertTriangle, Building2, Trophy, Clock as ClockIcon, ArrowUp, ArrowDown, Wallet } from "lucide-react";
+import { Banknote, Calendar as CalendarIcon, Download, Users, ChefHat, Truck, TrendingUp, AlertTriangle, Trophy, Clock as ClockIcon, ArrowUp, ArrowDown, Pencil, ChevronDown, ChevronUp } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
@@ -34,23 +33,24 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { PageLoader } from "@/components/ui/loading-skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useToast } from "@/hooks/use-toast";
-import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import {
-  kitchenStaffService, type StaffWageSummary, type KitchenShift,
+  kitchenStaffService, liveWorkedMinutes, needsKitchenShiftReview, type StaffWageSummary, type KitchenShift,
 } from "@/services/kitchenStaffService";
-import { driverPayService, type DriverPayRates } from "@/services/driverPayService";
+import { driverPayService, type DriverPayRates, type DriverPaySummary } from "@/services/driverPayService";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { paymentLedgerService } from "@/services/paymentLedgerService";
 import { captureException } from "@/lib/observability";
+import { MonthlyPayrollAudit } from "@/components/admin/MonthlyPayrollAudit";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-type Preset = "this_week" | "this_month" | "custom";
+type Preset = "this_week" | "this_month" | "this_year" | "custom";
 
 interface Range { fromISO: string; toISO: string; label: string; }
 
@@ -132,6 +132,13 @@ function startOfMonth(d: Date): Date {
 }
 function presetRange(p: Preset): Range {
   const now = new Date();
+  if (p === "this_year") {
+    const from = new Date(now.getFullYear(), 0, 1);
+    from.setHours(0, 0, 0, 0);
+    const to = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    to.setHours(0, 0, 0, 0);
+    return { fromISO: from.toISOString(), toISO: to.toISOString(), label: "Year to date" };
+  }
   if (p === "this_week") {
     const from = startOfWeek(now);
     const to = new Date(from);
@@ -188,6 +195,54 @@ interface PublicHolidayLine {
   iso_date: string;
   hours: number;
   premium: number;
+  rateMissing: boolean;
+  needsReview: boolean;
+}
+
+interface PaidWageRecord {
+  id: string;
+  staffId?: string;
+  staffName: string;
+  amount: number;
+  paidAt: string;
+  periodFrom?: string | null;
+  periodTo?: string | null;
+  source: "Staff payment ledger" | "Kitchen payslip" | "Driver settlement";
+  reference?: string | null;
+}
+
+function paidForEarningPeriod(records: PaidWageRecord[], args: {
+  from: string;
+  to: string;
+  staffName: string;
+  staffId?: string;
+  primarySource: PaidWageRecord["source"];
+}) {
+  const personRecords = records.filter((record) =>
+    (args.staffId && record.staffId === args.staffId)
+      || record.staffName.trim().toLocaleLowerCase() === args.staffName.trim().toLocaleLowerCase(),
+  );
+  const primary = personRecords.filter((record) => record.source === args.primarySource);
+  const ledgerFallback = args.primarySource === "Kitchen payslip"
+    ? personRecords.filter((record) => record.source === "Staff payment ledger"
+      && !primary.some((slip) => slip.periodFrom === record.periodFrom && slip.periodTo === record.periodTo))
+    : [];
+  const candidates = [...primary, ...ledgerFallback];
+  const matched = candidates.filter((record) => !!record.periodFrom && !!record.periodTo
+    && record.periodFrom >= args.from && record.periodTo <= args.to);
+  const partial = candidates.some((record) => !!record.periodFrom && !!record.periodTo
+    && record.periodFrom <= args.to && record.periodTo >= args.from
+    && !(record.periodFrom >= args.from && record.periodTo <= args.to));
+  const sorted = [...matched].sort((a, b) => (a.periodFrom || "").localeCompare(b.periodFrom || ""));
+  const overlapping = sorted.some((record, index) => {
+    const previous = sorted[index - 1];
+    return !!previous?.periodTo && !!record.periodFrom && record.periodFrom <= previous.periodTo;
+  });
+  return {
+    amount: matched.reduce((sum, record) => sum + record.amount, 0),
+    overlapping,
+    partial,
+  };
 }
 
 // ── Page ────────────────────────────────────────────────────────────
@@ -206,7 +261,29 @@ function deptChipText(depts: string[]): string {
 }
 
 function WageDashboardPage() {
-  const { profile } = useAuth();
+  const { profile, company, loading: authLoading } = useAuth();
+  return (
+    <WageDashboardContent
+      key={profile?.company_id || "no-company"}
+      profile={profile}
+      companyName={company?.company_name || "your company"}
+      companyLogoUrl={company?.logo_url || null}
+      authLoading={authLoading}
+    />
+  );
+}
+
+function WageDashboardContent({
+  profile,
+  companyName,
+  companyLogoUrl,
+  authLoading,
+}: {
+  profile: ReturnType<typeof useAuth>["profile"];
+  companyName: string;
+  companyLogoUrl: string | null;
+  authLoading: boolean;
+}) {
   // TIGHTEN I.91: tenant-aware fmtZAR / fmtZARDetailed. These shadow
   // any module-level references and pass through to the sibling
   // summary / table components as props.
@@ -214,19 +291,23 @@ function WageDashboardPage() {
   const fmtZAR = buildFmtMoney(tenantCurrency.code);
   const fmtZARDetailed = buildFmtMoneyDetailed(tenantCurrency.code);
   const { toast } = useToast();
+  const router = useRouter();
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
   const companyId = profile?.company_id as string | undefined;
-  const { regionFilterId, options: regionOptions } = useRegionFilter();
-  const activeRegion = regionOptions.find((r) => r.id === regionFilterId) || null;
+  const [preset, setPreset] = useState<Preset>("this_year");
+  const [range, setRange] = useState<Range>(presetRange("this_year"));
+  const [customFrom, setCustomFrom] = useState<string>(toDateInput(presetRange("this_year").fromISO));
+  const [customTo, setCustomTo] = useState<string>(toDateInput(new Date().toISOString()));
+  const visibleRangeLabel = range.label === "Custom"
+    ? `${toDateInput(range.fromISO)} – ${toDateInput(new Date(new Date(range.toISO).getTime() - 1).toISOString())}`
+    : range.label;
 
-  const [preset, setPreset] = useState<Preset>("this_week");
-  const [range, setRange] = useState<Range>(presetRange("this_week"));
-  const [customFrom, setCustomFrom] = useState<string>(toDateInput(presetRange("this_week").fromISO));
-  const [customTo, setCustomTo] = useState<string>(toDateInput(presetRange("this_week").toISO));
-
-  const [department, setDepartment] = useState<DepartmentKey>("all");
-  const [subTab, setSubTab] = useState<"summary" | "by-person">("summary");
+  const [department] = useState<DepartmentKey>("all");
+  const [orderAuditOpen, setOrderAuditOpen] = useState(false);
+  useEffect(() => {
+    if (router.isReady && router.query.audit === "orders") setOrderAuditOpen(true);
+  }, [router.isReady, router.query.audit]);
 
   // Kitchen-style data (used for all / kitchen / shopping / cleaning).
   const [staffRows, setStaffRows] = useState<StaffWageSummary[]>([]);
@@ -255,7 +336,9 @@ function WageDashboardPage() {
   // WAGE-A intel: owed-to-staff. Same number the financial-dashboard
   // shows as staffPaymentsOwed - the owner needs it here too so
   // "we paid R 3500 this week" sits next to "we still owe R 1200".
-  const [owedToStaff, setOwedToStaff] = useState<number | null>(null);
+  const [paidWageRecords, setPaidWageRecords] = useState<PaidWageRecord[]>([]);
+  const [loadingPaidWages, setLoadingPaidWages] = useState(false);
+  const [paidWagesError, setPaidWagesError] = useState<string | null>(null);
   // WAGE-A intel: event count in range for the cost-per-event tile.
   const [eventCount, setEventCount] = useState<number | null>(null);
   // WAGE-B intel: revenue in range (sum of orders.total_amount on
@@ -271,6 +354,64 @@ function WageDashboardPage() {
   // so the sparkline is a stable trend signal even when the
   // operator flips to "this month" on the headline.
   const [weeklyByStaff, setWeeklyByStaff] = useState<Map<string, number[]>>(new Map());
+  const [editingKitchenShift, setEditingKitchenShift] = useState<KitchenShift | null>(null);
+  const [savingKitchenShift, setSavingKitchenShift] = useState(false);
+  const [kitchenShiftDraft, setKitchenShiftDraft] = useState({ start: "", end: "", breakMin: "0", notes: "", reason: "" });
+
+  const toLocalDateTimeInput = (value: string) => {
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return "";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+  const openKitchenShiftCorrection = (shift: KitchenShift) => {
+    setKitchenShiftDraft({
+      start: toLocalDateTimeInput(shift.shift_start),
+      end: toLocalDateTimeInput(shift.shift_end || new Date().toISOString()),
+      breakMin: String(Math.max(0, shift.total_break_min || 0)),
+      notes: shift.notes || "",
+      reason: "",
+    });
+    setEditingKitchenShift(shift);
+  };
+  const saveKitchenShiftCorrection = async () => {
+    if (!editingKitchenShift) return;
+    const start = new Date(kitchenShiftDraft.start);
+    const end = new Date(kitchenShiftDraft.end);
+    const grossMin = Math.floor((end.getTime() - start.getTime()) / 60_000);
+    const breakMin = Number(kitchenShiftDraft.breakMin);
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || grossMin <= 0 || grossMin > 24 * 60) {
+      toast({ title: "Check the shift times", description: "Clock-out must be after clock-in and the corrected shift must be no longer than 24 hours.", variant: "destructive" });
+      return;
+    }
+    if (!Number.isFinite(breakMin) || breakMin < 0 || breakMin > grossMin) {
+      toast({ title: "Check the break", description: "Break minutes must be between zero and the shift length.", variant: "destructive" });
+      return;
+    }
+    if (!kitchenShiftDraft.reason.trim()) {
+      toast({ title: "Reason required", description: "Add a short reason for the clock correction.", variant: "destructive" });
+      return;
+    }
+    setSavingKitchenShift(true);
+    try {
+      await kitchenStaffService.manualEditShift({
+        shiftId: editingKitchenShift.id,
+        shift_start: start.toISOString(),
+        shift_end: end.toISOString(),
+        total_break_min: breakMin,
+        notes: kitchenShiftDraft.notes.trim(),
+        override_reason: kitchenShiftDraft.reason.trim(),
+        edited_by: profile?.id || null,
+      });
+      toast({ title: "Clock times corrected", description: "Wages and holiday hours are recalculating from the corrected shift." });
+      setEditingKitchenShift(null);
+      setReloadTick((value) => value + 1);
+    } catch (error) {
+      toast({ title: "Could not correct shift", description: error instanceof Error ? error.message : "Try again.", variant: "destructive" });
+    } finally {
+      setSavingKitchenShift(false);
+    }
+  };
 
   const handlePresetChange = (p: Preset) => {
     setPreset(p);
@@ -278,7 +419,7 @@ function WageDashboardPage() {
       const r = presetRange(p);
       setRange(r);
       setCustomFrom(toDateInput(r.fromISO));
-      setCustomTo(toDateInput(r.toISO));
+      setCustomTo(p === "this_year" ? toDateInput(new Date().toISOString()) : toDateInput(r.toISO));
     }
   };
   const handleApplyCustom = () => {
@@ -312,7 +453,6 @@ function WageDashboardPage() {
         const [summary, shiftRows, holidayRows] = await Promise.all([
           kitchenStaffService.getWageSummary(companyId, range.fromISO, range.toISO, {
             department: dept,
-            region_id: regionFilterId || null,
           }),
           kitchenStaffService.listShiftsInRange(companyId, range.fromISO, range.toISO, { department: dept }),
           supabase
@@ -335,7 +475,7 @@ function WageDashboardPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId, range.fromISO, range.toISO, department, regionFilterId, reloadTick]);
+  }, [companyId, range.fromISO, range.toISO, department, reloadTick]);
 
   // ── Load drivers data ──────────────────────────────────────────
   useEffect(() => {
@@ -371,7 +511,7 @@ function WageDashboardPage() {
           base_callout_fee: number | null;
         }>;
         const fromDate = range.fromISO.slice(0, 10);
-        const toDate = range.toISO.slice(0, 10);
+        const toDate = toLocalISO(new Date(new Date(range.toISO).getTime() - 1));
         // WAGE-B: bulk fetch replaces the per-driver N+1. On a
         // 20-driver tenant this drops ~100 round trips to ~5.
         const bulk = await driverPayService.getBulkPayTotals({
@@ -422,7 +562,6 @@ function WageDashboardPage() {
       try {
         const summary = await kitchenStaffService.getWageSummary(companyId, prevFrom, prevTo, {
           department: department === "all" ? undefined : department,
-          region_id: regionFilterId || null,
         });
         if (cancelled) return;
         setPrevPeriodTotal(summary.reduce((s, r) => s + r.total_wage, 0));
@@ -432,25 +571,125 @@ function WageDashboardPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId, range.fromISO, range.toISO, department, regionFilterId, reloadTick]);
+  }, [companyId, range.fromISO, range.toISO, department, reloadTick]);
 
-  // WAGE-A intel: owed-to-staff total. Reuses the same source the
-  // financial-dashboard uses (paymentLedgerService.getTotalOwed), so
-  // the two surfaces never disagree.
+  // Payments are stored separately from calculated earnings. Read all
+  // company payout paths and filter by the actual payment timestamp so
+  // the selected range answers "what was paid then?" rather than "what
+  // work period did this payout cover?" Keep records source-labelled;
+  // some tenants use more than one payroll workflow.
   useEffect(() => {
-    if (!companyId) return;
+    if (!companyId || !range.fromISO || !range.toISO) return;
     let cancelled = false;
     (async () => {
+      setLoadingPaidWages(true);
+      setPaidWagesError(null);
       try {
-        const ledger = await paymentLedgerService.getPaymentLedger(companyId);
-        if (!cancelled) setOwedToStaff(ledger.totalOwed);
-      } catch (e) {
-        captureException(e, { level: "warning", tags: { companyId, route: "/admin/wages", step: "owed_to_staff" } });
-        if (!cancelled) setOwedToStaff(null);
+        const from = range.fromISO;
+        const to = range.toISO;
+        const toInclusive = new Date(new Date(to).getTime() - 1).toISOString();
+        const fromDate = from.slice(0, 10);
+        const toDate = toLocalISO(new Date(toInclusive));
+        const [ledgerPeriodPayments, ledgerPaidAtPayments, payslipsResult, driverPayoutsResult, kitchenStaffResult, profilesResult] = await Promise.all([
+          paymentLedgerService.getAllPayments(undefined, undefined, companyId, { from: fromDate, to: toDate }),
+          paymentLedgerService.getAllPayments(new Date(from), new Date(toInclusive), companyId),
+          supabase.from("kitchen_payslips")
+            .select("id, staff_id, total_pay, paid_at, currency, period_start, period_end")
+            .eq("company_id", companyId).eq("status", "paid")
+            .lte("period_start", toDate).gte("period_end", fromDate).is("deleted_at", null),
+          supabase.from("driver_payouts")
+            .select("id, driver_id, gross_total, paid_at, paid_reference, period_from, period_to")
+            .eq("company_id", companyId).eq("status", "paid")
+            .lte("period_from", toDate).gte("period_to", fromDate).is("deleted_at", null),
+          supabase.from("kitchen_staff_members")
+            .select("full_name, linked_profile_id")
+            .eq("company_id", companyId),
+          supabase.from("profiles").select("id, full_name, email").eq("company_id", companyId),
+        ]);
+        if (payslipsResult.error) throw payslipsResult.error;
+        if (driverPayoutsResult.error) throw driverPayoutsResult.error;
+        if (kitchenStaffResult.error) throw kitchenStaffResult.error;
+        if (profilesResult.error) throw profilesResult.error;
+        const profileRows = profilesResult.data || [];
+        const kitchenStaffRows = kitchenStaffResult.data || [];
+        type LedgerPaymentRow = {
+          id: string;
+          staff_id?: string | null;
+          payment_date?: string | null;
+          payment_period_start?: string | null;
+          payment_period_end?: string | null;
+          deleted_at?: string | null;
+          total_amount?: number | string | null;
+          total_earnings?: number | string | null;
+          payment_reference?: string | null;
+          staff?: { full_name?: string | null; email?: string | null } | null;
+        };
+        const ledgerRows = [...ledgerPeriodPayments, ...ledgerPaidAtPayments] as LedgerPaymentRow[];
+        const ledgerPayments = Array.from(new Map<string, LedgerPaymentRow>(ledgerRows.map((payment) => [payment.id, payment])).values());
+        const profileById = new Map<string, string>(profileRows.map((p) => [p.id, p.full_name || p.email || "Team member"]));
+        const kitchenNameByProfile = new Map<string, string>(kitchenStaffRows
+          .filter((s): s is typeof s & { linked_profile_id: string } => Boolean(s.linked_profile_id))
+          .map((s) => [s.linked_profile_id, s.full_name || "Team member"]));
+        const records: PaidWageRecord[] = [];
+        const overlapsRange = (periodFrom?: string | null, periodTo?: string | null, paidAt?: string | null) => {
+          if (periodFrom && periodTo) return periodFrom <= toDate && periodTo >= fromDate;
+          return !!paidAt && paidAt >= from && paidAt <= toInclusive;
+        };
+        for (const p of ledgerPayments) {
+          if (p.deleted_at) continue;
+          if (!overlapsRange(p.payment_period_start, p.payment_period_end, p.payment_date)) continue;
+          if (!p.payment_date) continue;
+          records.push({
+            id: `ledger-${p.id}`,
+            staffId: p.staff_id || undefined,
+            staffName: p.staff?.full_name || p.staff?.email || "Team member",
+            amount: Number(p.total_amount ?? p.total_earnings) || 0,
+            paidAt: p.payment_date,
+            periodFrom: p.payment_period_start || null,
+            periodTo: p.payment_period_end || null,
+            source: "Staff payment ledger",
+            reference: p.payment_reference || null,
+          });
+        }
+        for (const p of payslipsResult.data || []) {
+          if (!p.paid_at) continue;
+          records.push({
+            id: `payslip-${p.id}`,
+            staffId: p.staff_id,
+            staffName: kitchenNameByProfile.get(p.staff_id) || profileById.get(p.staff_id) || "Team member",
+            amount: Number(p.total_pay) || 0,
+            paidAt: p.paid_at,
+            periodFrom: p.period_start,
+            periodTo: p.period_end,
+            source: "Kitchen payslip",
+          });
+        }
+        for (const p of driverPayoutsResult.data || []) {
+          if (!p.paid_at) continue;
+          records.push({
+            id: `driver-${p.id}`,
+            staffId: p.driver_id,
+            staffName: profileById.get(p.driver_id) || "Driver",
+            amount: Number(p.gross_total) || 0,
+            paidAt: p.paid_at,
+            periodFrom: p.period_from,
+            periodTo: p.period_to,
+            source: "Driver settlement",
+            reference: p.paid_reference || null,
+          });
+        }
+        if (!cancelled) setPaidWageRecords(records.sort((a, b) => b.paidAt.localeCompare(a.paidAt)));
+      } catch (e: unknown) {
+        if (!cancelled) {
+          setPaidWagesError(e instanceof Error ? e.message : "Could not load recorded payments.");
+          setPaidWageRecords([]);
+        }
+      } finally {
+        if (!cancelled) setLoadingPaidWages(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId, reloadTick]);
+  }, [companyId, range.fromISO, range.toISO, reloadTick]);
 
   // WAGE-A intel: event count in the window for the cost-per-event
   // tile. WAGE-B extends this to also sum total_amount for the
@@ -518,6 +757,7 @@ function WageDashboardPage() {
         if (cancelled) return;
         const map = new Map<string, number[]>();
         for (const sh of shifts) {
+          if (needsKitchenShiftReview(sh)) continue;
           // Total minutes on this shift = standard + overtime +
           // sunday/holiday. Open shifts contribute 0 minutes (their
           // splits stay null until clock-out), which matches the
@@ -547,8 +787,8 @@ function WageDashboardPage() {
   // WAGE-A: realtime channel. Two surfaces this matters for: a
   // staff clock-out mid-period (kitchen tablet) should refresh the
   // owner's view; and a wage payment recorded elsewhere should
-  // refresh owedToStaff. Debounced because multiple clock events
-  // often arrive in rapid succession at the shift boundary.
+  // refresh wage and payment records. Debounced because multiple
+  // clock events often arrive in rapid succession at shift boundary.
   useEffect(() => {
     if (!companyId) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -605,10 +845,17 @@ function WageDashboardPage() {
       const wageInfo = staffById.get(sh.staff_member_id);
       const sundayRate = wageInfo?.sunday_holiday_rate ?? null;
       const hourlyRate = wageInfo?.hourly_rate ?? null;
+      const shiftRate = wageInfo?.shift_rate ?? null;
       const hours = ((sh.sunday_holiday_min || 0)) / 60;
+      const needsReview = needsKitchenShiftReview(sh);
       // Premium = pay at 2x minus what the same hours would have cost at 1x.
       // Simplifies to (sundayRate - hourlyRate) * hours when both are set.
-      const premium = sundayRate != null && hourlyRate != null
+      const shiftHolidayRate = wageInfo?.sunday_holiday_shift_rate ?? (shiftRate != null ? shiftRate * 2 : null);
+      const premium = needsReview ? 0 : wageInfo?.pay_type === "shift"
+        ? shiftHolidayRate != null && shiftRate != null && hours > 0
+          ? Math.max(0, shiftHolidayRate - shiftRate)
+          : 0
+        : sundayRate != null && hourlyRate != null
         ? Math.max(0, (Number(sundayRate) - Number(hourlyRate)) * hours)
         : sundayRate != null
           ? Number(sundayRate) * hours / 2  // best-effort if hourly not set: half the 2x pay
@@ -618,6 +865,8 @@ function WageDashboardPage() {
         iso_date: startDay,
         hours: Math.round(hours * 10) / 10,
         premium: Math.round(premium * 100) / 100,
+        rateMissing: hours > 0 && (wageInfo?.pay_type === "shift" ? shiftRate == null : sundayRate == null),
+        needsReview,
       });
     }
     return out;
@@ -632,28 +881,43 @@ function WageDashboardPage() {
   // Stacked bar chart by day.
   const chartData = useMemo<DailyChartRow[]>(() => {
     if (!shifts.length) return [];
+    const monthlyBuckets = new Date(range.toISO).getTime() - new Date(range.fromISO).getTime() > 90 * 86_400_000;
     const map = new Map<string, DailyChartRow>();
     const staffById = new Map(staffRows.map((r) => [r.staff_id, r] as const));
     for (const sh of shifts) {
+      if (needsKitchenShiftReview(sh)) continue;
       const startDay = sh.shift_start.slice(0, 10);
-      const d = new Date(startDay);
-      if (!map.has(startDay)) {
-        map.set(startDay, {
-          day: d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric" }),
-          iso: startDay,
+      const bucketKey = monthlyBuckets ? startDay.slice(0, 7) : startDay;
+      const d = new Date(`${monthlyBuckets ? `${bucketKey}-01` : bucketKey}T12:00:00`);
+      if (!map.has(bucketKey)) {
+        map.set(bucketKey, {
+          day: monthlyBuckets
+            ? d.toLocaleDateString("en-ZA", { month: "short" })
+            : d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric" }),
+          iso: bucketKey,
           standard: 0,
           overtime: 0,
           publicHoliday: 0,
         });
       }
-      const row = map.get(startDay)!;
+      const row = map.get(bucketKey)!;
       const wageInfo = staffById.get(sh.staff_member_id);
       const hourly = Number(wageInfo?.hourly_rate ?? 0);
       const otRate = Number(wageInfo?.overtime_rate ?? 0);
       const sunRate = Number(wageInfo?.sunday_holiday_rate ?? 0);
+      const isFixedPay = wageInfo?.pay_type === "monthly";
       row.standard      += hourly > 0 ? (sh.standard_min || 0) / 60 * hourly        : 0;
       row.overtime      += otRate > 0 ? (sh.overtime_min || 0) / 60 * otRate        : 0;
-      row.publicHoliday += sunRate > 0 ? (sh.sunday_holiday_min || 0) / 60 * sunRate : 0;
+      if (wageInfo?.pay_type === "shift") {
+        const fullShiftRate = wageInfo.sunday_holiday_shift_rate ?? (wageInfo.shift_rate != null ? wageInfo.shift_rate * 2 : 0);
+        row.publicHoliday += sh.sunday_holiday_min && wageInfo.shift_rate != null
+          ? Math.max(0, fullShiftRate - wageInfo.shift_rate)
+          : 0;
+      } else {
+        row.publicHoliday += sunRate > 0
+          ? (sh.sunday_holiday_min || 0) / 60 * sunRate * (isFixedPay ? 0.5 : 1)
+          : 0;
+      }
     }
     // Round + sort.
     const out = Array.from(map.values()).map((r) => ({
@@ -664,12 +928,26 @@ function WageDashboardPage() {
     }));
     out.sort((a, b) => a.iso.localeCompare(b.iso));
     return out;
-  }, [shifts, staffRows]);
+  }, [shifts, staffRows, range.fromISO, range.toISO]);
 
   // Top-5 cost drivers (kitchen-style).
   const topFive = useMemo(() => {
     return [...staffRows].sort((a, b) => b.total_wage - a.total_wage).slice(0, 5);
   }, [staffRows]);
+
+  const topEarner = useMemo(() => {
+    const team = staffRows.map((row) => ({
+      name: row.full_name,
+      total: row.total_wage,
+      detail: deptChipText(row.departments),
+    }));
+    const drivers = driverRows.map((row) => ({
+      name: row.full_name,
+      total: row.total,
+      detail: "Drivers",
+    }));
+    return [...team, ...drivers].sort((a, b) => b.total - a.total)[0] || null;
+  }, [staffRows, driverRows]);
 
   // By-Person sorted descending.
   const sortedByPerson = useMemo(
@@ -699,65 +977,53 @@ function WageDashboardPage() {
     return kitchenTotals.total_wage;
   }, [department, kitchenTotals.total_wage, driverTotals.combined]);
 
+  const periodPaymentSummary = useMemo(() => {
+    const from = range.fromISO.slice(0, 10);
+    const to = toLocalISO(new Date(new Date(range.toISO).getTime() - 1));
+    const kitchen = department === "drivers" ? [] : staffRows.map((row) => paidForEarningPeriod(paidWageRecords, {
+      from, to, staffName: row.full_name, primarySource: "Kitchen payslip",
+    }));
+    const drivers = department === "drivers" || department === "all" ? driverRows.map((row) => paidForEarningPeriod(paidWageRecords, {
+      from, to, staffName: row.full_name, staffId: row.driver_id, primarySource: "Driver settlement",
+    })) : [];
+    const paid = [...kitchen, ...drivers].reduce((sum, item) => sum + item.amount, 0);
+    return {
+      paid,
+      balance: grandTotal - paid,
+      overlapping: [...kitchen, ...drivers].some((item) => item.overlapping),
+      partial: [...kitchen, ...drivers].some((item) => item.partial),
+    };
+  }, [range.fromISO, range.toISO, department, staffRows, driverRows, paidWageRecords, grandTotal]);
+
   // ── CSV export ─────────────────────────────────────────────────
   const handleExportCsv = () => {
     const tag = `${toDateInput(range.fromISO)}_to_${toDateInput(range.toISO)}`;
-    // Tenant-aware currency tag in the headers - "(R)" was hardcoded
-    // even for non-ZAR tenants while the on-page figures already
-    // format in the tenant currency.
     const cur = tenantCurrency.code || "ZAR";
-    if (department === "drivers") {
-      if (driverRows.length === 0) return;
-      const header = [
-        "Driver", "Hours", `Hourly pay (${cur})`, "Distance km", `Distance pay (${cur})`,
-        `Callout pay (${cur})`, `Total (${cur})`,
-      ];
-      const lines = [header.join(",")];
-      for (const r of driverRows) {
-        lines.push([
-          `"${r.full_name.replace(/"/g, '""')}"`,
-          r.hours.toFixed(2),
-          r.hourly_pay.toFixed(2),
-          r.distance_km.toFixed(2),
-          r.distance_pay.toFixed(2),
-          r.callout_pay.toFixed(2),
-          r.total.toFixed(2),
-        ].join(","));
-      }
-      downloadCsv(lines.join("\n"), `wages-drivers-${tag}.csv`);
-      return;
-    }
-    if (sortedByPerson.length === 0) return;
-    // WAGE-A: added Departments column so the bookkeeper can see
-    // which team a wage line belongs to. role_title is free-text
-    // ("Other" is common) and was the only label pre-WAGE-A.
+    if (sortedByPerson.length === 0 && driverRows.length === 0) return;
     const header = [
-      "Staff", "Role", "Departments", "Shifts",
-      "Standard hours", "Overtime hours", "Public-holiday hours",
-      `Hourly rate (${cur})`, `Effective rate (${cur})`,
-      `Standard wage (${cur})`, `Overtime wage (${cur})`, `Holiday wage (${cur})`, `Total wage (${cur})`,
+      "Name", "Team", "Role", "Shifts", "Hours", "Standard hours", "Overtime hours",
+      "Public-holiday hours", "Distance km", `Hourly pay (${cur})`, `Distance pay (${cur})`,
+      `Callout pay (${cur})`, `Total earnings (${cur})`,
     ];
     const lines = [header.join(",")];
+    const quote = (value: string) => `"${value.replace(/"/g, '""')}"`;
     for (const r of sortedByPerson) {
       const totalHours = (r.standard_min + r.overtime_min + r.sunday_holiday_min) / 60;
-      const effectiveRate = totalHours > 0 ? r.total_wage / totalHours : 0;
       lines.push([
-        `"${(r.full_name || "").replace(/"/g, '""')}"`,
-        `"${(r.role_title || "").replace(/"/g, '""')}"`,
-        `"${deptChipText(r.departments).replace(/"/g, '""')}"`,
-        r.shifts_count,
-        (r.standard_min / 60).toFixed(2),
-        (r.overtime_min / 60).toFixed(2),
-        (r.sunday_holiday_min / 60).toFixed(2),
-        r.hourly_rate ?? "",
-        effectiveRate.toFixed(2),
-        r.standard_wage.toFixed(2),
-        r.overtime_wage.toFixed(2),
-        r.sunday_holiday_wage.toFixed(2),
-        r.total_wage.toFixed(2),
+        quote(r.full_name || ""), quote(deptChipText(r.departments)), quote(r.role_title || ""),
+        r.shifts_count, totalHours.toFixed(2),
+        (r.standard_min / 60).toFixed(2), (r.overtime_min / 60).toFixed(2),
+        (r.sunday_holiday_min / 60).toFixed(2), "", "", "", "", r.total_wage.toFixed(2),
       ].join(","));
     }
-    downloadCsv(lines.join("\n"), `wages-${department}-${tag}.csv`);
+    for (const r of driverRows) {
+      lines.push([
+        quote(r.full_name), "Drivers", "Driver", "", r.hours.toFixed(2), "", "", "",
+        r.distance_km.toFixed(2), r.hourly_pay.toFixed(2), r.distance_pay.toFixed(2),
+        r.callout_pay.toFixed(2), r.total.toFixed(2),
+      ].join(","));
+    }
+    downloadCsv(lines.join("\n"), `wages-all-teams-${tag}.csv`);
   };
 
   const downloadCsv = (csv: string, filename: string) => {
@@ -778,11 +1044,11 @@ function WageDashboardPage() {
   // "All" waits for BOTH legs - pre-fix it only tracked the kitchen
   // load, so the hero total chip rendered kitchen-only for a beat
   // while driver pay was still in flight.
-  const isLoading = isDriversTab
+  const isLoading = authLoading || loadingPaidWages || (isDriversTab
     ? loadingDrivers
     : department === "all"
       ? loadingKitchen || loadingDrivers
-      : loadingKitchen;
+      : loadingKitchen);
   // Failed loads must never fall through to the "No shifts in this
   // range" empty state - that reads as a zero wage bill.
   const activeLoadError = isDriversTab
@@ -796,14 +1062,24 @@ function WageDashboardPage() {
   const hasNoData = isDriversTab
     ? driverRows.length === 0 && !loadingDrivers
     : department === "all"
-      ? staffRows.length === 0 && driverRows.length === 0 && !isLoading
-      : staffRows.length === 0 && !loadingKitchen;
+      ? staffRows.length === 0 && driverRows.length === 0 && paidWageRecords.length === 0 && !isLoading
+      : staffRows.length === 0 && paidWageRecords.length === 0 && !loadingKitchen;
 
   const overtimePct = kitchenTotals.total_min > 0
     ? Math.round((kitchenTotals.overtime_min / kitchenTotals.total_min) * 100)
     : 0;
 
   const publicHolidayShiftCount = publicHolidayLines.length;
+  const publicHolidayEligibleHours = publicHolidayLines.reduce((sum, line) => sum + line.hours, 0);
+  const publicHolidayRateMissingHours = publicHolidayLines
+    .filter((line) => line.rateMissing)
+    .reduce((sum, line) => sum + line.hours, 0);
+  const missingOvertimeRateHours = staffRows
+    .filter((row) => row.pay_type === "hourly" && row.overtime_min > 0 && row.overtime_rate == null)
+    .reduce((sum, row) => sum + row.overtime_min, 0) / 60;
+  const fixedPayOvertimeHours = staffRows
+    .filter((row) => (row.pay_type === "monthly" || row.pay_type === "shift") && row.overtime_min > 0)
+    .reduce((sum, row) => sum + row.overtime_min, 0) / 60;
 
   // Tightened from ADMIN -> COMPANY_ADMIN-only because UserRole.ADMIN
   // in isAdmin() includes region_admin + sales_admin, which would
@@ -830,44 +1106,29 @@ function WageDashboardPage() {
               </span>
             }
             icon={Banknote}
-            subtitle="Review recorded hours and wages across teams and track completed payouts."
-            meta={
-              !isLoading && (
+            subtitle="See wages for every team member, compare spending and export the full breakdown."
+            meta={!isLoading && companyId && !activeLoadError ? (
                 <>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {fmtZAR(grandTotal)} {range.label === "Custom" ? "in range" : range.label.toLowerCase()}
                   </span>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
-                    {isDriversTab
-                      ? `${driverRows.length} driver${driverRows.length === 1 ? "" : "s"} in range`
-                      : `${staffRows.length} staff in range`}
+                    {staffRows.length + driverRows.length} team member{staffRows.length + driverRows.length === 1 ? "" : "s"} shown
                   </span>
-                  {!isDriversTab && staffRows.some((r) => r.open_shift) && (
+                  {staffRows.some((r) => r.open_shift) && (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                       <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                       {staffRows.filter((r) => r.open_shift).length} on shift now
                     </span>
                   )}
                 </>
-              )
-            }
+              ) : undefined}
             actions={
             <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
-              {activeRegion && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-medium text-white">
-                  <Building2 className="w-3 h-3" />
-                  Filtered by region {activeRegion.name}
-                </span>
-              )}
-              {/* WAGE-A: dynamic destination. When the Drivers tab
-                  is active, Manage staff points at driver-management;
-                  every other tab manages kitchen-style staff. Pre-
-                  WAGE-A this always linked to /admin/kitchen-staff
-                  which is the wrong place when looking at drivers. */}
-              <Button asChild variant="outline" size="sm" aria-label="Manage staff" title="Manage staff" className="h-10 w-10 justify-center p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3">
-                <Link href={withSlug(department === "drivers" ? "/admin/driver-management" : "/admin/kitchen-staff")}>
-                  <Users className="h-4 w-4" /><span className="sr-only sm:not-sr-only sm:inline">Manage staff</span>
+              <Button asChild variant="outline" size="sm" aria-label="Manage team" title="Manage team" className="h-10 w-10 justify-center p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3">
+                <Link href={withSlug("/admin/teams")}>
+                  <Users className="h-4 w-4" /><span className="sr-only sm:not-sr-only sm:inline">Manage team</span>
                 </Link>
                 </Button>
               <Button
@@ -876,7 +1137,7 @@ function WageDashboardPage() {
                 onClick={handleExportCsv}
                 aria-label="Export wages as CSV"
                 title="Export CSV"
-                disabled={isDriversTab ? driverRows.length === 0 : sortedByPerson.length === 0}
+                disabled={sortedByPerson.length === 0 && driverRows.length === 0}
                 className="h-10 w-10 justify-center p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3"
               >
                 <Download className="h-4 w-4" /><span className="sr-only sm:not-sr-only sm:inline">Export CSV</span>
@@ -886,48 +1147,13 @@ function WageDashboardPage() {
           />
           <PageWorkbench />
 
-          {/* Compact department selector on phones, full tabs on desktop. */}
-          <div className="mb-3 md:hidden">
-            <label htmlFor="wages-department" className="sr-only">Wage department</label>
-            <select
-              id="wages-department"
-              value={department}
-              onChange={(event) => setDepartment(event.target.value as DepartmentKey)}
-              className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
-            >
-              <option value="all">All departments</option>
-              <option value="kitchen">Kitchen</option>
-              <option value="drivers">Drivers</option>
-              <option value="shopping">Shopping</option>
-              <option value="cleaning">Cleaning</option>
-            </select>
-          </div>
-          <Tabs value={department} onValueChange={(v) => setDepartment(v as DepartmentKey)} className="mb-4 hidden md:block">
-            <TabsList className="grid h-auto w-full grid-cols-5 md:w-auto">
-              <TabsTrigger id="wages-all" data-chat-section="admin.wages.all" data-chat-section-label="All wages" value="all" className="gap-1.5 text-xs md:text-sm">
-                <Users className="w-3.5 h-3.5" />All
-              </TabsTrigger>
-              <TabsTrigger id="wages-kitchen" data-chat-section="admin.wages.kitchen" data-chat-section-label="Kitchen wages" value="kitchen" className="gap-1.5 text-xs md:text-sm">
-                <ChefHat className="w-3.5 h-3.5" />Kitchen
-              </TabsTrigger>
-              <TabsTrigger id="wages-drivers" data-chat-section="admin.wages.drivers" data-chat-section-label="Driver wages" value="drivers" className="gap-1.5 text-xs md:text-sm">
-                <Truck className="w-3.5 h-3.5" />Drivers
-              </TabsTrigger>
-              <TabsTrigger id="wages-shopping" data-chat-section="admin.wages.shopping" data-chat-section-label="Shopping wages" value="shopping" className="gap-1.5 text-xs md:text-sm">
-                <ShoppingBag className="w-3.5 h-3.5" />Shopping
-              </TabsTrigger>
-              <TabsTrigger id="wages-cleaning" data-chat-section="admin.wages.cleaning" data-chat-section-label="Cleaning wages" value="cleaning" className="gap-1.5 text-xs md:text-sm">
-                <Sparkles className="w-3.5 h-3.5" />Cleaning
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
           {/* Period selector */}
           <Card className="mb-4 sm:mb-5">
             <CardContent className="p-3 sm:p-4">
               <div className="flex flex-col gap-3">
                 <div className="flex flex-wrap gap-1.5">
                   {([
+                    ["this_year", "Year to date"],
                     ["this_week", "This week"],
                     ["this_month", "This month"],
                     ["custom", "Custom"],
@@ -966,6 +1192,7 @@ function WageDashboardPage() {
             </CardContent>
           </Card>
 
+          {!isLoading && companyId && !activeLoadError && <>
           {/* Headline tiles */}
           {isDriversTab ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
@@ -992,17 +1219,17 @@ function WageDashboardPage() {
               </Card>
               <Card className="bg-brand-primary/10">
                 <CardContent className="p-3 sm:p-4">
-                  <div className="text-xs uppercase tracking-wider text-brand-primary mb-1">Combined</div>
+                  <div className="text-xs uppercase tracking-wider text-brand-primary mb-1">Gross earned</div>
                   <div className="text-lg font-bold text-brand-primary tabular-nums sm:text-xl">{fmtZAR(driverTotals.combined)}</div>
                   <div className="text-xs text-brand-primary mt-1">{driverRows.length} driver{driverRows.length === 1 ? "" : "s"}</div>
                 </CardContent>
               </Card>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+            <div className="grid grid-cols-2 gap-3 mb-5 md:grid-cols-3">
               <Card className="bg-brand-primary/10">
                 <CardContent className="p-3 sm:p-4">
-                  <div className="text-xs uppercase tracking-wider text-brand-primary mb-1">Period total</div>
+                  <div className="text-xs uppercase tracking-wider text-brand-primary mb-1">Gross earned</div>
                   <div className="text-lg font-bold text-brand-primary tabular-nums sm:text-xl">{fmtZAR(grandTotal)}</div>
                   {/* WAGE-A intel: trend vs same-length previous
                       period. Hidden while loading or when prev was
@@ -1030,9 +1257,7 @@ function WageDashboardPage() {
                     );
                   })()}
                   <div className="text-xs text-brand-primary mt-1">
-                    {department === "all"
-                      ? "Kitchen + drivers + shopping + cleaning"
-                      : `${capitalise(department)} department`}
+                    All teams · {range.label.toLowerCase()}
                   </div>
                 </CardContent>
               </Card>
@@ -1041,59 +1266,81 @@ function WageDashboardPage() {
                   <div className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                     <TrendingUp className="w-3 h-3" />Overtime split
                   </div>
-                  <div className="text-lg font-bold text-amber-700 tabular-nums sm:text-xl">{fmtZAR(kitchenTotals.overtime_wage)}</div>
+                  <div className="text-lg font-bold text-amber-700 tabular-nums sm:text-xl">
+                    {missingOvertimeRateHours > 0 && kitchenTotals.overtime_wage === 0 ? "Rate needed" : fmtZAR(kitchenTotals.overtime_wage)}
+                  </div>
+                  {missingOvertimeRateHours > 0 ? (
+                    <div className="text-xs text-amber-800 mt-1">
+                      Hourly rate missing for {fmtHours(missingOvertimeRateHours)}; this pay is not included.
+                    </div>
+                  ) : fixedPayOvertimeHours > 0 && kitchenTotals.overtime_wage === 0 ? (
+                    <div className="text-xs text-slate-500 mt-1">
+                      {fmtHours(fixedPayOvertimeHours)} on fixed-pay staff; no separate premium calculated.
+                    </div>
+                  ) : null}
                   <div className="text-xs text-slate-500 mt-1">
-                    {fmtHours(kitchenTotals.overtime_min)}, {overtimePct}% of total
+                    {fmtHours(kitchenTotals.overtime_min)} · {overtimePct}% of hours
                   </div>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-3 sm:p-4">
                   <div className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" />Public-holiday 2x
+                    <AlertTriangle className="w-3 h-3" />Sunday / holiday premium
                   </div>
-                  <div className="text-lg font-bold text-rose-700 tabular-nums sm:text-xl">{fmtZAR(publicHolidayTotalPremium)}</div>
+                  <div className="text-lg font-bold text-rose-700 tabular-nums sm:text-xl">
+                    {publicHolidayEligibleHours === 0 && publicHolidayShiftCount > 0
+                      ? "No hours recorded"
+                      : publicHolidayRateMissingHours > 0 && publicHolidayTotalPremium === 0
+                        ? "Rate needed"
+                        : fmtZAR(publicHolidayTotalPremium)}
+                  </div>
                   <div className="text-xs text-slate-500 mt-1">
-                    {publicHolidayShiftCount} shift{publicHolidayShiftCount === 1 ? "" : "s"} on holiday rows
-                  </div>
-                </CardContent>
-              </Card>
-              {/* WAGE-A intel: owed-to-staff tile. Same number the
-                  financial-dashboard surfaces as staffPaymentsOwed.
-                  Sits next to the period total so "we paid X" and
-                  "we owe Y" read as one picture. */}
-              <Card className="bg-amber-50/60">
-                <CardContent className="p-3 sm:p-4">
-                  <div className="text-xs uppercase tracking-wider text-amber-800 mb-1 inline-flex items-center gap-1">
-                    <Wallet className="w-3 h-3" />Owed to staff
-                  </div>
-                  <div className="text-lg font-bold text-amber-900 tabular-nums sm:text-xl">
-                    {owedToStaff == null ? <span className="text-slate-300">-</span> : fmtZAR(owedToStaff)}
-                  </div>
-                  <div className="text-xs text-amber-800/80 mt-1">
-                    Unpaid clock-in sessions across every department
+                    {publicHolidayEligibleHours === 0 && publicHolidayShiftCount > 0
+                      ? `${publicHolidayShiftCount} Sunday/holiday shifts flagged, but no eligible hours are in the premium bucket`
+                      : publicHolidayRateMissingHours > 0
+                      ? `Hourly rate missing for ${fmtHours(publicHolidayRateMissingHours)} of eligible hours`
+                      : `${fmtHours(publicHolidayEligibleHours)} eligible hours across ${publicHolidayShiftCount} Sunday/holiday shift${publicHolidayShiftCount === 1 ? "" : "s"}`}
                   </div>
                 </CardContent>
               </Card>
             </div>
           )}
 
+          <div className="grid grid-cols-2 gap-3 mb-5 md:grid-cols-3">
+            <Card>
+              <CardContent className="p-3 sm:p-4">
+                <div className="text-xs uppercase tracking-wider text-emerald-700 mb-1">Paid for this period</div>
+                <div className="text-lg font-bold text-emerald-800 tabular-nums sm:text-xl">{fmtZAR(periodPaymentSummary.paid)}</div>
+                <div className="text-xs text-slate-500 mt-1">Matched to recorded earning dates</div>
+              </CardContent>
+            </Card>
+            <Card className={periodPaymentSummary.balance < 0 ? "border-amber-300 bg-amber-50" : ""}>
+              <CardContent className="p-3 sm:p-4">
+                <div className="text-xs uppercase tracking-wider text-slate-600 mb-1">Balance after payments</div>
+                <div className={`text-lg font-bold tabular-nums sm:text-xl ${periodPaymentSummary.balance < 0 ? "text-amber-800" : "text-slate-900"}`}>{fmtZAR(periodPaymentSummary.balance)}</div>
+                <div className="text-xs text-slate-500 mt-1">Gross earned minus period-matched payments</div>
+              </CardContent>
+            </Card>
+            {(periodPaymentSummary.overlapping || periodPaymentSummary.partial) && <Card className="border-amber-300 bg-amber-50"><CardContent className="p-3 text-xs leading-5 text-amber-900">{periodPaymentSummary.overlapping && "Some paid settlement periods overlap. "}{periodPaymentSummary.partial && "A payment covers only part of this selected range and is not netted into the balance. "}Review those periods before relying on the remaining balance.</CardContent></Card>}
+          </div>
+
           {/* WAGE-A intel: secondary insights row. Top earner +
               cost-per-event + wage-% + open shifts. Hidden when
               there's no wage activity at all (matches the empty-
               state below). */}
-          {!isDriversTab && staffRows.length > 0 && (
+          {(staffRows.length > 0 || driverRows.length > 0) && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
               <Card>
                 <CardContent className="p-3 sm:p-4">
                   <div className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                     <Trophy className="w-3 h-3" />Top earner
                   </div>
-                  {topFive[0] ? (
+                  {topEarner ? (
                     <>
-                      <div className="text-base font-semibold text-slate-900 truncate">{topFive[0].full_name}</div>
+                      <div className="text-base font-semibold text-slate-900 truncate">{topEarner.name}</div>
                       <div className="text-xs text-slate-500 mt-0.5">
-                        {fmtZAR(topFive[0].total_wage)} . {deptChipText(topFive[0].departments)}
+                        {fmtZAR(topEarner.total)} · {topEarner.detail}
                       </div>
                     </>
                   ) : (
@@ -1193,115 +1440,169 @@ function WageDashboardPage() {
               </Card>
             </div>
           )}
+          </>}
 
-          {/* Mobile dropdown keeps the two report modes compact. */}
-          <div className="mb-3 md:hidden">
-            <label htmlFor="wages-view" className="sr-only">Wage report view</label>
-            <select
-              id="wages-view"
-              value={subTab}
-              onChange={(event) => setSubTab(event.target.value as "summary" | "by-person")}
-              className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
-            >
-              <option value="summary">Summary</option>
-              <option value="by-person">By person</option>
-            </select>
-          </div>
-          <Tabs value={subTab} onValueChange={(v) => setSubTab(v as "summary" | "by-person")} className="w-full">
-            <TabsList className="mb-4 hidden w-full grid-cols-2 md:grid md:w-72">
-              <TabsTrigger id="wages-summary" data-chat-section="admin.wages.summary" data-chat-section-label="Wage summary" value="summary">Summary</TabsTrigger>
-              <TabsTrigger id="wages-by-person" data-chat-section="admin.wages.by-person" data-chat-section-label="Wages by person" value="by-person">By person</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="summary">
-              {isLoading ? (
-                <Card>
-                  <CardContent className="p-12 text-center text-slate-500">
-                    <Loader2 className="w-5 h-5 mx-auto animate-spin mb-2" />
-                    Loading wages...
-                  </CardContent>
-                </Card>
-              ) : activeLoadError ? (
-                <WageLoadError message={activeLoadError} onRetry={() => setReloadTick((n) => n + 1)} />
-              ) : hasNoData ? (
-                <EmptyState department={department} />
-              ) : isDriversTab ? (
-                <DriverSummaryView rows={driverRows} totals={driverTotals} fmtZAR={fmtZAR} fmtZARDetailed={fmtZARDetailed} />
-              ) : (
-                // "All" tab: the grand total already includes driver pay, so
-                // the breakdown must show drivers too - otherwise a tenant
-                // with only driver pay saw "No shifts" under a non-zero total
-                // (money that didn't sum on the surface). Render the kitchen
-                // ledger when it has rows AND the driver ledger when it has
-                // rows; single-department tabs keep kitchen-only.
-                <div className="space-y-6">
-                  {staffRows.length > 0 && (
-                    <KitchenSummaryView
-                      chartData={chartData}
-                      topFive={topFive}
-                      publicHolidayLines={publicHolidayLines}
-                      staffRows={staffRows}
-                      totalWage={kitchenTotals.total_wage}
-                      fmtZAR={fmtZAR}
-                      fmtZARDetailed={fmtZARDetailed}
-                    />
-                  )}
-                  {department === "all" && driverRows.length > 0 && (
-                    <div className="space-y-3">
-                      {staffRows.length > 0 && (
-                        <h3 className="text-sm font-semibold text-slate-700">Drivers</h3>
-                      )}
-                      <DriverSummaryView rows={driverRows} totals={driverTotals} fmtZAR={fmtZAR} fmtZARDetailed={fmtZARDetailed} />
-                    </div>
-                  )}
+          {authLoading ? (
+            <PageLoader
+              label={`Opening ${companyName}'s payroll workspace`}
+              detail="Checking your company access and wage settings."
+              brandName={companyName}
+              brandLogoUrl={companyLogoUrl}
+            />
+          ) : !companyId ? (
+            <Card className="border-amber-200 bg-amber-50/50">
+              <CardContent className="p-6 text-sm text-amber-950">
+                <p className="font-semibold">This account isn&apos;t linked to a company.</p>
+                <p className="mt-1 text-amber-900">Sign in with a company owner or company admin account to view wages.</p>
+              </CardContent>
+            </Card>
+          ) : isLoading ? (
+            <PageLoader
+              label={`Loading ${companyName}'s wages and payments`}
+              detail={`Gathering earnings and recorded payouts for ${range.label.toLowerCase()}.`}
+              brandName={companyName}
+              brandLogoUrl={companyLogoUrl}
+            />
+          ) : activeLoadError ? (
+            <WageLoadError message={activeLoadError} onRetry={() => setReloadTick((n) => n + 1)} />
+          ) : hasNoData ? (
+            <EmptyState department="all" />
+          ) : (
+            <div className="space-y-8">
+              <section aria-labelledby="wages-paid-heading" className="space-y-3">
+                <div>
+                  <h2 id="wages-paid-heading" className="text-lg font-semibold tracking-tight text-slate-900">Payments marked paid</h2>
+                  <p className="mt-1 text-sm text-slate-500">Payments covering work dates in {range.label.toLowerCase()}. Paid amounts are shown separately from gross earnings.</p>
                 </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="by-person">
-              {isLoading ? (
-                <Card>
-                  <CardContent className="p-12 text-center text-slate-500">
-                    <Loader2 className="w-5 h-5 mx-auto animate-spin mb-2" />
-                    Loading staff...
-                  </CardContent>
-                </Card>
-              ) : activeLoadError ? (
-                <WageLoadError message={activeLoadError} onRetry={() => setReloadTick((n) => n + 1)} />
-              ) : hasNoData ? (
-                <EmptyState department={department} />
-              ) : isDriversTab ? (
-                <DriverByPersonTable rows={driverRows} fmtZAR={fmtZAR} withSlug={withSlug} />
-              ) : (
-                // "All" tab: show clocked-shift staff AND drivers so the
-                // per-person list reconciles with the grand total.
-                <div className="space-y-6">
-                  {sortedByPerson.length > 0 && (
-                    <KitchenByPersonTable rows={sortedByPerson} totals={kitchenTotals} weeklyByStaff={weeklyByStaff} fmtZAR={fmtZAR} fmtZARDetailed={fmtZARDetailed} />
-                  )}
-                  {department === "all" && driverRows.length > 0 && (
-                    <div className="space-y-3">
-                      {sortedByPerson.length > 0 && (
-                        <h3 className="text-sm font-semibold text-slate-700">Drivers</h3>
-                      )}
-                      <DriverByPersonTable rows={driverRows} fmtZAR={fmtZAR} withSlug={withSlug} />
-                    </div>
-                  )}
+                {paidWagesError ? (
+                  <Card className="border-amber-200 bg-amber-50/50">
+                    <CardContent className="p-4 text-sm text-amber-950">
+                      <p className="font-medium">Recorded payments could not be loaded.</p>
+                      <p className="mt-1 text-amber-900">{paidWagesError}</p>
+                    </CardContent>
+                  </Card>
+                ) : paidWageRecords.length === 0 ? (
+                  <Card><CardContent className="p-5 text-sm text-slate-500">No payments were marked paid in this period.</CardContent></Card>
+                ) : (
+                  <Card>
+                    <CardContent className="p-0">
+                      <div className="divide-y divide-slate-100">
+                        {paidWageRecords.map((payment) => (
+                          <div key={payment.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-slate-900">{payment.staffName}</p>
+                              <p className="text-xs text-slate-500">
+                                {payment.source} · paid {new Date(payment.paidAt).toLocaleDateString("en-ZA")}
+                                {payment.periodFrom && payment.periodTo ? ` · covers ${payment.periodFrom} to ${payment.periodTo}` : " · earning period not recorded"}
+                                {payment.reference ? ` · Ref ${payment.reference}` : ""}
+                              </p>
+                            </div>
+                            <p className="text-sm font-bold tabular-nums text-emerald-700">{fmtZAR(payment.amount)}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="border-t border-slate-200 bg-slate-50/70 px-4 py-3 text-xs text-slate-600">
+                        {paidWageRecords.length} payment record{paidWageRecords.length === 1 ? "" : "s"}. Sources stay separate so a payment recorded in more than one workflow is not silently counted twice.
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </section>
+              <section aria-labelledby="wages-trends-heading" className="space-y-3">
+                <div>
+                  <h2 id="wages-trends-heading" className="text-lg font-semibold tracking-tight text-slate-900">Wage trends</h2>
+                  <p className="mt-1 text-sm text-slate-500">See how staff and driver costs add up over the selected period.</p>
                 </div>
-              )}
-            </TabsContent>
-          </Tabs>
+                {staffRows.length > 0 && (
+                  <KitchenSummaryView
+                    chartData={chartData}
+                    topFive={topFive}
+                    publicHolidayLines={publicHolidayLines}
+                    staffRows={staffRows}
+                    totalWage={kitchenTotals.total_wage}
+                    fmtZAR={fmtZAR}
+                    fmtZARDetailed={fmtZARDetailed}
+                  />
+                )}
+                {driverRows.length > 0 && (
+                  <DriverSummaryView rows={driverRows} totals={driverTotals} fmtZAR={fmtZAR} fmtZARDetailed={fmtZARDetailed} />
+                )}
+              </section>
+
+              <section aria-labelledby="wages-members-heading" className="space-y-3">
+                <div>
+                  <h2 id="wages-members-heading" className="text-lg font-semibold tracking-tight text-slate-900">Earnings by team member</h2>
+                  <p className="mt-1 text-sm text-slate-500">Every team member is listed, including people with no earnings in this period.</p>
+                </div>
+                {staffRows.some((row) => row.review_shifts_count > 0) && (
+                  <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm leading-5 text-amber-950">
+                    <strong>{staffRows.reduce((sum, row) => sum + row.review_shifts_count, 0)} kitchen shift(s) need clock-time review.</strong>{" "}
+                    Rows over 24 hours or whose stored hour buckets disagree with their timestamps are excluded from hourly and holiday wage calculations until corrected. Expand the person&apos;s details to see the clock dates.
+                  </div>
+                )}
+                {sortedByPerson.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-slate-700">Kitchen, shopping and cleaning</h3>
+                    <KitchenByPersonTable rows={sortedByPerson} totals={kitchenTotals} weeklyByStaff={weeklyByStaff} shifts={shifts} holidaySet={holidaySet} paidRecords={paidWageRecords} rangeFrom={range.fromISO.slice(0, 10)} rangeTo={toLocalISO(new Date(new Date(range.toISO).getTime() - 1))} rangeLabel={range.label} onCorrectShift={openKitchenShiftCorrection} fmtZAR={fmtZAR} fmtZARDetailed={fmtZARDetailed} />
+                  </div>
+                )}
+                {driverRows.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-slate-700">Drivers</h3>
+                    <DriverByPersonTable rows={driverRows} companyId={companyId} fromDate={range.fromISO.slice(0, 10)} toDate={toLocalISO(new Date(new Date(range.toISO).getTime() - 1))} rangeLabel={range.label} paidRecords={paidWageRecords} fmtZAR={fmtZAR} withSlug={withSlug} />
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
+          <Card id="order-coverage-audit" className="mt-8 border-slate-200">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <h2 className="text-base font-semibold text-slate-900">Order coverage &amp; hours audit</h2>
+                  <p className="mt-1 text-sm text-slate-500">Uses the same date range selected above. Order coverage hours and payable clock hours are shown separately.</p>
+                </div>
+                <Button type="button" variant="outline" className="h-10 shrink-0" aria-expanded={orderAuditOpen} onClick={() => setOrderAuditOpen((open) => !open)}>
+                  {orderAuditOpen ? <ChevronUp className="mr-2 h-4 w-4" /> : <ChevronDown className="mr-2 h-4 w-4" />}
+                  {orderAuditOpen ? "Hide audit" : "Open order audit"}
+                </Button>
+              </div>
+              {orderAuditOpen && <div className="mt-5 border-t border-slate-100 pt-4"><MonthlyPayrollAudit companyId={companyId} fromISO={range.fromISO} toISO={range.toISO} rangeLabel={visibleRangeLabel} kitchenWages={staffRows} driverWages={driverRows} kitchenShifts={shifts} onCorrectKitchenShift={openKitchenShiftCorrection} onSourceChanged={() => setReloadTick((value) => value + 1)} /></div>}
+            </CardContent>
+          </Card>
         </PortalShell>
+
+        <Dialog open={!!editingKitchenShift} onOpenChange={(open) => !open && !savingKitchenShift && setEditingKitchenShift(null)}>
+          <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Edit shift clock times</DialogTitle>
+              <DialogDescription>Update this shift’s clock-in, clock-out, or break. Enter a reason for the audit record; wage totals recalculate after saving.</DialogDescription>
+            </DialogHeader>
+            {editingKitchenShift && <div className="space-y-3">
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
+                Saved interval: {new Date(editingKitchenShift.shift_start).toLocaleString("en-ZA")} – {editingKitchenShift.shift_end ? new Date(editingKitchenShift.shift_end).toLocaleString("en-ZA") : "still open"}. Verify both dates before saving.
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5"><Label htmlFor="wages-kitchen-shift-start">Clock in</Label><Input id="wages-kitchen-shift-start" type="datetime-local" value={kitchenShiftDraft.start} onChange={(event) => setKitchenShiftDraft((draft) => ({ ...draft, start: event.target.value }))} /></div>
+                <div className="space-y-1.5"><Label htmlFor="wages-kitchen-shift-end">Clock out</Label><Input id="wages-kitchen-shift-end" type="datetime-local" value={kitchenShiftDraft.end} onChange={(event) => setKitchenShiftDraft((draft) => ({ ...draft, end: event.target.value }))} /></div>
+                <div className="space-y-1.5"><Label htmlFor="wages-kitchen-shift-break">Break minutes</Label><Input id="wages-kitchen-shift-break" type="number" min="0" step="1" value={kitchenShiftDraft.breakMin} onChange={(event) => setKitchenShiftDraft((draft) => ({ ...draft, breakMin: event.target.value }))} /></div>
+              </div>
+              <div className="space-y-1.5"><Label htmlFor="wages-kitchen-shift-notes">Shift notes</Label><Textarea id="wages-kitchen-shift-notes" value={kitchenShiftDraft.notes} onChange={(event) => setKitchenShiftDraft((draft) => ({ ...draft, notes: event.target.value }))} /></div>
+              <div className="space-y-1.5"><Label htmlFor="wages-kitchen-shift-reason">Reason for change *</Label><Textarea id="wages-kitchen-shift-reason" required value={kitchenShiftDraft.reason} onChange={(event) => setKitchenShiftDraft((draft) => ({ ...draft, reason: event.target.value }))} placeholder="For example: clock-out was missed; time confirmed with the shift lead." /></div>
+            </div>}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditingKitchenShift(null)} disabled={savingKitchenShift}>Cancel</Button>
+              <Button type="button" onClick={() => void saveKitchenShiftCorrection()} disabled={savingKitchenShift || !kitchenShiftDraft.start || !kitchenShiftDraft.end || !kitchenShiftDraft.reason.trim()}>
+                {savingKitchenShift ? "Saving…" : "Save changes"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Footer />
       </div>
     </ProtectedRoute>
   );
-}
-
-function capitalise(s: string): string {
-  if (!s) return s;
-  return s[0].toUpperCase() + s.slice(1);
 }
 
 // ── Sub-components ─────────────────────────────────────────────────
@@ -1327,11 +1628,11 @@ function EmptyState({ department }: { department: DepartmentKey }) {
     <Card className="border-2 border-dashed">
       <CardContent className="py-16 text-center">
         <Icon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-        <p className="text-slate-700 font-medium">No shifts in this range</p>
+        <p className="text-slate-700 font-medium">No wages recorded in this period</p>
         <p className="text-sm text-slate-500 mt-1">
           {department === "drivers"
-            ? "Once your drivers complete deliveries, pay will appear here."
-            : "Once the team starts clocking in, wages will appear here."}
+            ? "Pay will appear here when driver shifts and completed deliveries are recorded."
+            : "Add team members or widen the date range to see earnings here."}
         </p>
       </CardContent>
     </Card>
@@ -1370,7 +1671,7 @@ function KitchenSummaryView({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <Card className="lg:col-span-2">
         <CardContent className="p-3 sm:p-4">
-          <div className="text-sm font-semibold text-slate-700 mb-3">Daily wage spend</div>
+          <div className="text-sm font-semibold text-slate-700 mb-3">Clocked team wage spend</div>
           {chartData.length === 0 ? (
             totalWage > 0 ? (
               <div className="py-10 text-center text-sm text-slate-500">
@@ -1433,7 +1734,7 @@ function KitchenSummaryView({
                             {deptChipText(r.departments)}
                           </Badge>
                         )}
-                        {r.role_title && <span>{r.role_title}</span>}
+                        {r.role_title && <span>{r.role_title}</span>}{r.login_status === "none" && <Badge variant="outline" className="border-sky-200 bg-sky-50 text-xs text-sky-800">No login · roster tracked</Badge>}{r.login_status === "unlinked" && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-xs text-amber-800">Profile unlinked</Badge>}{r.login_status === "ambiguous" && <Badge variant="outline" className="border-rose-200 bg-rose-50 text-xs text-rose-800">Email shared · review identity</Badge>}
                       </div>
                     </div>
                   </div>
@@ -1455,7 +1756,7 @@ function KitchenSummaryView({
                     </div>
                     <div className="text-right">
                       <div className="font-medium text-rose-700 tabular-nums">+{fmtZAR(p.premium)}</div>
-                      <div className="text-xs text-slate-500">{p.hours.toFixed(1)}h</div>
+                      <div className={`text-xs ${p.needsReview ? "text-amber-800" : "text-slate-500"}`}>{p.needsReview ? "Clock dates need review" : `${p.hours.toFixed(1)}h`}</div>
                     </div>
                   </li>
                 ))}
@@ -1581,19 +1882,42 @@ function KitchenByPersonTable({
   rows,
   totals,
   weeklyByStaff,
+  shifts,
+  holidaySet,
+  paidRecords,
+  rangeFrom,
+  rangeTo,
+  rangeLabel,
+  onCorrectShift,
   fmtZAR = fmtZARDefault,
   fmtZARDetailed = fmtZARDetailedDefault,
 }: {
   rows: StaffWageSummary[];
   totals: { standard_min: number; overtime_min: number; sunday_holiday_min: number; total_wage: number; total_min: number };
   weeklyByStaff: Map<string, number[]>;
+  shifts: KitchenShift[];
+  holidaySet: Set<string>;
+  paidRecords: PaidWageRecord[];
+  rangeFrom: string;
+  rangeTo: string;
+  rangeLabel: string;
+  onCorrectShift: (shift: KitchenShift) => void;
   // TIGHTEN I.91: tenant-aware formatters from the parent.
   fmtZAR?: (n: number | null | undefined) => string;
   fmtZARDetailed?: (n: number | null | undefined) => string;
 }) {
+  const [expandedStaff, setExpandedStaff] = useState<Set<string>>(() => new Set());
+  const toggleStaff = (id: string) => setExpandedStaff((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   if (rows.length === 0) {
     return <EmptyState department={"all"} />;
   }
+  const totalPaid = rows.reduce((sum, row) => sum + paidForEarningPeriod(paidRecords, {
+    from: rangeFrom, to: rangeTo, staffName: row.full_name, primarySource: "Kitchen payslip",
+  }).amount, 0);
   return (
     <Card>
       <CardContent className="p-0">
@@ -1604,6 +1928,7 @@ function KitchenByPersonTable({
             const weekMins = weeklyByStaff.get(r.staff_id) || [0, 0, 0, 0];
             const weekHours = weekMins.map((mins) => +(mins / 60).toFixed(1));
             const weekTitle = `Hours by week, oldest to newest: ${weekHours.map((hours) => `${hours.toFixed(1)}h`).join(" / ")}`;
+            const paid = paidForEarningPeriod(paidRecords, { from: rangeFrom, to: rangeTo, staffName: r.full_name, primarySource: "Kitchen payslip" });
             return (
               <article key={`mobile-${r.staff_id}`} className="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
                 <div className="flex min-w-0 items-start justify-between gap-3">
@@ -1613,7 +1938,7 @@ function KitchenByPersonTable({
                       <p className="break-words text-sm font-semibold text-slate-900">{r.full_name}</p>
                       <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1 text-xs text-slate-600">
                         {r.departments?.length ? <Badge variant="outline" className="text-xs">{deptChipText(r.departments)}</Badge> : null}
-                        {r.role_title && <span className="break-words">{r.role_title}</span>}
+                        {r.role_title && <span className="break-words">{r.role_title}</span>}{r.login_status === "none" && <Badge variant="outline" className="border-sky-200 bg-sky-50 text-xs text-sky-800">No login · roster tracked</Badge>}{r.login_status === "unlinked" && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-xs text-amber-800">Profile unlinked</Badge>}{r.login_status === "ambiguous" && <Badge variant="outline" className="border-rose-200 bg-rose-50 text-xs text-rose-800">Email shared · review identity</Badge>}
                         {r.open_shift && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-xs text-amber-800">On shift</Badge>}
                       </div>
                     </div>
@@ -1628,11 +1953,19 @@ function KitchenByPersonTable({
                   <WageMiniMetric label="Standard hours" value={`${(r.standard_min / 60).toFixed(1)}h`} />
                   <WageMiniMetric label="Overtime" value={`${(r.overtime_min / 60).toFixed(1)}h`} />
                   <WageMiniMetric label="Effective rate" value={effectiveRate > 0 ? fmtZAR(effectiveRate) : "Not set"} />
+                  <WageMiniMetric label="Gross earned" value={fmtZAR(r.total_wage)} />
+                  <WageMiniMetric label="Paid for period" value={fmtZAR(paid.amount)} />
+                  <WageMiniMetric label="Remaining" value={fmtZAR(r.total_wage - paid.amount)} />
                 </div>
+                {(paid.overlapping || paid.partial) && <p className="mt-2 text-xs text-amber-800">{paid.overlapping ? "Paid period ranges overlap. " : "A payment covers only part of this selected range and is not netted. "}Check payment history before treating the remaining amount as final.</p>}
                 <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-2 text-xs text-slate-600">
                   <span>Last 4 weeks</span>
                   <HoursSparkline values={weekMins} title={weekTitle} />
                 </div>
+                <button type="button" aria-expanded={expandedStaff.has(r.staff_id)} onClick={() => toggleStaff(r.staff_id)} className="mt-3 min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                  {expandedStaff.has(r.staff_id) ? "Hide details" : "View details"}
+                </button>
+                {expandedStaff.has(r.staff_id) && <KitchenShiftDetails row={r} shifts={shifts} holidaySet={holidaySet} paidRecords={paidRecords} rangeLabel={rangeLabel} onCorrectShift={onCorrectShift} fmtZAR={fmtZAR} />}
               </article>
             );
           })}
@@ -1651,15 +1984,19 @@ function KitchenByPersonTable({
                 <th className="px-2 py-2.5 font-medium text-right">OT h</th>
                 <th className="px-2 py-2.5 font-medium text-center">Last 4w</th>
                 <th className="px-2 py-2.5 font-medium text-right">Effective rate</th>
-                <th className="px-3 py-2.5 font-medium text-right">Wage R</th>
+                <th className="px-3 py-2.5 font-medium text-right">Earned R</th>
+                <th className="px-2 py-2.5 font-medium text-right">Paid R</th>
+                <th className="px-2 py-2.5 font-medium text-right">Balance R</th>
+                <th className="px-2 py-2.5 font-medium text-right"><span className="sr-only">Details</span></th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => {
                 const totalHours = (r.standard_min + r.overtime_min + r.sunday_holiday_min) / 60;
                 const effectiveRate = totalHours > 0 ? r.total_wage / totalHours : 0;
+                const paid = paidForEarningPeriod(paidRecords, { from: rangeFrom, to: rangeTo, staffName: r.full_name, primarySource: "Kitchen payslip" });
                 return (
-                  <tr key={r.staff_id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                  <Fragment key={r.staff_id}><tr className="border-b border-slate-100 hover:bg-slate-50/50">
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
@@ -1677,7 +2014,7 @@ function KitchenByPersonTable({
                                 {deptChipText(r.departments)}
                               </Badge>
                             )}
-                            {r.role_title && <span>{r.role_title}</span>}
+                            {r.role_title && <span>{r.role_title}</span>}{r.login_status === "none" && <Badge variant="outline" className="border-sky-200 bg-sky-50 text-xs text-sky-800">No login · roster tracked</Badge>}{r.login_status === "unlinked" && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-xs text-amber-800">Profile unlinked</Badge>}{r.login_status === "ambiguous" && <Badge variant="outline" className="border-rose-200 bg-rose-50 text-xs text-rose-800">Email shared · review identity</Badge>}
                             {r.open_shift && (
                               <Badge variant="outline" className="bg-brand-primary/10 text-brand-primary border-brand-primary/20 text-xs px-1 py-0">On shift now</Badge>
                             )}
@@ -1711,7 +2048,15 @@ function KitchenByPersonTable({
                     <td className="px-3 py-2.5 text-right tabular-nums font-bold text-slate-900">
                       {fmtZAR(r.total_wage)}
                     </td>
+                    <td className="px-2 py-2.5 text-right tabular-nums text-emerald-700">{fmtZAR(paid.amount)}</td>
+                    <td className="px-2 py-2.5 text-right tabular-nums font-semibold">{fmtZAR(r.total_wage - paid.amount)}{(paid.overlapping || paid.partial) && <span className="block text-[10px] font-normal text-amber-800">Check periods</span>}</td>
+                    <td className="px-2 py-2.5 text-right">
+                      <button type="button" aria-expanded={expandedStaff.has(r.staff_id)} onClick={() => toggleStaff(r.staff_id)} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                        {expandedStaff.has(r.staff_id) ? "Hide details" : "View details"}
+                      </button>
+                    </td>
                   </tr>
+                  {expandedStaff.has(r.staff_id) && <tr><td colSpan={10} className="border-b border-slate-200 bg-slate-50/60 p-3"><KitchenShiftDetails row={r} shifts={shifts} holidaySet={holidaySet} paidRecords={paidRecords} rangeLabel={rangeLabel} onCorrectShift={onCorrectShift} fmtZAR={fmtZAR} /></td></tr>}</Fragment>
                 );
               })}
             </tbody>
@@ -1726,6 +2071,9 @@ function KitchenByPersonTable({
                 <td className="px-2 py-3"></td>
                 <td className="px-2 py-3"></td>
                 <td className="px-3 py-3 text-right text-brand-primary tabular-nums">{fmtZAR(totals.total_wage)}</td>
+                <td className="px-2 py-3 text-right tabular-nums text-emerald-700">{fmtZAR(totalPaid)}</td>
+                <td className="px-2 py-3 text-right tabular-nums">{fmtZAR(totals.total_wage - totalPaid)}</td>
+                <td className="px-2 py-3"></td>
               </tr>
             </tfoot>
           </table>
@@ -1735,14 +2083,138 @@ function KitchenByPersonTable({
   );
 }
 
-function DriverByPersonTable({ rows, fmtZAR = fmtZARDefault, withSlug = (p: string) => p }: {
+function KitchenShiftDetails({ row, shifts, holidaySet, paidRecords, rangeLabel, onCorrectShift, fmtZAR }: {
+  row: StaffWageSummary;
+  shifts: KitchenShift[];
+  holidaySet: Set<string>;
+  paidRecords: PaidWageRecord[];
+  rangeLabel: string;
+  onCorrectShift: (shift: KitchenShift) => void;
+  fmtZAR: (n: number | null | undefined) => string;
+}) {
+  const rows = shifts.filter((shift) => shift.staff_member_id === row.staff_id)
+    .sort((a, b) => b.shift_start.localeCompare(a.shift_start));
+  const staffPayments = paidRecords.filter((payment) => payment.staffName.trim().toLocaleLowerCase() === row.full_name.trim().toLocaleLowerCase());
+  const fmtDateTime = (value: string | null) => value
+    ? new Date(value).toLocaleString("en-ZA", { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+    : "In progress";
+  const fmtDate = (value: string) => new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  return (
+    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-slate-800">Earnings details · {rangeLabel}</p>
+        <p className="text-xs text-slate-600">{rows.length} recorded shift{rows.length === 1 ? "" : "s"} · standard, overtime and Sunday/holiday amounts</p>
+      </div>
+      {rows.length === 0 ? <p className="py-3 text-sm text-slate-600">No clocked shifts in this selected range.</p> : (
+        <div className="space-y-2">
+          {rows.map((shift) => {
+            const day = shift.shift_start.slice(0, 10);
+            const sundayOrHoliday = holidaySet.has(day) || new Date(shift.shift_start).getDay() === 0;
+            const needsReview = needsKitchenShiftReview(shift);
+            const liveMinutes = shift.shift_end ? 0 : liveWorkedMinutes(shift);
+            const standardHours = (shift.standard_min || 0) / 60;
+            const overtimeHours = (shift.overtime_min || 0) / 60;
+            const holidayHours = (shift.sunday_holiday_min || 0) / 60;
+            const holidayPay = needsReview ? 0 : row.pay_type === "shift"
+              ? holidayHours > 0 && row.shift_rate != null
+                ? Math.max(0, (row.sunday_holiday_shift_rate ?? row.shift_rate * 2) - row.shift_rate)
+                : 0
+              : holidayHours * (row.sunday_holiday_rate || 0) * (row.pay_type === "monthly" ? 0.5 : 1);
+            const standardPay = row.pay_type === "hourly" && !needsReview ? standardHours * (row.hourly_rate || 0)
+              : row.pay_type === "shift" ? (shift.shift_end ? row.shift_rate || 0 : 0) : 0;
+            const overtimePay = row.pay_type === "hourly" && !needsReview ? overtimeHours * (row.overtime_rate || 0) : 0;
+            const linePay = standardPay + overtimePay + holidayPay;
+            const timestampHours = shift.shift_end
+              ? Math.max(0, (new Date(shift.shift_end).getTime() - new Date(shift.shift_start).getTime()) / 3_600_000 - (shift.total_break_min || 0) / 60)
+              : liveMinutes / 60;
+            return (
+              <article key={shift.id} className="rounded-md border border-slate-200 bg-white p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{fmtDate(day)}</p>
+                    <p className="text-xs text-slate-600">{fmtDateTime(shift.shift_start)} – {fmtDateTime(shift.shift_end)}{shift.total_break_min > 0 ? ` · ${shift.total_break_min}m break` : ""}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {sundayOrHoliday && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">{holidaySet.has(day) ? "Public holiday" : "Sunday"}</Badge>}
+                    {needsReview && <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-800">Review clock times</Badge>}
+                    {!shift.shift_end && <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-800">In progress</Badge>}
+                  </div>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {!shift.shift_end ? <WageMiniMetric label="Elapsed (live)" value={`${(liveMinutes / 60).toFixed(1)}h · not finalized`} /> : <WageMiniMetric label="Standard" value={`${standardHours.toFixed(1)}h${row.pay_type === "hourly" ? ` · ${fmtZAR(standardPay)}` : ""}`} />}
+                  <WageMiniMetric label="Overtime" value={shift.shift_end ? `${overtimeHours.toFixed(1)}h${row.pay_type === "hourly" ? ` · ${fmtZAR(overtimePay)}` : ""}` : "Finalized at clock-out"} />
+                  <WageMiniMetric label="Sunday / holiday" value={shift.shift_end ? `${holidayHours.toFixed(1)}h · ${fmtZAR(holidayPay)}` : "Finalized at clock-out"} />
+                  <WageMiniMetric label={row.pay_type === "monthly" ? "Monthly base" : "Shift earnings"} value={!shift.shift_end ? "Not payable until closed" : row.pay_type === "monthly" ? "Included in period salary" : fmtZAR(linePay)} />
+                </div>
+                {needsReview && <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs leading-5 text-amber-900">{!shift.shift_end
+                  ? `This shift is still open and has ${timestampHours.toFixed(1)} elapsed hours. Close or correct it before these hours can be finalized.`
+                  : `This clock row spans ${timestampHours.toFixed(1)} worked hours and exceeds 24 hours or disagrees with its saved hour buckets. Its recorded hours and holiday premium are excluded from wage totals until corrected.`}{" "}The ordinary per-shift fee remains included for a completed shift-paid shift.</p>}
+                <Button type="button" size="sm" variant="outline" className={`mt-2 h-9 gap-1.5 ${needsReview ? "border-amber-300 text-amber-900 hover:bg-amber-100" : ""}`} onClick={() => onCorrectShift(shift)}><Pencil className="h-3.5 w-3.5" />{needsReview ? "Correct clock times" : "Edit shift"}</Button>
+                {shift.shift_end && sundayOrHoliday && holidayHours === 0 && <p className="mt-2 text-xs text-amber-800">No Sunday/public-holiday minutes were recorded for this shift, so no holiday premium was calculated.</p>}
+              </article>
+            );
+          })}
+        </div>
+      )}
+      <PaymentHistory rows={staffPayments} fmtZAR={fmtZAR} />
+    </div>
+  );
+}
+
+const driverDetailKey = (driverId: string, fromDate: string, toDate: string) => `${driverId}:${fromDate}:${toDate}`;
+
+function DriverByPersonTable({ rows, companyId, fromDate, toDate, rangeLabel, paidRecords, fmtZAR = fmtZARDefault, withSlug = (p: string) => p }: {
   rows: DriverPayRow[];
+  companyId?: string;
+  fromDate: string;
+  toDate: string;
+  rangeLabel: string;
+  paidRecords: PaidWageRecord[];
   // TIGHTEN I.91: tenant-aware formatter from the parent.
   fmtZAR?: (n: number | null | undefined) => string;
   /** Tenant-slug wrapper from useTenantHref. The raw hrefs here used
    *  to drop the ?company_slug context on every deep-link. */
   withSlug?: (path: string) => string;
 }) {
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const [details, setDetails] = useState<Record<string, DriverPaySummary>>({});
+  const [loadingDetails, setLoadingDetails] = useState<Set<string>>(() => new Set());
+  const [detailErrors, setDetailErrors] = useState<Record<string, string>>({});
+  const [detailRetryToken, setDetailRetryToken] = useState(0);
+  const detailRequests = useRef(new Set<string>());
+  const totalPaid = rows.reduce((sum, row) => sum + paidForEarningPeriod(paidRecords, {
+    from: fromDate, to: toDate, staffName: row.full_name, staffId: row.driver_id, primarySource: "Driver settlement",
+  }).amount, 0);
+  useEffect(() => {
+    if (!companyId) return;
+    for (const driverId of expanded) {
+      const key = driverDetailKey(driverId, fromDate, toDate);
+      if (details[key] || detailRequests.current.has(key)) continue;
+      detailRequests.current.add(key);
+      setLoadingDetails((current) => new Set(current).add(key));
+      setDetailErrors((current) => { const next = { ...current }; delete next[key]; return next; });
+      void driverPayService.getPaySummary({ companyId, driverId, range: { from: fromDate, to: toDate } })
+        .then((summary) => setDetails((current) => ({ ...current, [key]: summary })))
+        .catch((error) => setDetailErrors((current) => ({
+          ...current,
+          [key]: error instanceof Error ? error.message : "Could not load date details.",
+        })))
+        .finally(() => {
+          detailRequests.current.delete(key);
+          setLoadingDetails((current) => { const next = new Set(current); next.delete(key); return next; });
+        });
+    }
+  }, [expanded, details, companyId, fromDate, toDate, detailRetryToken]);
+  const toggleDetails = (driverId: string) => setExpanded((current) => {
+    const next = new Set(current);
+    if (next.has(driverId)) next.delete(driverId); else next.add(driverId);
+    return next;
+  });
+  const retryDetails = (driverId: string) => {
+    const key = driverDetailKey(driverId, fromDate, toDate);
+    setDetailErrors((current) => { const next = { ...current }; delete next[key]; return next; });
+    setDetailRetryToken((current) => current + 1);
+  };
   // DRV-B (driver-settlement deferred, 2026-05-24): this tab is the
   // roll-up view. The action surface (drill-down, payslip PDF +
   // email, mark-as-paid) lives on /admin/driver-settlement so we
@@ -1754,7 +2226,7 @@ function DriverByPersonTable({ rows, fmtZAR = fmtZARDefault, withSlug = (p: stri
         <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60 text-xs text-slate-600 flex items-center gap-2">
           <Truck className="w-3.5 h-3.5 text-blue-600" />
           <span>
-            Driver wages roll-up. Full drill-down, payslip PDF + email, and mark-as-paid live on{" "}
+            Driver wages shown as gross earned. Paid and balance use settlement work periods; full drill-down and settlement actions live on{" "}
             <Link href={withSlug("/admin/driver-settlement")} className="text-blue-700 hover:underline font-medium">
               /admin/driver-settlement
             </Link>
@@ -1762,7 +2234,10 @@ function DriverByPersonTable({ rows, fmtZAR = fmtZARDefault, withSlug = (p: stri
           </span>
         </div>
         <div className="space-y-2 p-3 lg:hidden">
-          {rows.map((r) => (
+          {rows.map((r) => {
+            const paid = paidForEarningPeriod(paidRecords, { from: fromDate, to: toDate, staffName: r.full_name, staffId: r.driver_id, primarySource: "Driver settlement" });
+            const key = driverDetailKey(r.driver_id, fromDate, toDate);
+            return (
             <article key={`mobile-${r.driver_id}`} className="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
               <div className="flex min-w-0 items-start justify-between gap-3">
                 <div className="flex min-w-0 items-start gap-2">
@@ -1780,10 +2255,17 @@ function DriverByPersonTable({ rows, fmtZAR = fmtZARDefault, withSlug = (p: stri
                 <WageMiniMetric label="Hourly pay" value={fmtZAR(r.hourly_pay)} />
                 <WageMiniMetric label="Distance pay" value={fmtZAR(r.distance_pay)} />
                 <WageMiniMetric label="Callouts" value={fmtZAR(r.callout_pay)} />
-                <WageMiniMetric label="Total" value={fmtZAR(r.total)} />
+                <WageMiniMetric label="Gross earned" value={fmtZAR(r.total)} />
+                <WageMiniMetric label="Paid for period" value={fmtZAR(paid.amount)} />
+                <WageMiniMetric label="Remaining" value={fmtZAR(r.total - paid.amount)} />
               </div>
+              {(paid.overlapping || paid.partial) && <p className="mt-2 text-xs text-amber-800">{paid.overlapping ? "Paid settlement periods overlap. " : "A payment covers only part of this selected range and is not netted. "}Review payment periods before treating the remaining amount as final.</p>}
+              <button type="button" aria-expanded={expanded.has(r.driver_id)} onClick={() => toggleDetails(r.driver_id)} className="mt-3 min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {expanded.has(r.driver_id) ? "Hide details" : "View details"}
+              </button>
+              {expanded.has(r.driver_id) && <DriverDetailPanel summary={details[key]} loading={loadingDetails.has(key)} error={detailErrors[key]} onRetry={() => retryDetails(r.driver_id)} paidRecords={paidRecords.filter((payment) => payment.staffId === r.driver_id || payment.staffName.trim().toLocaleLowerCase() === r.full_name.trim().toLocaleLowerCase())} driverId={r.driver_id} fromDate={fromDate} toDate={toDate} rangeLabel={rangeLabel} withSlug={withSlug} fmtZAR={fmtZAR} />}
             </article>
-          ))}
+          ); })}
           {rows.length === 0 && <p className="py-4 text-center text-sm text-slate-600">No drivers in range.</p>}
         </div>
         <div className="hidden overflow-x-auto lg:block">
@@ -1795,13 +2277,18 @@ function DriverByPersonTable({ rows, fmtZAR = fmtZARDefault, withSlug = (p: stri
                 <th className="px-2 py-2.5 font-medium text-right">Hourly R</th>
                 <th className="px-2 py-2.5 font-medium text-right">Distance R</th>
                 <th className="px-2 py-2.5 font-medium text-right">Callouts R</th>
-                <th className="px-3 py-2.5 font-medium text-right">Total R</th>
+                <th className="px-3 py-2.5 font-medium text-right">Earned R</th>
+                <th className="px-2 py-2.5 font-medium text-right">Paid R</th>
+                <th className="px-2 py-2.5 font-medium text-right">Balance R</th>
                 <th className="px-2 py-2.5 font-medium text-right w-16"></th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.driver_id} className="border-b border-slate-100 hover:bg-slate-50/50">
+              {rows.map((r) => {
+                const paid = paidForEarningPeriod(paidRecords, { from: fromDate, to: toDate, staffName: r.full_name, staffId: r.driver_id, primarySource: "Driver settlement" });
+                const key = driverDetailKey(r.driver_id, fromDate, toDate);
+                return (
+                <Fragment key={r.driver_id}><tr className="border-b border-slate-100 hover:bg-slate-50/50">
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
@@ -1818,21 +2305,21 @@ function DriverByPersonTable({ rows, fmtZAR = fmtZARDefault, withSlug = (p: stri
                   <td className="px-2 py-2.5 text-right tabular-nums">{fmtZAR(r.distance_pay)}</td>
                   <td className="px-2 py-2.5 text-right tabular-nums">{fmtZAR(r.callout_pay)}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums font-bold text-slate-900">{fmtZAR(r.total)}</td>
+                  <td className="px-2 py-2.5 text-right tabular-nums text-emerald-700">{fmtZAR(paid.amount)}</td>
+                  <td className="px-2 py-2.5 text-right tabular-nums font-semibold">{fmtZAR(r.total - paid.amount)}{(paid.overlapping || paid.partial) && <span className="block text-[10px] font-normal text-amber-800">Check periods</span>}</td>
                   <td className="px-2 py-2.5 text-right">
                     {/* DRV-B: deep-link. driver-settlement.tsx reads
                         ?driver=<id> and auto-expands the matching
                         row + scrolls it into view. Link + withSlug so
                         the tenant slug context survives (the old raw
                         <a> dropped it and forced a full reload). */}
-                    <Link
-                      href={withSlug(`/admin/driver-settlement?driver=${r.driver_id}`)}
-                      className="text-xs text-blue-700 hover:underline whitespace-nowrap"
-                    >
-                      Open &rarr;
-                    </Link>
+                    <button type="button" aria-expanded={expanded.has(r.driver_id)} onClick={() => toggleDetails(r.driver_id)} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                      {expanded.has(r.driver_id) ? "Hide details" : "View details"}
+                    </button>
                   </td>
                 </tr>
-              ))}
+                {expanded.has(r.driver_id) && <tr><td colSpan={9} className="border-b border-slate-200 bg-slate-50/60 p-3"><DriverDetailPanel summary={details[key]} loading={loadingDetails.has(key)} error={detailErrors[key]} onRetry={() => retryDetails(r.driver_id)} paidRecords={paidRecords.filter((payment) => payment.staffId === r.driver_id || payment.staffName.trim().toLocaleLowerCase() === r.full_name.trim().toLocaleLowerCase())} driverId={r.driver_id} fromDate={fromDate} toDate={toDate} rangeLabel={rangeLabel} withSlug={withSlug} fmtZAR={fmtZAR} /></td></tr>}</Fragment>
+              ); })}
             </tbody>
             <tfoot>
               <tr className="bg-slate-50 border-t-2 border-slate-200 font-semibold">
@@ -1852,6 +2339,8 @@ function DriverByPersonTable({ rows, fmtZAR = fmtZARDefault, withSlug = (p: stri
                 <td className="px-3 py-3 text-right text-brand-primary tabular-nums">
                   {fmtZAR(rows.reduce((s, r) => s + r.total, 0))}
                 </td>
+                <td className="px-2 py-3 text-right tabular-nums text-emerald-700">{fmtZAR(totalPaid)}</td>
+                <td className="px-2 py-3 text-right tabular-nums">{fmtZAR(rows.reduce((s, r) => s + r.total, 0) - totalPaid)}</td>
                 <td className="px-2 py-3"></td>
               </tr>
             </tfoot>
@@ -1859,6 +2348,117 @@ function DriverByPersonTable({ rows, fmtZAR = fmtZARDefault, withSlug = (p: stri
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function DriverDetailPanel({ summary, loading, error, onRetry, paidRecords, driverId, fromDate, toDate, rangeLabel, withSlug, fmtZAR }: {
+  summary?: DriverPaySummary;
+  loading: boolean;
+  error?: string;
+  onRetry: () => void;
+  paidRecords: PaidWageRecord[];
+  driverId: string;
+  fromDate: string;
+  toDate: string;
+  rangeLabel: string;
+  withSlug: (path: string) => string;
+  fmtZAR: (n: number | null | undefined) => string;
+}) {
+  const settlementHref = withSlug(`/admin/driver-settlement?driver=${driverId}&from=${fromDate}&to=${toDate}`);
+  const fmtDate = (value?: string | null) => value
+    ? new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short", year: "numeric" })
+    : "Date not recorded";
+  const fmtDateTime = (value?: string | null) => value
+    ? new Date(value).toLocaleString("en-ZA", { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+    : "Time not recorded";
+  return (
+    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-slate-800">Earnings details · {rangeLabel}</p>
+        {summary && <p className="text-xs text-slate-600">{summary.shifts.length} recorded shift{summary.shifts.length === 1 ? "" : "s"} · {summary.deliveries.length} deliver{summary.deliveries.length === 1 ? "y" : "ies"}</p>}
+      </div>
+      {!summary && (loading || !error) && <div role="status" aria-live="polite" className="space-y-2 py-1"><span className="sr-only">Loading driver wage details</span><div className="h-12 animate-pulse rounded-md bg-slate-200/70" /><div className="h-12 animate-pulse rounded-md bg-slate-200/70" /></div>}
+      {!summary && !loading && <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800"><span>{error || "Driver details are not available yet."}</span><Button type="button" size="sm" variant="outline" onClick={onRetry}>Try again</Button></div>}
+      {summary && <>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-slate-600">Shift rows include Sunday and public-holiday multipliers. Delivery rows show distance and callout amounts.</p>
+        <Link href={settlementHref} className="inline-flex min-h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-blue-700 hover:bg-blue-50">Open settlement</Link>
+      </div>
+      <div className="space-y-2">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Shifts ({summary.shifts.length})</h4>
+          {summary.shifts.length === 0 ? <p className="py-2 text-sm text-slate-600">No shifts in this selected range.</p> : summary.shifts.map((shift) => {
+            const dayWisePay = shift.bcea_buckets?.reduce((total, bucket) => total + bucket.pay, 0);
+            const payDiffersFromDayBreakdown = !shift.needs_review && dayWisePay != null && Math.abs(dayWisePay - shift.pay) > 0.01;
+            return (
+              <article key={shift.shift_id} className="rounded-md border border-slate-200 bg-white p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{fmtDate(shift.shift_date || shift.actual_start)}</p>
+                {(shift.actual_start || shift.actual_end) && <p className="text-xs text-slate-600">{fmtDateTime(shift.actual_start)} – {fmtDateTime(shift.actual_end)}</p>}
+              </div>
+              <p className="text-sm font-semibold tabular-nums text-slate-900">{fmtZAR(shift.pay)}</p>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <WageMiniMetric label="Hours" value={`${shift.hours.toFixed(2)}h`} />
+              <WageMiniMetric label="Hourly rate" value={shift.hourly_rate > 0 ? `${fmtZAR(shift.hourly_rate)}/h` : "Not set"} />
+              <WageMiniMetric label="Saved multiplier" value={`${shift.multiplier.toFixed(2)}×`} />
+              <WageMiniMetric label="Shift earnings" value={fmtZAR(shift.pay)} />
+            </div>
+            {shift.needs_review && <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs leading-5 text-amber-900">{shift.review_reason || "This shift's clock times need checking. It is excluded from payable driver earnings until corrected."}</p>}
+            {shift.bcea_buckets?.map((bucket) => {
+              const date = new Date(`${bucket.date}T12:00:00`);
+              const dayLabel = date.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+              const tags = [
+                bucket.dayMultiplier === 2 ? "Sunday/public holiday ×2" : null,
+                bucket.overtimeHours > 0 ? `${bucket.overtimeHours.toFixed(2)}h overtime ×1.5` : null,
+              ].filter(Boolean);
+              return <p key={`${shift.shift_id}-${bucket.date}`} className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded bg-slate-50 px-2 py-1.5 text-xs text-slate-700"><span>{dayLabel}: {bucket.hours.toFixed(2)}h{tags.length > 0 && <span className="text-amber-800"> ({tags.join(" + ")})</span>}</span><span className="tabular-nums">{fmtZAR(bucket.pay)}</span></p>;
+            })}
+            {payDiffersFromDayBreakdown && <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs leading-5 text-amber-900">Day-by-day rate breakdown totals {fmtZAR(dayWisePay)}; saved shift earnings are {fmtZAR(shift.pay)}. Check the saved multiplier before payout.</p>}
+            <Link href={withSlug(`/admin/driver-settlement?driver=${driverId}&shift=${shift.shift_id}&from=${fromDate}&to=${toDate}`)} className={`mt-2 inline-flex min-h-9 items-center gap-1.5 rounded-md border bg-white px-3 text-xs font-semibold ${shift.needs_review ? "border-amber-300 text-amber-900 hover:bg-amber-100" : "border-slate-200 text-blue-700 hover:bg-blue-50"}`}><Pencil className="h-3.5 w-3.5" />{shift.needs_review ? "Correct this shift" : "Edit shift"}</Link>
+          </article>
+            );
+          })}
+      </div>
+      <div className="space-y-2">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Deliveries ({summary.deliveries.length})</h4>
+        {summary.deliveries.length === 0 ? <p className="text-sm text-slate-600">No completed deliveries in this selected range.</p> : summary.deliveries.map((delivery) => (
+          <article key={delivery.line_id || delivery.order_id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white p-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">{fmtDate(delivery.event_date)} · {delivery.event_name || delivery.order_number || "Delivery"}</p>
+                  <p className="text-xs text-slate-600">{delivery.order_number ? `${delivery.order_number} · ` : ""}{delivery.distance_km.toFixed(1)} km · distance {fmtZAR(delivery.distance_pay)} + callout {fmtZAR(delivery.callout_fee)}</p>
+                  <p className="text-xs text-slate-500">
+                    {delivery.gps_trip_duration_minutes != null ? `GPS trip timer ${Math.floor(delivery.gps_trip_duration_minutes / 60)}h ${delivery.gps_trip_duration_minutes % 60}m · ` : ""}
+                    {delivery.distance_source === "gps_actual" ? "Actual GPS distance" : delivery.distance_source === "booking_route_split" ? "Allocated route estimate" : "Saved round-trip route estimate"}
+                  </p>
+                  {delivery.gps_distance_status === "partial" && <p className="text-xs text-amber-800">GPS capture was partial, so the route estimate is used for settlement.</p>}
+                  {delivery.gps_distance_review_required && <p className="text-xs font-medium text-rose-700">Review actual GPS route · expected {delivery.gps_expected_distance_km?.toFixed(1) ?? "unknown"} km</p>}
+            </div>
+            <p className="text-sm font-semibold tabular-nums text-slate-900">{fmtZAR(delivery.total)}</p>
+          </article>
+        ))}
+      </div>
+      <PaymentHistory rows={paidRecords} fmtZAR={fmtZAR} />
+      </>}
+    </div>
+  );
+}
+
+function PaymentHistory({ rows, fmtZAR }: { rows: PaidWageRecord[]; fmtZAR: (n: number | null | undefined) => string }) {
+  return (
+    <div className="space-y-2 border-t border-slate-200 pt-3">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Payments covering this period ({rows.length})</h4>
+      {rows.length === 0 ? <p className="text-sm text-slate-600">No payments recorded for this person in the selected range.</p> : rows.map((payment) => (
+        <div key={`${payment.source}-${payment.id}`} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white p-3">
+          <div>
+            <p className="text-sm font-medium text-slate-900">{new Date(payment.paidAt).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })} · {payment.source}</p>
+            {payment.periodFrom && payment.periodTo && <p className="text-xs text-slate-600">Covers {payment.periodFrom} to {payment.periodTo}</p>}
+            {payment.reference && <p className="text-xs text-slate-600">{payment.reference}</p>}
+          </div>
+          <p className="text-sm font-semibold tabular-nums text-slate-900">{fmtZAR(payment.amount)}</p>
+        </div>
+      ))}
+    </div>
   );
 }
 

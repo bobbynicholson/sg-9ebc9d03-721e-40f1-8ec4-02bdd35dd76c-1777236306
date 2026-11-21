@@ -214,12 +214,35 @@ export async function reopenTask(
 export async function deleteTask(
   supabase: SupabaseClient,
   taskId: string,
+  actorUserId?: string | null,
+  reason?: string | null,
 ): Promise<{ ok: boolean; error?: string }> {
+  const { data: before, error: readError } = await (supabase as any)
+    .from("staff_shift_tasks")
+    .select("id, company_id, shift_id, task_type, notes, actual_start, actual_end")
+    .eq("id", taskId)
+    .maybeSingle();
+  if (readError) return { ok: false, error: readError.message };
+  if (!before) return { ok: false, error: "Task not found." };
   const { error } = await (supabase as any)
     .from("staff_shift_tasks")
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", taskId);
   if (error) return { ok: false, error: error.message };
+  if (before.company_id) {
+    try {
+      await (supabase as any).from("audit_logs").insert({
+        company_id: before.company_id,
+        user_id: actorUserId ?? null,
+        action: "staff_shift_task_removed",
+        entity_type: "staff_shift_task",
+        entity_id: taskId,
+        details: { before, reason: reason?.trim() || null },
+      });
+    } catch {
+      /* task removal should not fail if audit logging is unavailable */
+    }
+  }
   return { ok: true };
 }
 

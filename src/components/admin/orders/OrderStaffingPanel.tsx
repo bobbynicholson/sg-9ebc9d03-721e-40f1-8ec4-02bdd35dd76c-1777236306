@@ -21,6 +21,11 @@ type OrderStaffingPanelProps = {
     assigned_chef_id?: string | null;
     assigned_driver_id?: string | null;
     secondary_driver_id?: string | null;
+    status?: string | null;
+    delivered_at?: string | null;
+    departed_venue_at?: string | null;
+    event_complete_at?: string | null;
+    completed_at?: string | null;
   } | null;
 };
 
@@ -101,8 +106,9 @@ function formatClock(value: string | null): string {
   return `${parts[0]}:${parts[1] || "00"}`;
 }
 
-function durationLabel(start: string | null, end: string | null): string {
+function durationLabel(start: string | null, end: string | null, closed = false): string {
   if (!start) return "Not clocked";
+  if (closed && !end) return "End time unavailable";
   const endDate = end ? new Date(end) : new Date();
   const startDate = new Date(start);
   const minutes = Math.max(0, Math.round((endDate.getTime() - startDate.getTime()) / 60000));
@@ -135,7 +141,7 @@ export function OrderStaffingPanel({ orderId, companyId, order }: OrderStaffingP
       try {
         const [drivers, waiters, kitchenShifts, dutyShifts, contributors] = await Promise.all([
           (supabase as any).from("driver_assignments")
-            .select("id, driver_id, assignment_type, status, scheduled_for, assigned_at, accepted_at, en_route_at, completed_at")
+            .select("id, driver_id, assignment_type, status, scheduled_for, assigned_at, accepted_at, en_route_at, delivered_at, completed_at")
             .eq("company_id", companyId).eq("order_id", orderId).order("assigned_at", { ascending: true }),
           (supabase as any).from("event_attendance")
             .select("id, waiter_id, arrived_at, service_started_at, service_ended_at, event_complete_at")
@@ -159,14 +165,24 @@ export function OrderStaffingPanel({ orderId, companyId, order }: OrderStaffingP
         };
 
         for (const row of (drivers.data || []) as any[]) {
-          const start = validIso(row.en_route_at || row.accepted_at || row.assigned_at);
-          const end = validIso(row.completed_at);
+          // Acceptance/assignment timestamps are not clock-in timestamps.
+          // Only show elapsed work time after the driver actually went en route.
+          const start = validIso(row.en_route_at);
+          const isDelivery = ["delivery", "both"].includes(String(row.assignment_type || "").toLowerCase());
+          const terminalOrderAt = validIso(order?.delivered_at || order?.departed_venue_at || order?.event_complete_at || order?.completed_at);
+          const terminalOrder = isDelivery && (["delivered", "completed"].includes(String(order?.status || "").toLowerCase())
+            || !!terminalOrderAt
+            || !!order?.event_complete_at);
+          const end = validIso(row.completed_at || row.delivered_at || (terminalOrder ? terminalOrderAt : null));
+          const status = terminalOrder
+            ? "completed"
+            : row.status || (start ? "active" : "assigned");
           add({
             id: `driver:${row.id}`, personId: row.driver_id, role: "driver",
             source: "driver assignment", assignment: row.driver_id === order?.secondary_driver_id ? "Co-driver" : "Delivery",
             plannedStart: validIso(row.scheduled_for), plannedEnd: null,
             actualStart: start, actualEnd: end, activityStart: start, activityEnd: end,
-            status: row.status || null,
+            status,
           });
         }
         for (const row of (waiters.data || []) as any[]) {
@@ -345,11 +361,11 @@ export function OrderStaffingPanel({ orderId, companyId, order }: OrderStaffingP
                     </div>
                     <div className="min-w-0">
                       <p className="font-medium uppercase tracking-wide text-slate-400">Actual time</p>
-                      <p className="break-words text-slate-600">{row.actualStart ? `${formatStamp(row.actualStart)}${row.actualEnd ? ` – ${formatStamp(row.actualEnd)}` : " · active"}` : "Not clocked"}</p>
+                      <p className="break-words text-slate-600">{row.actualStart ? `${formatStamp(row.actualStart)}${row.actualEnd ? ` – ${formatStamp(row.actualEnd)}` : row.status === "completed" ? " · end time unavailable" : " · active"}` : "Not clocked"}</p>
                     </div>
                     <div>
                       <p className="font-medium uppercase tracking-wide text-slate-400">Duration</p>
-                      <p className="font-semibold tabular-nums text-slate-700">{durationLabel(row.activityStart, row.activityEnd)}</p>
+                      <p className="font-semibold tabular-nums text-slate-700">{durationLabel(row.activityStart, row.activityEnd, row.status === "completed")}</p>
                     </div>
                     {row.status && (
                       <div>
@@ -389,8 +405,8 @@ export function OrderStaffingPanel({ orderId, companyId, order }: OrderStaffingP
                       <td className="px-3 py-2"><Badge variant="outline" className={`capitalize ${ROLE_TONES[row.role] || ""}`}>{roleLabel(row.role)}</Badge></td>
                       <td className="px-3 py-2"><div className="font-medium text-slate-700">{row.assignment}</div><div className="mt-0.5 text-[10px] text-slate-500">Source: {row.source}</div>{row.status && <span className={`mt-1 inline-flex rounded-full px-1.5 py-0.5 text-[10px] capitalize ${row.status === "active" ? "bg-emerald-100 text-emerald-800" : row.status === "completed" ? "bg-slate-100 text-slate-600" : "bg-blue-100 text-blue-800"}`}>{row.status.replace(/_/g, " ")}</span>}</td>
                       <td className="px-3 py-2 text-slate-600">{row.plannedStart ? `${formatClock(row.plannedStart)}${row.plannedEnd ? ` – ${formatClock(row.plannedEnd)}` : ""}` : row.activityStart ? `Started ${formatStamp(row.activityStart)}` : "Not scheduled"}</td>
-                      <td className="px-3 py-2 text-slate-600">{row.actualStart ? `${formatStamp(row.actualStart)}${row.actualEnd ? ` – ${formatStamp(row.actualEnd)}` : " · active"}` : "Not clocked"}</td>
-                      <td className="px-3 py-2 font-medium tabular-nums text-slate-700">{durationLabel(row.activityStart, row.activityEnd)}</td>
+                      <td className="px-3 py-2 text-slate-600">{row.actualStart ? `${formatStamp(row.actualStart)}${row.actualEnd ? ` – ${formatStamp(row.actualEnd)}` : row.status === "completed" ? " · end time unavailable" : " · active"}` : "Not clocked"}</td>
+                      <td className="px-3 py-2 font-medium tabular-nums text-slate-700">{durationLabel(row.activityStart, row.activityEnd, row.status === "completed")}</td>
                       <td className="px-3 py-2">
                         {row.role === "driver" && profile && <WhatsAppTemplateSend
                           entityType="staff_order"

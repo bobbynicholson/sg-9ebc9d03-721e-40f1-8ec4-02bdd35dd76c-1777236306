@@ -45,6 +45,7 @@ import { orderDisplayName } from "@/lib/orderDisplayName";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 import { visibleDocumentNote } from "@/lib/visibleDocumentNote";
 import { BankTransferDetailsCard } from "@/components/documents/BankTransferDetailsCard";
+import { ClientOrderReviewForm } from "@/components/order/ClientOrderReviewForm";
 
 import { formatClockBoth } from "@/lib/portalTime";
 import {
@@ -252,6 +253,11 @@ export default function ClientOrderPage() {
 
   const { order, items, company, invoice } = view;
   const status = String(order.status || "").toLowerCase();
+  const canLeaveReview = !!(
+    order.delivered_at
+    || order.completed_at
+    || ["delivered", "completed"].includes(status)
+  );
   const statusTone = STATUS_TONES[status] || STATUS_TONES.confirmed;
   // Friendly payment label that AGREES with the pay page (/pay/i/[token])
   // and the deposit flags, instead of the raw enum ("partial"). Prefer the
@@ -494,6 +500,14 @@ export default function ClientOrderPage() {
               </div>
             </CardContent>
           </Card>
+
+          {router.query.feedback === "1" && canLeaveReview && (
+            <ClientOrderReviewForm
+              orderId={order.id}
+              eventName={orderDisplayName(order) || "your event"}
+              primaryColor={primary}
+            />
+          )}
 
           {/* Two columns on desktop: the booking itself on the left; money,
               changes and contact on the right, staying in view. Phones stack

@@ -645,31 +645,6 @@ function CompanyProfilePage() {
                   <option value="AUD">AUD - Australian Dollar</option>
                 </select>
               </Field>
-              {/* Phase 5 #3: Google Business Profile place_id. When
-                  set, the after-sales review email switches from a
-                  generic Google search link to the proper write-
-                  review deeplink so customers land on the review
-                  modal in one tap. */}
-              <Field id="google_place_id" label="Google Business place_id (for review emails)">
-                <Input
-                  id="google_place_id"
-                  value={row.google_place_id || ""}
-                  onChange={(e) => setRow({ ...row, google_place_id: e.target.value })}
-                  placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4"
-                />
-              </Field>
-              <p className="md:col-span-2 text-sm text-slate-600 leading-relaxed">
-                Find your place_id at{" "}
-                <a
-                  href="https://developers.google.com/maps/documentation/places/web-service/place-id"
-                  className="underline"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  developers.google.com/maps/place-id
-                </a>{" "}
-                - paste your business listing URL into the finder and copy the place_id. With this set, post-delivery review emails link directly to the 'leave a review' modal instead of a generic Google search.
-              </p>
             </CardContent>
           </Card>
 
@@ -1143,7 +1118,6 @@ function deriveCompleteness(r: CompanyRow): CompletenessItem[] {
     { key: "vat",      label: "VAT status",         anchor: "section-vat",      required: true,  done: r.vat_registered != null && (!r.vat_registered || !!r.vat_number) },
     { key: "bank",     label: "EFT bank details",   anchor: "section-banking",  required: false, done: !!(r.bank_name && r.bank_account_number) },
     { key: "tz",       label: "Timezone + currency",anchor: "section-region",   required: true,  done: !!(r.timezone && r.currency) },
-    { key: "place",    label: "Google place_id",    anchor: "section-region",   required: false, done: !!(r.google_place_id && r.google_place_id.trim()) },
     { key: "peak",     label: "Peak season",        anchor: "section-peak",     required: false, done: r.peak_season_start_month != null && r.peak_season_end_month != null },
     { key: "brand",    label: "Brand + logo",       anchor: "section-brand",    required: false, done: !!(r.logo_url && r.primary_color) },
   ];

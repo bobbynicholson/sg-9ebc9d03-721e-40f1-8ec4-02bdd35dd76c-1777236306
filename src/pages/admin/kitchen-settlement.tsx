@@ -729,7 +729,7 @@ function KitchenSettlementPage() {
                   <span>
                     {totals.heldStaff} staff {totals.heldStaff === 1 ? "member has" : "members have"} shift records needing review. Their totals are excluded from the ready-to-issue amount until the clock records are corrected.
                   </span>
-                  <Link href={withSlug("/admin/staff-hours")} className="shrink-0 font-semibold underline underline-offset-2">
+                  <Link href={withSlug("/admin/wages")} className="shrink-0 font-semibold underline underline-offset-2">
                     Open staff hours
                   </Link>
                 </AlertDescription>

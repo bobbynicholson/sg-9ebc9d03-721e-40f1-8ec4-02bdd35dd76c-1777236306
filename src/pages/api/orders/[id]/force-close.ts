@@ -14,13 +14,10 @@
  *   1. Mark every kitchen_prep_task that's still pending / in
  *      progress as 'done'. Preserves rows (no soft-delete) so
  *      the timeline + reporting keep the audit trail.
- *   2. Stamp orders.prep_started_at + ready_at + picked_up_at + delivered_at
- *      if they weren't set (uses event_time on event_date as the
- *      best-guess clock for historical orders, else now).
- *   3. Walk the missing status transitions via the canonical
+ *   2. Walk the missing status transitions via the canonical
  *      updateOrderStatus path - that fires order_status_history,
  *      status notifications, delivery cascades, and completion hooks.
- *   4. Audit-log a force_close action so the trail records WHO
+ *   3. Audit-log a force_close action so the trail records WHO
  *      forced + WHEN + WHY.
  *
  * Body:
@@ -219,34 +216,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .in("status", ["pending", "in_progress"]);
     if (taskUpdateError) throw taskUpdateError;
 
-    // 2. Best-guess clock for historical orders: event_time on
-    //    event_date if both set, else now. Stamp only the columns
-    //    that aren't already populated so we don't overwrite real
-    //    chef-captured times.
-    const bestGuessMs = (() => {
-      const ed = (order as any).event_date as string | null;
-      const et = (order as any).event_time as string | null;
-      if (ed && et) {
-        const dt = new Date(`${ed}T${et.slice(0, 8)}`);
-        if (!isNaN(dt.getTime())) return dt.getTime();
-      }
-      return Date.now();
-    })();
-    const bestGuessIso = new Date(bestGuessMs).toISOString();
-    const stamps: Record<string, string> = {};
-    if (!(order as any).prep_started_at) stamps.prep_started_at = bestGuessIso;
-    if (!(order as any).ready_at) stamps.ready_at = bestGuessIso;
-    if (!(order as any).picked_up_at) stamps.picked_up_at = bestGuessIso;
-    if (!(order as any).delivered_at) stamps.delivered_at = bestGuessIso;
-    if (Object.keys(stamps).length > 0) {
-      const { error: stampError } = await admin
-        .from("orders")
-        .update(stamps)
-        .eq("id", resolvedOrderId);
-      if (stampError) throw stampError;
-    }
-
-    // 3. Walk the canonical state machine instead of jumping directly.
+    // 2. Walk the canonical state machine instead of jumping directly.
+    //    A force-close is an admin decision that the order can be closed;
+    //    it is not evidence for when prep, pickup, delivery, or departure
+    //    actually happened. Keep missing operational timestamps blank.
     //    updateOrderStatus rejects confirmed -> completed by design, so
     //    recovery closeout must pass through the missing lifecycle states.
     const transitions = forceClosePath(currentStatus, targetStatus);
@@ -271,7 +244,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
     }
 
-    // 4. Standalone audit log entry so a SAR / compliance review can
+    // 3. Standalone audit log entry so a SAR / compliance review can
     //    grep for force_close events specifically.
     try {
       await admin.from("audit_logs").insert({
@@ -285,7 +258,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           to_status: targetStatus,
           transitions: transitionResults,
           tasks_flipped: tasksFlipped || 0,
-          stamps_added: stamps,
+          stamps_added: {},
+          operational_times_fabricated: false,
           reason,
         },
       });
@@ -298,7 +272,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       from: currentStatus,
       to: targetStatus,
       tasks_flipped: tasksFlipped || 0,
-      stamps_added: Object.keys(stamps),
+      stamps_added: [],
       message: `Order closed. Status flipped ${currentStatus} -> ${targetStatus}. ${tasksFlipped || 0} prep task${(tasksFlipped || 0) === 1 ? "" : "s"} marked done.`,
     });
   } catch (err: any) {

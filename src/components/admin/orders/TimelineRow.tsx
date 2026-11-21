@@ -330,7 +330,7 @@ export function TimelineRow({
           </div>
 
           {/* Wave 25: replaces the legacy 7-dot WORKFLOW_STAGES row
-              with the 22-stage / 5-cluster TimelineTrack derived
+              with the lifecycle / 5-cluster TimelineTrack derived
               from the batch-fetched related rows. Falls back to a
               compact loading placeholder when the timeline batch
               fetch hasn't returned yet for this order (rare - the

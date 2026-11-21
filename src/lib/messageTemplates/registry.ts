@@ -273,6 +273,17 @@ const AFTER_SALES_VARS: TemplateVariable[] = [
   { name: "year",        description: "Year of the event",              example: "2026" },
 ];
 
+const REVIEW_REQUEST_VARS: TemplateVariable[] = [
+  { name: "first_name",   description: "Client's first name",             example: "Mary" },
+  { name: "client_name",  description: "Client's full name",              example: "Mary Marran" },
+  { name: "company_name", description: "Catering company name",            example: "Spit Braai Delivery" },
+  { name: "tenant_name",  description: "Catering brand name",              example: "Spit Braai Delivery" },
+  { name: "event_name",   description: "Event name",                       example: "Corporate lunch" },
+  { name: "order_number", description: "Order reference",                  example: "ORD-918971" },
+  { name: "order_url",    description: "Secure link to view this order in the client portal", example: "https://app.example.com/c/order/...?t=..." },
+  { name: "review_link",  description: "Secure link to rate this order in the client portal", example: "https://app.example.com/c/order/...?...&feedback=1#feedback" },
+];
+
 // Subscription / billing / account variables. Used by every
 // BillingEmailService-driven template. The bag is wide because each
 // subtype carries a different cut; substitution leaves unknown tokens
@@ -1307,6 +1318,23 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
       `Thanks,\n{{tenant_name}}`,
     variables: REMINDER_VARS,
   },
+  {
+    key: "review_request",
+    channel: "email",
+    category: "client",
+    group: "Post-event",
+    label: "Post-event thank-you + review request",
+    description: "Thank the client and invite them to rate this order inside the CateringMS client portal.",
+    defaultSubject: "Thank you for choosing us, {{first_name}} — how was {{event_name}}?",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `Thank you for choosing {{tenant_name}} for {{event_name}}. We appreciate your booking and hope everything went well.\n\n` +
+      `We'd also love to hear how the event went. Please share a rating for order {{order_number}} in your client portal:\n\n` +
+      `Leave a review: {{review_link}}\n\n` +
+      `View your order and messages: {{order_url}}\n\n` +
+      `Warm regards,\n{{tenant_name}}`,
+    variables: REVIEW_REQUEST_VARS,
+  },
 
   // --- ACCOUNT / PORTAL ---
   {
@@ -1871,6 +1899,7 @@ const DELIVERY_WIRING: Record<string, { delivery: MessageDelivery; trigger?: str
   // --- AUTOMATED: money + reminders ---
   balance_reminder_email:        { delivery: "automated", trigger: "Cron fires when an outstanding balance is approaching its due date." },
   equipment_collection_reminder: { delivery: "automated", trigger: "Cron fires when hired equipment is still on site after the event." },
+  review_request: { delivery: "hybrid", trigger: "Combined thank-you and review request sent automatically when an order is completed, or manually from that order's Customer feedback section.", settingsLink: "/admin/orders" },
 
   // --- AUTOMATED: cancellation pipeline (services/email/cancellationEmails) ---
   cancellation_approved:  { delivery: "automated", trigger: "Fires the moment an order is cancelled." },

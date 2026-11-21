@@ -111,7 +111,7 @@ export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }
               Staff currently clocked in across kitchen, shopping and cleaning. Longest-running session first.
             </CardDescription>
           </div>
-          <Link href={withSlug("/admin/staff-hours")}>
+          <Link href={withSlug("/admin/wages")}>
             <Button variant="ghost" size="sm" className="text-brand-primary">
               Staff hours <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -126,13 +126,13 @@ export function ActiveStaffNowWidget({ companyId }: { companyId: string | null }
             {rows.map((r) => {
               const elapsedMs = Date.now() - new Date(r.clock_in).getTime();
               const overEight = elapsedMs > 8 * 3_600_000;
-              // Phase 23 #5: deep-link straight to /admin/staff-hours
+              // Phase 23 #5: deep-link straight to /admin/wages
               // so closing a stale clock-in or reviewing the session
               // history is one click.
               return (
                 <li key={r.id}>
                   <Link
-                    href={withSlug("/admin/staff-hours")}
+                    href={withSlug("/admin/wages")}
                     className="py-2 flex items-center gap-3 hover:bg-brand-primary/10 rounded transition"
                   >
                     <Badge className={`shrink-0 text-[10px] uppercase tracking-wide font-semibold ${

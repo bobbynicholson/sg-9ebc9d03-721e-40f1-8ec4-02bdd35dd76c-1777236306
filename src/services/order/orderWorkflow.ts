@@ -438,14 +438,9 @@ export async function updateOrderStatus(
       }
     }
 
-    // Queue the 24h post-delivery review prompt. Replaces the old
-    // setTimeout(callback, 24h) in notificationService - serverless
-    // functions don't survive that long so the timer never fired.
-    // We write a pending_reviews row here and a Vercel cron worker
-    // (process-pending-reviews) drains it once due_at has passed.
-    // Idempotent on order_id via the unique index, so a retry on the
-    // delivered transition just no-ops. Wrapped so a failure here
-    // never blocks the order delivery.
+    // Queue the review request immediately when an order is completed.
+    // The worker sends it on its next run; manual order-level requests
+    // can send it immediately and stamp this row to prevent a duplicate.
     // Phase 2 #5: every delivered order should have a POD on file.
     // When the driver hit "at_venue" via the geofence / status tap and
     // skipped the POD capture dialog, the order is marked delivered
@@ -487,10 +482,9 @@ export async function updateOrderStatus(
       }
     }
 
-    if (newStatus === "delivered" && order.company_id) {
+    if (newStatus === "completed" && order.company_id) {
       try {
-        const deliveredAt = new Date();
-        const dueAt = new Date(deliveredAt.getTime() + 24 * 60 * 60 * 1000);
+        const completedAt = new Date().toISOString();
 
         // Resolve the auth uid for the in-app notification target. Null
         // is fine - the cron handler will skip the in-app push and
@@ -502,37 +496,83 @@ export async function updateOrderStatus(
           console.warn("[orderWorkflow] resolveClientUserId failed (non-blocking):", e);
         }
 
-        const { error: prErr } = await (supabase as any)
-          .from("pending_reviews")
-          .upsert(
-            {
-              company_id: order.company_id,
-              order_id: order.id,
-              client_id: order.client_id || null,
-              client_user_id: clientUserId,
-              client_email: order.client_email || null,
-              client_name: order.client_name || null,
-              delivered_at: deliveredAt.toISOString(),
-              due_at: dueAt.toISOString(),
-            },
-            { onConflict: "order_id", ignoreDuplicates: true },
-          );
-        if (prErr) {
-          // Surface to audit_logs so the operator can see review prompts
-          // that never queued [P1-35]. Previously this was warn-only and
-          // a silently-skipped row meant the 24h follow-up email never
-          // sent for that order, undetectably.
-          console.warn("[orderWorkflow] pending_reviews upsert error:", prErr.message);
+        // Browser sessions do not have INSERT rights on the durable queue.
+        // The authenticated request-review API validates the admin and writes
+        // with its service client. Keep server-side transitions on the passed
+        // service client. Previously the browser insert hit RLS, then the
+        // immediate API fallback could fail independently, leaving completed
+        // orders with no pending_reviews row for the cron worker to find.
+        if (typeof window === "undefined") {
+          const { error: prErr } = await (supabase as any)
+            .from("pending_reviews")
+            .upsert(
+              {
+                company_id: order.company_id,
+                order_id: order.id,
+                client_id: order.client_id || null,
+                client_user_id: clientUserId,
+                client_email: order.client_email || null,
+                client_name: order.client_name || null,
+                delivered_at: order.delivered_at || completedAt,
+                due_at: completedAt,
+              },
+              { onConflict: "order_id" },
+            );
+          if (prErr) {
+            console.warn("[orderWorkflow] pending_reviews upsert error:", prErr.message);
+            try {
+              await (supabase as any).from("audit_logs").insert({
+                company_id: order.company_id,
+                user_id: updatedBy || null,
+                action: "pending_review_queue_failed",
+                entity_type: "order",
+                entity_id: order.id,
+                details: { error: prErr.message, order_number: order.order_number },
+              });
+            } catch { /* never throw from a fail-log */ }
+          }
+        }
+
+        // Dispatch immediately on the successful completed transition.
+        // Browser callers go through the authenticated order API; server
+        // callers use the shared sender directly. If dispatch fails, the
+        // due-now pending_reviews row remains for the cron retry.
+        if (typeof window !== "undefined") {
           try {
-            await (supabase as any).from("audit_logs").insert({
-              company_id: order.company_id,
-              user_id: updatedBy || null,
-              action: "pending_review_queue_failed",
-              entity_type: "order",
-              entity_id: order.id,
-              details: { error: prErr.message, order_number: order.order_number },
+            const dispatchResponse = await fetch(`/api/orders/${encodeURIComponent(order.id)}/request-review`, {
+              method: "POST",
+              credentials: "include",
             });
-          } catch { /* never throw from a fail-log */ }
+            if (!dispatchResponse.ok) {
+              console.warn("[orderWorkflow] immediate review request was deferred to cron:", await dispatchResponse.text());
+            }
+          } catch (dispatchError) {
+            console.warn("[orderWorkflow] immediate review request dispatch failed:", dispatchError);
+          }
+        } else {
+          try {
+            const { data: priorReview } = await (supabase as any)
+              .from("pending_reviews")
+              .select("sent_at, cancelled_at")
+              .eq("order_id", order.id)
+              .maybeSingle();
+            if (!priorReview?.sent_at && !priorReview?.cancelled_at) {
+              const { sendOrderReviewRequest } = await import("./sendReviewRequest");
+              const reviewResult = await sendOrderReviewRequest(supabase, order.id);
+              if (reviewResult.sent || ["already_reviewed", "already_sent", "missing_email"].includes(reviewResult.reason || "")) {
+                await (supabase as any)
+                  .from("pending_reviews")
+                  .update({ sent_at: new Date().toISOString() })
+                  .eq("order_id", order.id)
+                  .is("sent_at", null);
+              }
+              if (!reviewResult.sent) {
+                console.info("[orderWorkflow] review prompt not sent:", reviewResult.reason);
+              }
+            }
+          } catch (dispatchError) {
+            console.warn("[orderWorkflow] immediate review request failed; cron will retry:", dispatchError);
+          }
         }
       } catch (e: any) {
         console.warn("[orderWorkflow] pending_reviews insert crashed (non-blocking):", e);

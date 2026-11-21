@@ -102,6 +102,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     emailLogRes,
     deliveryShiftsRes,
     handoversRes,
+    attendanceRes,
+    shoppingRes,
   ] = await Promise.all([
     // Same live-DB schema drift fixed in admin/orders.tsx: payments has no
     // `status` (use payment_status, aliased so downstream reads p.status) and
@@ -115,7 +117,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     supabase.from("kitchen_prep_tasks").select("order_id, status, started_at, completed_at").in("order_id", orderIds),
     // driver_assignments has no started_at; alias en_route_at -> started_at
     // (matches admin/orders.tsx) so the collection_done stage keeps working.
-    supabase.from("driver_assignments").select("order_id, assignment_type, status, accepted_at, started_at:en_route_at, completed_at, created_at").in("order_id", orderIds),
+    supabase.from("driver_assignments").select("order_id, assignment_type, status, assigned_at, accepted_at, started_at:en_route_at, picked_up_at, delivered_at, completed_at, created_at").in("order_id", orderIds),
     // TIGHTEN I.81: drop soft-deleted invoices so the cron-driven
     // stage notifications don't fire on voided invoices.
     supabase.from("invoices").select("id, order_id, invoice_number, total_amount, sent_at, paid_at, status, balance_due, created_at, invoice_date").in("order_id", orderIds).is("deleted_at", null),
@@ -131,6 +133,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .select("order_id, status, expected_at, in_progress_at, completed_at, total_items_expected, total_items_returned, created_at, updated_at")
       .in("order_id", orderIds)
       .is("deleted_at", null),
+    (supabase as any)
+      .from("event_attendance")
+      .select("order_id, equipment_returned_at")
+      .in("order_id", orderIds),
+    (supabase as any)
+      .from("shopping_list_items")
+      .select("source_order_id, purchased")
+      .in("source_order_id", orderIds)
+      .is("removed_at", null),
   ]);
 
   // Cross-system blocker T2: pull active cleaning_jobs for any
@@ -207,6 +218,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const emailLogByOrder = bucket(emailLogRes.data as any[] | null);
   const deliveryShiftsByOrder = bucket(deliveryShiftsRes.data as any[] | null);
   const handoversByOrder = bucket(handoversRes.data as any[] | null);
+  const attendanceByOrder = bucket(attendanceRes.data as any[] | null);
+  const shoppingByOrder = new Map<string, any[]>();
+  for (const row of ((shoppingRes as any).data || []) as any[]) {
+    const key = String(row.source_order_id || "");
+    if (!key) continue;
+    const rows = shoppingByOrder.get(key) || [];
+    rows.push(row);
+    shoppingByOrder.set(key, rows);
+  }
 
   // Wave 46 T1 - batch-fetch tenant timezones for every distinct
   // company in this run so the per-order timeline urgency tier
@@ -269,10 +289,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         kitchenPrepTasks: prepByOrder.get(o.id) || [],
         driverAssignments: assignmentsByOrder.get(o.id) || [],
         invoices: invoicesByOrder.get(o.id) || [],
+        hasShopping: (shoppingByOrder.get(o.id) || []).length > 0,
+        shoppingComplete: (shoppingByOrder.get(o.id) || []).length > 0
+          && (shoppingByOrder.get(o.id) || []).every((item) => item.purchased === true),
         emailLog: emailLogByOrder.get(o.id) || [],
         cleaningJobsActive,
         cleaningJobsForOrder: cleaningJobsForOrderByOrder.get(o.id) || [],
         cleaningHandoversForOrder: handoversByOrder.get(o.id) || [],
+        equipmentReturnedAt: (attendanceByOrder.get(o.id) || [])
+          .map((row: any) => row.equipment_returned_at)
+          .filter(Boolean)
+          .sort()[0] || null,
         deliveryShifts: deliveryShiftsByOrder.get(o.id) || [],
         quoteAccepted: true,
         // Wave 46 T1 - pass per-order tenant tz so the urgency

@@ -1880,7 +1880,7 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
       const companyWide = hasCompanyStaffScope(identity.role) && /\b(?:staff|team|employees?|everyone|all users?)\b/.test(text);
       const queryRows = await rows(db, "staff_work_sessions", (q) => {
         let scoped = q.select("id, staff_id, clock_in, clock_out, session_date, total_hours, total_earnings, payment_status, entered_manually, entry_reason")
-          .eq("company_id", companyId);
+          .eq("company_id", companyId).is("voided_at", null);
         if (!companyWide) scoped = scoped.eq("staff_id", identity.userId);
         return applyDateRange(scoped, "session_date", message, resolvedIntent).order("clock_in", { ascending: false }).limit(companyWide ? 500 : 100);
       });

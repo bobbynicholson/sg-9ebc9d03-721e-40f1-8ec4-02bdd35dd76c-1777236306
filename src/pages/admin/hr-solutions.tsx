@@ -405,7 +405,7 @@ function AdminHRSolutions() {
       title: "Time & Attendance",
       description: "Clock-in / clock-out, hours by staffer + overtime alerts.",
       Icon: Clock,
-      link: "/admin/staff-hours",
+      link: "/admin/wages",
       status: "active",
       chip: loading ? null : `${stats.hoursWeek}h this week`,
     },
@@ -443,7 +443,7 @@ function AdminHRSolutions() {
       title: "Performance Tracking",
       description: "Per-staffer hours, overtime, productivity signals.",
       Icon: TrendingUp,
-      link: "/admin/staff-hours?view=performance",
+      link: "/admin/wages?audit=orders#order-coverage-audit",
       status: "active",
       chip: null,
     },
@@ -502,7 +502,7 @@ function AdminHRSolutions() {
                   {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Users className="h-3.5 w-3.5" />}
                   {stats.staffTotal} active
                 </Link>
-                <Link href={withSlug("/admin/staff-hours")} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white hover:bg-white/20">
+                <Link href={withSlug("/admin/wages")} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white hover:bg-white/20">
                   <Clock className="h-3.5 w-3.5" />
                   {stats.hoursWeek}h this week
                 </Link>

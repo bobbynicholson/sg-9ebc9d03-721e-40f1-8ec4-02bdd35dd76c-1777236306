@@ -9,6 +9,8 @@ export interface SendEmailParams {
   to: string;
   subject: string;
   template?: string;
+  /** Stable automation/email category for timeline audit and settings. */
+  templateType?: string;
   body?: string;
   variables?: Record<string, any>;
   orderId?: string;

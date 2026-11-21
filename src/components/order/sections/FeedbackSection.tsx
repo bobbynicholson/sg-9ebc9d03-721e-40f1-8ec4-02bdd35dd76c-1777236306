@@ -15,7 +15,9 @@ import { useEffect, useState } from "react";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
-import { Star, Loader2, AlertCircle, MessageSquare, CheckCircle2 } from "lucide-react";
+import { Star, Loader2, AlertCircle, MessageSquare, CheckCircle2, Mail } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 interface Props {
   orderId: string;
@@ -23,6 +25,7 @@ interface Props {
   delivered: boolean;
   defaultOpen?: boolean;
   forceOpen?: boolean;
+  canSendReviewRequest?: boolean;
 }
 
 interface FeedbackRow {
@@ -58,9 +61,35 @@ function RatingRow({ label, value }: { label: string; value: number | null }) {
   );
 }
 
-export function FeedbackSection({ orderId, companyId, delivered, defaultOpen, forceOpen }: Props) {
+export function FeedbackSection({ orderId, companyId, delivered, defaultOpen, forceOpen, canSendReviewRequest }: Props) {
   const [feedback, setFeedback] = useState<FeedbackRow | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sendingReview, setSendingReview] = useState(false);
+  const { toast } = useToast();
+
+  const sendReviewRequest = async () => {
+    setSendingReview(true);
+    try {
+      const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/request-review`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Could not send the review request.");
+      toast({
+        title: result?.already_reviewed ? "Review already received" : result?.already_sent ? "Review request already sent" : "Review request sent",
+        description: result?.already_reviewed
+          ? "This order already has a client rating."
+          : result?.already_sent
+            ? "A review request has already been emailed for this order."
+            : "The client received a secure link to rate this order in the portal.",
+      });
+    } catch (error: any) {
+      toast({ title: "Could not send review request", description: error?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setSendingReview(false);
+    }
+  };
 
   useEffect(() => {
     if (!delivered) { setLoading(false); return; }
@@ -135,12 +164,20 @@ export function FeedbackSection({ orderId, companyId, delivered, defaultOpen, fo
           <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading feedback...
         </div>
       ) : !feedback ? (
-        <div className="flex items-start gap-2 p-3 rounded-md bg-slate-50 border border-slate-200">
-          <AlertCircle className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-medium text-slate-700">No rating yet</p>
-            <p className="text-xs text-slate-500 mt-0.5">The customer hasn't left feedback. Rating prompts fire automatically post-event.</p>
+        <div className="space-y-3">
+          <div className="flex items-start gap-2 p-3 rounded-md bg-slate-50 border border-slate-200">
+            <AlertCircle className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-slate-700">No rating yet</p>
+              <p className="text-xs text-slate-500 mt-0.5">A combined thank-you and review request is sent when the order is completed. You can also send it now.</p>
+            </div>
           </div>
+          {canSendReviewRequest && (
+            <Button type="button" size="sm" variant="outline" onClick={sendReviewRequest} disabled={sendingReview}>
+              {sendingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+              Send thank-you &amp; review
+            </Button>
+          )}
         </div>
       ) : (
         <div className="space-y-3">

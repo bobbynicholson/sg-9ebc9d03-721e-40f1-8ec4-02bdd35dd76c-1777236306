@@ -10,9 +10,9 @@
  *   - Reads pending_reviews where sent_at IS NULL AND cancelled_at
  *     IS NULL AND due_at <= now(), ordered by due_at ASC, capped at
  *     200 rows per fire.
- *   - For each row: send the review email (using the company's
- *     review_request template, falling back to a hardcoded body) and
- *     fire an in-app notification when client_user_id is set.
+ *   - For each row: send the review email with a secure in-app rating
+ *     link (using the company's review_request template, falling back to
+ *     a hardcoded body) and add an in-app notification for portal clients.
  *   - On success: stamp sent_at = now(). On failure: log + continue
  *     (a single bad recipient must not stop the batch).
  *   - Bail-cap: 5min wall clock or 200 rows, whichever hits first.
@@ -24,7 +24,8 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import { deliverAutomatedEmail } from "@/lib/email/automatedDelivery";
+import { sendOrderReviewRequest } from "@/services/order/sendReviewRequest";
+import { mintOrderCustomerLink } from "@/lib/customerLinksServer";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
@@ -39,7 +40,6 @@ type PendingReview = {
   company_id: string;
   order_id: string;
   client_id: string | null;
-  client_user_id: string | null;
   client_email: string | null;
   client_name: string | null;
   delivered_at: string;
@@ -60,7 +60,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const { data: due, error } = await supabase
     .from("pending_reviews")
-    .select("id, company_id, order_id, client_id, client_user_id, client_email, client_name, delivered_at, due_at")
+    .select("id, company_id, order_id, client_id, client_email, client_name, delivered_at, due_at")
     .is("sent_at", null)
     .is("cancelled_at", null)
     .lte("due_at", nowIso)
@@ -73,61 +73,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(500).json({ error: error.message });
   }
 
-  // Cache company name + Google place_id so a batch of reviews for
-  // the same tenant doesn't fan out to a query per row. Phase 5 #3:
-  // place_id drives the review URL - tenants with a Google Business
-  // Profile get a write-review deeplink, the rest fall back to a
-  // Maps search by name.
-  const companyCache = new Map<string, { name: string; placeId: string | null }>();
-  const fetchCompany = async (
-    companyId: string,
-  ): Promise<{ name: string; placeId: string | null }> => {
-    if (companyCache.has(companyId)) return companyCache.get(companyId)!;
-    const { data } = await supabase
-      .from("companies")
-      .select("company_name, google_place_id")
-      .eq("id", companyId)
-      .maybeSingle();
-    const row = {
-      name: ((data as any)?.company_name as string) || "us",
-      placeId: ((data as any)?.google_place_id as string) || null,
-    };
-    companyCache.set(companyId, row);
-    return row;
-  };
-
-  // Build the right review URL. Place-id-backed deeplink lands the
-  // customer straight on the write-review modal in their Google
-  // account - highest conversion. Without a place_id we fall back
-  // to a Maps search; the customer still has to click into the
-  // listing but the operator at least gets actual Google reviews.
-  const reviewUrl = (placeId: string | null, companyName: string): string => {
-    if (placeId) {
-      return `https://search.google.com/local/writereview?placeid=${encodeURIComponent(placeId)}`;
-    }
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(companyName)}`;
-  };
-
-  // Cache the review_request template per company. NULL means the
-  // tenant hasn't customised one - we fall back to a hardcoded body.
-  const templateCache = new Map<string, { subject: string; body: string } | null>();
-  const fetchTemplate = async (companyId: string): Promise<{ subject: string; body: string } | null> => {
-    if (templateCache.has(companyId)) return templateCache.get(companyId)!;
-    const { data } = await supabase
-      .from("email_templates")
-      .select("subject, body, is_active")
-      .eq("company_id", companyId)
-      .eq("template_type", "review_request")
-      .eq("is_active", true)
-      .maybeSingle();
-    const tpl = data
-      ? { subject: (data as any).subject as string, body: (data as any).body as string }
-      : null;
-    templateCache.set(companyId, tpl);
-    return tpl;
-  };
-
   let sent = 0;
+  let skipped = 0;
   let failed = 0;
   let bailed = false;
 
@@ -138,85 +85,30 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     try {
-      const company = await fetchCompany(row.company_id);
-      const companyName = company.name;
-      const firstName = (row.client_name || "there").split(" ")[0];
-      const review = reviewUrl(company.placeId, companyName);
+      const sendResult = await sendOrderReviewRequest(supabase, row.order_id);
 
-      // Email send - only if we have an address. Template lives at
-      // email_templates.review_request and supports {review_link}
-      // for tenants who want the link inside their custom copy;
-      // falls back to a hardcoded body otherwise.
-      if (row.client_email) {
-        const tpl = await fetchTemplate(row.company_id);
-        const vars = {
-          name: firstName,
-          company_name: companyName,
-          order_id: row.order_id,
-          review_link: review,
-        };
-        const subject = tpl?.subject
-          ? interpolate(tpl.subject, vars)
-          : `How was ${companyName}?`;
-        const body = tpl?.body
-          ? interpolate(tpl.body, vars)
-          : `Hi ${firstName},\n\nHow was ${companyName}? We'd love to hear how it went. ` +
-            `If you can spare 30 seconds, a quick Google review goes a long way:\n\n` +
-            `${review}\n\n` +
-            `Thanks for booking with us.`;
-
-        try {
-          await deliverAutomatedEmail(supabase, {
-            companyId: row.company_id,
-            to: row.client_email,
-            recipientName: row.client_name || null,
-            subject,
-            body,
-            orderId: row.order_id,
-            templateType: "review_request",
-            triggerEvent: "review.request",
-            triggerRefId: row.order_id,
-          } as any);
-        } catch (e) {
-          // A blocked / quarantined recipient is not a failure of the
-          // worker - emailService logs it. We still mark sent_at so
-          // we don't loop forever on a permanently undeliverable row.
-          console.warn("[cron/process-pending-reviews] email send failed:", e);
-        }
-      }
-
-      // In-app prompt - only if we resolved the auth uid at insert.
-      if (row.client_user_id) {
-        try {
-          await supabase.from("notifications").insert({
-            company_id: row.company_id,
-            recipient_id: row.client_user_id,
-            user_id: row.client_user_id,
-            notification_type: "review_request",
-            title: "How was your experience?",
-            message: `Thanks for booking with ${companyName}. We'd love to hear how it went.`,
-            priority: "normal",
-            link: `/client-portal/dashboard?orderId=${row.order_id}#past-events`,
-            // notifications has no metadata column - use related_entity_*
-            // (writing metadata PGRST204s and the review prompt is lost).
-            related_entity_type: "order",
-            related_entity_id: row.order_id,
-          } as any);
-        } catch (e) {
-          console.warn("[cron/process-pending-reviews] in-app notify failed:", e);
-        }
+      const terminalSkip = ["already_reviewed", "already_sent", "missing_email"].includes(sendResult.reason || "");
+      if (!sendResult.sent && !terminalSkip) {
+        // Settings-off / duplicate-window skips are not successful sends.
+        // Leave the row due so it can be retried and never claim an email was
+        // sent when the provider did not accept it.
+        skipped += 1;
+        continue;
       }
 
       const { error: updateError } = await supabase
         .from("pending_reviews")
         .update({ sent_at: new Date().toISOString() })
-        .eq("id", row.id);
+        .eq("id", row.id)
+        .is("sent_at", null);
 
       if (updateError) {
         console.error("[cron/process-pending-reviews] sent_at stamp failed:", updateError);
         failed += 1;
-      } else {
+      } else if (sendResult.sent) {
         sent += 1;
+      } else {
+        skipped += 1;
       }
     } catch (e) {
       console.error("[cron/process-pending-reviews] row failed:", row.id, e);
@@ -227,26 +119,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   await recordCronHeartbeat(supabase, CRON_NAME, failed > 0 ? "error" : "ok", {
     source: auth.source, run_id: auth.runId,
     checked: (due || []).length,
-    sent, failed, bailed,
+    sent, skipped, failed, bailed,
     runtime_ms: Date.now() - startedAt,
   });
   return res.status(200).json({
     ok: true,
     checked: (due || []).length,
     sent,
+    skipped,
     failed,
     bailed,
     runtime_ms: Date.now() - startedAt,
   });
-}
-
-/**
- * Tiny {placeholder} interpolator. Matches the shape used elsewhere in
- * the codebase so operators authoring review_request templates can
- * use the same {name} / {company_name} / {order_id} tokens.
- */
-function interpolate(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{(\w+)\}/g, (_, key) => (vars[key] !== undefined ? vars[key] : `{${key}}`));
 }
 
 export default withApiLogging(handler);

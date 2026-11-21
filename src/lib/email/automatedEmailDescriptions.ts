@@ -221,8 +221,8 @@ export const AUTOMATED_EMAIL_DESCRIPTIONS: Record<string, AutomatedEmailDescript
   // Post-event
   review_request: {
     who: "The client.",
-    when: "About a day after their event, asking them to leave a review.",
-    ifOff: "No automatic review requests.",
+    when: "Immediately when the order is marked completed. One email thanks the client and links to the in-app rating form.",
+    ifOff: "The post-event thank-you and review email is not sent. Set it to Automatic to send it when an order is completed.",
   },
   equipment_collection_reminder: {
     who: "The client.",
