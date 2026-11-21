@@ -442,6 +442,7 @@ function DriversTeamPage() {
   }, [companyId, regionFilterId, refreshTick]);
 
   const tiles = [
+    { href: "/admin/driver-schedule", icon: CalendarDays, label: "Driver schedule", sub: "Weekly availability and shifts", bg: "from-indigo-50 to-violet-50", iconColor: "text-indigo-600" },
     { href: "/admin/driver-management", icon: Users, label: "Driver management", sub: "Roster, availability, ratings", bg: "from-sky-50 to-blue-50", iconColor: "text-sky-600" },
     { href: "/admin/driver-settlement", icon: Receipt, label: "Settlement", sub: "Pay out shifts and tips", bg: "from-brand-primary/10 to-brand-secondary/10", iconColor: "text-brand-primary" },
     { href: "/admin/route-planning", icon: MapIcon, label: "Route planning", sub: "Daily delivery sequencing", bg: "from-blue-50 to-slate-50", iconColor: "text-blue-600" },
