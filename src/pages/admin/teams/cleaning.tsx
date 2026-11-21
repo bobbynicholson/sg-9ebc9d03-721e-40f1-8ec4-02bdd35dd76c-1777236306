@@ -56,7 +56,7 @@ import { captureException } from "@/lib/observability";
 import {
   Sparkles, ArrowLeft, Users, Clock, ClipboardList,
   AlertTriangle, Wrench, Banknote, Flame, Droplets,
-  CheckCircle2, ArrowRight, Package, CalendarDays,
+  CheckCircle2, ArrowRight, Package, CalendarDays, ChevronDown,
 } from "lucide-react";
 import { PageWorkbench, PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
 import { TeamManagerWorkspace } from "@/components/admin/TeamManagerWorkspace";
@@ -679,7 +679,7 @@ function CleaningTeamPage() {
           </section>
           <PageWorkbench />
 
-          <TeamManagerWorkspace department="cleaning" defaultRosterOpen={false} />
+          <TeamManagerWorkspace department="cleaning" defaultRosterOpen={false} defaultWorkspaceOpen={false} />
 
           {/* Command-centre audit (2026-07-02): visible load-failure
               state with Retry. captureException alone left the cards
@@ -788,46 +788,16 @@ function CleaningTeamPage() {
           </div>
           )}
 
-          {/* CLN-A: per-cleaner hours-this-week chip strip. Top 6 by
-              mins; overtime tint kicks in at 45h. Each chip links to
-              /admin/staff-hours filtered to the cleaner. */}
-          {stats.topStaffHours.length > 0 && (
-            <div className="mb-4">
-              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Hours this week
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {stats.topStaffHours.map((m) => {
-                  const hrs = Math.round((m.mins / 60) * 10) / 10;
-                  const overtime = hrs > 45;
-                  const high = hrs > 38;
-                  return (
-                    <Link key={m.id} href={withSlug(isCleaningMgr ? "/admin/cleaning-schedule" : "/admin/wages?audit=orders#order-coverage-audit")}>
-                      <Badge
-                        variant="outline"
-                        className={`px-2.5 py-1 text-xs tabular-nums cursor-pointer ${
-                          overtime
-                            ? "border-rose-300 text-rose-700 bg-rose-50 hover:bg-rose-100"
-                            : high
-                              ? "border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100"
-                              : "border-slate-200 text-slate-700 hover:bg-slate-50"
-                        }`}
-                      >
-                        {/* No exclamation marks in copy (SA English
-                            style rule): flag overtime with a plain
-                            "OT" suffix instead. */}
-                        {m.name} {hrs}h{overtime ? " OT" : ""}
-                      </Badge>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {/* CLN-A: 4-card intel grid. Today's handovers, today's
               jobs pipeline, tomorrow's load, fleet + damages. */}
-          <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4">
+          <details className="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm group">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-slate-800 [&::-webkit-details-marker]:hidden max-sm:flex-wrap">
+              <span>Cleaning details</span>
+              <span className="flex items-center gap-2 text-xs font-normal text-slate-500">Handovers, wash-up, upcoming work and equipment issues <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" /></span>
+            </summary>
+            <div className="border-t border-slate-100 p-3 sm:p-4">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4">
+
 
             {/* Today's handover pipeline. */}
             <Link href={withSlug("/admin/cleaning-schedule")}>
@@ -982,7 +952,9 @@ function CleaningTeamPage() {
                 </CardContent>
               </Card>
             </Link>
-          </div>
+              </div>
+            </div>
+          </details>
 
           {/* Tile shortcuts. */}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4">

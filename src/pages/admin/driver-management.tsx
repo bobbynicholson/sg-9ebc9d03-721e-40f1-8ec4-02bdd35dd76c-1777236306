@@ -1,5 +1,6 @@
 import { UserRole } from "@/types/app";
 import Head from "next/head";
+import { useRouter } from "next/router";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
@@ -50,6 +51,7 @@ interface Driver {
   email: string;
   phone_number: string | null;
   is_active: boolean;
+  last_sign_in_at: string | null;
   created_at: string;
   drive_time_to_kitchen_minutes: number | null;
   max_jobs_per_shift: number | null;
@@ -94,9 +96,11 @@ export default function ProtectedDriverManagementPage() {
 }
 
 function DriverManagementPage() {
+  const router = useRouter();
   const { user, profile } = useAuth() as any;
   const { toast } = useToast();
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [expandedDriverRows, setExpandedDriverRows] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   // Command-centre audit: persist a roster load failure so the page
   // shows a Retry card instead of the misleading "No drivers yet"
@@ -377,6 +381,16 @@ function DriverManagementPage() {
     setEditDistanceRate(driver.distance_rate_per_km != null ? String(driver.distance_rate_per_km) : "");
     setEditCalloutFee(driver.base_callout_fee != null ? String(driver.base_callout_fee) : "");
   };
+
+  // Direct edit deep-link from driver settlement rows.
+  useEffect(() => {
+    if (!router.isReady || typeof router.query.driver !== "string") return;
+    const target = drivers.find((driver) => driver.id === router.query.driver);
+    if (!target) return;
+    if (editTarget?.id !== target.id) openEditDriver(target);
+    void router.replace({ pathname: router.pathname, query: { ...router.query, driver: undefined } }, undefined, { shallow: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.driver, drivers]);
 
   const handleEditDriverSave = async () => {
     if (!editTarget) return;
@@ -1492,6 +1506,7 @@ function DriverManagementPage() {
             ) : (
               <div className="space-y-2">
                 {filteredDrivers.map((driver) => {
+                  const detailsExpanded = expandedDriverRows.has(driver.id);
                   const lastPing = lastPingByDriver[driver.id];
                   const lastPingAgeMin = lastPing ? (Date.now() - new Date(lastPing).getTime()) / 60_000 : null;
                   const onShift = lastPingAgeMin != null && lastPingAgeMin <= 60;
@@ -1530,6 +1545,9 @@ function DriverManagementPage() {
                                 {!driver.is_active && (
                                   <Badge variant="secondary" className="text-[10px]">Inactive</Badge>
                                 )}
+                                {!driver.last_sign_in_at && (
+                                  <Badge variant="outline" className="border-sky-200 bg-sky-50 text-[10px] text-sky-800">No login yet</Badge>
+                                )}
                                 {/* Phase 17 #7: rate-source badge.
                                     Surfaces whether the driver inherits
                                     the company default or has any per-
@@ -1550,7 +1568,7 @@ function DriverManagementPage() {
                                   );
                                 })()}
                               </div>
-                              <div className="flex items-center gap-3 text-xs text-slate-600 flex-wrap">
+                              <div className={`flex items-center gap-3 text-xs text-slate-600 flex-wrap ${detailsExpanded ? "" : "hidden"}`}>
                                 {/* Phase 21 #8: click-to-copy driver
                                     email + phone. Dispatch leads
                                     routinely paste these into ops
@@ -1611,7 +1629,7 @@ function DriverManagementPage() {
                           </div>
 
                           {/* Live signals + 30-day rollup */}
-                          <div className="hidden sm:flex items-center gap-4 text-xs shrink-0">
+                          <div className={`hidden sm:flex items-center gap-4 text-xs shrink-0 ${detailsExpanded ? "" : "!hidden"}`}>
                             <div className="text-center">
                               <p className={`text-lg font-bold tabular-nums ${capacityFull ? "text-rose-700" : "text-slate-900"}`}>
                                 {currentLoad}{maxJobs != null && <span className="text-sm text-slate-400">/{maxJobs}</span>}
@@ -1658,6 +1676,19 @@ function DriverManagementPage() {
                           </div>
 
                           <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 px-2 text-xs"
+                              aria-expanded={detailsExpanded}
+                              onClick={() => setExpandedDriverRows((current) => {
+                                const next = new Set(current);
+                                if (next.has(driver.id)) next.delete(driver.id); else next.add(driver.id);
+                                return next;
+                              })}
+                            >
+                              {detailsExpanded ? "Hide details" : "Details"}
+                            </Button>
                             {/* WhatsApp the driver. Hidden if the phone
                                 is missing or looks like a landline.
                                 Templates: confirm shift / job assigned

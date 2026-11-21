@@ -1,4 +1,5 @@
 import { toLocalISO } from "@/lib/localDate";
+import { isBookedRevenue } from "@/lib/orderRevenueClassification";
 /**
  * Tier 2 chart 1 - Seasonality heatmap.
  *
@@ -12,7 +13,12 @@ import { toLocalISO } from "@/lib/localDate";
  * returns the 7x53 grid (a year may span 53 ISO weeks).
  */
 export interface SeasonalityInput {
+  id?: string;
   status: string | null;
+  payment_status?: string | null;
+  deposit_paid?: boolean | null;
+  confirmed_at?: string | null;
+  cancelled_at?: string | null;
   total_amount: number | null;
   event_date: string | null;
 }
@@ -113,7 +119,7 @@ export function aggregateSeasonalityHeatmap(
   let peakDay: SeasonalityCell | null = null;
   for (const o of orders) {
     if (!o.event_date) continue;
-    if (o.status === "cancelled") continue;
+    if (!isBookedRevenue(o)) continue;
     const dt = new Date(o.event_date);
     if (isNaN(dt.getTime())) continue;
     if (dt < windowStart || dt > windowEnd) continue;

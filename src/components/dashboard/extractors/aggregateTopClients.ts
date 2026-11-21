@@ -9,6 +9,8 @@
  */
 import type { RevenueByMonthInput } from "./aggregateRevenueByMonth";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+import { isBookedRevenue } from "@/lib/orderRevenueClassification";
+import { isReportableOrder } from "@/lib/orderRevenueMath";
 
 export interface ClientLookupRow {
   id: string;
@@ -68,7 +70,7 @@ export function aggregateTopClients(
 
   for (const o of orders) {
     if (!o.client_id) continue;
-    if (o.status === "cancelled") continue;
+    if (!isBookedRevenue(o) || !isReportableOrder(o)) continue;
     const existing = aggByClient.get(o.client_id) ?? { revenue: 0, paid: 0, orderCount: 0, lastEventDate: null };
     existing.revenue += Number(o.total_amount || 0);
     existing.paid += collectedFromOrder(o);

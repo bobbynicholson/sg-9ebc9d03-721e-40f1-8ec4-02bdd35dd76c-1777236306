@@ -71,6 +71,7 @@ import { TopProductsBarChart } from "./charts/TopProductsBarChart";
 import { BranchSpiderChart } from "./charts/BranchSpiderChart";
 import { BranchCapacityHeatmap } from "./charts/BranchCapacityHeatmap";
 import { toLocalISO } from "@/lib/localDate";
+import { isBookedRevenue } from "@/lib/orderRevenueClassification";
 import {
   isAutomatedTestClient,
   isAutomatedTestInvoice,
@@ -161,7 +162,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
       try {
         const ordersBase = supabase
           .from("orders")
-          .select("id, order_number, event_name, client_name, status, payment_status, total_amount, amount_paid, deposit_paid, deposit_amount, balance_paid, balance_amount, event_date, region_id, client_id, cancelled_at, cancellation_reason")
+          .select("id, order_number, event_name, client_name, internal_notes, status, payment_status, total_amount, amount_paid, deposit_paid, deposit_amount, balance_paid, balance_amount, event_date, region_id, client_id, confirmed_at, cancelled_at, cancellation_reason")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("event_date", startISO)
@@ -331,13 +332,13 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
     [invoices],
   );
   const topProducts = useMemo(() => {
-    // Exclude line items from cancelled orders - those don't represent
-    // realised revenue, only intent.
-    const cancelledIds = new Set<string>();
+    // Revenue by product follows the same booked-order set as the
+    // dashboard and monthly revenue chart.
+    const excludedOrderIds = new Set<string>();
     for (const o of orders as any as CancelledOrder[]) {
-      if (o.status === "cancelled" || o.cancelled_at) cancelledIds.add(o.id);
+      if (!isBookedRevenue(o) || isAutomatedTestOrder(o)) excludedOrderIds.add(o.id);
     }
-    return aggregateTopProducts(orderItems, cancelledIds);
+    return aggregateTopProducts(orderItems, excludedOrderIds);
   }, [orderItems, orders]);
 
   // Tier 6 - multi-branch only. branchOptions comes from the global

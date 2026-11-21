@@ -85,11 +85,11 @@ export function NewLeadsTodayWidget({ companyId }: { companyId: string | null })
   return (
     <Card className="mb-6 min-w-0 max-w-full overflow-hidden border-brand-primary/20 bg-brand-primary/5">
       <CardHeader className="min-w-0 px-3 pb-2.5 pt-3 sm:px-6 sm:pb-3 sm:pt-6">
-        <div className="flex min-w-0 items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <CardTitle className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm leading-5 sm:gap-2 sm:text-base">
               <Sparkles className="h-4 w-4 shrink-0 text-brand-primary" />
-              <span className="min-w-0">New leads (last 24h)</span>
+              <span className="min-w-0 break-words">New leads (last 24h)</span>
               {rows.length > 0 && (
                 <Badge className="ml-0.5 shrink-0 border-brand-primary/30 bg-brand-primary/15 px-1.5 text-[9px] sm:ml-2 sm:text-[10px]">
                   {rows.length}
@@ -145,12 +145,12 @@ export function NewLeadsTodayWidget({ companyId }: { companyId: string | null })
                           </span>
                         )}
                         {phone && (
-                          <span className="inline-flex min-w-0 max-w-full items-center gap-1 whitespace-nowrap">
-                            <Phone className="h-3 w-3 shrink-0" />{phone}
+                          <span className="inline-flex min-w-0 max-w-full items-center gap-1">
+                            <Phone className="h-3 w-3 shrink-0" /><span className="break-all">{phone}</span>
                           </span>
                         )}
                         {r.event_date && (
-                          <span className="min-w-0 text-slate-600">
+                          <span className="min-w-0 break-words text-slate-600">
                             Event {r.event_date}
                           </span>
                         )}

@@ -297,16 +297,38 @@ export function AdminNav(_: AdminNavProps = {}) {
       title: "Finance",
       defaultOpen: false,
       items: [
-        { title: "Finance overview", href: "/admin/financial-dashboard", icon: Banknote, description: "Revenue and margin" },
-        { title: "Event profitability", href: "/admin/event-profitability", icon: BarChart3, description: "Actual cost and profit per event" },
-        { title: "Recurring invoices", href: "/admin/recurring-invoices", icon: Receipt, description: "Repeat billing schedules" },
-        { title: "Cashflow",         href: "/admin/cashflow-dashboard",  icon: TrendingUp, description: "30-day forecast" },
-        { title: "Balances",         href: "/admin/outstanding-balances", icon: Wallet, description: "Client money due" },
-        { title: "Payables",         href: "/admin/payables",      icon: FileText,   description: "Supplier invoices" },
-        { title: "Fixed costs",      href: "/admin/fixed-costs",   icon: Wallet,     description: "Recurring costs" },
-        { title: "Refunds",         href: "/admin/refunds",       icon: CreditCard, description: "Cancellation refunds" },
-        { title: "Tax & purchases", href: "/admin/tax-purchases", icon: FileText,   description: "VAT and deductions" },
-        { title: "Health checks",    href: "/admin/money-health", icon: Activity, description: "Money and email drift" },
+        { title: "Finance overview", href: "/admin/financial-dashboard", icon: Banknote, description: "Revenue, collections, costs and margin" },
+        { title: "Cashflow & costs", href: "/admin/cashflow-dashboard", icon: TrendingUp, description: "Forecast, supplier payables and fixed costs", groupHeading: "Planning & costs" },
+        { title: "Recurring invoices", href: "/admin/recurring-invoices", icon: Receipt, description: "Repeat client billing", groupHeading: "Client money" },
+        { title: "Balances", href: "/admin/outstanding-balances", icon: Wallet, description: "Unpaid client invoices" },
+        { title: "Refunds", href: "/admin/refunds", icon: CreditCard, description: "Cancellation refunds and payouts" },
+        ...(profile && canManagePayroll(effectiveRole) ? [
+          { title: "Wages", href: "/admin/wages", icon: Wallet, description: "Staff hours, rates and earnings", groupHeading: "Staff pay" },
+          { title: "Staff rates", href: "/admin/staff", icon: Users, description: "Set staff pay rates" },
+          { title: "Driver settlement", href: "/admin/driver-settlement", icon: Banknote, description: "Driver hours, distance and callouts" },
+          { title: "Kitchen, cleaning & shopping pay", href: "/admin/kitchen-settlement", icon: Banknote, description: "Shared operations staff pay" },
+        ] : []),
+        { title: "Event profitability", href: "/admin/event-profitability", icon: BarChart3, description: "Actual cost and profit per event", groupHeading: "Reports & tax" },
+        { title: "Tax & purchases", href: "/admin/tax-purchases", icon: FileText, description: "VAT and deductible purchases" },
+      ],
+    } as PortalSidebarSection] : []),
+    ...(profile && canAccessFinance(effectiveRole) ? [{
+      id: "health",
+      title: "Health",
+      defaultOpen: false,
+      items: [
+        { title: "System health", href: "/admin/money-health", icon: Activity, description: "Payments, email and WhatsApp status" },
+        { title: "Scheduled tasks", href: "/admin/cron-tasks", icon: Activity, description: "Cron status, failures and next runs" },
+      ],
+    } as PortalSidebarSection] : []),
+    ...(profile && canAccessFinance(effectiveRole) ? [{
+      id: "whatsapp",
+      title: "WhatsApp",
+      defaultOpen: false,
+      items: [
+        { title: "WhatsApp settings", href: "/admin/whatsapp", icon: MessageCircle, description: "Connect the business number and automate messages" },
+        { title: "Replies", href: "/admin/whatsapp/replies", icon: MessageCircle, description: "Read and answer client replies" },
+        { title: "Activity", href: "/admin/whatsapp/activity", icon: Activity, description: "Delivery status and failures" },
       ],
     } as PortalSidebarSection] : []),
     {
@@ -335,7 +357,7 @@ export function AdminNav(_: AdminNavProps = {}) {
         { title: "Shopping team",  href: "/admin/teams/shopping",    icon: ShoppingBag, description: "Shoppers and assigned work" },
         { title: "Cleaning",       href: "/admin/teams/cleaning",    icon: Sparkles,  description: "Roster and workflows" },
         { title: "Drivers",        href: "/admin/teams/drivers",     icon: Truck,     description: "Roster, routes and schedule" },
-        { title: "Staff overview", href: "/admin/hr-solutions",      icon: Users,     description: "Team, invitations and payroll hours", groupHeading: "People and payroll" },
+        { title: "Staff overview", href: "/admin/hr-solutions",      icon: Users,     description: "Team profiles and invitations", groupHeading: "People" },
         ...((profile && [
           UserRole.SUPER_ADMIN,
           UserRole.OWNER,
@@ -343,16 +365,6 @@ export function AdminNav(_: AdminNavProps = {}) {
           UserRole.ADMIN,
         ].includes(effectiveRole)) ? [
           { title: "Holiday calendar", href: "/admin/public-holidays", icon: CalendarHeart, description: "Payroll rate dates" },
-        ] : []),
-        // Payroll cluster - tighter than the finance gate: excludes
-        // super_admin (the platform operator has no need to see a
-        // tenant's private staff wages). Pages enforce the same via
-        // ProtectedRoute denyRoles, which beats god mode.
-        ...(profile && canManagePayroll(effectiveRole) ? [
-          { title: "Wages",            href: "/admin/wages",             icon: Wallet,     description: "Hours, rates, overtime" },
-          { title: "Staff rates",      href: "/admin/staff",             icon: Users,      description: "Pay rates" },
-          { title: "Driver settlement", href: "/admin/driver-settlement", icon: Banknote, description: "Distance and callouts" },
-          { title: "Kitchen, cleaning & shopping pay", href: "/admin/kitchen-settlement", icon: Banknote, description: "Shared operations team payslips" },
         ] : []),
       ],
     },
@@ -373,11 +385,7 @@ export function AdminNav(_: AdminNavProps = {}) {
         { title: "Email",                 href: "/admin/email-settings",        icon: Mail,          description: "SMTP and providers" },
         { title: "Integrations",          href: "/admin/integrations",          icon: Zap,           description: "Apps and webhooks" },
         { title: "Lead forms",            href: "/admin/integrations/embed",    icon: Code2,         description: "Public forms" },
-        { title: "WhatsApp",              href: "/admin/whatsapp",              icon: MessageCircle, description: "Connect WhatsApp and choose automatic messages" },
-        { title: "WhatsApp replies",      href: "/admin/whatsapp/replies",      icon: MessageCircle, description: "Read and answer client replies" },
-        { title: "WhatsApp activity",     href: "/admin/whatsapp/activity",     icon: MessageCircle, description: "What was sent, read and failed" },
         { title: "Messages",              href: "/admin/email-templates",       icon: MessageSquare, description: "Email and WhatsApp templates" },
-        { title: "Scheduled tasks",       href: "/admin/cron-tasks",           icon: Activity,      description: "Run status and next schedule" },
         { title: "Audit log",             href: "/admin/audit-logs",            icon: Shield,        description: "Compliance trail - who did what" },
         ...((profile && [UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN].includes(effectiveRole)) ? [
           { title: "AI brain", href: "/admin/ai-brain", icon: Brain, description: "Manage approved assistant knowledge" },

@@ -44,8 +44,6 @@ import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
-import { useTenantCurrency } from "@/hooks/useTenantCurrency";
-import { canAccessFinance } from "@/lib/authGuards";
 import { captureException } from "@/lib/observability";
 import { useToast } from "@/hooks/use-toast"; // used by PrepBroadcastDialog below
 import { whatsappIntegrationService } from "@/services/whatsappIntegrationService";
@@ -57,8 +55,8 @@ import {
 } from "@/components/ui/dialog";
 import {
   ChefHat, ArrowLeft, Users, Clock, ClipboardList, BookOpen, Loader2,
-  Banknote, CalendarDays, Wrench, Package, Flame, AlertTriangle,
-  CheckCircle2, ArrowRight, MessageCircle, Printer, FileText,
+  CalendarDays, Wrench, Package, Flame, AlertTriangle,
+  CheckCircle2, ArrowRight, MessageCircle, Printer,
   Settings as SettingsIcon, ChevronDown, ChevronUp, RefreshCw,
 } from "lucide-react";
 import { KitchenRulesPanel } from "@/components/admin/KitchenRulesPanel";
@@ -131,8 +129,6 @@ function KitchenTeamPage() {
   const { regionFilterId } = useRegionFilter();
   const companyId = profile?.company_id || user?.company_id;
   const userRole = (profile?.active_role || profile?.role) as UserRole | undefined;
-  const canSeeFinance = userRole ? canAccessFinance(userRole) : false;
-  const tenantCurrency = useTenantCurrency(companyId);
 
   const [loading, setLoading] = useState(true);
   // Command-centre audit (2026-07-02): visible error state + Retry.
@@ -709,96 +705,17 @@ function KitchenTeamPage() {
             </Card>
           )}
 
-          {/* KIT-A: semantic quick chips. */}
-          <div className="flex flex-wrap gap-2 mb-4 no-print">
-            {/* KIT-A: clocked-now chip. Reads is_active off the duty
-                board; "X of Y in" if both numbers are known. Tinted by
-                gap so the manager spots understaffing fast. */}
-            {stats.active > 0 && (
-              <Badge
-                variant="outline"
-                className={`px-2.5 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm ${
-                  stats.clockedNow >= stats.active
-                    ? "border-brand-primary/30 text-brand-primary bg-brand-primary/10"
-                    : stats.clockedNow === 0
-                      ? "border-rose-300 text-rose-700 bg-rose-50"
-                      : "border-amber-300 text-amber-700 bg-amber-50"
-                }`}
-              >
-                <Flame className="w-3 h-3 mr-1" />
-                Clocked {stats.clockedNow} / {stats.active}
-              </Badge>
-            )}
-            {/* KIT-A: wage burn today, finance-gated. */}
-            {canSeeFinance && stats.burnTodayZar > 0 && (
-              <Badge variant="outline" className="px-2.5 py-1 text-xs tabular-nums border-brand-primary/30 bg-brand-primary/10 text-brand-primary sm:px-3 sm:py-1.5 sm:text-sm">
-                <Banknote className="w-3 h-3 mr-1" />
-                {tenantCurrency.format(stats.burnTodayZar)} burn today
-              </Badge>
-            )}
-            {/* KIT-B (task #211, 2026-05-25): handover queue chip.
-                Equipment handovers waiting on a kitchen-side receive
-                are usually small but high-impact - a missed handover
-                means gear didn't move stations. */}
-            {stats.handoversWaiting > 0 && (
-              <Link href={withSlug("/admin/equipment?tab=handovers")}>
-                <Badge variant="outline" className="cursor-pointer border-slate-300 bg-slate-50 px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-100 sm:px-3 sm:py-1.5 sm:text-sm">
-                  <FileText className="w-3 h-3 mr-1" />
-                  {stats.handoversWaiting} handover{stats.handoversWaiting === 1 ? "" : "s"} awaiting receive
-                </Badge>
-              </Link>
-            )}
-          </div>
-
-          {/* KIT-B (task #211, 2026-05-25): per-staff hours-this-week
-              chip strip. Top 6 by mins; overtime tint kicks in at 45h.
-              Each chip links into /admin/staff-hours filtered to the
-              staffer so the manager can drill into the breakdown.
-              Hidden when nobody clocked any hours this week. */}
-          {stats.topStaffHours.length > 0 && (
-            <div className="mb-4 no-print">
-              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Hours this week
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {stats.topStaffHours.map((m) => {
-                  const hrs = Math.round((m.mins / 60) * 10) / 10;
-                  const overtime = hrs > 45;
-                  const high = hrs > 38;
-                  return (
-                    <Link key={m.id} href={withSlug("/admin/wages?audit=orders#order-coverage-audit")}>
-                      <Badge
-                        variant="outline"
-                        className={`max-w-full whitespace-normal break-words px-2.5 py-1 text-xs tabular-nums cursor-pointer ${
-                          overtime
-                            ? "border-rose-300 text-rose-800 bg-rose-50 hover:bg-rose-100"
-                            : high
-                              ? "border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100"
-                              : "border-slate-200 text-slate-700 bg-white hover:bg-slate-50"
-                        }`}
-                        title={overtime ? "Over 45h - check overtime policy" : high ? "Approaching overtime" : ""}
-                      >
-                        {m.name} · {hrs}h
-                        {overtime && <span className="ml-1 text-rose-600">!</span>}
-                      </Badge>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {/* KIT-A: intel grid - 4 cards above the 3 tile shortcuts.
               Mirrors the cleaning landing's pattern (damages + supplies)
               but kitchen-shaped. Hidden while loading (the skeleton
               above stands in). */}
           <div className={`mb-4 no-print ${loading ? "hidden" : ""}`}>
-            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:gap-3 sm:px-4 sm:py-3">
-              <div className="min-w-0">
+            <div className="flex min-w-0 flex-nowrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:px-4 sm:py-3">
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-slate-900">Kitchen intelligence</p>
-                <p className="mt-0.5 text-xs leading-5 text-slate-500">Prep readiness, tomorrow&apos;s load, equipment, and stock risk.</p>
+                <p className="mt-0.5 hidden text-xs leading-5 text-slate-500 md:block">Prep readiness, tomorrow&apos;s load, equipment, and stock risk.</p>
               </div>
-              <button type="button" onClick={() => setIsIntelOpen((open) => !open)} aria-expanded={isIntelOpen} aria-label={`${isIntelOpen ? "Hide" : "Show"} kitchen insights`} title={`${isIntelOpen ? "Hide" : "Show"} kitchen insights`} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 p-0 text-xs font-semibold text-slate-600 transition-colors hover:border-brand-primary/40 hover:text-brand-primary sm:h-9 sm:w-auto sm:gap-1.5 sm:px-2.5">
+              <button type="button" onClick={() => setIsIntelOpen((open) => !open)} aria-expanded={isIntelOpen} aria-label={`${isIntelOpen ? "Hide" : "Show"} kitchen insights`} title={`${isIntelOpen ? "Hide" : "Show"} kitchen insights`} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 p-0 text-xs font-semibold text-slate-600 transition-colors hover:border-brand-primary/40 hover:text-brand-primary sm:h-9 sm:w-auto sm:gap-1.5 sm:px-2.5">
                 <span className="sr-only sm:not-sr-only sm:inline">{isIntelOpen ? "Hide" : "Open"} insights</span>
                 <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isIntelOpen ? "rotate-180" : ""}`} />
               </button>
@@ -939,12 +856,12 @@ function KitchenTeamPage() {
 
           {/* Tile shortcuts - unchanged routing, slug-wrapped now. */}
           <div className="no-print">
-            <div className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:gap-3 sm:px-4 sm:py-3">
-              <div className="min-w-0">
+            <div className="mb-3 flex min-w-0 flex-nowrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:px-4 sm:py-3">
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-slate-900">Kitchen tools</p>
-                <p className="mt-0.5 text-xs leading-5 text-slate-500">Open the deeper admin workspaces when you need them.</p>
+                <p className="mt-0.5 hidden text-xs leading-5 text-slate-500 md:block">Open the deeper admin workspaces when you need them.</p>
               </div>
-              <button type="button" onClick={() => setIsShortcutsOpen((open) => !open)} aria-expanded={isShortcutsOpen} aria-label={`${isShortcutsOpen ? "Hide" : "Show"} kitchen tools`} title={`${isShortcutsOpen ? "Hide" : "Show"} kitchen tools`} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 p-0 text-xs font-semibold text-slate-600 transition-colors hover:border-brand-primary/40 hover:text-brand-primary sm:h-9 sm:w-auto sm:gap-1.5 sm:px-2.5">
+              <button type="button" onClick={() => setIsShortcutsOpen((open) => !open)} aria-expanded={isShortcutsOpen} aria-label={`${isShortcutsOpen ? "Hide" : "Show"} kitchen tools`} title={`${isShortcutsOpen ? "Hide" : "Show"} kitchen tools`} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 p-0 text-xs font-semibold text-slate-600 transition-colors hover:border-brand-primary/40 hover:text-brand-primary sm:h-9 sm:w-auto sm:gap-1.5 sm:px-2.5">
                 <span className="sr-only sm:not-sr-only sm:inline">{isShortcutsOpen ? "Hide" : "Open"} tools</span>
                 <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isShortcutsOpen ? "rotate-180" : ""}`} />
               </button>
@@ -969,16 +886,6 @@ function KitchenTeamPage() {
           </div>}
           </div>
 
-          {/* KIT-A: an at-a-glance "what's surfaced where" hint at
-              the bottom so a new operator knows the deeper drilldowns
-              exist (handovers / wages / live ops). */}
-          <div className="no-print mt-5 flex flex-wrap items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs dark:border-slate-800 dark:bg-slate-900/60 sm:mt-6 sm:gap-2 sm:px-4 sm:py-3">
-            <span className="font-semibold text-slate-600 dark:text-slate-300">More admin workspaces</span>
-            <span className="hidden text-slate-300 sm:inline">·</span>
-            <Link href={withSlug("/admin/tracking")} className="rounded-md px-2 py-1 font-medium text-brand-primary transition-colors hover:bg-brand-primary/10 hover:underline">Live operations</Link>
-            <Link href={withSlug("/admin/wages")} className="rounded-md px-2 py-1 font-medium text-brand-primary transition-colors hover:bg-brand-primary/10 hover:underline">Wage reports</Link>
-            <Link href={withSlug("/admin/equipment?tab=handovers")} className="rounded-md px-2 py-1 font-medium text-brand-primary transition-colors hover:bg-brand-primary/10 hover:underline">Equipment handovers</Link>
-          </div>
           {/* TIGHTEN I.30 (admin.md section 7 follow-up #5):
               Kitchen rules co-located with the kitchen team.
               Kitchen rules are operational policy (prep timing,

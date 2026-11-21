@@ -18,15 +18,16 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { canAccessFinance } from "@/lib/authGuards";
 import { isBookedRevenue } from "@/lib/orderRevenueClassification";
-import { DashboardDateRange, resolvePreset, DateRange } from "@/components/dashboard/DashboardDateRange";
+import { DashboardDateRange, getDateRangeLabel, resolvePreset, DateRange } from "@/components/dashboard/DashboardDateRange";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
+import { ProfitabilityOrderReview } from "@/components/admin/ProfitabilityOrderReview";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { DEFAULT_TENANT_TIMEZONE, tenantToday, toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { isAutomatedTestOrder, isAutomatedTestQuote } from "@/lib/testDataDetection";
 import { OPEN_REFUND_STATUSES } from "@/lib/refundStatus";
-import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+import { completeOrderMenuCogs, isReportableOrder, orderNetCollected, orderRevenueExcludingTax, sumBookedOutstanding, sumBookedRevenue, sumNetCollected } from "@/lib/orderRevenueMath";
 import { loadStockShortfallCount, stockShortfallFailureReference } from "@/lib/dashboard/stockShortfalls";
 import { captureException } from "@/lib/observability";
 
@@ -78,6 +79,10 @@ interface Stats {
   totalOrdersInRange: number;
   completedOrdersInRange: number;
   averageOrderValue: number;
+  grossProfit: number | null;
+  grossMargin: number | null;
+  profitOrdersMissingCost: number;
+  grossProfitLoadFailed: boolean;
   completionRate: number;
   pendingQuotes: number;
   /** Quotes out for client response: sent / viewed / revised. Excludes
@@ -108,10 +113,8 @@ interface Stats {
   refundsOutstandingCount: number;
   refundsOutstandingValue: number;
   topCancelReason: string;
-  /** Phase 11 #7: sum of tax_amount on booked-and-onwards orders
-   *  in the range. Lets the bookkeeper eyeball VAT exposure for
-   *  the period without opening every invoice. */
-  vatCollected: number;
+  /** Sum of tax_amount on booked orders by event date; not cash VAT collected. */
+  vatOnBookedOrders: number;
   /** Phase 12 #6: quote conversion. accepted / closed in range. */
   quoteConversionRate: number;
   quoteConversionSample: number;
@@ -123,7 +126,8 @@ const EMPTY: Stats = {
   bookedRevenue: 0, collectedRevenue: 0, outstandingRevenue: 0,
   bookedOrders: 0, collectedOrders: 0, activeOrders: 0,
   upcomingEvents: 0, totalOrdersInRange: 0, completedOrdersInRange: 0,
-  averageOrderValue: 0, completionRate: 0,
+  averageOrderValue: 0, grossProfit: null, grossMargin: null,
+  profitOrdersMissingCost: 0, grossProfitLoadFailed: false, completionRate: 0,
   pendingQuotes: 0, quotesInCirculationCount: 0, quotesInCirculationValue: 0,
   lowStockItems: 0,
   pendingQuoteDrafts: 0, pendingQuoteSent: 0,
@@ -131,7 +135,7 @@ const EMPTY: Stats = {
   activeUsers: 0,
   cancelledOrdersInRange: 0, refundsOutstandingCount: 0,
   refundsOutstandingValue: 0, topCancelReason: "-",
-  vatCollected: 0,
+  vatOnBookedOrders: 0,
   quoteConversionRate: 0, quoteConversionSample: 0,
   testOrdersInRange: 0, testRevenueInRange: 0,
 };
@@ -159,6 +163,8 @@ function AdminDashboardPage() {
     resolvePreset("this_month", tenantToday(company?.timezone || DEFAULT_TENANT_TIMEZONE)),
   );
   const [stats, setStats] = useState<Stats>(EMPTY);
+  const [profitabilityReviewOrders, setProfitabilityReviewOrders] = useState<any[]>([]);
+  const [missingCostReviewOrders, setMissingCostReviewOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [supportLoading, setSupportLoading] = useState(true);
   const [hasCoreMetrics, setHasCoreMetrics] = useState(false);
@@ -257,13 +263,16 @@ function AdminDashboardPage() {
       // The primary order query powers the headline cards. Start the
       // supporting reads at the same time, but don't make revenue and order
       // totals wait for inventory, quote, refund, or team queries to finish.
-      const ordersQuery = supabase
+      const loadOrderPage = (offset: number) => supabase
         .from("orders")
-        .select("id, order_number, event_name, status, payment_status, total_amount, tax_amount, deposit_paid, deposit_amount, balance_paid, balance_amount, amount_paid, event_date, confirmed_at, cancelled_at, cancellation_reason_category")
+        .select("id, order_number, event_name, client_name, internal_notes, status, payment_status, total_amount, tax_amount, deposit_paid, deposit_amount, balance_paid, balance_amount, amount_paid, event_date, confirmed_at, cancelled_at, cancellation_reason_category, order_items(quantity, unit_cost)")
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .gte("event_date", fromISO)
-        .lte("event_date", toISO);
+        .lte("event_date", toISO)
+        .order("event_date", { ascending: true })
+        .order("id", { ascending: true })
+        .range(offset, offset + 999);
       const supportingMetricsPromise = Promise.allSettled([
         supabase
           .from("quotes")
@@ -332,9 +341,16 @@ function AdminDashboardPage() {
           .in("payment_status", OPEN_REFUND_STATUSES),
       ]);
 
-      const ordersRes = await ordersQuery;
-      if (ordersRes.error) throw ordersRes.error;
-      const orders = ordersRes.data || [];
+      const orders: any[] = [];
+      let orderOffset = 0;
+      while (true) {
+        const ordersRes = await loadOrderPage(orderOffset);
+        if (ordersRes.error) throw ordersRes.error;
+        const page = ordersRes.data || [];
+        orders.push(...page);
+        if (page.length < 1000) break;
+        orderOffset += page.length;
+      }
       const testOrders = orders.filter((o: any) => isAutomatedTestOrder(o));
       const metricOrders = orders.filter((o: any) => !isAutomatedTestOrder(o));
       const testOrdersInRange = testOrders.length;
@@ -343,58 +359,29 @@ function AdminDashboardPage() {
         0,
       );
 
-      // Revenue maths
-      // BOOKED: order is locked in (not cancelled, not draft) - the catering
-      //   business has committed kitchen time. Counts for total_amount.
-      // COLLECTED: money actually received so far. Sum of:
-      //   - amount_paid when set
-      //   - else deposit_amount when deposit_paid AND balance_amount when balance_paid
-      //   - else total_amount when payment_status='paid' and no breakdown exists
-      // OUTSTANDING = booked - collected for non-cancelled orders.
+      // Booked value, net cash held and booked balances use shared
+      // order-revenue helpers. The selected period is by event date.
 
-      let bookedRevenue = 0;
-      let collectedRevenue = 0;
-      let bookedOrders = 0;
-      let collectedOrders = 0;
+      const bookedRevenue = sumBookedRevenue(metricOrders);
+      const collectedRevenue = sumNetCollected(metricOrders);
+      const bookedOrders = metricOrders.filter((o: any) => isBookedRevenue(o)).length;
+      const collectedOrders = metricOrders.filter((o: any) => orderNetCollected(o) > 0).length;
       // Phase 11 #7: VAT exposure across booked orders in the
       // selected range. Sums orders.tax_amount on the same
       // booked-set so the bookkeeper sees how much VAT the
       // period generated without opening each invoice.
-      let vatCollected = 0;
+      let vatOnBookedOrders = 0;
 
-      // TIGHTEN I.70 (2026-06-01): routed through the canonical
-      // isBookedRevenue helper so the dashboard tile, BI chart, YoY
-      // card and region performance all reach the same answer for
-      // the same row. Auditors flagged 6 divergent "Revenue"
-      // definitions across the platform - this is the first widget
-      // adopting the shared classifier.
+      // Revenue and collection totals share the same finance helpers
+      // as wages, Finance and Cashflow. VAT exposure remains limited
+      // to booked orders in the selected event-date range.
       for (const o of metricOrders) {
-        const total  = Number(o.total_amount || 0);
-
-        // Wave 70.52a - Collected calc still runs BEFORE the
-        // cancelled-skip because a cancelled order with a banked
-        // deposit IS cash in the bank; it stays in Collected until a
-        // refund payment row is recorded (negative payment naturally
-        // removes it).
-        const received = getOrderPaymentSummary({
-          totalAmount: o.total_amount,
-          amountPaid: o.amount_paid,
-          balanceAmount: o.balance_amount,
-          depositAmount: o.deposit_amount,
-          depositPaid: o.deposit_paid,
-          paymentStatus: o.payment_status,
-        }).amountPaid;
-        if (received > 0) collectedOrders += 1;
-        collectedRevenue += received;
-
         if (isBookedRevenue(o)) {
-          bookedRevenue += total;
-          bookedOrders += 1;
-          vatCollected += Number(o.tax_amount || 0);
+          vatOnBookedOrders += Number(o.tax_amount || 0);
         }
       }
 
-      const outstandingRevenue = Math.max(0, bookedRevenue - collectedRevenue);
+      const outstandingRevenue = sumBookedOutstanding(metricOrders);
 
       const activeOrders = metricOrders.filter((o: any) =>
         ACTIVE_STATUSES.includes(String(o.status || "").toLowerCase()) && !o.cancelled_at,
@@ -445,6 +432,69 @@ function AdminDashboardPage() {
       }).length;
 
       const averageOrderValue = bookedOrders > 0 ? bookedRevenue / bookedOrders : 0;
+      // Profitability follows the selected dashboard event-date range. The
+      // Financial Dashboard has the same range choices and default so the
+      // figures reconcile when both pages use the same range and branch scope.
+      const grossProfitOrders: any[] = [];
+      let grossProfitOffset = 0;
+      let grossProfitQueryFailed = false;
+      while (true) {
+        const { data: page, error } = await (supabase as any)
+          .from("orders")
+          .select("id, order_number, event_name, client_name, internal_notes, status, cancelled_at, total_amount, tax_amount, amount_paid, payment_status, deposit_paid, deposit_amount, balance_paid, balance_amount, event_date, order_items(quantity, unit_cost)")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .is("cancelled_at", null)
+          .in("status", ["delivered", "completed"])
+          .gte("event_date", toLocalISO(range.from))
+          .lte("event_date", toLocalISO(range.to))
+          .order("event_date", { ascending: true })
+          .order("id", { ascending: true })
+          .range(grossProfitOffset, grossProfitOffset + 999);
+        if (error || !page) {
+          grossProfitQueryFailed = true;
+          break;
+        }
+        grossProfitOrders.push(...page);
+        if (page.length < 1000) break;
+        grossProfitOffset += page.length;
+      }
+
+      // Only complete menu cost snapshots count; missing costs are reported
+      // rather than silently inflating the estimated profit. This shared
+      // window and eligibility rule mirrors Financial Dashboard.
+      let costedRevenue = 0;
+      let costedCogs = 0;
+      let profitOrdersMissingCost = 0;
+      const missingCostReview: any[] = [];
+      for (const o of grossProfitOrders) {
+        if (!isReportableOrder(o) || orderNetCollected(o) <= 0) continue;
+        const items = Array.isArray(o.order_items) ? o.order_items : [];
+        const orderCogs = completeOrderMenuCogs(items);
+        if (orderCogs == null) {
+          profitOrdersMissingCost++;
+          const missingLineCount = items.filter((item: any) => {
+            const quantity = Number(item?.quantity) || 0;
+            const unitCost = Number(item?.unit_cost);
+            return quantity > 0 && (!Number.isFinite(unitCost) || unitCost <= 0);
+          }).length;
+          missingCostReview.push({
+            id: o.id,
+            order_number: o.order_number,
+            client_name: o.client_name,
+            event_name: o.event_name,
+            event_date: o.event_date,
+            missingLineCount,
+          });
+          continue;
+        }
+        costedRevenue += orderRevenueExcludingTax(o);
+        costedCogs += orderCogs;
+      }
+      const grossProfit = !grossProfitQueryFailed && costedRevenue > 0 ? costedRevenue - costedCogs : null;
+      const grossMargin = !grossProfitQueryFailed && costedRevenue > 0
+        ? ((costedRevenue - costedCogs) / costedRevenue) * 100
+        : null;
       const completionRate = totalOrdersInRange > 0
         ? (completedOrdersInRange / totalOrdersInRange) * 100
         : 0;
@@ -463,13 +513,16 @@ function AdminDashboardPage() {
         ?.replace(/_/g, " ") || "-";
 
       if (requestId !== metricsRequestRef.current) return;
+      setProfitabilityReviewOrders(orders);
+      setMissingCostReviewOrders(missingCostReview);
       setStats((current) => ({
         ...current,
         bookedRevenue, collectedRevenue, outstandingRevenue,
         bookedOrders, collectedOrders, activeOrders, upcomingEvents,
         totalOrdersInRange, completedOrdersInRange,
-        averageOrderValue, completionRate, nextEventDate,
-        cancelledOrdersInRange, topCancelReason, vatCollected,
+        averageOrderValue, grossProfit, grossMargin, profitOrdersMissingCost,
+        grossProfitLoadFailed: grossProfitQueryFailed, completionRate, nextEventDate,
+        cancelledOrdersInRange, topCancelReason, vatOnBookedOrders,
         testOrdersInRange, testRevenueInRange,
       }));
       setHasCoreMetrics(true);
@@ -580,7 +633,8 @@ function AdminDashboardPage() {
         bookedOrders, collectedOrders,
         activeOrders, upcomingEvents,
         totalOrdersInRange, completedOrdersInRange,
-        averageOrderValue, completionRate,
+        averageOrderValue, grossProfit, grossMargin, profitOrdersMissingCost,
+        grossProfitLoadFailed: grossProfitQueryFailed, completionRate,
         pendingQuotes: pendingQuoteRows.length,
         quotesInCirculationCount,
         quotesInCirculationValue,
@@ -590,7 +644,7 @@ function AdminDashboardPage() {
         shortfallItems, nextEventDate,
         cancelledOrdersInRange, refundsOutstandingCount,
         refundsOutstandingValue, topCancelReason,
-        vatCollected,
+        vatOnBookedOrders,
         quoteConversionRate, quoteConversionSample,
         testOrdersInRange, testRevenueInRange,
       });
@@ -854,7 +908,7 @@ function AdminDashboardPage() {
               label="Booked Revenue"
               value={fmt.format(stats.bookedRevenue)}
               hint={`${stats.bookedOrders} confirmed booking${stats.bookedOrders === 1 ? "" : "s"}`}
-              tooltip={`Total value of orders the client has confirmed for ${range.label.toLowerCase()}, either by paying a deposit or by being manually marked as confirmed by your team. Also includes orders with any payment recorded.\n\nPending, draft, and cancelled orders are excluded.`}
+              tooltip={`Sum of total_amount for committed bookings with event dates in ${range.label.toLowerCase()}. The order total includes tax and is grouped by event date, not payment date. A deposit, confirmation timestamp or recorded payment locks an active order in; delivered/completed bookings also count. Unconfirmed pipeline, cancelled and automated test orders are excluded.`}
               icon={Banknote}
               iconColor="text-brand-primary"
               badge={{ text: `${stats.bookedOrders} booked`, tone: "green" }}
@@ -864,8 +918,8 @@ function AdminDashboardPage() {
             <MetricCard
               label="Collected"
               value={fmt.format(stats.collectedRevenue)}
-              hint={`Money received in ${range.label}`}
-              tooltip={"Money actually banked from clients in this period. Includes deposits, partial payments and fully settled invoices. If a cancelled booking still has cash on record, it stays counted here until a refund payment is recorded.\n\nPulled from recorded payments on each order."}
+              hint={`Cash on bookings in this event-date range`}
+              tooltip={"Sum of each reportable order's net amount_paid after completed refunds, for event dates in this selected range. Includes deposits and partial payments, including cash still held on cancelled orders. Automated test orders are excluded. This is grouped by event date, not payment date."}
               icon={CheckCircle}
               iconColor="text-brand-primary"
               badge={{ text: `${stats.collectedOrders} paid`, tone: "green" }}
@@ -876,7 +930,7 @@ function AdminDashboardPage() {
               label="Outstanding"
               value={fmt.format(stats.outstandingRevenue)}
               hint="Booked minus collected"
-              tooltip={"What clients still owe you on confirmed bookings in this period. This is booked revenue less what you have already collected.\n\nUnpaid balances and partial deposits land here."}
+              tooltip={"Outstanding balance on each booked order with an event date in this selected range. Pipeline and cancelled orders are excluded; cash from one booking is not used to offset another booking."}
               icon={TrendingUp}
               iconColor="text-blue-600"
               badge={{ text: "Owed", tone: "blue" }}
@@ -904,12 +958,12 @@ function AdminDashboardPage() {
           {/* Secondary row: VAT, quote conversion and the live quote
               pipeline share one tile grid instead of a full-width tile. */}
           <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-3 sm:gap-4 md:gap-6 mb-6">
-              {stats.vatCollected > 0 && (
+              {stats.vatOnBookedOrders > 0 && (
                 <MetricCard
-                  label="VAT in range"
-                  value={fmt.format(stats.vatCollected)}
-                  hint="Tax on booked orders"
-                  tooltip={"Sum of tax_amount on every booked order whose event_date falls in this range. Use this as a sanity-check against your accounting system's VAT control account for the period."}
+                  label="VAT on bookings"
+                  value={fmt.format(stats.vatOnBookedOrders)}
+                  hint="Tax value on booked orders in range"
+                  tooltip={"Sum of tax_amount on booked orders whose event_date falls in this selected range. This is tax attached to booked order values, not VAT cash collected by payment date or a substitute for the VAT control account."}
                   icon={Banknote}
                   iconColor="text-amber-600"
                   badge={{ text: "Period", tone: "amber" }}
@@ -957,10 +1011,37 @@ function AdminDashboardPage() {
           {/* Performance metrics */}
           <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-3 sm:gap-4 md:gap-6 mb-6">
             <MetricCard
+              label="Gross Profit Estimate"
+              value={stats.grossProfitLoadFailed ? "Unavailable" : stats.grossProfit == null ? "No costed orders" : fmt.format(stats.grossProfit)}
+              hint={stats.grossProfitLoadFailed
+                ? "Cost data for this range could not be loaded; refresh to retry"
+                : stats.grossMargin == null
+                ? stats.profitOrdersMissingCost > 0
+                  ? `${stats.profitOrdersMissingCost} delivered order${stats.profitOrdersMissingCost === 1 ? "" : "s"} missing complete menu costs`
+                  : `No eligible paid, delivered orders in ${getDateRangeLabel(range).toLowerCase()}`
+                : `${stats.grossMargin.toFixed(1)}% gross margin in ${getDateRangeLabel(range).toLowerCase()}; ${stats.profitOrdersMissingCost} order${stats.profitOrdersMissingCost === 1 ? "" : "s"} missing complete costs`}
+              tooltip={`Event dates in ${getDateRangeLabel(range).toLowerCase()}, matching the Financial Dashboard when its profitability range and branch scope are the same: delivered/completed, non-cancelled orders with net payment held. Gross profit estimate = order total less recorded tax, minus menu COGS (quantity multiplied by saved unit_cost for every positive-quantity item). Orders with missing or incomplete item costs are excluded and counted in the hint. This is a gross-profit estimate, not net profit: staff wages, supplier overhead and fixed costs are not subtracted.`}
+              icon={TrendingUp}
+              iconColor="text-brand-primary"
+              loading={loading}
+              unavailable={stats.grossProfitLoadFailed}
+              href={withSlug("/admin/financial-dashboard")}
+            />
+            <MetricCard
+              label="Net Profit"
+              value="Not reconciled"
+              hint="Full period-matched expense totals are not available"
+              tooltip={"Net profit is not shown as a number because the app does not yet reconcile all expenses to the same event-date period. Payroll, recurring costs, supplier payables and order-linked costs live in separate sources and can overlap; subtracting them now could omit or double-count costs. The Gross Profit Estimate above only subtracts complete menu COGS and is not net profit."}
+              icon={Banknote}
+              iconColor="text-slate-500"
+              loading={loading}
+              href={withSlug("/admin/financial-dashboard")}
+            />
+            <MetricCard
               label="Avg Order Value"
               value={fmt.format(stats.averageOrderValue)}
               hint="Mean per booked order"
-              tooltip={"Mean value per booked order in this period (cancelled orders excluded from both numerator and denominator). A higher number means bigger events or a richer mix."}
+              tooltip={"Mean total_amount (including tax) per committed booking with an event date in this selected range. Cancelled, unconfirmed pipeline and automated test orders are excluded from both numerator and denominator."}
               icon={TrendingUp}
               iconColor="text-brand-primary"
               loading={loading}
@@ -970,7 +1051,7 @@ function AdminDashboardPage() {
               label="Completion Rate"
               value={`${stats.completionRate.toFixed(1)}%`}
               hint={`${stats.completedOrdersInRange} of ${stats.totalOrdersInRange} done`}
-              tooltip={"Share of orders in this period that finished as completed. Note: events in the future count against the denominator until they happen, so a normal Monday may show a low number even when nothing is wrong. Anything below 95% on already-happened events is worth a closer look."}
+              tooltip={"Delivered or completed, non-cancelled orders divided by all non-cancelled orders whose event dates fall in this period. The denominator includes pending and future orders, so this is an overall period completion share rather than an on-time service score."}
               icon={CheckCircle}
               iconColor="text-brand-primary"
               loading={loading}
@@ -998,6 +1079,14 @@ function AdminDashboardPage() {
               href={withSlug("/admin/users")}
             />
           </div>
+
+          <ProfitabilityOrderReview
+            orders={profitabilityReviewOrders}
+            missingCostOrders={missingCostReviewOrders}
+            fromDate={toLocalISO(range.from)}
+            toDate={toLocalISO(range.to)}
+            costAuditAvailable={!stats.grossProfitLoadFailed}
+          />
 
           {/* AD-4 (admin-dashboard audit): de-duplicated. Was three
               tiles + PendingRefundsWidget + CancelledOrdersWidget = 5
@@ -1164,7 +1253,7 @@ function AdminDashboardPage() {
 
 <Card collapsible lazyContent defaultOpen={false} collapseLabel="Upcoming work and team" className="mb-6" id="dashboard-upcoming-work-and-team">
   <CardHeader><CardTitle className="text-base">Upcoming work and team</CardTitle><CardDescription>Tomorrow’s events, new leads and the staff currently on duty.</CardDescription></CardHeader>
-  <CardContent><div className="grid items-start gap-4 xl:grid-cols-2 [&>div]:mb-0"><WidgetErrorBoundary label="New leads today"><NewLeadsTodayWidget companyId={companyId} /></WidgetErrorBoundary>
+  <CardContent className="min-w-0"><div className="grid min-w-0 w-full items-start gap-4 [&>div]:mb-0 [&>div]:min-w-0 [&>div]:max-w-full" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 24rem), 1fr))" }}><WidgetErrorBoundary label="New leads today"><NewLeadsTodayWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Tomorrow's events"><TomorrowsEventsWidget companyId={companyId} /></WidgetErrorBoundary>
 <WidgetErrorBoundary label="Active staff now"><ActiveStaffNowWidget companyId={companyId} /></WidgetErrorBoundary></div></CardContent>
 </Card>

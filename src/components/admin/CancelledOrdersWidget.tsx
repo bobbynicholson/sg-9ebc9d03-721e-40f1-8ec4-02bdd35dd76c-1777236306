@@ -16,6 +16,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Badge } from "@/components/ui/badge";
 import { XCircle, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
@@ -62,17 +63,26 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
         // cancellations were inflating the "lost revenue" total and the
         // row list. Other widgets that query orders already filter; this
         // one was the outlier.
-        const { data, error } = await (supabase as any)
-          .from("orders")
-          .select("id, order_number, event_name, client_name, total_amount, cancelled_at, cancellation_reason")
-          .eq("company_id", companyId)
-          .is("deleted_at", null)
-          .eq("status", "cancelled")
-          .gte("cancelled_at", since)
-          .order("cancelled_at", { ascending: false })
-          .limit(50);
-        if (error) throw error;
-        const list = ((data || []) as CancelRow[])
+        const allRows: CancelRow[] = [];
+        let offset = 0;
+        while (true) {
+          const { data, error } = await (supabase as any)
+            .from("orders")
+            .select("id, order_number, event_name, client_name, total_amount, cancelled_at, cancellation_reason")
+            .eq("company_id", companyId)
+            .is("deleted_at", null)
+            .eq("status", "cancelled")
+            .gte("cancelled_at", since)
+            .order("cancelled_at", { ascending: false })
+            .order("id", { ascending: true })
+            .range(offset, offset + 999);
+          if (error) throw error;
+          const page = (data || []) as CancelRow[];
+          allRows.push(...page);
+          if (page.length < 1000) break;
+          offset += page.length;
+        }
+        const list = allRows
           .filter((r) => !!r.cancelled_at)
           .filter((r) => !isAutomatedTestOrder(r));
         if (cancelled) return;
@@ -105,9 +115,10 @@ export function CancelledOrdersWidget({ companyId }: { companyId: string | null 
               <XCircle className="h-4 w-4 shrink-0 text-slate-500" />
               <span className="sm:hidden">Cancellations</span>
               <span className="hidden sm:inline">Cancellations (last 30 days)</span>
+              <InfoTooltip content={"The cancelled orders shown here were cancelled during the last 30 days. The Lost amount is their gross total_amount (including tax), not cash lost or refunded: some cancelled orders may still have cash held, and completed refunds are tracked separately."} />
               {totalLost > 0 && (
                 <span className="inline-flex max-w-full shrink-0 items-center gap-1 rounded-full border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-700 sm:ml-1 sm:px-2 sm:text-xs">
-                  <span className="opacity-70">Lost</span>
+                  <span className="opacity-70">Cancelled value</span>
                   <span className="font-semibold tabular-nums">{tenantCurrency.format(totalLost, 0)}</span>
                 </span>
               )}

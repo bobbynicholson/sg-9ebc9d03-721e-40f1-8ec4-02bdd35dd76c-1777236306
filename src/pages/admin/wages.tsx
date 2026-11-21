@@ -47,6 +47,8 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { paymentLedgerService } from "@/services/paymentLedgerService";
 import { captureException } from "@/lib/observability";
 import { MonthlyPayrollAudit } from "@/components/admin/MonthlyPayrollAudit";
+import { isBookedRevenue } from "@/lib/orderRevenueClassification";
+import { isReportableOrder, sumBookedRevenue } from "@/lib/orderRevenueMath";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -159,11 +161,14 @@ function toDateInput(iso: string): string {
   if (isNaN(d.getTime())) return "";
   return toLocalISO(d);
 }
-function fromDateInput(local: string, endOfDay = false): string {
-  const d = new Date(local);
-  if (isNaN(d.getTime())) return "";
-  if (endOfDay) d.setHours(23, 59, 59, 999);
-  else d.setHours(0, 0, 0, 0);
+function fromDateInput(local: string, endExclusive = false): string {
+  const parts = local.split("-").map(Number);
+  if (parts.length !== 3 || parts.some((part) => !Number.isInteger(part))) return "";
+  const [year, month, day] = parts;
+  const d = new Date(year, month - 1, day);
+  if (isNaN(d.getTime()) || d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return "";
+  d.setHours(0, 0, 0, 0);
+  if (endExclusive) d.setDate(d.getDate() + 1);
   return d.toISOString();
 }
 // ── Types ───────────────────────────────────────────────────────────
@@ -306,8 +311,19 @@ function WageDashboardContent({
   const [department] = useState<DepartmentKey>("all");
   const [orderAuditOpen, setOrderAuditOpen] = useState(false);
   useEffect(() => {
-    if (router.isReady && router.query.audit === "orders") setOrderAuditOpen(true);
-  }, [router.isReady, router.query.audit]);
+    if (!router.isReady) return;
+    if (router.query.audit === "orders") setOrderAuditOpen(true);
+    const from = typeof router.query.from === "string" ? router.query.from : "";
+    const to = typeof router.query.to === "string" ? router.query.to : "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return;
+    const fromISO = fromDateInput(from);
+    const toISO = fromDateInput(to, true);
+    if (!fromISO || !toISO || new Date(fromISO) > new Date(toISO)) return;
+    setPreset("custom");
+    setCustomFrom(from);
+    setCustomTo(to);
+    setRange({ fromISO, toISO, label: "Custom" });
+  }, [router.isReady, router.query.audit, router.query.from, router.query.to]);
 
   // Kitchen-style data (used for all / kitchen / shopping / cleaning).
   const [staffRows, setStaffRows] = useState<StaffWageSummary[]>([]);
@@ -419,7 +435,7 @@ function WageDashboardContent({
       const r = presetRange(p);
       setRange(r);
       setCustomFrom(toDateInput(r.fromISO));
-      setCustomTo(p === "this_year" ? toDateInput(new Date().toISOString()) : toDateInput(r.toISO));
+      setCustomTo(p === "this_year" ? toDateInput(new Date().toISOString()) : toDateInput(new Date(new Date(r.toISO).getTime() - 1).toISOString()));
     }
   };
   const handleApplyCustom = () => {
@@ -510,7 +526,7 @@ function WageDashboardContent({
           distance_rate_per_km: number | null;
           base_callout_fee: number | null;
         }>;
-        const fromDate = range.fromISO.slice(0, 10);
+        const fromDate = toLocalISO(new Date(range.fromISO));
         const toDate = toLocalISO(new Date(new Date(range.toISO).getTime() - 1));
         // WAGE-B: bulk fetch replaces the per-driver N+1. On a
         // 20-driver tenant this drops ~100 round trips to ~5.
@@ -700,25 +716,36 @@ function WageDashboardContent({
     let cancelled = false;
     (async () => {
       try {
-        const fromDate = range.fromISO.slice(0, 10);
+        const fromDate = toLocalISO(new Date(range.fromISO));
         // Inclusive last calendar day of the window. toISO is an
         // exclusive bound (next Monday 00:00 for presets, 23:59:59
         // of the picked day for custom); slicing it to a date and
         // using .lt() dropped every event ON the final day of a
         // custom range. Step back 1ms first, then compare with lte.
         const lastDay = toLocalISO(new Date(new Date(range.toISO).getTime() - 1));
-        const { data, error } = await supabase
-          .from("orders")
-          .select("total_amount")
-          .eq("company_id", companyId)
-          .gte("event_date", fromDate)
-          .lte("event_date", lastDay)
-          .neq("status", "cancelled");
-        if (error) throw error;
-        const rows = (data || []) as Array<{ total_amount: number | string | null }>;
+        const rows: any[] = [];
+        let offset = 0;
+        while (true) {
+          const { data, error } = await supabase
+            .from("orders")
+            .select("id, order_number, event_name, client_name, total_amount, status, payment_status, deposit_paid, confirmed_at, cancelled_at")
+            .eq("company_id", companyId)
+            .is("deleted_at", null)
+            .gte("event_date", fromDate)
+            .lte("event_date", lastDay)
+            .order("event_date", { ascending: true })
+            .order("id", { ascending: true })
+            .range(offset, offset + 999);
+          if (error) throw error;
+          const page = data || [];
+          rows.push(...page);
+          if (page.length < 1000) break;
+          offset += page.length;
+        }
+        const bookedRows = rows.filter((row) => isReportableOrder(row) && isBookedRevenue(row));
         if (!cancelled) {
-          setEventCount(rows.length);
-          setRevenueInRange(rows.reduce((s, r) => s + (Number(r.total_amount) || 0), 0));
+          setEventCount(bookedRows.length);
+          setRevenueInRange(sumBookedRevenue(bookedRows));
         }
       } catch (e) {
         captureException(e, { level: "warning", tags: { companyId, route: "/admin/wages", step: "event_count" } });
@@ -978,7 +1005,7 @@ function WageDashboardContent({
   }, [department, kitchenTotals.total_wage, driverTotals.combined]);
 
   const periodPaymentSummary = useMemo(() => {
-    const from = range.fromISO.slice(0, 10);
+    const from = toLocalISO(new Date(range.fromISO));
     const to = toLocalISO(new Date(new Date(range.toISO).getTime() - 1));
     const kitchen = department === "drivers" ? [] : staffRows.map((row) => paidForEarningPeriod(paidWageRecords, {
       from, to, staffName: row.full_name, primarySource: "Kitchen payslip",
@@ -1390,6 +1417,7 @@ function WageDashboardContent({
                     <CardContent className="p-3 sm:p-4">
                       <div className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                         <Banknote className="w-3 h-3" />Wage % of revenue
+                        <InfoTooltip content={"Wage cost shown for the selected Wages period divided by booked gross order value (including tax) for orders whose event dates fall in the same calendar window. The work/pay period and event-date period can include different orders, so use this as a broad cost ratio, not a per-event margin. Automated test and cancelled orders are excluded from revenue. The 25-35% benchmark is a reference, not a company-configured target."} />
                       </div>
                       {wagePct == null ? (
                         <>
@@ -1543,13 +1571,13 @@ function WageDashboardContent({
                 {sortedByPerson.length > 0 && (
                   <div className="space-y-3">
                     <h3 className="text-sm font-semibold text-slate-700">Kitchen, shopping and cleaning</h3>
-                    <KitchenByPersonTable rows={sortedByPerson} totals={kitchenTotals} weeklyByStaff={weeklyByStaff} shifts={shifts} holidaySet={holidaySet} paidRecords={paidWageRecords} rangeFrom={range.fromISO.slice(0, 10)} rangeTo={toLocalISO(new Date(new Date(range.toISO).getTime() - 1))} rangeLabel={range.label} onCorrectShift={openKitchenShiftCorrection} fmtZAR={fmtZAR} fmtZARDetailed={fmtZARDetailed} />
+                    <KitchenByPersonTable rows={sortedByPerson} totals={kitchenTotals} weeklyByStaff={weeklyByStaff} shifts={shifts} holidaySet={holidaySet} paidRecords={paidWageRecords} rangeFrom={toLocalISO(new Date(range.fromISO))} rangeTo={toLocalISO(new Date(new Date(range.toISO).getTime() - 1))} rangeLabel={range.label} onCorrectShift={openKitchenShiftCorrection} focusStaffId={typeof router.query.staff === "string" ? router.query.staff : undefined} focusShiftId={typeof router.query.shift === "string" ? router.query.shift : undefined} fmtZAR={fmtZAR} fmtZARDetailed={fmtZARDetailed} />
                   </div>
                 )}
                 {driverRows.length > 0 && (
                   <div className="space-y-3">
                     <h3 className="text-sm font-semibold text-slate-700">Drivers</h3>
-                    <DriverByPersonTable rows={driverRows} companyId={companyId} fromDate={range.fromISO.slice(0, 10)} toDate={toLocalISO(new Date(new Date(range.toISO).getTime() - 1))} rangeLabel={range.label} paidRecords={paidWageRecords} fmtZAR={fmtZAR} withSlug={withSlug} />
+                    <DriverByPersonTable rows={driverRows} companyId={companyId} fromDate={toLocalISO(new Date(range.fromISO))} toDate={toLocalISO(new Date(new Date(range.toISO).getTime() - 1))} rangeLabel={range.label} paidRecords={paidWageRecords} fmtZAR={fmtZAR} withSlug={withSlug} />
                   </div>
                 )}
               </section>
@@ -1889,6 +1917,8 @@ function KitchenByPersonTable({
   rangeTo,
   rangeLabel,
   onCorrectShift,
+  focusStaffId,
+  focusShiftId,
   fmtZAR = fmtZARDefault,
   fmtZARDetailed = fmtZARDetailedDefault,
 }: {
@@ -1902,11 +1932,26 @@ function KitchenByPersonTable({
   rangeTo: string;
   rangeLabel: string;
   onCorrectShift: (shift: KitchenShift) => void;
+  focusStaffId?: string;
+  focusShiftId?: string;
   // TIGHTEN I.91: tenant-aware formatters from the parent.
   fmtZAR?: (n: number | null | undefined) => string;
   fmtZARDetailed?: (n: number | null | undefined) => string;
 }) {
   const [expandedStaff, setExpandedStaff] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    if (!focusStaffId) return;
+    setExpandedStaff((current) => new Set(current).add(focusStaffId));
+  }, [focusStaffId]);
+  useEffect(() => {
+    if (!focusShiftId || !focusStaffId || !expandedStaff.has(focusStaffId)) return;
+    const frame = window.requestAnimationFrame(() => {
+      const target = Array.from(document.querySelectorAll<HTMLElement>("[data-wage-shift-id]"))
+        .find((element) => element.dataset.wageShiftId === focusShiftId && element.getClientRects().length > 0);
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusStaffId, focusShiftId, expandedStaff]);
   const toggleStaff = (id: string) => setExpandedStaff((current) => {
     const next = new Set(current);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -1965,7 +2010,7 @@ function KitchenByPersonTable({
                 <button type="button" aria-expanded={expandedStaff.has(r.staff_id)} onClick={() => toggleStaff(r.staff_id)} className="mt-3 min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
                   {expandedStaff.has(r.staff_id) ? "Hide details" : "View details"}
                 </button>
-                {expandedStaff.has(r.staff_id) && <KitchenShiftDetails row={r} shifts={shifts} holidaySet={holidaySet} paidRecords={paidRecords} rangeLabel={rangeLabel} onCorrectShift={onCorrectShift} fmtZAR={fmtZAR} />}
+                {expandedStaff.has(r.staff_id) && <KitchenShiftDetails row={r} shifts={shifts} holidaySet={holidaySet} paidRecords={paidRecords} rangeLabel={rangeLabel} onCorrectShift={onCorrectShift} focusShiftId={focusShiftId} fmtZAR={fmtZAR} />}
               </article>
             );
           })}
@@ -2056,7 +2101,7 @@ function KitchenByPersonTable({
                       </button>
                     </td>
                   </tr>
-                  {expandedStaff.has(r.staff_id) && <tr><td colSpan={10} className="border-b border-slate-200 bg-slate-50/60 p-3"><KitchenShiftDetails row={r} shifts={shifts} holidaySet={holidaySet} paidRecords={paidRecords} rangeLabel={rangeLabel} onCorrectShift={onCorrectShift} fmtZAR={fmtZAR} /></td></tr>}</Fragment>
+                  {expandedStaff.has(r.staff_id) && <tr><td colSpan={10} className="border-b border-slate-200 bg-slate-50/60 p-3"><KitchenShiftDetails row={r} shifts={shifts} holidaySet={holidaySet} paidRecords={paidRecords} rangeLabel={rangeLabel} onCorrectShift={onCorrectShift} focusShiftId={focusShiftId} fmtZAR={fmtZAR} /></td></tr>}</Fragment>
                 );
               })}
             </tbody>
@@ -2083,13 +2128,14 @@ function KitchenByPersonTable({
   );
 }
 
-function KitchenShiftDetails({ row, shifts, holidaySet, paidRecords, rangeLabel, onCorrectShift, fmtZAR }: {
+function KitchenShiftDetails({ row, shifts, holidaySet, paidRecords, rangeLabel, onCorrectShift, focusShiftId, fmtZAR }: {
   row: StaffWageSummary;
   shifts: KitchenShift[];
   holidaySet: Set<string>;
   paidRecords: PaidWageRecord[];
   rangeLabel: string;
   onCorrectShift: (shift: KitchenShift) => void;
+  focusShiftId?: string;
   fmtZAR: (n: number | null | undefined) => string;
 }) {
   const rows = shifts.filter((shift) => shift.staff_member_id === row.staff_id)
@@ -2128,7 +2174,7 @@ function KitchenShiftDetails({ row, shifts, holidaySet, paidRecords, rangeLabel,
               ? Math.max(0, (new Date(shift.shift_end).getTime() - new Date(shift.shift_start).getTime()) / 3_600_000 - (shift.total_break_min || 0) / 60)
               : liveMinutes / 60;
             return (
-              <article key={shift.id} className="rounded-md border border-slate-200 bg-white p-3">
+              <article key={shift.id} data-wage-shift-id={shift.id} className={`scroll-mt-24 rounded-md border p-3 ${focusShiftId === shift.id ? "border-brand-primary bg-brand-primary/5 ring-2 ring-brand-primary/20" : "border-slate-200 bg-white"}`}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="text-sm font-semibold text-slate-900">{fmtDate(day)}</p>

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * /admin/kitchen-settlement - per-period kitchen, cleaning and shopping pay summary.
  *
  * Wave 36.3. Mirrors /admin/driver-settlement.tsx in spirit but
@@ -10,7 +10,7 @@
  * in bulk. CSV export for the bookkeeper.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -45,6 +45,7 @@ import {
   type PaySummary,
 } from "@/services/kitchenPayService";
 import { kitchenStaffService } from "@/services/kitchenStaffService";
+import { needsKitchenShiftReview, type KitchenShift, type StaffWageSummary } from "@/services/kitchenStaffService";
 import { kitchenDutyService } from "@/services/kitchenDutyService";
 
 interface Staffer {
@@ -71,8 +72,17 @@ interface SummaryFailure {
 
 function defaultPeriodStart(): string {
   const d = new Date();
-  d.setDate(d.getDate() - 6);
-  return toLocalISO(d);
+  return `${d.getFullYear()}-01-01`;
+}
+
+function localDayStartISO(day: string): string {
+  const [year, month, date] = day.split("-").map(Number);
+  return new Date(year, month - 1, date).toISOString();
+}
+
+function localDayAfterISO(day: string): string {
+  const [year, month, date] = day.split("-").map(Number);
+  return new Date(year, month - 1, date + 1).toISOString();
 }
 
 // Money display routes through the shared formatZAR util so figures
@@ -120,7 +130,10 @@ function KitchenSettlementPage() {
   // CANNOT be issued a payslip here - kitchen_payslips.staff_id is a
   // hard FK to profiles, so a profile-less staffer has no valid key.
   // Surfacing them stops them being silently dropped from settlement.
-  const [unlinkedStaff, setUnlinkedStaff] = useState<Array<{ id: string; full_name: string | null }>>([]);
+  const [staffWageRows, setStaffWageRows] = useState<StaffWageSummary[]>([]);
+  const [rosterShifts, setRosterShifts] = useState<KitchenShift[]>([]);
+  const [expandedRosterRows, setExpandedRosterRows] = useState<Set<string>>(() => new Set());
+  const [selectedDepartment, setSelectedDepartment] = useState<"kitchen" | "cleaning" | "shopping" | "all">("all");
   const [companyBrand, setCompanyBrand] = useState<{ name: string | null; slug: string | null }>({ name: null, slug: null });
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [editingShift, setEditingShift] = useState<PaySummary["shifts"][number] | null>(null);
@@ -143,26 +156,14 @@ function KitchenSettlementPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      // 1) Pull all hourly-eligible operations staff: kitchen, cleaning
-      // and shopping. One settlement workflow covers all three teams.
-      // Bobby's brief: same person can do
-      // both jobs in one shift - pay once, not twice. The
-      // kitchen_payslips table is keyed by (company, staff,
-      // period) so it's role-agnostic anyway.
-      // Match staff by base role OR active_role. A kitchen/cleaning
-      // MANAGER carries role=kitchen_staff/cleaning_staff with
-      // active_role=kitchen_manager/cleaning_manager, so filtering on
-      // `role` alone happened to catch today's managers but would drop
-      // any future manager provisioned with a manager base role. The
-      // OR on active_role makes that impossible. (kitchen_manager /
-      // cleaning_manager / owner are all valid user_role enum labels
-      // now - the old "owner breaks the filter" note is stale.)
-      const OPERATIONS_PAY_ROLES = "kitchen_staff,cleaning_staff,shopping_staff,kitchen_manager,cleaning_manager,company_admin,admin,owner";
+      // 1) Pull tenant profiles, then restrict the settlement rows to
+      // profiles actually linked to an operations roster member. Profile
+      // roles alone are not the source of team membership and used to put
+      // admins, owners and unrelated staff in this table.
       const { data: staffRes, error: staffResError } = await (supabase as any)
         .from("profiles")
         .select("id, full_name, email, hourly_rate, role, active_role")
         .eq("company_id", companyId)
-        .or(`role.in.(${OPERATIONS_PAY_ROLES}),active_role.in.(${OPERATIONS_PAY_ROLES})`)
         .is("deleted_at", null)
         .order("full_name", { ascending: true });
       if (staffResError) {
@@ -171,8 +172,26 @@ function KitchenSettlementPage() {
         // "no staff to settle". Route it to the toast in the catch.
         throw staffResError;
       }
-      const staffRows = (staffRes || []) as Staffer[];
+      const allProfiles = (staffRes || []) as Staffer[];
+      const rangeStartISO = localDayStartISO(periodStart);
+      const rangeEndExclusiveISO = localDayAfterISO(periodEnd);
+      const [wageRows, rosterShifts] = await Promise.all([
+        kitchenStaffService.getWageSummary(
+          companyId,
+          rangeStartISO,
+          rangeEndExclusiveISO,
+        ),
+        kitchenStaffService.listShiftsInRange(
+          companyId,
+          rangeStartISO,
+          rangeEndExclusiveISO,
+        ),
+      ]);
+      const linkedProfileIds = new Set(wageRows.flatMap((row) => row.linked_profile_id ? [row.linked_profile_id] : []));
+      const staffRows = allProfiles.filter((profile) => linkedProfileIds.has(profile.id));
       setStaff(staffRows);
+      setStaffWageRows(wageRows);
+      setRosterShifts(rosterShifts);
 
       // 2) Summarise pay for each
       const sumMap: Record<string, PaySummary> = {};
@@ -186,8 +205,29 @@ function KitchenSettlementPage() {
             staffId: s.id,
             periodStart,
             periodEnd,
+            rangeStartISO,
+            rangeEndExclusiveISO,
           });
-          sumMap[s.id] = sum;
+          const wageRowsForProfile = wageRows.filter((row) => row.linked_profile_id === s.id);
+          const cents = (value: number) => Math.round((Number(value) || 0) * 100);
+          const standardPay = wageRowsForProfile.reduce((total, row) => total + cents(row.standard_wage), 0) / 100;
+          const overtimePay = wageRowsForProfile.reduce((total, row) => total + cents(row.overtime_wage), 0) / 100;
+          const premiumPay = wageRowsForProfile.reduce((total, row) => total + cents(row.sunday_holiday_wage), 0) / 100;
+          const totalPay = wageRowsForProfile.reduce((total, row) => total + cents(row.total_wage), 0) / 100;
+          const totalMinutes = wageRowsForProfile.reduce((total, row) => total + row.total_min, 0);
+          const reviewCount = wageRowsForProfile.reduce((total, row) => total + row.review_shifts_count, 0);
+          // Wages is the canonical rollup for every roster-linked staffer.
+          // Keep its totals on the payslip summary too, while retaining this
+          // service's clock lines for the settlement detail/editor.
+          sumMap[s.id] = {
+            ...sum,
+            totalHours: Math.round((totalMinutes / 60) * 100) / 100,
+            basePay: standardPay,
+            overtimePay,
+            multiplierPay: premiumPay,
+            totalPay,
+            shiftsNeedingReview: reviewCount,
+          };
         } catch (e) {
           // Partial-failure audit: a swallowed summarise made this
           // person read as R0 in the totals. Track and surface it.
@@ -223,19 +263,10 @@ function KitchenSettlementPage() {
       }
       setExistingPayslips(psMap);
 
-      // 4) Active staff-member rows with no linked profile. These show
-      // on /admin/wages but can't get a payslip here (profiles FK), so
-      // flag them instead of silently omitting them from settlement.
-      const { data: unlinked } = await (supabase as any)
-        .from("kitchen_staff_members")
-        .select("id, full_name")
-        .eq("company_id", companyId)
-        .is("linked_profile_id", null)
-        .eq("is_active", true)
-        .is("deleted_at", null);
-      setUnlinkedStaff((unlinked || []) as Array<{ id: string; full_name: string | null }>);
     } catch (e: any) {
       setLoadError(e?.message || "Could not load the settlement data. Please try again.");
+      setStaffWageRows([]);
+      setRosterShifts([]);
       toast({ title: "Could not load settlement", description: e?.message || "Try again", variant: "destructive" });
     } finally {
       setLoading(false);
@@ -304,24 +335,36 @@ function KitchenSettlementPage() {
     };
   }, [companyId]);
 
+  const visibleRosterRows = useMemo(
+    () => staffWageRows.filter((row) => selectedDepartment === "all" || row.departments.includes(selectedDepartment)),
+    [staffWageRows, selectedDepartment],
+  );
+  const visibleProfileIds = new Set(visibleRosterRows.flatMap((row) => row.linked_profile_id ? [row.linked_profile_id] : []));
+  const visibleStaff = staff.filter((person) => visibleProfileIds.has(person.id));
+  const activeLinkedProfileIds = new Set(staff.map((person) => person.id));
+  const visibleUnlinkedPay = visibleRosterRows.filter((row) => !row.linked_profile_id || !activeLinkedProfileIds.has(row.linked_profile_id));
+
+  const visibleShiftLines = (summary: PaySummary) => summary.shifts.filter((shift) => {
+    if (selectedDepartment === "all") return true;
+    if (shift.source === "kitchen_duty_shifts") return selectedDepartment === "kitchen";
+    const rosterShift = rosterShifts.find((row) => row.id === shift.shift_id);
+    return rosterShift?.department === selectedDepartment || (!rosterShift && selectedDepartment === "kitchen");
+  });
+
   const totals = useMemo(() => {
-    // Sum in integer cents so float drift can never make the headline
-    // tiles disagree with the per-row figures below them.
+    // Wages is the canonical roster rollup. Sum these same rows for linked
+    // and roster-only staff so the report and settlement cannot drift when
+    // a profile summary fails or a person works across multiple departments.
     let hours = 0, baseC = 0, otC = 0, multC = 0, totalC = 0;
-    let chefsWithHours = 0;
-    let heldStaff = 0;
-    Object.values(summaries).forEach((s) => {
-      if (s.shiftsNeedingReview > 0) {
-        heldStaff += 1;
-        return;
-      }
-      if (s.totalHours > 0) chefsWithHours += 1;
-      hours += s.totalHours;
-      baseC += toCents(s.basePay);
-      otC += toCents(s.overtimePay);
-      multC += toCents(s.multiplierPay);
-      totalC += toCents(s.totalPay);
-    });
+    for (const row of visibleRosterRows) {
+      hours += row.total_min / 60;
+      baseC += toCents(row.standard_wage);
+      otC += toCents(row.overtime_wage);
+      multC += toCents(row.sunday_holiday_wage);
+      totalC += toCents(row.total_wage);
+    }
+    const chefsWithHours = visibleRosterRows.filter((row) => row.total_min > 0).length;
+    const heldStaff = visibleRosterRows.filter((row) => row.review_shifts_count > 0).length;
     return {
       hours,
       base: baseC / 100,
@@ -331,9 +374,9 @@ function KitchenSettlementPage() {
       chefsWithHours,
       heldStaff,
     };
-  }, [summaries]);
+  }, [visibleRosterRows]);
 
-  const readyToIssueCount = Object.values(summaries).filter((summary) => {
+  const readyToIssueCount = visibleStaff.map((person) => summaries[person.id]).filter((summary): summary is PaySummary => !!summary).filter((summary) => {
     const slip = existingPayslips[summary.staffId];
     const staleIssued = !!slip && slip.status === "issued" && toCents(Number(slip.total_pay)) !== toCents(summary.totalPay);
     return summary.totalPay > 0 && summary.shiftsNeedingReview === 0 &&
@@ -341,8 +384,8 @@ function KitchenSettlementPage() {
   }).length;
 
   const findNextSettlementStaff = (currentId: string, status: "issued" | "paid") => {
-    const currentIndex = staff.findIndex((person) => person.id === currentId);
-    const ordered = [...staff.slice(currentIndex + 1), ...staff.slice(0, currentIndex + 1)];
+    const currentIndex = visibleStaff.findIndex((person) => person.id === currentId);
+    const ordered = [...visibleStaff.slice(currentIndex + 1), ...visibleStaff.slice(0, currentIndex + 1)];
     return ordered.find((person) => {
       const summary = summaries[person.id];
       const slip = existingPayslips[person.id];
@@ -425,7 +468,7 @@ function KitchenSettlementPage() {
     if (!companyId) return;
     setBulkPersisting(true);
     try {
-      const candidates = Object.values(summaries).filter((s) => {
+      const candidates = visibleStaff.map((person) => summaries[person.id]).filter((s): s is PaySummary => !!s).filter((s) => {
         const slip = existingPayslips[s.staffId];
         const staleIssued = !!slip && slip.status === "issued" && toCents(Number(slip.total_pay)) !== toCents(s.totalPay);
         return s.totalPay > 0 && s.shiftsNeedingReview === 0 &&
@@ -465,7 +508,7 @@ function KitchenSettlementPage() {
           variant: "destructive",
         });
       } else {
-        const heldCount = Object.values(summaries).filter((summary) => summary.shiftsNeedingReview > 0).length;
+        const heldCount = visibleStaff.filter((person) => (summaries[person.id]?.shiftsNeedingReview || 0) > 0).length;
         toast({
           title: `Issued ${issued} payslip${issued === 1 ? "" : "s"}`,
           description: heldCount > 0
@@ -480,7 +523,7 @@ function KitchenSettlementPage() {
   };
 
   const exportCsv = () => {
-    if (Object.keys(summaries).length === 0) return;
+    if (visibleStaff.length === 0 && visibleUnlinkedPay.length === 0) return;
     const esc = (v: any) => {
       if (v == null) return "";
       const s = String(v).replace(/"/g, '""');
@@ -492,7 +535,7 @@ function KitchenSettlementPage() {
       "Total pay", "Currency", "Payslip status", "Shifts needing review",
     ];
     const lines = [headers.join(",")];
-    for (const s of staff) {
+    for (const s of visibleStaff) {
       const sum = summaries[s.id];
       if (!sum) continue;
       const ps = existingPayslips[s.id];
@@ -516,7 +559,7 @@ function KitchenSettlementPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `operations-staff-settlement-${periodStart}_to_${periodEnd}.csv`;
+    a.download = `${selectedDepartment}-staff-settlement-${periodStart}_to_${periodEnd}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -526,6 +569,15 @@ function KitchenSettlementPage() {
   const openStaffDetails = (staffId: string) => {
     setEditingShift(null);
     setSelectedStaffId(staffId);
+  };
+
+  const toggleRosterDetails = (staffId: string) => {
+    setExpandedRosterRows((current) => {
+      const next = new Set(current);
+      if (next.has(staffId)) next.delete(staffId);
+      else next.add(staffId);
+      return next;
+    });
   };
 
   const openShiftEditor = (shift: PaySummary["shifts"][number]) => {
@@ -646,7 +698,7 @@ function KitchenSettlementPage() {
                     {totals.chefsWithHours} staff with hours
                   </span>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                    {fmtCurrency(totals.total)} pay without holds
+                    {fmtCurrency(totals.total)} period pay
                   </span>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
                     {Object.keys(existingPayslips).length} payslip{Object.keys(existingPayslips).length === 1 ? "" : "s"} on record
@@ -656,7 +708,7 @@ function KitchenSettlementPage() {
             }
             actions={
               <div className="flex flex-wrap items-center justify-end gap-2">
-                <Button variant="outline" size="sm" aria-label="Export settlement CSV" title="Export settlement CSV" className="h-9 w-9 p-0 sm:w-auto sm:gap-1.5 sm:px-3" onClick={exportCsv} disabled={Object.keys(summaries).length === 0}>
+                <Button variant="outline" size="sm" aria-label="Export settlement CSV" title="Export settlement CSV" className="h-9 w-9 p-0 sm:w-auto sm:gap-1.5 sm:px-3" onClick={exportCsv} disabled={visibleStaff.length === 0 && visibleUnlinkedPay.length === 0}>
                   <Download className="h-4 w-4" /> <span className="sr-only sm:not-sr-only">Export CSV</span>
                 </Button>
                 <Button
@@ -688,7 +740,7 @@ function KitchenSettlementPage() {
             {/* Partial-failure surface: totals below EXCLUDE anyone
                 whose pay calc failed, so say so instead of silently
                 under-reporting the wage bill. */}
-            {!loadError && summariseFailed.length > 0 && (
+            {!loading && !loadError && summariseFailed.length > 0 && (
               <Alert className="mb-4 border-amber-300 bg-amber-50">
                 <AlertTriangle className="h-4 w-4 text-amber-600" />
                 <AlertDescription className="flex flex-wrap items-center gap-3 text-amber-900">
@@ -707,27 +759,12 @@ function KitchenSettlementPage() {
               </Alert>
             )}
 
-            {!loadError && unlinkedStaff.length > 0 && (
-              <Alert className="mb-4 border-amber-300 bg-amber-50">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
-                <AlertDescription className="flex flex-wrap items-center gap-3 text-amber-900">
-                  <span>
-                    {unlinkedStaff.length} active staff {unlinkedStaff.length === 1 ? "member has" : "members have"} no linked login and can&apos;t be issued a payslip here:{" "}
-                    <span className="font-medium">{unlinkedStaff.map((u) => u.full_name || "Unnamed").join(", ")}</span>.
-                    They still appear on the Wages report. Link them to a profile on{" "}
-                    <Link href={withSlug("/admin/staff")} className="font-semibold underline underline-offset-2">Staff &amp; rates</Link>
-                    {" "}to pay them here, or settle them manually.
-                  </span>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {!loadError && totals.heldStaff > 0 && (
+            {!loading && !loadError && totals.heldStaff > 0 && (
               <Alert className="mb-4 border-amber-300 bg-amber-50 text-amber-950">
                 <AlertTriangle className="h-4 w-4 text-amber-700" />
                 <AlertDescription className="flex flex-wrap items-center justify-between gap-3 text-sm">
                   <span>
-                    {totals.heldStaff} staff {totals.heldStaff === 1 ? "member has" : "members have"} shift records needing review. Their totals are excluded from the ready-to-issue amount until the clock records are corrected.
+                    {totals.heldStaff} staff {totals.heldStaff === 1 ? "member has" : "members have"} shift records needing review. Earnings from flagged shifts are held; other valid period earnings remain included. Payslips stay blocked until the clock records are corrected.
                   </span>
                   <Link href={withSlug("/admin/wages")} className="shrink-0 font-semibold underline underline-offset-2">
                     Open staff hours
@@ -740,24 +777,46 @@ function KitchenSettlementPage() {
                 the stacked sections stop rendering flush against each
                 other (pre-fix there was no vertical rhythm at all). */}
             <Card className="mb-6">
-              <CardContent className="flex flex-col gap-3 p-3 md:flex-row md:items-end md:p-4">
-                <div className="flex-1 grid grid-cols-2 gap-3 max-w-md">
-                  <div>
-                    <Label htmlFor="period_start" className="text-xs">Period start</Label>
-                    <Input id="period_start" type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} className="mt-1" />
+              <CardContent className="grid grid-cols-1 gap-4 p-3 md:p-4 xl:grid-cols-[minmax(360px,auto)_minmax(240px,1fr)_auto] xl:items-end">
+                <div className="grid min-w-0 grid-cols-2 gap-3">
+                  <div className="min-w-0">
+                    <Label htmlFor="period_start" className="text-xs font-medium text-slate-600">Period start</Label>
+                    <Input id="period_start" type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} className="mt-1 h-10 w-full" />
                   </div>
-                  <div>
-                    <Label htmlFor="period_end" className="text-xs">Period end</Label>
-                    <Input id="period_end" type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} className="mt-1" />
+                  <div className="min-w-0">
+                    <Label htmlFor="period_end" className="text-xs font-medium text-slate-600">Period end</Label>
+                    <Input id="period_end" type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} className="mt-1 h-10 w-full" />
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex min-w-0 flex-wrap items-end gap-2">
+                  <span className="w-full text-xs font-medium text-slate-600 xl:sr-only">Quick date ranges</span>
                   {/* Copy honesty: the preset sets today minus 6 days
                       through today, which is a rolling 7-day window,
                       not the calendar week. */}
-                  <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs" onClick={setThisWeek}>Last 7 days</Button>
-                  <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs" onClick={setLastWeek}>Last week</Button>
-                  <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs" onClick={setLastMonth}>Last month</Button>
+                  <Button variant="outline" size="sm" className="h-10 px-3 text-xs" onClick={setThisWeek}>Last 7 days</Button>
+                  <Button variant="outline" size="sm" className="h-10 px-3 text-xs" onClick={setLastWeek}>Last week</Button>
+                  <Button variant="outline" size="sm" className="h-10 px-3 text-xs" onClick={setLastMonth}>Last month</Button>
+                </div>
+                <div className="flex min-w-0 flex-wrap items-center gap-2 border-t border-slate-100 pt-3 xl:border-0 xl:pt-0">
+                  <span className="mr-1 text-xs font-medium text-slate-600">Team</span>
+                  {([
+                    ["kitchen", "Kitchen"],
+                    ["cleaning", "Cleaning"],
+                    ["shopping", "Shopping"],
+                    ["all", "All teams"],
+                  ] as const).map(([value, label]) => (
+                    <Button
+                      key={value}
+                      type="button"
+                      size="sm"
+                      variant={selectedDepartment === value ? "default" : "outline"}
+                      aria-pressed={selectedDepartment === value}
+                      className={`h-9 rounded-full px-3 text-xs ${selectedDepartment === value ? "bg-brand-primary text-white hover:bg-brand-primary/90" : ""}`}
+                      onClick={() => setSelectedDepartment(value)}
+                    >
+                      {label}
+                    </Button>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -770,62 +829,60 @@ function KitchenSettlementPage() {
               <StatTile
                 compact
                 label="Staff with hours"
-                value={loading ? "…" : totals.chefsWithHours}
+                value={loading ? <MetricLoading width="w-10" /> : totals.chefsWithHours}
                 icon={Users}
-                hint={`of ${staff.length} on the roster`}
+                hint={`of ${visibleRosterRows.length} on this team roster`}
               />
               <StatTile
                 compact
-                label="Total hours"
-                value={loading ? "…" : `${totals.hours.toFixed(1)}h`}
+                label="Combined hours"
+                value={loading ? <MetricLoading width="w-16" /> : `${totals.hours.toFixed(1)}h`}
                 icon={Clock}
                 hint="Clocked in this period"
               />
               <StatTile
                 compact
                 label="Base pay"
-                value={loading ? "…" : fmtCurrency(totals.base)}
+                value={loading ? <MetricLoading width="w-20" /> : fmtCurrency(totals.base)}
                 icon={Banknote}
-                hint="Hours x hourly rate"
+                hint="Ordinary or fixed-rate pay"
               />
               <StatTile
                 compact
                 label="OT + premium"
-                value={loading ? "…" : fmtCurrency(totals.ot + totals.mult)}
+                value={loading ? <MetricLoading width="w-20" /> : fmtCurrency(totals.ot + totals.mult)}
                 icon={TrendingUp}
                 hint="Overtime and multipliers"
               />
               <StatTile
                 compact
                 label="Total pay"
-                value={loading ? "…" : fmtCurrency(totals.total)}
+                value={loading ? <MetricLoading width="w-20" /> : fmtCurrency(totals.total)}
                 icon={Wallet}
-                hint="Excludes staff held for review"
+                hint={loading ? "Calculating selected period" : totals.heldStaff > 0 ? "Valid shifts included; flagged shifts held" : "Recorded shifts included"}
               />
               <StatTile
                 compact
                 tone={totals.heldStaff > 0 ? "warn" : "good"}
                 label="Held for review"
-                value={loading ? "…" : totals.heldStaff}
+                value={loading ? <MetricLoading width="w-10" /> : totals.heldStaff}
                 icon={AlertTriangle}
-                hint="Shift corrections needed"
+                hint={loading ? "Checking shift records" : totals.heldStaff > 0 ? "Shift corrections needed" : "No shifts need correction"}
               />
             </div>
 
             {/* Per-staffer breakdown */}
             <Card className="mb-6">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Staff pay breakdown</CardTitle>
+                <CardTitle className="text-base">{selectedDepartment === "all" ? "All operations" : `${selectedDepartment[0].toUpperCase()}${selectedDepartment.slice(1)}`} pay breakdown</CardTitle>
                 <CardDescription className="text-xs">
-                  Closed kitchen, cleaning and shopping shifts, paid using each person's hourly, monthly or per-shift rate.
+                  Showing staff assigned to this team. Each person&apos;s hours and pay stay combined across assigned operations work for one period settlement; expanded shift details follow the selected team.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 {loading ? (
-                  <div className="text-center py-12 text-slate-500 text-sm">
-                    <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" /> Calculating...
-                  </div>
-                ) : staff.length === 0 ? (
+                  <KitchenSettlementLoading companyName={companyBrand.name} companySlug={companyBrand.slug} />
+                ) : visibleStaff.length === 0 && visibleUnlinkedPay.length === 0 ? (
                   <div className="text-center py-12 text-slate-500 text-sm">
                     <p>No kitchen, cleaning or shopping staff on the company roster yet.</p>
                     <Link href={withSlug("/admin/kitchen-staff")}>
@@ -841,8 +898,9 @@ function KitchenSettlementPage() {
                         Keep its audit-friendly form for desktop and present
                         the same figures as a card per staff member on mobile. */}
                     <div className="space-y-3 p-4 md:hidden">
-                      {staff.map((s) => {
+                      {visibleStaff.map((s) => {
                         const sum = summaries[s.id];
+                        const displayShifts = sum ? visibleShiftLines(sum) : [];
                         const ps = existingPayslips[s.id];
                         const summaryFailed = summariseFailed.some((failure) => failure.id === s.id);
                         const hasPay = !!sum && sum.totalPay > 0;
@@ -856,13 +914,13 @@ function KitchenSettlementPage() {
                                 <p className="truncate text-xs text-slate-500">{s.email}</p>
                               </div>
                               <div className="shrink-0 text-right">
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{needsReview ? "Held · provisional" : "Total pay"}</p>
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{needsReview ? "Held Â· provisional" : "Total pay"}</p>
                                 <p className="text-base font-bold tabular-nums text-brand-primary sm:text-lg">{sum ? fmtCurrency(sum.totalPay, sum.currency) : "-"}</p>
                               </div>
                             </div>
                             <div className="mt-3 grid grid-cols-2 gap-2 border-y border-slate-100 py-3 text-xs">
                               <div><p className="text-slate-500">Rate</p><p className="mt-0.5 font-medium text-slate-800">{summaryFailed ? "Unavailable" : sum?.payType === "monthly" ? (sum.monthlySalary ? `${fmtCurrency(sum.monthlySalary, sum.currency)}/mo` : "No salary") : sum?.payType === "shift" ? (sum.shiftRate ? `${fmtCurrency(sum.shiftRate, sum.currency)}/shift` : "No rate") : sum?.hourlyRate ? fmtCurrency(sum.hourlyRate, sum.currency) : "No rate"}</p></div>
-                              <div><p className="text-slate-500">Hours</p><p className="mt-0.5 font-medium tabular-nums text-slate-800">{sum ? `${sum.totalHours.toFixed(1)}h` : "-"}</p></div>
+                              <div><p className="text-slate-500">Combined hours</p><p className="mt-0.5 font-medium tabular-nums text-slate-800">{sum ? `${sum.totalHours.toFixed(1)}h` : "-"}</p></div>
                               <div><p className="text-slate-500">Base pay</p><p className="mt-0.5 font-medium tabular-nums text-slate-800">{sum ? fmtCurrency(sum.basePay, sum.currency) : "-"}</p></div>
                               <div><p className="text-slate-500">OT + premium</p><p className="mt-0.5 font-medium tabular-nums text-amber-700">{sum ? fmtCurrency(sum.overtimePay + sum.multiplierPay, sum.currency) : "-"}</p></div>
                             </div>
@@ -880,7 +938,7 @@ function KitchenSettlementPage() {
                               </div>
                               <div className="flex flex-wrap justify-end gap-2">
                                   {sum && <Button size="sm" variant="outline" className="min-h-9 gap-1" onClick={() => openStaffDetails(s.id)}>
-                                    <FileClock className="h-3.5 w-3.5" /> Shifts ({sum.shifts.length})
+                                    <FileClock className="h-3.5 w-3.5" /> Shifts ({displayShifts.length})
                                   </Button>}
                                   {hasPay && !needsReview && (!ps || ps.status === "draft" || (payslipStale && ps.status === "issued")) && (
                                     <Button size="sm" variant="outline" className="min-h-9 gap-1" disabled={persisting === s.id || rangeInvalid} onClick={() => issuePayslip(s.id, "issued")}>
@@ -898,15 +956,55 @@ function KitchenSettlementPage() {
                           </div>
                         );
                       })}
+                      {visibleUnlinkedPay.map((row) => {
+                        const shifts = rosterShifts.filter((shift) => shift.staff_member_id === row.staff_id && (selectedDepartment === "all" || shift.department === selectedDepartment));
+                        const expanded = expandedRosterRows.has(row.staff_id);
+                        return (
+                          <article key={row.staff_id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="break-words font-semibold text-slate-900">{row.full_name}</p>
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                  <Badge variant="outline" className="border-sky-200 bg-sky-50 text-[10px] text-sky-800">No login · roster tracked</Badge>
+                                  {row.departments?.map((department) => <Badge key={department} variant="outline" className="text-[10px]">{department}</Badge>)}
+                                  {row.review_shifts_count > 0 && <Badge variant="outline" className="border-amber-300 bg-amber-50 text-[10px] text-amber-900">Review {row.review_shifts_count}</Badge>}
+                                </div>
+                              </div>
+                              <div className="shrink-0 text-right">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Period pay</p>
+                                <p className="text-base font-bold tabular-nums text-brand-primary">{fmtCurrency(row.total_wage)}</p>
+                              </div>
+                            </div>
+                            <div className="mt-3 grid grid-cols-2 gap-2 border-y border-slate-100 py-3 text-xs">
+                              <RosterMetric label="Rate" value={rosterRateLabel(row, fmtCurrency)} />
+                              <RosterMetric label="Hours" value={`${((row.standard_min + row.overtime_min + row.sunday_holiday_min) / 60).toFixed(2)}h`} />
+                              <RosterMetric label="Base" value={fmtCurrency(row.standard_wage)} />
+                              <RosterMetric label="Overtime" value={fmtCurrency(row.overtime_wage)} />
+                              <RosterMetric label="Sunday / holiday" value={fmtCurrency(row.sunday_holiday_wage)} />
+                              <RosterMetric label="Shifts" value={String(row.shifts_count)} />
+                            </div>
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                              <span className="text-xs text-slate-500">{row.shifts_count} recorded shift{row.shifts_count === 1 ? "" : "s"}</span>
+                              <div className="flex flex-wrap gap-2">
+                                <Link href={withSlug(`/admin/kitchen-staff?staffId=${row.staff_id}`)} className="inline-flex min-h-9 items-center rounded-md border border-brand-primary/30 bg-brand-primary/5 px-3 text-xs font-semibold text-brand-primary hover:bg-brand-primary/10">Manage roster</Link>
+                                <Button type="button" size="sm" variant="outline" className="min-h-9 gap-1" aria-expanded={expanded} onClick={() => toggleRosterDetails(row.staff_id)}>
+                                  <FileClock className="h-3.5 w-3.5" /> {expanded ? "Hide shifts" : `View shifts (${shifts.length})`}
+                                </Button>
+                              </div>
+                            </div>
+                            {expanded && <RosterOnlyShiftDetails shifts={shifts} fmtCurrency={fmtCurrency} withSlug={withSlug} />}
+                          </article>
+                        );
+                      })}
                     </div>
 
                   <div className="hidden overflow-x-auto md:block">
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50">
                         <tr>
-                          <th className="text-left px-4 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Chef</th>
+                          <th className="text-left px-4 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Staff member</th>
                           <th className="text-right px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Rate</th>
-                          <th className="text-right px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Hours</th>
+                          <th className="text-right px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Combined h</th>
                           <th className="text-right px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Base</th>
                           <th className="text-right px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">OT</th>
                           <th className="text-right px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Premium</th>
@@ -916,8 +1014,9 @@ function KitchenSettlementPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {staff.map((s) => {
+                        {visibleStaff.map((s) => {
                           const sum = summaries[s.id];
+                          const displayShifts = sum ? visibleShiftLines(sum) : [];
                           const ps = existingPayslips[s.id];
                           const summaryFailed = summariseFailed.some((failure) => failure.id === s.id);
                           const hasPay = sum && sum.totalPay > 0;
@@ -997,7 +1096,7 @@ function KitchenSettlementPage() {
                                       className="h-8 gap-1 text-xs"
                                       onClick={() => openStaffDetails(s.id)}
                                     >
-                                      <FileClock className="h-3.5 w-3.5" /> Shifts
+                                      <FileClock className="h-3.5 w-3.5" /> Shifts ({displayShifts.length})
                                     </Button>
                                     {/* Stale issued slips get a Re-issue so the
                                         payslip can catch up with edited shifts.
@@ -1031,6 +1130,43 @@ function KitchenSettlementPage() {
                             </tr>
                           );
                         })}
+                        {visibleUnlinkedPay.map((row) => {
+                          const shifts = rosterShifts.filter((shift) => shift.staff_member_id === row.staff_id && (selectedDepartment === "all" || shift.department === selectedDepartment));
+                          const expanded = expandedRosterRows.has(row.staff_id);
+                          return (
+                            <Fragment key={row.staff_id}>
+                              <tr className="hover:bg-slate-50/70">
+                                <td className="px-4 py-3">
+                                  <div className="font-medium text-slate-900">{row.full_name}</div>
+                                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                    <Badge variant="outline" className="border-sky-200 bg-sky-50 text-[10px] text-sky-800">No login · roster tracked</Badge>
+                                    {row.departments?.map((department) => <Badge key={department} variant="outline" className="text-[10px]">{department}</Badge>)}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-3 text-right tabular-nums text-slate-700">{rosterRateLabel(row, fmtCurrency)}</td>
+                                <td className="px-3 py-3 text-right tabular-nums text-slate-900">{((row.standard_min + row.overtime_min + row.sunday_holiday_min) / 60).toFixed(2)}h</td>
+                                <td className="px-3 py-3 text-right tabular-nums text-slate-700">{fmtCurrency(row.standard_wage)}</td>
+                                <td className="px-3 py-3 text-right tabular-nums text-amber-700">{fmtCurrency(row.overtime_wage)}</td>
+                                <td className="px-3 py-3 text-right tabular-nums text-amber-700">{fmtCurrency(row.sunday_holiday_wage)}</td>
+                                <td className="px-3 py-3 text-right tabular-nums font-bold text-brand-primary">{fmtCurrency(row.total_wage)}</td>
+                                <td className="px-3 py-3 text-right">
+                                  {row.review_shifts_count > 0
+                                    ? <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-900">Review {row.review_shifts_count}</Badge>
+                                    : <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-700">Roster tracked</Badge>}
+                                </td>
+                                <td className="px-3 py-3 text-right">
+                                  <div className="flex justify-end gap-2">
+                                    <Link href={withSlug(`/admin/kitchen-staff?staffId=${row.staff_id}`)} className="inline-flex h-8 items-center rounded-md border border-brand-primary/30 bg-brand-primary/5 px-2.5 text-xs font-semibold text-brand-primary hover:bg-brand-primary/10">Manage</Link>
+                                    <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" aria-expanded={expanded} onClick={() => toggleRosterDetails(row.staff_id)}>
+                                      <FileClock className="h-3.5 w-3.5" /> {expanded ? "Hide" : `Shifts (${shifts.length})`}
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                              {expanded && <tr><td colSpan={9} className="border-b border-slate-200 bg-slate-50/60 p-3"><RosterOnlyShiftDetails shifts={shifts} fmtCurrency={fmtCurrency} withSlug={withSlug} /></td></tr>}
+                            </Fragment>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1043,6 +1179,7 @@ function KitchenSettlementPage() {
               const selectedStaff = staff.find((person) => person.id === selectedStaffId) || null;
               const selectedSummary = selectedStaffId ? summaries[selectedStaffId] : null;
               const selectedPayslip = selectedStaffId ? existingPayslips[selectedStaffId] : null;
+              const selectedDepartmentShifts = selectedSummary ? visibleShiftLines(selectedSummary) : [];
               const selectedPayslipStale = !!selectedPayslip && !!selectedSummary &&
                 toCents(Number(selectedPayslip.total_pay)) !== toCents(selectedSummary.totalPay);
               const canIssueSelected = !!selectedSummary && selectedSummary.totalPay > 0 &&
@@ -1060,7 +1197,7 @@ function KitchenSettlementPage() {
                     }
                   }}
                 >
-                  <DialogContent className="max-w-2xl p-4 sm:p-5">
+                  <DialogContent className="max-h-[92dvh] max-w-2xl overflow-hidden p-4 sm:max-w-4xl sm:p-6">
                     <DialogHeader className="pr-10 text-left">
                       <DialogTitle className="text-base sm:text-lg">
                         {editingShift ? "Correct shift record" : selectedStaff?.full_name || selectedStaff?.email || "Operations staff settlement"}
@@ -1068,7 +1205,7 @@ function KitchenSettlementPage() {
                       <DialogDescription className="text-xs sm:text-sm">
                         {editingShift
                           ? "A reason is required. The correction is saved to the clock record and the payslip is recalculated."
-                          : `${periodStart} to ${periodEnd} · ${selectedSummary?.totalHours.toFixed(1) || "0.0"} hours · ${selectedSummary ? fmtCurrency(selectedSummary.totalPay, selectedSummary.currency) : "—"}`}
+                          : `${periodStart} to ${periodEnd} · ${selectedSummary?.totalHours.toFixed(1) || "0.0"} combined hours · ${selectedSummary ? fmtCurrency(selectedSummary.totalPay, selectedSummary.currency) : "—"}`}
                       </DialogDescription>
                     </DialogHeader>
 
@@ -1077,7 +1214,7 @@ function KitchenSettlementPage() {
                         <Alert className="border-amber-300 bg-amber-50 py-2 text-amber-950">
                           <AlertTriangle className="h-4 w-4 text-amber-700" />
                           <AlertDescription className="text-xs">
-                            {editingShift.review_reason || "Manual edits are retained with an audit reason."} · {editingShift.source === "kitchen_staff_shifts" ? "Kitchen staff clock" : "Legacy duty clock"}
+                            {editingShift.review_reason || "Manual edits are retained with an audit reason."} Â· {editingShift.source === "kitchen_staff_shifts" ? "Kitchen staff clock" : "Legacy duty clock"}
                           </AlertDescription>
                         </Alert>
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1104,7 +1241,11 @@ function KitchenSettlementPage() {
                         </div>
                       </div>
                     ) : selectedSummary ? (
-                      <div className="max-h-[55dvh] space-y-3 overflow-y-auto pr-1">
+                      <div className="max-h-[62dvh] space-y-4 overflow-y-auto pr-1">
+                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+                          <p className="text-xs text-slate-600">Showing {selectedDepartment === "all" ? "all team" : selectedDepartment} shifts. Pay stays combined across this person&apos;s assigned operations work.</p>
+                          <Badge variant="outline" className="shrink-0 bg-slate-50 text-slate-700">{selectedDepartment === "all" ? "All teams" : selectedDepartment}</Badge>
+                        </div>
                         {selectedSummary.shiftsNeedingReview > 0 && (
                           <Alert className="border-amber-300 bg-amber-50 py-2 text-amber-950">
                             <AlertTriangle className="h-4 w-4 text-amber-700" />
@@ -1113,42 +1254,66 @@ function KitchenSettlementPage() {
                             </AlertDescription>
                           </Alert>
                         )}
-                        <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs sm:grid-cols-4">
-                          <div><p className="text-slate-500">Base pay</p><p className="mt-0.5 font-semibold tabular-nums">{fmtCurrency(selectedSummary.basePay, selectedSummary.currency)}</p></div>
-                          <div><p className="text-slate-500">Overtime</p><p className="mt-0.5 font-semibold tabular-nums">{fmtCurrency(selectedSummary.overtimePay, selectedSummary.currency)}</p></div>
-                          <div><p className="text-slate-500">Premium</p><p className="mt-0.5 font-semibold tabular-nums">{fmtCurrency(selectedSummary.multiplierPay, selectedSummary.currency)}</p></div>
-                          <div><p className="text-slate-500">Payslip</p><p className="mt-0.5 font-semibold capitalize">{selectedPayslip?.status || "Not issued"}</p></div>
+                        <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-5 sm:gap-3 sm:p-4">
+                          <div className="min-w-0 rounded-lg bg-white p-2.5"><p className="text-[11px] font-medium text-slate-500">Base pay</p><p className="mt-1 truncate text-sm font-semibold tabular-nums text-slate-900">{fmtCurrency(selectedSummary.basePay, selectedSummary.currency)}</p></div>
+                          <div className="min-w-0 rounded-lg bg-white p-2.5"><p className="text-[11px] font-medium text-slate-500">Overtime</p><p className="mt-1 truncate text-sm font-semibold tabular-nums text-slate-900">{fmtCurrency(selectedSummary.overtimePay, selectedSummary.currency)}</p></div>
+                          <div className="min-w-0 rounded-lg bg-white p-2.5"><p className="text-[11px] font-medium text-slate-500">Sunday / holiday</p><p className="mt-1 truncate text-sm font-semibold tabular-nums text-slate-900">{fmtCurrency(selectedSummary.multiplierPay, selectedSummary.currency)}</p></div>
+                          <div className="min-w-0 rounded-lg bg-white p-2.5"><p className="text-[11px] font-medium text-slate-500">Payslip</p><p className="mt-1 truncate text-sm font-semibold capitalize text-slate-900">{selectedPayslip?.status || "Not issued"}</p></div>
+                          <div className="col-span-2 flex min-w-0 items-center justify-between gap-2 rounded-lg border border-brand-primary/20 bg-brand-primary/5 px-3 py-2 sm:col-span-1 sm:block sm:border-0 sm:bg-white sm:p-2.5">
+                            <p className="text-[11px] font-medium text-slate-500">Total pay</p>
+                            <p className="truncate text-base font-bold tabular-nums text-brand-primary sm:mt-1">{fmtCurrency(selectedSummary.totalPay, selectedSummary.currency)}</p>
+                          </div>
                         </div>
-                        {selectedSummary.shifts.length === 0 ? (
+                        <div className="flex flex-wrap items-center justify-between gap-1 px-1 text-[11px] text-slate-500">
+                          <span>{selectedSummary.totalHours.toFixed(2)} combined hours</span>
+                          <span>{selectedSummary.shifts.length} clock record{selectedSummary.shifts.length === 1 ? "" : "s"} in period</span>
+                        </div>
+                        {selectedDepartmentShifts.length === 0 ? (
                           <p className="rounded-lg border border-dashed border-slate-300 px-3 py-6 text-center text-sm text-slate-500">No clock records in this period.</p>
                         ) : (
                           <div className="space-y-2">
-                            {[...selectedSummary.shifts].sort((a, b) => (b.shift_start || "").localeCompare(a.shift_start || "")).map((shift) => (
-                              <div key={`${shift.source}-${shift.shift_id}`} className="rounded-lg border border-slate-200 p-3">
-                                <div className="flex flex-wrap items-start justify-between gap-2">
+                            {[...selectedDepartmentShifts].sort((a, b) => (b.shift_start || "").localeCompare(a.shift_start || "")).map((shift) => {
+                              const rosterStaffId = staffWageRows.find((row) => row.linked_profile_id === selectedStaffId)?.staff_id;
+                              const shiftDay = (shift.shift_date || shift.shift_start || periodStart).slice(0, 10);
+                              const reviewHref = rosterStaffId
+                                ? withSlug(`/admin/wages?from=${shiftDay}&to=${shiftDay}&staff=${rosterStaffId}${shift.source === "kitchen_staff_shifts" ? `&shift=${shift.shift_id}` : ""}#wages-members-heading`)
+                                : withSlug("/admin/wages#order-coverage-audit");
+                              return (
+                              <article key={`${shift.source}-${shift.shift_id}`} className={`rounded-xl border p-3 sm:p-4 ${shift.needs_review ? "border-amber-300 bg-amber-50/40" : "border-slate-200 bg-white"}`}>
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                   <div className="min-w-0">
                                     <p className="text-sm font-semibold text-slate-900">
                                       {shift.shift_date ? new Date(`${shift.shift_date}T00:00:00`).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : "Date missing"}
                                     </p>
-                                    <p className="mt-0.5 text-xs text-slate-600">
+                                    <p className="mt-1 text-sm font-medium tabular-nums text-slate-700">
                                       {shift.shift_start ? new Date(shift.shift_start).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" }) : "Clock-in missing"}
-                                      {" – "}{shift.shift_end ? new Date(shift.shift_end).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" }) : "Still open"}
-                                      {shift.total_break_min > 0 ? ` · ${shift.total_break_min}m break` : ""}
+                                      <span className="px-1.5 text-slate-400">→</span>{shift.shift_end ? new Date(shift.shift_end).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" }) : "Still open"}
+                                      {shift.total_break_min > 0 ? <span className="ml-2 text-xs font-normal text-slate-500">{shift.total_break_min}m break</span> : null}
                                     </p>
-                                    <p className="mt-1 text-[11px] text-slate-500">{shift.source === "kitchen_staff_shifts" ? "Kitchen staff clock" : "Legacy duty clock"} · {shift.hours.toFixed(2)}h · {fmtCurrency(shift.line_total, selectedSummary.currency)}</p>
-                                    {shift.needs_review && <p className="mt-1 text-xs font-medium text-amber-800">{shift.review_reason}</p>}
                                   </div>
-                                  <div className="flex shrink-0 items-center gap-2">
+                                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                                     {shift.needs_review ? (
                                       <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-900">Review</Badge>
                                     ) : <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-800">Ready</Badge>}
+                                    <span className="text-xs font-semibold tabular-nums text-slate-700">{shift.hours.toFixed(2)}h · {fmtCurrency(shift.line_total, selectedSummary.currency)}</span>
+                                    <Link href={reviewHref} className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                                      Open shift details <ArrowRight className="h-3.5 w-3.5" />
+                                    </Link>
                                     <Button type="button" size="sm" variant="outline" className="h-8 gap-1 px-2.5 text-xs" onClick={() => openShiftEditor(shift)}>
                                       <Pencil className="h-3.5 w-3.5" /> Edit
                                     </Button>
                                   </div>
                                 </div>
-                              </div>
-                            ))}
+                                <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200/80 pt-3 sm:grid-cols-4">
+                                  <RosterMetric label="Standard" value={`${shift.base_hours.toFixed(2)}h · ${fmtCurrency(shift.base_pay, selectedSummary.currency)}`} />
+                                  <RosterMetric label="Overtime" value={`${shift.ot_hours.toFixed(2)}h · ${fmtCurrency(shift.ot_pay, selectedSummary.currency)}`} />
+                                  <RosterMetric label="Sunday / holiday" value={`${(shift.sunday_holiday_hours || 0).toFixed(2)}h · ${fmtCurrency(shift.multiplier_pay, selectedSummary.currency)}`} />
+                                  <RosterMetric label="Clock source" value={shift.source === "kitchen_staff_shifts" ? "Roster shift" : "Legacy duty"} />
+                                </div>
+                                {shift.needs_review && <p className="mt-3 rounded-md bg-amber-100/70 px-2.5 py-2 text-xs font-medium text-amber-900">{shift.review_reason || "Review this clock record before finalizing pay."}</p>}
+                              </article>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -1189,6 +1354,126 @@ function KitchenSettlementPage() {
         <Footer />
       </div>
     </>
+  );
+}
+
+function rosterRateLabel(row: StaffWageSummary, formatMoney: (amount: number, currency?: string) => string): string {
+  if (row.pay_type === "monthly") return row.monthly_salary ? `${formatMoney(row.monthly_salary)}/mo` : "No salary set";
+  if (row.pay_type === "shift") return row.shift_rate ? `${formatMoney(row.shift_rate)}/shift` : "No shift rate";
+  return row.hourly_rate ? `${formatMoney(row.hourly_rate)}/h` : "No hourly rate";
+}
+
+function RosterMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-slate-500">{label}</p>
+      <p className="mt-0.5 break-words font-medium tabular-nums text-slate-800">{value}</p>
+    </div>
+  );
+}
+
+function MetricLoading({ width }: { width: string }) {
+  return (
+    <span role="status" aria-label="Calculating period total" className={`inline-flex h-6 ${width} animate-pulse rounded-md bg-slate-200 sm:h-7`}>
+      <span className="sr-only">Calculating</span>
+    </span>
+  );
+}
+
+function RosterOnlyShiftDetails({ shifts, fmtCurrency, withSlug }: {
+  shifts: KitchenShift[];
+  fmtCurrency: (amount: number, currency?: string) => string;
+  withSlug: (path: string) => string;
+}) {
+  const orderedShifts = [...shifts].sort((a, b) => b.shift_start.localeCompare(a.shift_start));
+  const formatTime = (value: string | null) => value
+    ? new Date(value).toLocaleString("en-ZA", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+    : "Not recorded";
+  return (
+    <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-slate-900">Recorded shift details</p>
+        <Link href={withSlug("/admin/wages")} className="text-xs font-semibold text-brand-primary underline underline-offset-2">Open Wages</Link>
+      </div>
+      {orderedShifts.length === 0 ? (
+        <p className="py-3 text-center text-sm text-slate-500">No clocked shifts in this period.</p>
+      ) : (
+        <div className="space-y-2">
+          {orderedShifts.map((shift) => {
+            const review = needsKitchenShiftReview(shift);
+            const shiftDay = shift.shift_start.slice(0, 10);
+            const reviewHref = withSlug(`/admin/wages?from=${shiftDay}&to=${shiftDay}&staff=${shift.staff_member_id}&shift=${shift.id}#wages-members-heading`);
+            const totalMinutes = (shift.standard_min || 0) + (shift.overtime_min || 0) + (shift.sunday_holiday_min || 0);
+            const clockMinutes = shift.shift_end
+              ? Math.max(0, (new Date(shift.shift_end).getTime() - new Date(shift.shift_start).getTime()) / 60_000 - (shift.total_break_min || 0))
+              : null;
+            return (
+              <article key={shift.id} className="rounded-lg border border-slate-200 px-3 py-2.5">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">{formatTime(shift.shift_start)}</p>
+                    <p className="mt-0.5 text-xs text-slate-600">Clock-out: {formatTime(shift.shift_end)}{shift.total_break_min > 0 ? ` · ${shift.total_break_min}m break` : ""}</p>
+                  </div>
+                  {review ? <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-900">Review clock</Badge> : shift.shift_end ? <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-800">Recorded</Badge> : <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-800">In progress</Badge>}
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                  <RosterMetric label={review ? "Held recorded hours" : "Approved hours"} value={`${(totalMinutes / 60).toFixed(2)}h${review ? " · held" : ""}`} />
+                  <RosterMetric label="Clock span" value={clockMinutes == null ? "In progress" : `${(clockMinutes / 60).toFixed(2)}h`} />
+                  <RosterMetric label="Standard" value={`${((shift.standard_min || 0) / 60).toFixed(2)}h`} />
+                  <RosterMetric label="Overtime" value={`${((shift.overtime_min || 0) / 60).toFixed(2)}h`} />
+                  <RosterMetric label="Sunday / holiday" value={`${((shift.sunday_holiday_min || 0) / 60).toFixed(2)}h`} />
+                </div>
+                {review && <p className="mt-2 text-xs text-amber-800">Clock time needs review in Wages before the flagged time can be finalized.</p>}
+                <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
+                  <Link href={reviewHref} className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                    Open this shift in Staff Hours <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KitchenSettlementLoading({ companyName, companySlug }: { companyName: string | null; companySlug: string | null }) {
+  const tenantName = companyName?.trim() || "your company";
+  return (
+    <div className="px-4 py-10 sm:px-6" role="status" aria-live="polite">
+      <div className="mx-auto flex max-w-md flex-col items-center text-center">
+        <div className="relative mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
+          {companySlug ? (
+            <img
+              src={`/api/pwa/icon?slug=${encodeURIComponent(companySlug)}&size=180`}
+              alt=""
+              className="h-9 w-9 rounded-lg object-contain"
+            />
+          ) : (
+            <Banknote className="h-6 w-6 text-brand-primary" aria-hidden="true" />
+          )}
+          <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-brand-primary ring-1 ring-slate-200">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          </span>
+        </div>
+        <p className="text-sm font-semibold text-slate-900">Loading {tenantName} settlement</p>
+        <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">
+          Matching kitchen, cleaning and shopping shifts to this pay period.
+        </p>
+        <div className="mt-6 w-full max-w-lg space-y-3" aria-hidden="true">
+          {[0, 1, 2].map((row) => (
+            <div key={row} className="grid grid-cols-[minmax(0,1.4fr)_0.6fr_0.6fr_0.7fr] items-center gap-3 rounded-lg border border-slate-100 px-3 py-3">
+              <span className="h-3 w-3/4 animate-pulse rounded bg-slate-100" />
+              <span className="h-3 animate-pulse rounded bg-slate-100" />
+              <span className="h-3 animate-pulse rounded bg-slate-100" />
+              <span className="h-3 animate-pulse rounded bg-slate-100" />
+            </div>
+          ))}
+        </div>
+        <span className="sr-only">Loading kitchen, cleaning and shopping pay for {tenantName}.</span>
+      </div>
+    </div>
   );
 }
 

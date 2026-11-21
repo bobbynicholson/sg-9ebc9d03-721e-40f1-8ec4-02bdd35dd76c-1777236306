@@ -18,6 +18,7 @@ import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
 import { isBookedRevenue } from "@/lib/orderRevenueClassification";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Crown, ArrowRight } from "lucide-react";
@@ -46,19 +47,33 @@ export function TopClientsWidget({ companyId }: { companyId: string | null }) {
     (async () => {
       try {
         const since = daysAgoDateOnly(30);
+        const through = daysAgoDateOnly(0);
         // TIGHTEN I.70 (2026-06-01): pull the extra revenue-class
         // columns so we can apply isBookedRevenue in-memory. Was a
         // raw status whitelist before, which counted unconfirmed
         // 'confirmed' orders as revenue while the dashboard tile
         // excluded them. Top Clients and dashboard now agree.
-        const { data, error } = await (supabase as any)
-          .from("orders")
-          .select("order_number, event_name, client_name, total_amount, status, payment_status, deposit_paid, confirmed_at, cancelled_at, event_date")
-          .eq("company_id", companyId)
-          .gte("event_date", since);
-        if (error) throw error;
+        const orders: any[] = [];
+        let offset = 0;
+        while (true) {
+          const { data, error } = await (supabase as any)
+            .from("orders")
+            .select("order_number, event_name, client_name, internal_notes, total_amount, status, payment_status, deposit_paid, confirmed_at, cancelled_at, event_date")
+            .eq("company_id", companyId)
+            .is("deleted_at", null)
+            .gte("event_date", since)
+            .lte("event_date", through)
+            .order("event_date", { ascending: true })
+            .order("id", { ascending: true })
+            .range(offset, offset + 999);
+          if (error) throw error;
+          const page = data || [];
+          orders.push(...page);
+          if (page.length < 1000) break;
+          offset += page.length;
+        }
         const byClient = new Map<string, TopClient>();
-        for (const o of (data || []) as any[]) {
+        for (const o of orders) {
           if (isAutomatedTestOrder(o)) continue;
           if (!isBookedRevenue(o)) continue;
           const name = (o.client_name || "").trim();
@@ -100,6 +115,7 @@ export function TopClientsWidget({ companyId }: { companyId: string | null }) {
             <CardTitle className="flex items-center gap-2 text-sm">
               <Crown className="w-4 h-4 text-amber-600" />
               Top clients (last 30 days)
+              <InfoTooltip content={"Top five clients by gross total_amount (including tax) on reportable committed orders with event dates from 30 days ago through today. Cancelled, unconfirmed pipeline, deleted and automated test orders are excluded. This is booked order value, not cash collected."} />
             </CardTitle>
             <CardDescription className="text-[11px]">
               Biggest spenders by booked order value. Use this for thank-yous, loyalty perks and follow-up.

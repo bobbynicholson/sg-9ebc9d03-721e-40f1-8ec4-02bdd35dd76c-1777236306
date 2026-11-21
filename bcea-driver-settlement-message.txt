@@ -1,0 +1,5 @@
+﻿Hi [Name], I reviewed the driver-hours and settlement figures. BCEA means South Africa’s Basic Conditions of Employment Act, which sets rules for ordinary working hours, overtime and Sunday or public-holiday work.
+
+The system records when a shift starts and ends, but I found that the settlement total and its overtime breakdown can currently use different calculations. For example, one overnight shift shows R935.83 in shift pay, while the displayed day-by-day breakdown adds up to R1,033.05. So those figures don’t reconcile yet, and I’m treating them as under review.
+
+We should agree how the company’s working-hour and overtime rules are configured, then use one calculation consistently across Driver Settlement, Wages and the audit. The recorded clock times should remain visible so we can see the actual hours worked separately from the pay calculation.

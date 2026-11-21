@@ -484,11 +484,11 @@ export const driverPayslipService = {
         const gpsLabel = delivery.distance_source === "gps_actual"
           ? "\nGPS actual"
           : delivery.gps_distance_status === "partial"
-            ? `\nGPS partial${delivery.gps_distance_km == null ? "" : ` ${delivery.gps_distance_km.toFixed(1)} km captured`}; estimate used`
+            ? `\nGPS partial${delivery.gps_distance_km == null ? "" : ` ${delivery.gps_distance_km.toFixed(2)} km captured`}; estimate used`
             : "";
         return [
           delivery.sitting_sequence ? `${job}\nSitting ${delivery.sitting_sequence}` : job,
-          `${delivery.distance_km.toFixed(1)} km${timer}${gpsLabel}${delivery.gps_distance_review_required ? "\nADMIN REVIEW" : ""}`,
+          `${delivery.distance_km.toFixed(2)} km${timer}${gpsLabel}${delivery.gps_distance_review_required ? "\nADMIN REVIEW" : ""}`,
           `${fmtMoney(delivery.distance_rate)}/km`,
           fmtMoney(delivery.distance_pay),
           fmtMoney(delivery.callout_fee),
@@ -502,7 +502,7 @@ export const driverPayslipService = {
         body: deliveryRows,
         foot: [[
           "Total",
-          `${totals.distance_total_km.toFixed(1)} km`,
+          `${totals.distance_total_km.toFixed(2)} km`,
           "",
           fmtMoney(totals.distance_pay),
           fmtMoney(totals.callout_pay),

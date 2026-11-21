@@ -37,6 +37,13 @@ const startOfDay = (d: Date) => { const c = new Date(d); c.setHours(0, 0, 0, 0);
 const endOfDay   = (d: Date) => { const c = new Date(d); c.setHours(23, 59, 59, 999); return c; };
 const addDays    = (d: Date, n: number) => { const c = new Date(d); c.setDate(c.getDate() + n); return c; };
 
+export function getDateRangeLabel(range: DateRange): string {
+  if (range.presetId !== "custom") return range.label;
+  const from = range.from.toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
+  const to = range.to.toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
+  return `${from} - ${to}`;
+}
+
 export function resolvePreset(id: DateRangePresetId, anchorDate: Date = new Date()): DateRange {
   const today = startOfDay(anchorDate);
   switch (id) {
@@ -107,12 +114,7 @@ export function DashboardDateRange({
     setCustomTo(range.to);
   }, [range.from, range.to]);
 
-  const formatted = useMemo(() => {
-    if (range.presetId !== "custom") return range.label;
-    const f = range.from.toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
-    const t = range.to.toLocaleDateString("en-ZA",   { day: "numeric", month: "short", year: "numeric" });
-    return `${f} - ${t}`;
-  }, [range]);
+  const formatted = useMemo(() => getDateRangeLabel(range), [range]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

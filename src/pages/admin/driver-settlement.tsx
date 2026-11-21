@@ -69,6 +69,10 @@ import {
 const formatRDefault = (n: number) =>
   new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
+const roundSettlementValue = (value: number) => Number((Number(value) || 0).toFixed(2));
+const settlementValueChanged = (current: number, recorded: number) =>
+  roundSettlementValue(current) !== roundSettlementValue(recorded);
+
 type Preset = "last_7" | "last_30" | "month_to_date" | "last_month" | "custom";
 
 function todayIso() { return toLocalISO(new Date()); }
@@ -98,6 +102,7 @@ interface DriverRow {
   email: string;
   phone: string;
   is_active: boolean;
+  last_sign_in_at: string | null;
   /** Soft-deleted via /admin/driver-management remove. We still show
    *  them in settlement because their historical pay is real and the
    *  operator may need to pay it out. Surfaced with a "Removed" badge. */
@@ -311,7 +316,7 @@ function DriverSettlementPage() {
       try {
         let q = (supabase as any)
           .from("profiles")
-          .select("id, full_name, email, phone, phone_number, mobile_number, is_active, deleted_at, region_id")
+          .select("id, full_name, email, phone, phone_number, mobile_number, is_active, deleted_at, region_id, last_sign_in_at")
           .eq("company_id", user.company_id)
           .eq("role", "driver");
         // DRV-B region filter: when the global filter is set, match
@@ -329,6 +334,7 @@ function DriverSettlementPage() {
           phone: d.phone || d.phone_number || d.mobile_number || "",
           is_active: !!d.is_active,
           is_removed: !!d.deleted_at,
+          last_sign_in_at: d.last_sign_in_at || null,
         }));
         if (!cancelled) {
           setRows(drivers.map((d) => ({ driver: d, summary: null, loading: true })));
@@ -441,7 +447,11 @@ function DriverSettlementPage() {
           hourlyPay += t.hourly_pay;
           grand += t.grand_total;
         }
-        setPrevTotals({ hours, hourlyPay, grand });
+        setPrevTotals({
+          hours: roundSettlementValue(hours),
+          hourlyPay: roundSettlementValue(hourlyPay),
+          grand: roundSettlementValue(grand),
+        });
       } catch (e) {
         captureException(e, {
           tags: { route: "/admin/driver-settlement", step: "prev-period-totals", companyId: user?.company_id },
@@ -540,7 +550,17 @@ function DriverSettlementPage() {
       grand += s.grand_total;
       shiftsToReview += s.shifts_needing_review || 0;
     }
-    return { hours, hourlyPay, distanceKm, distancePay, callout, grand, roster, active, shiftsToReview };
+    return {
+      hours: roundSettlementValue(hours),
+      hourlyPay: roundSettlementValue(hourlyPay),
+      distanceKm: roundSettlementValue(distanceKm),
+      distancePay: roundSettlementValue(distancePay),
+      callout: roundSettlementValue(callout),
+      grand: roundSettlementValue(grand),
+      roster,
+      active,
+      shiftsToReview,
+    };
   }, [rows]);
 
   const exportCsv = () => {
@@ -734,7 +754,7 @@ function DriverSettlementPage() {
         : "Every driver with payable totals is already paid." });
       return;
     }
-    const owedSum = candidates.reduce((s, r) => s + (r.summary?.totals.grand_total || 0), 0);
+    const owedSum = roundSettlementValue(candidates.reduce((s, r) => s + (r.summary?.totals.grand_total || 0), 0));
     if (!window.confirm(
       `Mark all ${candidates.length} unsettled driver${candidates.length === 1 ? "" : "s"} as paid via EFT? `
       + `Grand total ${formatR(owedSum)}. This writes one payout row per driver and is fully reversible.`,
@@ -914,14 +934,19 @@ function DriverSettlementPage() {
           )}
 
           {/* Period picker */}
-          <Card className="mb-6">
-            <CardContent className="grid grid-cols-2 items-end gap-2 p-3 sm:flex sm:flex-wrap sm:gap-3 sm:p-4">
-              <div className="col-span-2 min-w-0 sm:col-span-1">
-                <Label className="text-xs text-slate-500">Period</Label>
+          <Card className="mb-6 overflow-hidden rounded-lg border-slate-200 shadow-sm">
+            <CardContent className="space-y-3 p-3 sm:p-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <h2 className="text-sm font-semibold text-slate-900">Settlement filters</h2>
+                <p className="text-xs text-slate-500">Choose a date range and which drivers to show.</p>
+              </div>
+              <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+              <div className="min-w-0">
+                <Label className="text-xs font-medium text-slate-600">Preset range</Label>
                 <select
                   value={preset}
                   onChange={(e) => setPreset(e.target.value as Preset)}
-                  className="mt-1 w-full border border-slate-200 rounded-md px-2.5 py-2 text-sm bg-white sm:w-auto sm:px-3"
+                  className="mt-1 min-h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
                 >
                   <option value="last_7">Last 7 days</option>
                   <option value="last_30">Last 30 days</option>
@@ -931,19 +956,19 @@ function DriverSettlementPage() {
                 </select>
               </div>
               <div className="min-w-0">
-                <Label className="text-xs text-slate-500">From</Label>
-                <Input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPreset("custom"); }} className="mt-1 w-full sm:w-44" />
+                <Label className="text-xs font-medium text-slate-600">From date</Label>
+                <Input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPreset("custom"); }} className="mt-1 min-h-10 w-full rounded-md bg-white shadow-sm focus-visible:ring-brand-primary/20" />
               </div>
               <div className="min-w-0">
-                <Label className="text-xs text-slate-500">To</Label>
-                <Input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPreset("custom"); }} className="mt-1 w-full sm:w-44" />
+                <Label className="text-xs font-medium text-slate-600">To date</Label>
+                <Input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPreset("custom"); }} className="mt-1 min-h-10 w-full rounded-md bg-white shadow-sm focus-visible:ring-brand-primary/20" />
               </div>
               <div className="min-w-0">
-                <Label className="text-xs text-slate-500">Sort by</Label>
+                <Label className="text-xs font-medium text-slate-600">Sort drivers</Label>
                 <select
                   value={driverSort}
                   onChange={(e) => setDriverSort(e.target.value as any)}
-                  className="mt-1 w-full border border-slate-200 rounded-md px-2.5 py-2 text-sm bg-white sm:w-auto sm:px-3"
+                  className="mt-1 min-h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
                 >
                   <option value="total_desc">Total owed (high to low)</option>
                   <option value="hours_desc">Hours (high to low)</option>
@@ -956,11 +981,11 @@ function DriverSettlementPage() {
                   "Settled" shows only paid drivers (useful for a
                   pay-day reconciliation against the bank export). */}
               <div className="min-w-0">
-                <Label className="text-xs text-slate-500">Settlement</Label>
+                <Label className="text-xs font-medium text-slate-600">Payment status</Label>
                 <select
                   value={settledFilter}
                   onChange={(e) => setSettledFilter(e.target.value as "all" | "unsettled" | "settled")}
-                  className="mt-1 w-full border border-slate-200 rounded-md px-2.5 py-2 text-sm bg-white sm:w-auto sm:px-3"
+                  className="mt-1 min-h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
                 >
                   <option value="all">All drivers</option>
                   <option value="unsettled">Unsettled only</option>
@@ -971,16 +996,17 @@ function DriverSettlementPage() {
                   Export CSV moved to the hero actions band. This card
                   is now purely the period + sort + settlement toolbar. */}
               {rangeInvalid && (
-                <div className="w-full flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                <div className="col-span-full flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                   <AlertTriangle className="w-4 h-4 shrink-0 text-amber-700" />
                   The From date is after the To date, so no pay can be calculated. Fix the range to see totals.
                 </div>
               )}
+              </div>
             </CardContent>
           </Card>
 
-          <p className="-mt-3 mb-4 text-[11px] leading-4 text-slate-500 sm:text-xs">
-            This view combines driver shift pay with delivery mileage and callouts. Staff Hours also includes order-linked work and payroll sessions, so its overall worked-hours totals cover a wider scope.
+          <p className="-mt-3 mb-4 max-w-3xl text-xs leading-5 text-slate-500">
+            Driver settlement includes shift pay, delivery mileage and callouts. Staff Hours also includes order activity and payroll sessions.
           </p>
 
           {totals.shiftsToReview > 0 && (
@@ -1012,10 +1038,10 @@ function DriverSettlementPage() {
         if (!t || t.grand_total <= 0 || (t.shifts_needing_review || 0) > 0) return false;
               return payoutsByDriver.get(r.driver.id)?.status !== "paid";
             });
-      const owed = unsettledRows.reduce(
+      const owed = roundSettlementValue(unsettledRows.reduce(
               (s, r) => s + (r.summary?.totals.grand_total || 0),
               0,
-            );
+            ));
             const dormant = rows.filter((r) => {
               if (r.loading || r.driver.is_removed || !r.driver.is_active) return false;
               const t = r.summary?.totals;
@@ -1222,14 +1248,14 @@ function DriverSettlementPage() {
                 }
               });
             return (
-              <Card>
-                <CardHeader>
+              <Card className="overflow-hidden rounded-lg border-slate-200 shadow-sm">
+                <CardHeader className="border-b border-slate-100 px-4 py-3 sm:px-5">
                   <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                     <Wallet className="h-4 w-4 text-brand-primary sm:h-5 sm:w-5" />
                     Per-driver breakdown
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-3 sm:p-4">
                   {/* DRV-B: empty state when filters hide everything. */}
                   {visibleRows.length === 0 ? (
                     <div className="py-12 text-center text-sm text-slate-500">
@@ -1242,8 +1268,8 @@ function DriverSettlementPage() {
                   ) : (
                     <>
                       {/* DRV-B desktop table (md+) */}
-                      <div className="hidden md:block overflow-x-auto">
-                        <table className="w-full text-sm">
+                      <div className="hidden 2xl:block overflow-x-auto">
+                        <table className="w-full min-w-[1180px] text-sm">
                           <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500 dark:bg-slate-800/60">
                             <tr>
                               <th className="text-left px-4 py-2 font-semibold">Driver</th>
@@ -1295,13 +1321,10 @@ function DriverSettlementPage() {
                         </table>
                       </div>
 
-                      {/* DRV-B mobile card stack (<md). The 10-column
-                          table is unusable on phones; the card view
-                          surfaces only the rand totals + status +
-                          actions, with everything else behind a
-                          tap-to-expand row that opens the desktop
-                          drilldown lazily. */}
-                      <div className="md:hidden space-y-3">
+                      {/* Keep the compact card layout until the content
+                          area can comfortably fit the full 10-column
+                          settlement table. Details load on demand. */}
+                      <div className="2xl:hidden space-y-3">
                         {visibleRows.map((r) => (
                           <DriverSettlementCard
                             key={r.driver.id}
@@ -1704,24 +1727,26 @@ function FragmentRows({
   // action only on the paid state.
   const isPaid = payout?.status === "paid";
   const paidTotalsChanged = !!(isPaid && t && payout && (
-    Math.abs(Number(payout.gross_total || 0) - t.grand_total) > 0.01
-    || Math.abs(Number(payout.hours_total || 0) - t.hours_total) > 0.01
-    || Math.abs(Number(payout.hourly_pay || 0) - t.hourly_pay) > 0.01
-    || Math.abs(Number(payout.distance_total_km || 0) - t.distance_total_km) > 0.01
-    || Math.abs(Number(payout.distance_pay || 0) - t.distance_pay) > 0.01
-    || Math.abs(Number(payout.callout_pay || 0) - t.callout_pay) > 0.01
+    settlementValueChanged(Number(payout.gross_total || 0), t.grand_total)
+    || settlementValueChanged(Number(payout.hours_total || 0), t.hours_total)
+    || settlementValueChanged(Number(payout.hourly_pay || 0), t.hourly_pay)
+    || settlementValueChanged(Number(payout.distance_total_km || 0), t.distance_total_km)
+    || settlementValueChanged(Number(payout.distance_pay || 0), t.distance_pay)
+    || settlementValueChanged(Number(payout.callout_pay || 0), t.callout_pay)
   ));
   return (
     <>
       <tr id={`driver-row-${row.driver.id}`} className="border-t border-slate-100 hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
-        <td className="px-4 py-3">
-          <div className="flex items-center gap-2">
-            <button onClick={onToggle} className="text-slate-400 hover:text-slate-700">
+        <td className="px-3 py-3 sm:px-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <button type="button" onClick={onToggle} aria-expanded={isOpen} aria-label={`${isOpen ? "Collapse" : "Expand"} ${row.driver.full_name} settlement details`} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary">
               {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
             </button>
             <div>
-              <p className="font-medium text-slate-900">{row.driver.full_name}</p>
+              <p className="font-semibold text-slate-900">{row.driver.full_name}</p>
               <p className="text-xs text-slate-500">{row.driver.email}</p>
+              {!row.driver.last_sign_in_at && <Badge variant="outline" className="mt-1 border-sky-200 bg-sky-50 text-[10px] text-sky-800">No login yet · driver roster</Badge>}
+              <Link href={withSlug(`/admin/driver-management?driver=${row.driver.id}`)} className="mt-1 inline-flex min-h-8 items-center text-xs font-semibold text-brand-primary underline underline-offset-2">Manage driver</Link>
             </div>
             {row.driver.is_removed ? (
               <Badge variant="outline" className="ml-2 text-xs bg-rose-50 text-rose-700 border-rose-200">
@@ -1752,13 +1777,11 @@ function FragmentRows({
                 unknown. */}
             <td
               className="px-4 py-3 text-right tabular-nums"
-              title={!detail && t.callout_pay > 0 ? "Expand the row to load the delivery list" : undefined}
+              title={!detail ? "Expand the row to load the delivery count" : undefined}
             >
               {detail
                 ? detail.deliveries.length
-                : t.callout_pay === 0
-                  ? 0
-                  : "-"}
+                : "—"}
             </td>
             <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">{formatR(t.callout_pay)}</td>
             <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap font-semibold text-brand-primary">{formatR(t.grand_total)}</td>
@@ -1773,6 +1796,7 @@ function FragmentRows({
             <button
               type="button"
               onClick={onToggle}
+              aria-expanded={isOpen}
               className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 hover:bg-amber-100"
               title="Expand and correct clock records before paying this driver"
             >
@@ -1809,7 +1833,7 @@ function FragmentRows({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 px-2 text-xs gap-1"
+              className="h-8 rounded-md px-2 text-xs gap-1"
               onClick={async () => {
                 if (pdfBusy) return;
                 setPdfBusy(true);
@@ -1834,7 +1858,7 @@ function FragmentRows({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 text-xs gap-1"
+                className="h-8 rounded-md px-2 text-xs gap-1"
                 disabled={!hasPay || emailBusy || companyProfileLoading || !companyProfile}
                 onClick={async () => {
                   if (emailBusy) return;
@@ -1864,8 +1888,8 @@ function FragmentRows({
         </td>
       </tr>
       {isOpen && (
-        <tr className="bg-slate-50/50">
-          <td colSpan={10} className="px-4 py-3">
+        <tr className="bg-slate-50/70">
+          <td colSpan={10} className="px-3 py-3 sm:px-4 sm:py-4">
             {payout && <DriverPayoutDetails payout={payout} totals={t} formatR={formatR} onReverse={onReverse} />}
             {detailLoading && !detail ? (
               <div className="text-sm text-slate-500 flex items-center gap-2 py-4">
@@ -1874,15 +1898,21 @@ function FragmentRows({
             ) : !detailSummary ? (
               <div className="text-sm text-rose-500 py-4">Failed to load detail. Try Refresh.</div>
             ) : (
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2 flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5" /> Shifts ({detailSummary.shifts.length})
-                </p>
+            <div className="grid min-w-0 gap-3 lg:grid-cols-2 lg:gap-4">
+              <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 sm:p-4">
+                <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
+                  <Clock className="h-4 w-4 text-brand-primary" /> Shifts
+                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium tabular-nums text-slate-600">{detailSummary.shifts.length}</span>
+                </h3>
+                {detailSummary.shifts.length > 0 && (
+                  <p className="mb-3 text-xs leading-5 text-slate-500">
+                    Shift pay uses the saved multiplier. The day-level BCEA amounts below are a separate breakdown.
+                  </p>
+                )}
                 {detailSummary.shifts.length === 0 ? (
                   <p className="text-sm text-slate-500">No shifts in this period.</p>
                 ) : (
-                  <ul className="text-xs space-y-2">
+                  <ul className="max-h-[28rem] space-y-2 overflow-y-auto pr-1 text-xs">
                     {detailSummary.shifts.map((s) => {
                       const buckets = (s as any).bcea_buckets as
                         | Array<{
@@ -1897,11 +1927,11 @@ function FragmentRows({
                       const hasMultiplier = s.multiplier !== 1;
                       const hasOvertime = !!buckets?.some((b) => b.overtimeHours > 0);
                       return (
-                        <li key={s.shift_id} className={`border-l-2 pl-2 ${s.needs_review ? "border-amber-400 bg-amber-50/70 py-1.5 pr-1" : "border-slate-200"}`}>
+                        <li key={s.shift_id} className={`rounded-md border p-2.5 sm:p-3 ${s.needs_review ? "border-amber-200 bg-amber-50/70" : "border-slate-200 bg-white"}`}>
                           <div className="flex justify-between items-start gap-2">
-                            <span className="flex-1">
-                              {s.hours.toFixed(2)}h @ {formatR(s.hourly_rate)}/hr{" "}
-                              <span className="block text-[10px] font-normal text-slate-500">{s.shift_date || "Date unknown"} · {clockLabel(s.actual_start)}–{clockLabel(s.actual_end)}</span>
+                            <span className="min-w-0 flex-1">
+                              <span className="font-semibold text-slate-900">{s.hours.toFixed(2)}h</span><span className="text-slate-500"> @ {formatR(s.hourly_rate)}/hr</span>{" "}
+                              <span className="mt-1 block text-[11px] font-normal text-slate-500">{s.shift_date || "Date unknown"} · {clockLabel(s.actual_start)}–{clockLabel(s.actual_end)}</span>
                               {s.needs_review && (
                                 <span className="block font-semibold text-amber-800">Held: {s.review_reason || "Clock record needs review"}</span>
                               )}
@@ -1912,7 +1942,7 @@ function FragmentRows({
                                 <span className="text-amber-700 font-medium"> (includes overtime)</span>
                               )}
                             </span>
-                            <span className={`font-medium tabular-nums ${s.needs_review ? "text-amber-800" : ""}`}>{formatR(s.pay)}</span>
+                            <span className={`shrink-0 font-semibold tabular-nums ${s.needs_review ? "text-amber-800" : "text-slate-900"}`}>{formatR(s.pay)}</span>
                             {/* Phase 8 #1: admin edit / soft-delete
                                 actions per shift. Visible on hover
                                 so they don't crowd the row. Audit log
@@ -1921,7 +1951,7 @@ function FragmentRows({
                               <button
                                 type="button"
                                 onClick={() => openEditShift(s)}
-                                className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-brand-primary/10 hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                                 title="Edit shift"
                               >
                                 <Pencil className="w-3.5 h-3.5" />
@@ -1929,7 +1959,7 @@ function FragmentRows({
                               <button
                                 type="button"
                                 onClick={() => setDeletingShiftId(s.shift_id)}
-                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-rose-50 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                                 title="Delete shift"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -1972,38 +2002,39 @@ function FragmentRows({
                     })}
                   </ul>
                 )}
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2 flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5" /> Deliveries ({detailSummary.deliveries.length})
-                </p>
+              </section>
+              <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 sm:p-4">
+                <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
+                  <MapPin className="h-4 w-4 text-brand-primary" /> Deliveries
+                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium tabular-nums text-slate-600">{detailSummary.deliveries.length}</span>
+                </h3>
                 {detailSummary.deliveries.length === 0 ? (
                   <p className="text-sm text-slate-500">No deliveries in this period.</p>
                 ) : (
-                  <ul className="text-xs space-y-1">
+                  <ul className="max-h-[28rem] space-y-2 overflow-y-auto pr-1 text-xs">
                     {detailSummary.deliveries.map((d) => (
-                      <li key={d.line_id || d.order_id} className="flex justify-between gap-3">
+                      <li key={d.line_id || d.order_id} className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white p-2.5">
                         {/* ODOC G.4: each delivery jumps into the
                             doc for reconciliation context. */}
                         <Link
                           href={withSlug(staffOrderHref(d.order_id, "admin"))}
-                          className="font-mono text-blue-700 hover:underline"
+                          className="min-w-0 truncate font-medium text-brand-primary hover:underline"
                         >
                           {d.order_id.slice(0, 8)}...{d.sitting_sequence ? ` · Sitting ${d.sitting_sequence}` : ""}
                         </Link>
                         <span className="text-right">
-                          {d.distance_km.toFixed(1)} km · {formatR(d.total)}
+                          {d.distance_km.toFixed(2)} km · {formatR(d.total)}
                           {d.gps_trip_duration_minutes != null && <span className="block text-[10px] text-slate-500">Timer {Math.floor(d.gps_trip_duration_minutes / 60)}h {d.gps_trip_duration_minutes % 60}m</span>}
                           {d.distance_source === "gps_actual" && <span className="block text-[10px] text-emerald-700">GPS actual distance</span>}
                           {d.distance_source === "booking_route_split" && <span className="block text-[10px] text-amber-700" title="The saved booking route total is allocated across sitting stops using their locations.">Allocated route share</span>}
-                          {d.gps_distance_status === "partial" && <span className="block text-[10px] text-amber-700" title="GPS samples were incomplete, so settlement uses the saved route estimate.">GPS partial · {d.gps_distance_km == null ? "no reliable points" : `${d.gps_distance_km.toFixed(1)} km captured`} · estimate used</span>}
-                          {d.gps_distance_review_required && <span className="block text-[10px] font-semibold text-red-700" title={d.gps_distance_review_reason || "GPS mileage materially exceeds the saved estimate."}>Review GPS route · {d.gps_expected_distance_km?.toFixed(1)} km estimated</span>}
+                          {d.gps_distance_status === "partial" && <span className="block text-[10px] text-amber-700" title="GPS samples were incomplete, so settlement uses the saved route estimate.">GPS partial · {d.gps_distance_km == null ? "no reliable points" : `${d.gps_distance_km.toFixed(2)} km captured`} · estimate used</span>}
+                          {d.gps_distance_review_required && <span className="block text-[10px] font-semibold text-red-700" title={d.gps_distance_review_reason || "GPS mileage materially exceeds the saved estimate."}>Review GPS route · {d.gps_expected_distance_km?.toFixed(2)} km estimated</span>}
                         </span>
                       </li>
                     ))}
                   </ul>
                 )}
-              </div>
+              </section>
             </div>
             )}
           </td>
@@ -2141,12 +2172,12 @@ function DriverPayoutDetails({
 }) {
   const isPaid = payout.status === "paid";
   const totalsChanged = !!(isPaid && totals && (
-    Math.abs(Number(payout.gross_total || 0) - totals.grand_total) > 0.01
-    || Math.abs(Number(payout.hours_total || 0) - totals.hours_total) > 0.01
-    || Math.abs(Number(payout.distance_total_km || 0) - totals.distance_total_km) > 0.01
-    || Math.abs(Number(payout.hourly_pay || 0) - totals.hourly_pay) > 0.01
-    || Math.abs(Number(payout.distance_pay || 0) - totals.distance_pay) > 0.01
-    || Math.abs(Number(payout.callout_pay || 0) - totals.callout_pay) > 0.01
+    settlementValueChanged(Number(payout.gross_total || 0), totals.grand_total)
+    || settlementValueChanged(Number(payout.hours_total || 0), totals.hours_total)
+    || settlementValueChanged(Number(payout.distance_total_km || 0), totals.distance_total_km)
+    || settlementValueChanged(Number(payout.hourly_pay || 0), totals.hourly_pay)
+    || settlementValueChanged(Number(payout.distance_pay || 0), totals.distance_pay)
+    || settlementValueChanged(Number(payout.callout_pay || 0), totals.callout_pay)
   ));
   const methodLabel: Record<DriverPayoutMethod, string> = {
     eft: "EFT / bank transfer",
@@ -2156,7 +2187,7 @@ function DriverPayoutDetails({
   };
 
   return (
-    <section aria-label="Recorded driver settlement" className={`mb-4 rounded-xl border p-3 sm:p-4 ${totalsChanged ? "border-amber-300 bg-amber-50/70" : "border-emerald-200 bg-emerald-50/50"}`}>
+    <section aria-label="Recorded driver settlement" className={`mb-4 rounded-lg border p-3 sm:p-4 ${totalsChanged ? "border-amber-300 bg-amber-50/70" : "border-emerald-200 bg-emerald-50/50"}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -2217,12 +2248,12 @@ function DriverSettlementCard({
   const reviewCount = t?.shifts_needing_review || 0;
   const isPaid = payout?.status === "paid";
   const paidTotalsChanged = !!(isPaid && t && payout && (
-    Math.abs(Number(payout.gross_total || 0) - t.grand_total) > 0.01
-    || Math.abs(Number(payout.hours_total || 0) - t.hours_total) > 0.01
-    || Math.abs(Number(payout.hourly_pay || 0) - t.hourly_pay) > 0.01
-    || Math.abs(Number(payout.distance_total_km || 0) - t.distance_total_km) > 0.01
-    || Math.abs(Number(payout.distance_pay || 0) - t.distance_pay) > 0.01
-    || Math.abs(Number(payout.callout_pay || 0) - t.callout_pay) > 0.01
+    settlementValueChanged(Number(payout.gross_total || 0), t.grand_total)
+    || settlementValueChanged(Number(payout.hours_total || 0), t.hours_total)
+    || settlementValueChanged(Number(payout.hourly_pay || 0), t.hourly_pay)
+    || settlementValueChanged(Number(payout.distance_total_km || 0), t.distance_total_km)
+    || settlementValueChanged(Number(payout.distance_pay || 0), t.distance_pay)
+    || settlementValueChanged(Number(payout.callout_pay || 0), t.callout_pay)
   ));
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detail, setDetail] = useState<DriverPaySummary | null>(null);
@@ -2297,7 +2328,7 @@ function DriverSettlementCard({
   return (
     <div
       id={`driver-row-card-${row.driver.id}`}
-      className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
+      className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:p-4"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
@@ -2314,6 +2345,10 @@ function DriverSettlementCard({
           {row.driver.email && (
             <p className="text-[11px] text-slate-500 truncate">{row.driver.email}</p>
           )}
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            {!row.driver.last_sign_in_at && <Badge variant="outline" className="border-sky-200 bg-sky-50 text-[10px] text-sky-800">No login yet · driver roster</Badge>}
+            <Link href={withSlug(`/admin/driver-management?driver=${row.driver.id}`)} className="inline-flex min-h-8 items-center text-xs font-semibold text-brand-primary underline underline-offset-2">Manage driver</Link>
+          </div>
         </div>
         <div className="text-right shrink-0">
           {row.loading ? (
@@ -2331,15 +2366,15 @@ function DriverSettlementCard({
         </div>
       </div>
       {t && (
-        <div className="mt-2 grid grid-cols-3 gap-2 text-[11px] text-slate-600">
-          <div>
-            <div className="text-slate-400 uppercase tracking-wide text-[9px]">Hourly</div>
-            <div className="tabular-nums">{formatR(t.hourly_pay)}</div>
+        <div className="mt-3 grid grid-cols-3 gap-2 text-[11px] text-slate-700">
+          <div className="min-w-0 rounded-md bg-slate-50 p-2">
+            <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Hourly</div>
+            <div className="mt-0.5 truncate font-semibold tabular-nums">{formatR(t.hourly_pay)}</div>
           </div>
-          <div>
-            <div className="text-slate-400 uppercase tracking-wide text-[9px]">Distance</div>
-            <div className="tabular-nums">{formatR(t.distance_pay)}</div>
-            <div className="text-xs text-slate-400 tabular-nums">
+          <div className="min-w-0 rounded-md bg-slate-50 p-2">
+            <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Distance</div>
+            <div className="mt-0.5 truncate font-semibold tabular-nums">{formatR(t.distance_pay)}</div>
+            <div className="mt-0.5 text-[10px] text-slate-500 tabular-nums">
               {t.distance_total_km.toFixed(1)} km round trip
             </div>
             {(t.distance_unrecorded_deliveries || 0) > 0 && (
@@ -2348,9 +2383,9 @@ function DriverSettlementCard({
               </div>
             )}
           </div>
-          <div>
-            <div className="text-slate-400 uppercase tracking-wide text-[9px]">Callouts</div>
-            <div className="tabular-nums">{formatR(t.callout_pay)}</div>
+          <div className="min-w-0 rounded-md bg-slate-50 p-2">
+            <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Callouts</div>
+            <div className="mt-0.5 truncate font-semibold tabular-nums">{formatR(t.callout_pay)}</div>
           </div>
         </div>
       )}
@@ -2362,7 +2397,7 @@ function DriverSettlementCard({
       )}
       <div className="mt-3 flex items-center justify-between gap-2">
         {reviewCount > 0 ? (
-          <button type="button" onClick={() => setDetailsOpen((open) => !open)} className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-800">
+          <button type="button" aria-expanded={detailsOpen} onClick={() => setDetailsOpen((open) => !open)} className="inline-flex min-h-9 items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
             {detailsOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
             {detailsOpen ? "Hide shift details" : "Review & edit shifts"}
           </button>
@@ -2388,14 +2423,14 @@ function DriverSettlementCard({
           </button>
         )}
         {reviewCount === 0 && (
-          <button type="button" onClick={() => setDetailsOpen((open) => !open)} className="ml-auto inline-flex min-h-9 items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50">
+          <button type="button" aria-expanded={detailsOpen} onClick={() => setDetailsOpen((open) => !open)} className="ml-auto inline-flex min-h-9 items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary">
             {detailsOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
             {detailsOpen ? "Hide details" : "Shift details"}
           </button>
         )}
       </div>
       {detailsOpen && (
-        <div className="mt-3 border-t border-slate-100 pt-3">
+        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:p-4">
           {payout && <DriverPayoutDetails payout={payout} totals={t} formatR={formatR} onReverse={onReverse} />}
           {detailLoading && !detail ? (
             <p className="flex items-center gap-1.5 py-2 text-xs text-slate-500"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading shift details…</p>
@@ -2404,7 +2439,9 @@ function DriverSettlementCard({
           ) : detail.shifts.length === 0 && detail.deliveries.length === 0 ? (
             <p className="py-2 text-xs text-slate-500">No shifts in this period.</p>
           ) : (
-            <ul className="space-y-2">
+            <>
+            <h3 className="mb-2 text-sm font-semibold text-slate-900">Shifts <span className="ml-1 rounded-md bg-white px-2 py-0.5 text-xs font-medium tabular-nums text-slate-600">{detail.shifts.length}</span></h3>
+            <ul className="max-h-[24rem] space-y-2 overflow-y-auto pr-1">
               {detail.shifts.map((shift) => (
                 <li key={shift.shift_id} className={`flex min-w-0 items-start justify-between gap-2 rounded-md border p-2 text-xs ${shift.needs_review ? "border-amber-200 bg-amber-50" : "border-slate-100 bg-slate-50/60"}`}>
                   <div className="min-w-0">
@@ -2418,15 +2455,16 @@ function DriverSettlementCard({
                 </li>
               ))}
             </ul>
+            </>
           )}
           {detail && detail.deliveries.length > 0 && (
-            <div className="mt-4">
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">Deliveries ({detail.deliveries.length})</h3>
-              <ul className="space-y-2">
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              <h3 className="mb-2 text-sm font-semibold text-slate-900">Deliveries <span className="ml-1 rounded-md bg-white px-2 py-0.5 text-xs font-medium tabular-nums text-slate-600">{detail.deliveries.length}</span></h3>
+              <ul className="max-h-[20rem] space-y-2 overflow-y-auto pr-1">
                 {detail.deliveries.map((delivery) => (
-                  <li key={delivery.line_id || delivery.order_id} className="flex items-start justify-between gap-3 rounded-md border border-slate-100 bg-slate-50/60 p-2 text-xs">
-                    <Link href={withSlug(staffOrderHref(delivery.order_id, "admin"))} className="font-medium text-brand-primary hover:underline">Order {delivery.order_id.slice(0, 8)}{delivery.sitting_sequence ? ` · Sitting ${delivery.sitting_sequence}` : ""}</Link>
-                    <span className="shrink-0 text-right tabular-nums text-slate-600">{delivery.distance_km.toFixed(1)} km · {formatR(delivery.total)}{delivery.distance_source === "gps_actual" && <span className="block text-[10px] text-emerald-700">GPS distance</span>}{delivery.gps_distance_review_required && <span className="block text-[10px] font-semibold text-rose-700">GPS review needed</span>}</span>
+                  <li key={delivery.line_id || delivery.order_id} className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white p-2.5 text-xs">
+                    <Link href={withSlug(staffOrderHref(delivery.order_id, "admin"))} className="min-w-0 truncate font-medium text-brand-primary hover:underline">Order {delivery.order_id.slice(0, 8)}{delivery.sitting_sequence ? ` · Sitting ${delivery.sitting_sequence}` : ""}</Link>
+                    <span className="shrink-0 text-right tabular-nums text-slate-700">{delivery.distance_km.toFixed(2)} km · {formatR(delivery.total)}{delivery.distance_source === "gps_actual" && <span className="block text-[10px] text-emerald-700">GPS distance</span>}{delivery.gps_distance_review_required && <span className="block text-[10px] font-semibold text-rose-700">GPS review needed</span>}</span>
                   </li>
                 ))}
               </ul>

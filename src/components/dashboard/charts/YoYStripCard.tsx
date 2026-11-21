@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowDown, ArrowRight, ArrowUp } from "lucide-react";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import type { YoYStripResult } from "../extractors/aggregateYoYStrip";
 
 interface Props {
@@ -64,7 +65,16 @@ function MetricCard({
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <div className="text-xs uppercase tracking-wide text-slate-500 truncate">{label}</div>
+            <div className="flex min-w-0 items-center gap-1">
+              <div className="truncate text-xs uppercase tracking-wide text-slate-500">{label}</div>
+              <InfoTooltip content={label === "Booked revenue"
+                ? "Gross total_amount, including tax, for reportable committed orders grouped by event date. Compared with the same date window last year; cancelled and automated test orders are excluded."
+                : label === "Confirmed orders"
+                  ? "Count of reportable committed orders grouped by event date, compared with the same date window last year. Cancelled and automated test orders are excluded."
+                  : label === "Avg order value"
+                    ? "Booked gross revenue divided by booked-order count for each comparison window. Includes tax in total_amount; cancelled, unconfirmed pipeline and test orders are excluded."
+                    : "Accepted quotes dated by accepted_at divided by leads dated by created_at in each comparison window. These are period counts, not a same-lead cohort conversion rate; quotes that were won and then cancelled are excluded."} />
+            </div>
             <div className="text-2xl font-bold text-slate-900 mt-0.5">{display}</div>
           </div>
           <span className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${t.bg} ${t.text}`}>

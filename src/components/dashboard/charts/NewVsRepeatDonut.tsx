@@ -46,8 +46,8 @@ export function NewVsRepeatDonut({ data, loading }: Props) {
           New vs repeat revenue
           <InfoTooltip
             content={
-              "Money in this period split by whether the client is brand new (their first-ever order with you falls inside this period) or returning.\n\n" +
-              "Healthy mix usually shows a meaningful repeat share - if you're 95%+ new, you're working too hard for every rand."
+              "Booked gross order value (total_amount, including tax) in the selected event-date period, split by new and repeat clients. A client is new when their first-ever reportable booking falls in this period; otherwise they are repeat. Cancelled, unconfirmed pipeline and automated test orders are excluded.\n\n" +
+              "This shows booking value, not cash received."
             }
           />
         </CardTitle>

@@ -141,11 +141,11 @@ export function TomorrowsEventsWidget({ companyId }: { companyId: string | null 
   const totalGuests = rows.reduce((acc, r) => acc + Number(r.guest_count || 0), 0);
 
   return (
-    <Card className="mb-6 border-blue-200 bg-blue-50/30">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-base">
+    <Card className="mb-6 min-w-0 max-w-full overflow-hidden border-blue-200 bg-blue-50/30">
+      <CardHeader className="min-w-0 pb-3">
+        <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="flex min-w-0 flex-wrap items-center gap-2 text-base">
               <CalendarDays className="w-4 h-4 text-blue-600" />
               Tomorrow's events
             </CardTitle>
@@ -157,51 +157,51 @@ export function TomorrowsEventsWidget({ companyId }: { companyId: string | null 
               so the linked page reads the matching date instead of
               defaulting to today (which left operators staring at an
               empty sheet on a quiet today / busy tomorrow). */}
-          <Link href={withSlug(`/admin/orders/delivery-sheet?date=${tomorrowIso}`)}>
-            <Button variant="ghost" size="sm" className="text-blue-700">
+          <Link href={withSlug(`/admin/orders/delivery-sheet?date=${tomorrowIso}`)} className="shrink-0">
+            <Button variant="ghost" size="sm" className="whitespace-nowrap text-blue-700">
               Print sheet <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
           </Link>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0">
         {loading ? (
           <p className="text-xs text-slate-500 py-4">Loading...</p>
         ) : (
           <>
-            <ul className="divide-y divide-blue-100">
+            <ul className="min-w-0 divide-y divide-blue-100">
               {rows.map((o) => {
                 const driverName = o.assigned_driver?.full_name || null;
                 const isPreviewing = previewingId === o.id;
                 return (
-                  <li key={o.id} className="py-2">
-                    <div className="flex items-start gap-3">
+                  <li key={o.id} className="min-w-0 py-2">
+                    <div className="flex min-w-0 flex-wrap items-start gap-2 sm:flex-nowrap sm:gap-3">
                       {/* Time + main row content - the whole inner
                           block stays a single click target into the
                           admin order drawer, same as before. */}
                       <Link
                         href={withSlug(staffOrderHref(o.id, "admin"))}
-                        className="flex-1 min-w-0 flex items-baseline gap-3 hover:bg-blue-50/60 rounded transition px-1"
+                        className="flex min-w-0 flex-[1_1_12rem] items-baseline gap-2 rounded px-1 transition hover:bg-blue-50/60 sm:gap-3"
                       >
-                        <span className="text-base font-bold tabular-nums text-slate-900 w-14 shrink-0">
+                        <span className="w-14 shrink-0 text-base font-bold tabular-nums text-slate-900">
                           {fmtTime(o.event_time)}
                         </span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-baseline gap-2 flex-wrap">
-                            <span className="text-sm font-medium text-slate-900 truncate">{o.client_name || "-"}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+                            <span className="min-w-0 max-w-full truncate text-sm font-medium text-slate-900">{o.client_name || "-"}</span>
                             {o.order_number && (
                               <span className="text-[11px] text-slate-500 tabular-nums">{o.order_number}</span>
                             )}
                             <Badge variant="outline" className="text-[10px] capitalize">{o.status?.replace(/_/g, " ")}</Badge>
                           </div>
-                          <div className="flex flex-wrap items-center gap-x-3 text-[11px] text-slate-500">
+                          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
                             {o.guest_count != null && (
                               <span className="inline-flex items-center gap-1 tabular-nums">
                                 <UsersIcon className="w-3 h-3" />{o.guest_count}
                               </span>
                             )}
                             {o.venue_address && (
-                              <span className="inline-flex items-center gap-1 truncate">
+                              <span className="inline-flex min-w-0 max-w-full items-center gap-1">
                                 <MapPin className="w-3 h-3" />{o.venue_address}
                               </span>
                             )}
@@ -223,7 +223,7 @@ export function TomorrowsEventsWidget({ companyId }: { companyId: string | null 
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-7 text-[11px] gap-1 shrink-0 border-blue-200 text-blue-700 hover:bg-blue-50"
+                        className="h-7 shrink-0 gap-1 whitespace-nowrap border-blue-200 text-[11px] text-blue-700 hover:bg-blue-50"
                         onClick={() => previewAsClient(o.id)}
                         disabled={isPreviewing}
                         title="Open the client-facing view of this booking in a new tab"

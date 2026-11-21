@@ -16,9 +16,11 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { toLocalISO } from "@/lib/localDate";
 import { isBookedRevenue } from "@/lib/orderRevenueClassification";
+import { isReportableOrder, sumBookedRevenue } from "@/lib/orderRevenueMath";
 
 interface PriorStats {
   revenue: number;
@@ -59,25 +61,29 @@ export function YearOverYearCard({
       try {
         const fromIso = toLocalISO(shiftYear(range.from, -1));
         const toIso = toLocalISO(shiftYear(range.to, -1));
-        const { data, error } = await (supabase as any)
-          .from("orders")
-          .select("total_amount, status, payment_status, deposit_paid, confirmed_at, cancelled_at")
-          .eq("company_id", companyId)
-          .is("deleted_at", null)
-          .gte("event_date", fromIso)
-          .lte("event_date", toIso)
-          .limit(5000);
-        if (error) {
-          console.error("[YearOverYearCard] orders fetch failed:", error);
+        const rows: any[] = [];
+        let offset = 0;
+        while (true) {
+          const { data, error } = await (supabase as any)
+            .from("orders")
+            .select("id, order_number, event_name, client_name, internal_notes, total_amount, status, payment_status, deposit_paid, confirmed_at, cancelled_at")
+            .eq("company_id", companyId)
+            .is("deleted_at", null)
+            .gte("event_date", fromIso)
+            .lte("event_date", toIso)
+            .order("event_date", { ascending: true })
+            .order("id", { ascending: true })
+            .range(offset, offset + 999);
+          if (error) throw error;
+          const page = data || [];
+          rows.push(...page);
+          if (page.length < 1000) break;
+          offset += page.length;
         }
         if (cancelled) return;
-        let revenue = 0;
-        let count = 0;
-        for (const o of (data || []) as any[]) {
-          if (!isBookedRevenue(o)) continue;
-          revenue += Number(o.total_amount || 0);
-          count += 1;
-        }
+        const bookedRows = rows.filter((o) => isReportableOrder(o) && isBookedRevenue(o));
+        const revenue = sumBookedRevenue(bookedRows);
+        const count = bookedRows.length;
         setPrior({ revenue, count });
       } catch {
         if (!cancelled) setPrior(null);
@@ -106,7 +112,10 @@ export function YearOverYearCard({
   return (
     <Card className="mb-6 min-w-0 max-w-full overflow-hidden border-slate-200">
       <CardHeader className="min-w-0 px-3 py-3 sm:p-5">
-        <CardTitle className="text-sm sm:text-base">Year-over-year</CardTitle>
+        <CardTitle className="flex items-center gap-1.5 text-sm sm:text-base">
+          Year-over-year
+          <InfoTooltip content={`Booked order totals and counts in ${range.label.toLowerCase()} compared with the same event-date window one year earlier. Revenue uses total_amount (including tax); only reportable committed orders count. Cancelled and automated test orders are excluded.`} />
+        </CardTitle>
         <CardDescription className="mt-1 text-[10px] leading-4 sm:text-xs">
           {range.label} this year vs the same window last year.
         </CardDescription>

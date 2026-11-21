@@ -71,7 +71,7 @@ export function SeasonalityHeatmap({ data, loading }: Props) {
           <InfoTooltip
             content={
               "Each cell is one day. Rows are days of the week, columns are ISO weeks across the last 12 months.\n\n" +
-              "Toggle the metric between event count and revenue to see which days of the week pull the heaviest weight in your business."
+              "Revenue mode sums gross total_amount (including tax) for reportable committed orders by event date. Cancelled, unconfirmed pipeline and automated test orders are excluded. Toggle to event count to compare booking volume."
             }
           />
           <button

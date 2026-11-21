@@ -20,6 +20,7 @@ import {
   PageWorkbench,
 } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,6 +30,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { UserRole } from "@/types/app";
 import { toLocalISO } from "@/lib/localDate";
 import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
+import { isBookedRevenue } from "@/lib/orderRevenueClassification";
+import { isReportableOrder, orderGrossValue } from "@/lib/orderRevenueMath";
 import { useRouter } from "next/router";
 
 type ProfitRow = {
@@ -170,23 +173,29 @@ function EventProfitabilityPageInner() {
         driverData = payload.drivers || [];
         paymentsData = payload.payments || [];
       } else {
-        let ordersQuery = (supabase as any)
-          .from("orders")
-          .select(
-            "id, order_number, event_name, client_name, event_date, total_amount, quote_id, status, order_items(quantity, unit_cost, line_total)",
-          )
-          .eq("company_id", companyId)
-          .is("deleted_at", null)
-          .gte("event_date", appliedRange.from)
-          .lte("event_date", appliedRange.to)
-          .order("event_date", { ascending: false });
-        ordersQuery =
-          viewMode === "completed"
+        let offset = 0;
+        while (true) {
+          let ordersQuery = (supabase as any)
+            .from("orders")
+            .select(
+              "id, order_number, event_name, client_name, internal_notes, event_date, total_amount, quote_id, status, payment_status, deposit_paid, confirmed_at, cancelled_at, order_items(quantity, unit_cost, line_total)",
+            )
+            .eq("company_id", companyId)
+            .is("deleted_at", null)
+            .gte("event_date", appliedRange.from)
+            .lte("event_date", appliedRange.to)
+            .order("event_date", { ascending: false })
+            .order("id", { ascending: false });
+          ordersQuery = viewMode === "completed"
             ? ordersQuery.in("status", ["delivered", "completed"])
             : ordersQuery.neq("status", "cancelled");
-        const { data: orders, error: orderError } = await ordersQuery;
-        if (orderError) throw orderError;
-        orderRows = (orders || []) as any[];
+          const { data: page, error: orderError } = await ordersQuery.range(offset, offset + 999);
+          if (orderError) throw orderError;
+          const pageRows = (page || []) as any[];
+          orderRows.push(...pageRows);
+          if (pageRows.length < 1000) break;
+          offset += pageRows.length;
+        }
 
         const orderIds = orderRows.map((row) => row.id).filter(Boolean);
         const quoteIds = orderRows.map((row) => row.quote_id).filter(Boolean);
@@ -234,6 +243,9 @@ function EventProfitabilityPageInner() {
         paymentsData = paymentsRes.data || [];
       }
 
+      // Both views use the shared committed-booking definition. In
+      // "all" view, unconfirmed pipeline rows are not reported as revenue.
+      orderRows = orderRows.filter((row) => isReportableOrder(row) && isBookedRevenue(row));
       const orderIds = orderRows.map((row) => row.id).filter(Boolean);
       if (orderIds.length === 0) {
         setRows([]);
@@ -308,7 +320,7 @@ function EventProfitabilityPageInner() {
           clientName: order.client_name || "-",
           eventDate: order.event_date,
           quoted: quoteById.get(order.quote_id) ?? n(order.total_amount),
-          revenue: n(order.total_amount),
+          revenue: orderGrossValue(order),
           food: foodByOrder.get(order.id) || 0,
           equipment: equipmentByOrder.get(order.id) || 0,
           driver: driverByOrder.get(order.id) || 0,
@@ -373,14 +385,14 @@ function EventProfitabilityPageInner() {
       "Client",
       "Event date",
       "Quoted",
-      "Revenue",
+      "Booked revenue",
       "Food/shopping",
       "Equipment hire",
       "Driver/delivery",
       "Staff",
       "Payment fees",
-      "Profit",
-      "Profit %",
+      "Profit estimate (recorded costs only)",
+      "Gross margin estimate %",
     ];
     const lines = rows.map((row) => {
       const cost =
@@ -397,7 +409,7 @@ function EventProfitabilityPageInner() {
         row.food,
         row.equipment,
         row.driver,
-        row.staff,
+        row.staffLinked ? row.staff : "N/A - staff not linked to orders",
         row.paymentFees,
         hasCostData ? profit : "N/A - no cost data",
         hasCostData && row.revenue ? (profit / row.revenue) * 100 : "N/A - no cost data",
@@ -435,7 +447,7 @@ function EventProfitabilityPageInner() {
           <PortalHeader
             variant="hero"
             title="Event profitability"
-            subtitle="Compare completed event revenue with recorded operating costs."
+            subtitle="Compare booked event value with recorded operating costs."
             icon={BarChart3}
             actions={
               <div className="flex w-full items-center justify-end gap-2 xl:w-auto">
@@ -515,13 +527,13 @@ function EventProfitabilityPageInner() {
                   className="mt-1.5 h-11 w-full rounded-md border border-brand-primary/20 bg-white px-3 text-sm text-slate-800 shadow-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
                 >
                   <option value="completed">Completed & delivered</option>
-                  <option value="all">All non-cancelled events</option>
+                  <option value="all">All booked events</option>
                 </select>
               </div>
               <p className="col-span-full text-xs text-slate-500">
                 {viewMode === "completed"
                   ? "Completed and delivered events only."
-                  : "Includes confirmed, preparing, ready, in-transit, delivered, and completed events."}{" "}
+                  : "Includes committed bookings from confirmation through completion. Unconfirmed pipeline and cancelled orders are excluded."}{" "}
                 Priced shopping totals take priority; menu item cost snapshots fill gaps.
               </p>
             </div>
@@ -538,18 +550,32 @@ function EventProfitabilityPageInner() {
             </PortalCard>
           )}
           <div className="mb-5 grid min-w-0 grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-5">
-            <SummaryCard label="Quoted" value={fmt(summary.quoted)} />
-            <SummaryCard label="Revenue" value={fmt(summary.revenue)} />
-            <SummaryCard label="Recorded cost" value={fmt(summary.cost)} />
             <SummaryCard
-              label="Profit on costed events"
-              value={costedEventCount > 0 ? fmt(summary.profit) : "Awaiting cost data"}
-              tone={costedEventCount === 0 ? undefined : summary.profit >= 0 ? "positive" : "negative"}
+              label="Quoted"
+              value={fmt(summary.quoted)}
+              tooltip="Sum of the original quote totals linked to the report's bookings. If a booking has no linked quote, its current order total is used instead."
             />
             <SummaryCard
-              label="Margin on costed events"
+              label="Booked revenue"
+              value={fmt(summary.revenue)}
+              tooltip="Gross order total (total_amount, including tax) for reportable committed orders in the selected event-date range. Unconfirmed pipeline, cancelled and automated test orders are excluded."
+            />
+            <SummaryCard
+              label="Recorded cost"
+              value={fmt(summary.cost)}
+              tooltip="Costs linked to these orders: priced shopping totals (estimated when actual is unavailable), menu-cost snapshots when no priced shopping total exists, equipment hire, driver earnings, and recorded payment gateway fees. Staff labour is not linked to individual orders here."
+            />
+            <SummaryCard
+              label="Profit estimate on costed events"
+              value={costedEventCount > 0 ? fmt(summary.profit) : "Awaiting cost data"}
+              tone={costedEventCount === 0 ? undefined : summary.profit >= 0 ? "positive" : "negative"}
+              tooltip="Booked revenue minus the recorded order costs listed in the Recorded Cost chip, summed only for events with at least one recorded cost. This estimate can omit unrecorded or partially priced costs and excludes staff labour, so it is not net profit."
+            />
+            <SummaryCard
+              label="Margin estimate on costed events"
               value={margin != null ? `${margin.toFixed(1)}%` : "Awaiting cost data"}
               tone={margin == null ? undefined : margin >= 0 ? "positive" : "negative"}
+              tooltip="Profit estimate divided by booked revenue for costed events only. The revenue denominator includes tax. This is a partial cost-coverage estimate, not a net margin; events with no recorded costs are excluded."
             />
           </div>
           <p className="mb-4 flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400">
@@ -587,7 +613,7 @@ function EventProfitabilityPageInner() {
                     </div>
                     <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                       <div><dt className="text-xs text-slate-500">Quoted</dt><dd className="break-words font-medium tabular-nums">{fmt(row.quoted)}</dd></div>
-                      <div><dt className="text-xs text-slate-500">Revenue</dt><dd className="break-words font-medium tabular-nums">{fmt(row.revenue)}</dd></div>
+                      <div><dt className="text-xs text-slate-500">Booked revenue</dt><dd className="break-words font-medium tabular-nums">{fmt(row.revenue)}</dd></div>
                       <div><dt className="text-xs text-slate-500">Food</dt><dd className="break-words tabular-nums">{fmt(row.food)}</dd></div>
                       <div><dt className="text-xs text-slate-500">Hire</dt><dd className="break-words tabular-nums">{fmt(row.equipment)}</dd></div>
                       <div><dt className="text-xs text-slate-500">Driver</dt><dd className="break-words tabular-nums">{fmt(row.driver)}</dd></div>
@@ -609,14 +635,14 @@ function EventProfitabilityPageInner() {
                   <tr>
                     <th className="px-4 py-3">Event</th>
                     <th className="px-3 py-3 text-right">Quoted</th>
-                    <th className="px-3 py-3 text-right">Revenue</th>
+                    <th className="px-3 py-3 text-right"><span className="inline-flex items-center gap-1">Booked revenue <InfoTooltip content="Gross total_amount, including tax, for reportable committed orders in the selected event-date range." /></span></th>
                     <th className="px-3 py-3 text-right">Food</th>
                     <th className="px-3 py-3 text-right">Hire</th>
                     <th className="px-3 py-3 text-right">Driver</th>
                     <th className="px-3 py-3 text-right">Staff</th>
                     <th className="px-3 py-3 text-right">Fees</th>
-                    <th className="px-3 py-3 text-right">Profit</th>
-                    <th className="px-4 py-3 text-right">Margin</th>
+                    <th className="px-3 py-3 text-right"><span className="inline-flex items-center gap-1">Profit estimate <InfoTooltip content="Booked revenue minus recorded order-linked costs. Staff labour is not currently linked to orders, and some cost records may be incomplete, so treat this as a contribution estimate rather than net profit." /></span></th>
+                    <th className="px-4 py-3 text-right"><span className="inline-flex items-center gap-1">Margin estimate <InfoTooltip content="Profit estimate divided by gross booked revenue (including tax), for events with at least one recorded cost. Missing event costs and staff labour are not included." /></span></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -733,10 +759,12 @@ function SummaryCard({
   label,
   value,
   tone,
+  tooltip,
 }: {
   label: string;
   value: string;
   tone?: "positive" | "negative";
+  tooltip?: string;
 }) {
   return (
     <PortalCard className="relative overflow-hidden border-brand-primary/20 bg-white/90 dark:bg-slate-900/90">
@@ -744,8 +772,9 @@ function SummaryCard({
         aria-hidden="true"
         className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-primary via-brand-secondary to-brand-accent"
       />
-      <p className="text-xs font-medium uppercase tracking-wide text-brand-primary/75">
+      <p className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-brand-primary/75">
         {label}
+        {tooltip && <InfoTooltip content={tooltip} />}
       </p>
       <p
         className={`mt-2 break-words text-lg font-bold leading-tight tabular-nums sm:text-xl ${tone === "positive" ? "text-brand-primary" : tone === "negative" ? "text-rose-700" : "text-slate-900 dark:text-white"}`}

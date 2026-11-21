@@ -29,6 +29,7 @@ import {
   Calendar, Truck, FileSpreadsheet, Wallet, AlertTriangle, Banknote, Sparkles, UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface Pill {
   key: string;
@@ -39,6 +40,7 @@ interface Pill {
   href: string;
   pulse?: boolean;
   aria: string;
+  tooltip?: string;
 }
 
 const TONE_BG: Record<Pill["tone"], string> = {
@@ -143,12 +145,13 @@ export function AdminLiveStateStrip() {
   if (counts.canSeeFinance) {
     row2.push({
       key: "revenue",
-      label: "Today",
+      label: "Booked today",
       value: counts.loading ? "…" : fmtMoney(counts.revenueToday),
       icon: Banknote,
       tone: counts.revenueToday > 0 ? "info" : "muted",
       href: "/admin/financial-dashboard",
-      aria: `Today's revenue: ${tenantCurrency.format(counts.revenueToday)}. Tap to open the financial dashboard.`,
+      aria: `Today's booked event value: ${tenantCurrency.format(counts.revenueToday)}. Tap to open the financial dashboard.`,
+      tooltip: "Gross order total including tax for reportable committed orders whose event date is today. Cancelled, unconfirmed pipeline, deleted and automated test orders are excluded. This is booked event value, not cash collected.",
     });
     row2.push({
       key: "unpaid",
@@ -160,6 +163,7 @@ export function AdminLiveStateStrip() {
       // Wave 70.41b - aria text updated to match the new query
       // semantics (all outstanding, not just past-due overdue).
       aria: `Outstanding invoices total: ${tenantCurrency.format(counts.unpaidValue)}. Tap to chase.`,
+      tooltip: "Sum of positive balances on sent, partially paid and overdue invoices across the selected region or company. Draft, paid, written-off and deleted invoices are excluded.",
     });
   } else {
     // Non-finance: replace money pills with new-leads + dispatch-gaps
@@ -196,13 +200,13 @@ export function AdminLiveStateStrip() {
   const renderPill = (p: Pill) => {
     const Icon = p.icon;
     return (
+      <div key={p.key} className="flex min-w-0 items-center gap-1">
       <Link
-        key={p.key}
         href={withSlug(p.href)}
         aria-label={p.aria}
         title={p.aria}
         className={cn(
-          "flex items-center gap-2 rounded-lg border px-2 py-1.5 min-h-[44px] transition-all active:scale-[0.98]",
+          "flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-2 py-1.5 min-h-[44px] transition-all active:scale-[0.98]",
           TONE_BG[p.tone],
         )}
       >
@@ -228,6 +232,8 @@ export function AdminLiveStateStrip() {
           <span className="text-[9px] uppercase tracking-wider opacity-80 mt-0.5 leading-none truncate">{p.label}</span>
         </span>
       </Link>
+      {p.tooltip && <InfoTooltip content={p.tooltip} className="shrink-0" />}
+      </div>
     );
   };
 

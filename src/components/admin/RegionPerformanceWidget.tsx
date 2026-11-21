@@ -21,10 +21,12 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { MapPin, ArrowRight } from "lucide-react";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { isBookedRevenue } from "@/lib/orderRevenueClassification";
+import { isReportableOrder } from "@/lib/orderRevenueMath";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 import { daysAgoDateOnly } from "@/lib/dashboardWindows";
 
@@ -34,6 +36,10 @@ interface RegionLite {
   code: string | null;
 }
 interface OrderLite {
+  order_number?: string | null;
+  event_name?: string | null;
+  client_name?: string | null;
+  internal_notes?: string | null;
   region_id: string | null;
   total_amount: number | null;
   status: string | null;
@@ -65,32 +71,36 @@ export function RegionPerformanceWidget({ companyId }: { companyId: string | nul
     (async () => {
       try {
         const sinceIso = daysAgoDateOnly(30);
-        const [regionsRes, ordersRes] = await Promise.all([
-          (supabase as any)
+        const throughIso = daysAgoDateOnly(0);
+        const regionsRes = await (supabase as any)
             .from("regions")
             .select("id, name, code")
             .eq("company_id", companyId)
             .eq("is_active", true)
-            .order("name", { ascending: true }),
-          // TIGHTEN I.70 (2026-06-01): fetch the extra columns so we
-          // can apply isBookedRevenue in-memory. Previously this
-          // widget's "status IN active" SQL filter counted a
-          // 'confirmed' order with no deposit as booked, while the
-          // dashboard's headline tile excluded the same order.
-          // RegionPerformance and dashboard now agree.
-          (supabase as any)
+            .order("name", { ascending: true });
+        if (regionsRes.error) throw regionsRes.error;
+        const orderRows: OrderLite[] = [];
+        let offset = 0;
+        while (true) {
+          const { data, error } = await (supabase as any)
             .from("orders")
-            .select("region_id, total_amount, status, payment_status, deposit_paid, confirmed_at, cancelled_at")
+            .select("region_id, total_amount, status, payment_status, deposit_paid, confirmed_at, cancelled_at, order_number, event_name, client_name, internal_notes")
             .eq("company_id", companyId)
             .is("deleted_at", null)
             .gte("event_date", sinceIso)
-            .limit(2000),
-        ]);
-        if (regionsRes.error) throw regionsRes.error;
-        if (ordersRes.error) throw ordersRes.error;
+            .lte("event_date", throughIso)
+            .order("event_date", { ascending: true })
+            .order("id", { ascending: true })
+            .range(offset, offset + 999);
+          if (error) throw error;
+          const page = (data || []) as OrderLite[];
+          orderRows.push(...page);
+          if (page.length < 1000) break;
+          offset += page.length;
+        }
         if (cancelled) return;
         setRegions((regionsRes.data || []) as RegionLite[]);
-        setOrders((ordersRes.data || []) as OrderLite[]);
+        setOrders(orderRows);
         reportError(null);
       } catch (e: any) {
         if (!cancelled) {
@@ -116,7 +126,7 @@ export function RegionPerformanceWidget({ companyId }: { companyId: string | nul
     for (const o of orders) {
       // TIGHTEN I.70: shared classifier. Matches /admin/dashboard
       // booked revenue exactly.
-      if (!isBookedRevenue(o)) continue;
+      if (!isReportableOrder(o) || !isBookedRevenue(o)) continue;
       const total = Number(o.total_amount || 0);
       const rid = o.region_id;
       if (rid && map.has(rid)) {
@@ -150,6 +160,7 @@ export function RegionPerformanceWidget({ companyId }: { companyId: string | nul
             <CardTitle className="flex flex-wrap items-center gap-1.5 text-sm leading-5 sm:gap-2 sm:text-base">
               <MapPin className="h-4 w-4 shrink-0 text-slate-600" />
               Branches, last 30 days
+              <InfoTooltip content={"Sum of gross total_amount (including tax) and count for reportable committed orders with event dates from 30 days ago through today. Unconfirmed pipeline, cancelled and automated test orders are excluded. Orders without a matching active branch appear as Unassigned."} />
             </CardTitle>
             <CardDescription className="mt-1 text-[10px] leading-4 sm:text-xs">
               Booked-and-onwards revenue + order count per region. Sorted by revenue.

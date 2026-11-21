@@ -1,0 +1,133 @@
+1
+00:00:00,220 --> 00:00:01,486
+Welcome to CateringMS.
+
+2
+00:00:01,486 --> 00:00:08,662
+This walkthrough follows Cedar and Sage Catering as it
+prepares a new workspace for its first quote.
+
+3
+00:00:09,620 --> 00:00:13,463
+Under Business, confirm the company name and contact
+email.
+
+4
+00:00:13,463 --> 00:00:20,722
+Add your legal or trading name and any registration
+details you want to include on business documents.
+
+5
+00:00:20,722 --> 00:00:22,431
+Select Save and continue.
+
+6
+00:00:23,387 --> 00:00:26,738
+Enter the address your team dispatches from.
+
+7
+00:00:26,738 --> 00:00:32,004
+CateringMS uses this location to calculate delivery
+distances and plan routes.
+
+8
+00:00:32,004 --> 00:00:34,397
+Check the address before saving.
+
+9
+00:00:35,353 --> 00:00:37,402
+Choose your primary and secondary colours.
+
+10
+00:00:37,402 --> 00:00:43,206
+Use the preview to check how they look, and add your
+company logo for the customer portal.
+
+11
+00:00:44,153 --> 00:00:48,446
+If you accept bank transfers, enter your business banking
+details.
+
+12
+00:00:48,446 --> 00:00:54,027
+Customers who choose EFT will see the payment instructions
+and the invoice reference.
+
+13
+00:00:54,987 --> 00:00:58,415
+To accept online payments, connect your company's payment
+provider.
+
+14
+00:00:58,415 --> 00:01:05,271
+If your account is still being set up, select Skip for now
+and return to this step later.
+
+15
+00:01:06,220 --> 00:01:09,480
+Confirm whether your business is registered for VAT.
+
+16
+00:01:09,480 --> 00:01:12,739
+This setting determines the heading on your invoices.
+
+17
+00:01:12,739 --> 00:01:15,999
+If you are registered, enter your VAT number.
+
+18
+00:01:16,953 --> 00:01:20,396
+Choose the address your quotes and invoices are sent from.
+
+19
+00:01:20,396 --> 00:01:25,216
+You can use the shared CateringMS sender while your own
+domain is being verified.
+
+20
+00:01:26,153 --> 00:01:29,272
+Select the events you want to receive alerts for.
+
+21
+00:01:29,272 --> 00:01:34,469
+Enable push notifications on each phone or tablet where
+you want those alerts to appear.
+
+22
+00:01:35,420 --> 00:01:40,033
+Set when payment is due, and decide whether to send a
+payment reminder.
+
+23
+00:01:40,033 --> 00:01:43,936
+Review which other customer emails should go out
+automatically before saving.
+
+24
+00:01:44,887 --> 00:01:50,693
+If you already have a client list, use the bulk import to
+bring those contacts into CateringMS.
+
+25
+00:01:50,693 --> 00:01:54,792
+If you are starting fresh, you can add clients as you go.
+
+26
+00:01:55,753 --> 00:01:59,810
+Review your setup, then select Finish setup and go to
+dashboard.
+
+27
+00:01:59,810 --> 00:02:05,711
+You can return to Settings later to make changes or
+connect optional services such as WhatsApp.
+
+28
+00:02:06,653 --> 00:02:11,935
+From the dashboard, use the checklist to invite your team
+and add your menu and prices.
+
+29
+00:02:11,935 --> 00:02:15,895
+Once those are in place, you can start preparing your
+first quote.

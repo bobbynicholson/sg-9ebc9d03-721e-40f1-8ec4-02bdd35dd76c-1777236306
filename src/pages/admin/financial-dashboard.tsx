@@ -15,7 +15,8 @@ import { paymentLedgerService } from "@/services/paymentLedgerService";
 import { aiFinancialService } from "@/services/aiFinancialService";
 import { formatZAR } from "@/lib/formatters";
 import { formatLocalDate } from "@/lib/localFormat";
-import { isPipelineRevenue } from "@/lib/orderRevenueClassification";
+import { isBookedRevenue, isPipelineRevenue } from "@/lib/orderRevenueClassification";
+import { completeOrderMenuCogs, isReportableOrder, orderGrossValue, orderNetCollected, orderRevenueExcludingTax, sumBookedOutstanding, sumNetCollected } from "@/lib/orderRevenueMath";
 import { DEFAULT_TENANT_TIMEZONE, parseLocalDay, tenantToday, toLocalISO } from "@/lib/localDate";
 import { computeCurrentCashPosition } from "@/lib/cashflowMath";
 import type { Order } from "@/types";
@@ -36,14 +37,15 @@ import { CashflowContextBanner } from "@/components/admin/financial/CashflowCont
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { canAccessFinance } from "@/lib/authGuards";
-import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 import { PageLoader } from "@/components/ui/loading-skeleton";
+import { DashboardDateRange, getDateRangeLabel, resolvePreset, DateRange } from "@/components/dashboard/DashboardDateRange";
+import { ProfitabilityOrderReview } from "@/components/admin/ProfitabilityOrderReview";
 
 type FinancialSection = "overview" | "projections" | "expenses" | "orders" | "branches";
 
 interface FinancialMetrics {
   currentCashFlow: number;
-  /** Cash received from paid orders (the positive side of currentCashFlow). */
+  /** Net cash still held on reportable orders, including unrefunded cancellations. */
   cashReceived: number;
   projectedRevenue30Days: number;
   projectedRevenue90Days: number;
@@ -60,20 +62,25 @@ interface FinancialMetrics {
    *  and Net Cash Flow contradicted the projected balance trend. */
   fixedCostsNext30: number;
   supplierPayablesNext30: number;
-  // null until a real COGS pipeline is wired (inventory_transactions
-  // + supplier invoices + payroll). Previous fixed-multiplier maths
-  // was removed in the May 2026 audit because it produced a constant
-  // 35% margin and a health-score celebration off invented numbers.
+  // Menu COGS from delivered/completed orders with complete saved
+  // item costs. This is separate from supplier invoices and payroll.
   inventoryCosts: number | null;
+  grossProfit: number | null;
   profitMargin: number | null;
-  /** PR-F (cashflow cost mapping) - orders within the 90d window
-   *  whose order_items rows had no unit_cost snapshot. Surface as
-   *  a "X orders missing cost data" caveat on the Profit Margin
-   *  tile so the owner sees the limitation. */
+  /** Orders in the selected profitability range with incomplete item costs. */
   ordersMissingCost: number;
   /** Orders that DID have cost data and were included in the
    *  margin calculation. */
   ordersCounted: number;
+  missingCostOrderDetails: Array<{
+    id: string;
+    order_number?: string | null;
+    client_name?: string | null;
+    event_name?: string | null;
+    event_date?: string | null;
+    missingLineCount: number;
+  }>;
+  profitabilityAuditAvailable: boolean;
   healthScore: number;
 }
 
@@ -86,6 +93,7 @@ interface CashFlowAlert {
 
 function FinancialDashboardInner() {
   const { user, company } = useAuth();
+  const companyTimezone = String((company as any)?.timezone || DEFAULT_TENANT_TIMEZONE);
   // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
   const refreshSignal = useOrderRefreshSignal(user?.company_id);
   // Wave 27.3: tenant-slug wrapper for internal navigations.
@@ -94,6 +102,14 @@ function FinancialDashboardInner() {
   // filter so a multi-region tenant can scope KPIs to a single branch.
   // Pre-FIN-C the page aggregated company-wide with no way to focus.
   const { regionFilterId } = useRegionFilter();
+  const [profitabilityRange, setProfitabilityRange] = useState<DateRange>(() =>
+    resolvePreset("this_month", tenantToday(companyTimezone)),
+  );
+  useEffect(() => {
+    setProfitabilityRange((current) => current.presetId === "custom"
+      ? current
+      : resolvePreset(current.presetId, tenantToday(companyTimezone)));
+  }, [companyTimezone]);
   const [loading, setLoading] = useState(true);
   const [activeFinancialSection, setActiveFinancialSection] = useState<FinancialSection>("overview");
   const [metrics, setMetrics] = useState<FinancialMetrics | null>(null);
@@ -174,12 +190,9 @@ function FinancialDashboardInner() {
       // touches the joined client / order_items / driver / chef /
       // vehicle objects. Pull the light shape so we don't haul
       // hundreds of order_items(*) rows we'll never look at.
-      // Audit fix (2026-07-02): explicit limit. getAllOrders defaults
-      // to the 500 most recent rows, which silently truncated
-      // cashReceived / pendingPayments once a tenant passed 500
-      // orders. 2000 is the service ceiling; past that this page
-      // needs a server-side aggregate (flagged, not yet built).
-      const ordersData = await orderService.getAllOrders(user.company_id, { mode: "light", limit: 2000 });
+      // Page through the complete history so cash, balances and branch
+      // totals never silently stop at the service's one-page limit.
+      const ordersData = await orderService.getAllOrdersForFinancialReports(user.company_id);
 
       // FIN-E (financial dashboard tabs audit): dropped the
       // aiFinancialService.getPredictiveAnalytics call entirely.
@@ -285,17 +298,30 @@ function FinancialDashboardInner() {
       // 90-day lookback for COGS so the tile aggregates enough usage
       // transactions to be meaningful. Synced with the projected-
       // revenue horizon below.
-      const cogsSince = new Date();
-      cogsSince.setDate(cogsSince.getDate() - 90);
-      const cogsData = user.company_id
-        ? await fetchRealCogs(user.company_id, cogsSince.toISOString())
+      const cogsSince = new Date(todayAnchor);
+      cogsSince.setDate(cogsSince.getDate() - 89);
+      const inventoryCogsFrom = toLocalISO(cogsSince);
+      const inventoryCogsTo = toLocalISO(todayAnchor);
+      const profitabilityFrom = toLocalISO(profitabilityRange.from);
+      const profitabilityTo = toLocalISO(profitabilityRange.to);
+      const inventoryCogsData = user.company_id
+        ? await fetchRealCogs(user.company_id, inventoryCogsFrom, inventoryCogsTo, regionFilterId)
         : null;
-      // fetchRealCogs returns null on query failure (a tenant with no
-      // usage data still gets a zeroed object back), so with a
-      // company_id present null means the COGS feed broke.
-      if (user.company_id && cogsData === null) failures.push("inventory COGS");
-      const inventoryCosts = cogsData ? cogsData.cogs : null;
-      const profitMargin = calculateProfitMargin(ordersData, cogsData);
+      const sameAsInventoryWindow = profitabilityFrom === inventoryCogsFrom && profitabilityTo === inventoryCogsTo;
+      const profitabilityData = !user.company_id
+        ? null
+        : sameAsInventoryWindow
+          ? inventoryCogsData
+          : await fetchRealCogs(user.company_id, profitabilityFrom, profitabilityTo, regionFilterId);
+      // Inventory cost remains on a rolling 90-day basis for the cash
+      // position estimate. Profitability figures follow the chosen range.
+      if (user.company_id && inventoryCogsData === null) failures.push("inventory COGS");
+      if (user.company_id && profitabilityData === null) failures.push("profitability costs");
+      const inventoryCosts = inventoryCogsData ? inventoryCogsData.cogs : null;
+      const grossProfit = profitabilityData && profitabilityData.ordersCounted > 0
+        ? profitabilityData.revenue - profitabilityData.cogs
+        : null;
+      const profitMargin = calculateProfitMargin(scopedOrders, profitabilityData);
       const healthScore = calculateHealthScore({
         currentCashFlow,
         projectedRevenue30Days,
@@ -318,9 +344,12 @@ function FinancialDashboardInner() {
         unpaidSessionsCount,
         unpaidStaffCount,
         inventoryCosts,
+        grossProfit,
         profitMargin,
-        ordersMissingCost: cogsData?.ordersMissingCost ?? 0,
-        ordersCounted: cogsData?.ordersCounted ?? 0,
+        ordersMissingCost: profitabilityData?.ordersMissingCost ?? 0,
+        ordersCounted: profitabilityData?.ordersCounted ?? 0,
+        missingCostOrderDetails: profitabilityData?.missingCostOrders ?? [],
+        profitabilityAuditAvailable: profitabilityData !== null,
         healthScore,
         fixedCostsNext30,
         supplierPayablesNext30,
@@ -350,7 +379,7 @@ function FinancialDashboardInner() {
     } finally {
       setLoading(false);
     }
-  }, [user, regionFilterId]);
+  }, [user, regionFilterId, profitabilityRange.from.getTime(), profitabilityRange.to.getTime()]);
 
   useEffect(() => {
     if (user) {
@@ -400,44 +429,21 @@ function FinancialDashboardInner() {
   // / outstanding split per order alongside the gross revenue.
   const ordersByOutstanding = useMemo(() => {
     return orders
-      .filter((o) => o.status !== "cancelled")
+      .filter((o) => isReportableOrder(o) && isBookedRevenue(o))
       .map((o) => {
-        const total = Number(o.total_amount) || 0;
-        const payment = getOrderPaymentSummary({
-          totalAmount: o.total_amount,
-          amountPaid: (o as any).amount_paid,
-          balanceAmount: (o as any).balance_amount,
-          depositAmount: (o as any).deposit_amount,
-          depositPaid: (o as any).deposit_paid,
-          paymentStatus: (o as any).payment_status,
-        });
-        const paid = payment.amountPaid;
+        const total = orderGrossValue(o);
+        const paid = orderNetCollected(o);
         return { order: o, total, paid, outstanding: Math.max(0, total - paid) };
       })
       .sort((a, b) => b.outstanding - a.outstanding || b.total - a.total)
       .slice(0, 12);
   }, [orders]);
 
-  // FIN-B (financial dashboard audit): cash received now sums the real
-  // amount_paid column across non-cancelled orders. Pre-FIN-B this
-  // filtered on payment_status === "paid" and summed total_amount,
-  // which excluded every deposit-paid order (every Spit Braai order
-  // sits in `partial` state - deposit received, balance outstanding)
-  // and double-counted the unpaid balance as cash received on fully-
-  // paid orders. The result was the Current Cash Flow + Total Revenue
-  // tiles always reading R0.00 for any tenant that takes deposits
-  // (i.e. every catering tenant).
+  // Cash received is the net amount still held on all orders, including
+  // cancelled bookings until a refund is completed. The order payment
+  // projection is reconciled from the payments ledger and includes refunds.
   const calculateCashReceived = (orders: Order[]) => {
-    return orders
-      .filter((o) => o.status !== "cancelled")
-      .reduce((sum, o) => sum + getOrderPaymentSummary({
-        totalAmount: o.total_amount,
-        amountPaid: (o as any).amount_paid,
-        balanceAmount: (o as any).balance_amount,
-        depositAmount: (o as any).deposit_amount,
-        depositPaid: (o as any).deposit_paid,
-        paymentStatus: (o as any).payment_status,
-      }).amountPaid, 0);
+    return sumNetCollected(orders);
   };
 
   // `anchor` is the tenant-timezone "today" (local midnight) from
@@ -458,12 +464,13 @@ function FinancialDashboardInner() {
     return orders
       .filter(o => {
         if (!o.event_date) return false;
+        if (!isReportableOrder(o)) return false;
         if (!isPipelineRevenue(o as any)) return false;
         const eventDate = parseLocalDay(o.event_date);
         if (!eventDate) return false;
         return eventDate >= now && eventDate <= futureDate;
       })
-      .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+      .reduce((sum, o) => sum + orderGrossValue(o), 0);
   };
 
   // FIN-B: pending payments = actual outstanding balance, not gross.
@@ -472,53 +479,33 @@ function FinancialDashboardInner() {
   // "pending" instead of the R5,237 actually outstanding. The tile is
   // labelled "Outstanding from clients" - it should match.
   const calculatePendingPayments = (orders: Order[]) => {
-    return orders
-      .filter((o) => o.status !== "cancelled"
-        && getOrderPaymentSummary({
-          totalAmount: o.total_amount,
-          amountPaid: (o as any).amount_paid,
-          balanceAmount: (o as any).balance_amount,
-          depositAmount: (o as any).deposit_amount,
-          depositPaid: (o as any).deposit_paid,
-          paymentStatus: (o as any).payment_status,
-        }).balanceDue > 0)
-      .reduce((sum, o) => {
-        return sum + getOrderPaymentSummary({
-          totalAmount: o.total_amount,
-          amountPaid: (o as any).amount_paid,
-          balanceAmount: (o as any).balance_amount,
-          depositAmount: (o as any).deposit_amount,
-          depositPaid: (o as any).deposit_paid,
-          paymentStatus: (o as any).payment_status,
-        }).balanceDue;
-      }, 0);
+    return sumBookedOutstanding(orders);
   };
 
-  // Audit (May 2026, Wave 9 Item 3): real COGS pipeline. The deduction
-  // service now stamps unit_cost + order_id on every 'usage'
-  // inventory_transactions row. Sum (quantity * unit_cost) over usage
-  // rows joined to PAID orders in the period to get real cost-of-
-  // sales. When no rows exist (tenant hasn't billed paid orders yet
-  // or hasn't enabled recipe deductions), returns null and the UI
-  // shows "No usage data yet" honestly.
-  //
-  // Helpers are now closures so we can read companyId + the period
-  // PR-F (cashflow cost mapping): real COGS from order_items.
-  // unit_cost. The previous inventory_transactions-based path was
-  // returning null for tenants who never populated that pipeline.
-  // unit_cost is snapshotted at quote-accept (PR-B), so margins
-  // are honest about which orders have cost data and which don't.
-  //
-  // Walks order_items where parent order is paid + delivered/
-  // completed and created_at >= sinceIso. SUM(line_total) is the
-  // revenue side; SUM(quantity * unit_cost) is the COGS. Orders
-  // where every line has unit_cost=NULL are excluded from both
-  // sides (legacy data, pre-snapshot) and surfaced as the "missing
-  // cost data" count returned alongside the figures.
+  // COGS uses order_items.unit_cost snapshots for delivered/completed
+  // orders with net cash held in a bounded 90-day event-date window.
+  // An order contributes only when every positive-quantity line has a
+  // valid saved cost; incomplete orders are excluded from both revenue
+  // and COGS and counted as missing cost data.
   const fetchRealCogs = async (
     companyId: string,
-    sinceIso: string,
-  ): Promise<{ revenue: number; cogs: number; ordersCounted: number; ordersMissingCost: number } | null> => {
+    sinceDate: string,
+    untilDate: string,
+    regionId: string | null,
+  ): Promise<{
+    revenue: number;
+    cogs: number;
+    ordersCounted: number;
+    ordersMissingCost: number;
+    missingCostOrders: Array<{
+      id: string;
+      order_number?: string | null;
+      client_name?: string | null;
+      event_name?: string | null;
+      event_date?: string | null;
+      missingLineCount: number;
+    }>;
+  } | null> => {
     if (!companyId) return null;
     // FIN-B (financial dashboard audit): include partial-paid orders
     // in the margin sample. Pre-FIN-B this filtered .eq("payment_
@@ -530,45 +517,67 @@ function FinancialDashboardInner() {
     // failed / refunded / partially_refunded / disputed / partial /
     // paid; "paid" + "partial" are the two states where money
     // actually came in.
-    const { data, error } = await (supabase as any)
-      .from("orders")
-      .select("id, total_amount, amount_paid, payment_status, status, order_items(quantity, unit_cost, line_total)")
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .in("payment_status", ["paid", "partial"])
-      .gt("amount_paid", 0)
-      .in("status", ["delivered", "completed"])
-      .gte("created_at", sinceIso);
-    if (error || !data) return null;
+    const data: any[] = [];
+    let offset = 0;
+    while (true) {
+      let query = (supabase as any)
+        .from("orders")
+        .select("id, order_number, event_name, client_name, internal_notes, total_amount, tax_amount, amount_paid, payment_status, deposit_paid, deposit_amount, balance_paid, balance_amount, cancelled_at, status, event_date, order_items(quantity, unit_cost)")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .is("cancelled_at", null)
+        .in("status", ["delivered", "completed"])
+        .gte("event_date", sinceDate)
+        .lte("event_date", untilDate)
+        .order("event_date", { ascending: true })
+        .order("id", { ascending: true })
+        .range(offset, offset + 999);
+      if (regionId) query = query.eq("region_id", regionId);
+      const { data: page, error } = await query;
+      if (error || !page) return null;
+      data.push(...page);
+      if (page.length < 1000) break;
+      offset += page.length;
+    }
     let revenue = 0;
     let cogs = 0;
     let ordersCounted = 0;
     let ordersMissingCost = 0;
+    const missingCostOrders: Array<{
+      id: string;
+      order_number?: string | null;
+      client_name?: string | null;
+      event_name?: string | null;
+      event_date?: string | null;
+      missingLineCount: number;
+    }> = [];
     for (const ord of data as any[]) {
+      if (!isReportableOrder(ord) || orderNetCollected(ord) <= 0) continue;
       const items = (ord.order_items as any[]) || [];
-      let orderRevenue = 0;
-      let orderCogs = 0;
-      let hasCost = false;
-      for (const oi of items) {
-        const qty = Number(oi.quantity) || 0;
-        const lineTotal = Number(oi.line_total) || 0;
-        const cost = Number(oi.unit_cost);
-        orderRevenue += lineTotal;
-        if (Number.isFinite(cost) && cost > 0 && qty > 0) {
-          orderCogs += qty * cost;
-          hasCost = true;
-        }
-      }
-      if (!hasCost) {
+      const orderCogs = completeOrderMenuCogs(items);
+      if (orderCogs == null) {
         ordersMissingCost++;
+        const missingLineCount = items.filter((item: any) => {
+          const quantity = Number(item?.quantity) || 0;
+          const unitCost = Number(item?.unit_cost);
+          return quantity > 0 && (!Number.isFinite(unitCost) || unitCost <= 0);
+        }).length;
+        missingCostOrders.push({
+          id: ord.id,
+          order_number: ord.order_number,
+          client_name: ord.client_name,
+          event_name: ord.event_name,
+          event_date: ord.event_date,
+          missingLineCount,
+        });
         continue;
       }
-      revenue += orderRevenue;
+      revenue += orderRevenueExcludingTax(ord);
       cogs += orderCogs;
       ordersCounted++;
     }
-    if (revenue <= 0) return { revenue: 0, cogs: 0, ordersCounted, ordersMissingCost };
-    return { revenue, cogs, ordersCounted, ordersMissingCost };
+    if (revenue <= 0) return { revenue: 0, cogs: 0, ordersCounted, ordersMissingCost, missingCostOrders };
+    return { revenue, cogs, ordersCounted, ordersMissingCost, missingCostOrders };
   };
 
   const calculateProfitMargin = (
@@ -580,9 +589,8 @@ function FinancialDashboardInner() {
   };
 
   const calculateHealthScore = (data: any) => {
-    // Cash-flow-only health score (margin removed). Scoring caps at 80
-    // until a real COGS pipeline lands; that signals to the owner the
-    // score is partial.
+    // Cash-flow-only heuristic, capped at 80. It does not include
+    // profit margin and should not be read as a full financial rating.
     //
     // FIN-F (current cash flow tile audit): the "real net" expression
     // matches the Net Cash Flow row on the Financial Summary card and
@@ -743,15 +751,7 @@ function FinancialDashboardInner() {
               title="Financial dashboard"
               icon={Banknote}
               subtitle={
-                <>
-                  {/* FIN-B: honest hero copy. The page is a rolling
-                      90-day snapshot, not a configurable daily /
-                      weekly / monthly view - that affordance is the
-                      Cashflow Dashboard (linked below). */}
-                  Revenue, profitability and cashflow at a glance.
-                  Rolling 90-day view with profit margin and
-                  outstanding balances.
-                </>
+                <>Profitability for the selected event-date range, alongside current balances and forward cashflow projections.</>
               }
               meta={
                 metrics ? (
@@ -765,14 +765,14 @@ function FinancialDashboardInner() {
                       Financial health {metrics.healthScore}%
                       <InfoTooltip
                         className="text-white/60 hover:text-white"
-                        content={"A score out of 100 that blends cash flow, the next 30 days of bookings, what you owe staff, and profit margin into one quick health check.\n\nHigher is better. Caps at 80 until a full COGS pipeline lands."}
+                        content={"A simple indicator, not a full financial rating. It starts at 40, adds 20 when current cash after known costs is positive, 10 when projected 30-day booking value exceeds committed balances due, and 10 when current cash after known costs is more than twice the staff wages owed. It is capped at 80.\n\nThe current calculation does not use profit margin. The cost inputs mix all-time net cash and wages owed, next-30-day fixed costs and supplier payables, and menu COGS from delivered/complete orders in the last 90 days. Treat it as a directional signal, not a same-period profit measure."}
                       />
                     </span>
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
-                      {formatCurrency(metrics.cashReceived)} received
+                      {formatCurrency(metrics.cashReceived)} net cash held
                     </span>
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
-                      {formatCurrency(metrics.pendingPayments)} outstanding
+                      {formatCurrency(metrics.pendingPayments)} booked balances due
                     </span>
                   </>
                 ) : undefined
@@ -814,18 +814,19 @@ function FinancialDashboardInner() {
                       const rows: Array<[string, number | string]> = [
                         ["Metric", "Value"],
                         ["Health score", metrics.healthScore],
-                        ["Cash received", metrics.cashReceived.toFixed(2)],
+                        ["Net cash held", metrics.cashReceived.toFixed(2)],
                         ["Projected revenue (30d)", metrics.projectedRevenue30Days.toFixed(2)],
                         ["Projected revenue (90d)", metrics.projectedRevenue90Days.toFixed(2)],
-                        ["Pending payments", metrics.pendingPayments.toFixed(2)],
+                        ["Booked balances due", metrics.pendingPayments.toFixed(2)],
                         ["Staff payments owed", metrics.staffPaymentsOwed.toFixed(2)],
                         ["Fixed costs (next 30d)", metrics.fixedCostsNext30.toFixed(2)],
                         ["Supplier payables (next 30d)", metrics.supplierPayablesNext30.toFixed(2)],
                         ["Unpaid sessions count", metrics.unpaidSessionsCount],
                         ["Unpaid staff count", metrics.unpaidStaffCount],
                         ["Inventory costs", metrics.inventoryCosts != null ? metrics.inventoryCosts.toFixed(2) : "not connected"],
-                        ["Net cash flow (30d)", csvNet.toFixed(2)],
-                        ["Profit margin", metrics.profitMargin != null ? `${metrics.profitMargin.toFixed(1)}%` : "not connected"],
+                        ["Cash position estimate (mixed periods)", csvNet.toFixed(2)],
+                        [`Gross profit estimate (${getDateRangeLabel(profitabilityRange)})`, metrics.grossProfit != null ? metrics.grossProfit.toFixed(2) : "not connected"],
+                        [`Gross margin (${getDateRangeLabel(profitabilityRange)})`, metrics.profitMargin != null ? `${metrics.profitMargin.toFixed(1)}%` : "not connected"],
                       ];
                       const lines = rows.map((r) => r.map(esc).join(","));
                       // FIN-B: UTF-8 BOM so Excel-ZA opens this as
@@ -942,13 +943,28 @@ function FinancialDashboardInner() {
             </p>
           )}
 
+          <div className="mb-4 flex min-w-0 flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-slate-900">Profitability date range</h2>
+              <p className="mt-1 text-xs text-slate-600">
+                Gross margin and the profitability figures in the CSV use event dates in this range. Other cards keep their labeled periods.
+              </p>
+            </div>
+            <DashboardDateRange
+              range={profitabilityRange}
+              onChange={setProfitabilityRange}
+              anchorDate={tenantToday(companyTimezone)}
+              className="w-full justify-between sm:w-auto"
+            />
+          </div>
+
           {/* Key Metrics Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
             <Card className="border-2 hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
-                    Current Cash Flow
+                    Cash Position Estimate
                     {/* FIN-F (current cash flow tile audit): pre-FIN-F
                         the tile subtracted only wages owed and called
                         the result "Healthy" any time it was positive.
@@ -962,7 +978,7 @@ function FinancialDashboardInner() {
                         + supplier payables next 30d + inventory
                         COGS 90d) and the status badge reads off the
                         real net, not the cash-minus-wages partial. */}
-                    <InfoTooltip content={"Cash received less every known outflow in metrics state: wages owed, fixed costs due in the next 30 days, supplier payables due in the next 30 days, inventory COGS over the last 90 days.\n\nMatches the Net Cash Flow row on the Financial Summary card below. Status badge reads off this net, not the received-minus-wages partial."} />
+                    <InfoTooltip content={"All-time net cash held less logged wages owed, fixed costs due in the next 30 days, supplier payables due in the next 30 days, and menu COGS from eligible delivered/completed orders in the last 90 days. These are mixed time bases, so this is a directional cash-position estimate, not a period cash-flow statement or profit figure. See Financial Summary below for the components."} />
                   </CardTitle>
                   <Banknote className="w-5 h-5 text-brand-primary" />
                 </div>
@@ -982,11 +998,6 @@ function FinancialDashboardInner() {
                     supplierPayablesNext30: metrics?.supplierPayablesNext30 || 0,
                     inventoryCosts: metrics?.inventoryCosts ?? null,
                   });
-                  const received = position.cashReceived;
-                  const wages = position.wages;
-                  const fixed = position.fixedCostsNext30;
-                  const payables = position.supplierPayablesNext30;
-                  const inventory = position.inventoryCosts ?? 0;
                   const net = position.net;
                   const noActivity = position.noActivity;
                   return (
@@ -994,42 +1005,21 @@ function FinancialDashboardInner() {
                       <div className={`break-words text-lg font-bold leading-tight tabular-nums sm:text-2xl ${net < 0 ? "text-rose-700" : "text-slate-900"}`}>
                         {formatCurrency(net)}
                       </div>
-                      <div className="mt-2 space-y-0.5 text-xs">
-                        <div className="flex justify-between text-slate-600">
-                          <span>Received</span>
-                          <span className="tabular-nums text-brand-primary">+{formatCurrency(received)}</span>
-                        </div>
-                        <div className="flex justify-between text-slate-600">
-                          <span>Wages owed</span>
-                          <span className="tabular-nums text-rose-700">-{formatCurrency(wages)}</span>
-                        </div>
-                        <div className="flex justify-between text-slate-600">
-                          <span>Fixed costs (30d)</span>
-                          <span className="tabular-nums text-rose-700">-{formatCurrency(fixed)}</span>
-                        </div>
-                        <div className="flex justify-between text-slate-600">
-                          <span>Payables (30d)</span>
-                          <span className="tabular-nums text-rose-700">-{formatCurrency(payables)}</span>
-                        </div>
-                        <div className="flex justify-between text-slate-600">
-                          <span>Inventory (90d COGS)</span>
-                          <span className="tabular-nums text-rose-700">-{formatCurrency(inventory)}</span>
-                        </div>
-                      </div>
+                      <p className="mt-2 text-xs text-slate-500">See Financial Summary below for the component breakdown.</p>
                       <div className="flex items-center gap-1 mt-2">
                         {noActivity ? (
                           <span className="text-sm text-slate-500">No activity yet</span>
                         ) : net > 0 ? (
                           <>
                             <ArrowUpRight className="w-4 h-4 text-brand-primary" />
-                            <span className="text-sm text-brand-primary">Healthy</span>
+                            <span className="text-sm text-brand-primary">Positive estimate</span>
                           </>
                         ) : net === 0 ? (
-                          <span className="text-sm text-slate-500">Break-even</span>
+                            <span className="text-sm text-slate-500">Estimate is zero</span>
                         ) : (
                           <>
                             <ArrowDownRight className="w-4 h-4 text-rose-600" />
-                            <span className="text-sm text-rose-600">Needs attention</span>
+                            <span className="text-sm text-rose-600">Negative estimate</span>
                           </>
                         )}
                       </div>
@@ -1043,8 +1033,24 @@ function FinancialDashboardInner() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
+                    Net Profit
+                    <InfoTooltip content={"A dependable net profit figure is not available yet. Payroll, recurring fixed costs, supplier payables, and order costs are stored on different period bases and may overlap. Subtracting them here could omit costs or count them twice. The Gross Margin tile below subtracts complete menu COGS only; it is not net profit."} />
+                  </CardTitle>
+                  <Banknote className="w-5 h-5 text-slate-400" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg font-bold leading-tight text-slate-500 sm:text-xl">Not reconciled</div>
+                <p className="text-sm text-slate-500 mt-2">Expense periods and sources need reconciliation</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-2 hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
                     30-Day Projection
-                    <InfoTooltip content={"Total value of every booked event happening in the next 30 days.\n\nCancelled orders are not counted."} />
+                    <InfoTooltip content={"Total order value for reportable pending, booked and completed events in the next 30 days. This is a forecast, so unconfirmed pipeline orders are included; cancelled and automated test orders are excluded."} />
                   </CardTitle>
                   <TrendingUp className="w-5 h-5 text-blue-600" />
                 </div>
@@ -1060,7 +1066,7 @@ function FinancialDashboardInner() {
                       window, NOT "next month" - a quote booked today
                       for an event in 21 days counts, but one for 35
                       days does not. */}
-                  Expected revenue, next 30 days
+                  Projected order value, next 30 days
                 </p>
               </CardContent>
             </Card>
@@ -1069,8 +1075,8 @@ function FinancialDashboardInner() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
-                    Pending Payments
-                    <InfoTooltip content={"Money still owed to you on orders that have not been paid in full yet.\n\nIncludes pending invoices and orders with only a deposit so far."} />
+                    Booked Balances Due
+                    <InfoTooltip content={"Unpaid order value on committed bookings. Pending pipeline orders and cancelled orders are excluded."} />
                   </CardTitle>
                   <CreditCard className="w-5 h-5 text-yellow-600" />
                 </div>
@@ -1080,7 +1086,7 @@ function FinancialDashboardInner() {
                   {formatCurrency(metrics?.pendingPayments || 0)}
                 </div>
                 <p className="text-sm text-slate-600 mt-2">
-                  Outstanding from clients
+                  On committed bookings
                 </p>
               </CardContent>
             </Card>
@@ -1089,8 +1095,8 @@ function FinancialDashboardInner() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
-                    Profit Margin
-                    <InfoTooltip content={"(Revenue - menu COGS) / revenue, on PAID delivered orders in the last 90 days.\n\nCOGS sourced from order_items.unit_cost - the per-unit cost snapshot from menu_items.cost_per_unit at quote-accept (PR-B). Orders whose line items have no unit_cost snapshot are excluded from both numerator and denominator (legacy data pre-snapshot); the count is surfaced below the tile so the limitation is visible.\n\nPayroll + supplier invoices + fixed costs are NOT folded in - the figure here is a top-line gross margin, not net. See the Cashflow dashboard (/admin/cashflow-dashboard) for the net picture."} />
+                    Gross Margin
+                  <InfoTooltip content={`(Order revenue after recorded tax - menu COGS) / order revenue after recorded tax, for delivered/completed orders with net cash held and event dates in ${getDateRangeLabel(profitabilityRange).toLowerCase()}. Menu COGS sums quantity multiplied by saved order_items.unit_cost snapshots. An order is included only when every positive-quantity item has a valid saved cost; orders with missing or incomplete item costs are excluded from both revenue and cost and counted below. The calculation follows the selected branch filter; choose All branches to compare with the main Dashboard and choose the same date range on both pages.\n\nPayroll, supplier costs and fixed costs are not included, so this is an operational gross-margin estimate, not net profit or a statutory P&L. See Cashflow for the operating cash picture.`} />
                   </CardTitle>
                   <TrendingUp className={`w-5 h-5 ${metrics?.profitMargin != null ? "text-slate-600" : "text-slate-400"}`} />
                 </div>
@@ -1102,7 +1108,7 @@ function FinancialDashboardInner() {
                       {metrics.profitMargin.toFixed(1)}%
                     </div>
                     <p className="text-sm text-slate-600 mt-2">
-                      Gross margin (90 days)
+                      Gross margin · {getDateRangeLabel(profitabilityRange)}
                     </p>
                     {(metrics?.ordersMissingCost || 0) > 0 && (
                       <p className="mt-1 flex items-center gap-1 text-xs text-amber-700">
@@ -1128,9 +1134,9 @@ function FinancialDashboardInner() {
                           the orders deliver. The new branching covers
                           three states. */}
                       {(metrics?.ordersMissingCost || 0) > 0
-                        ? `${metrics?.ordersMissingCost} delivered orders in the last 90 days are missing cost data. Add a cost per item on the Menu page.`
+                        ? `${metrics?.ordersMissingCost} delivered orders in ${getDateRangeLabel(profitabilityRange).toLowerCase()} are missing complete item costs. Add costs for every menu item.`
                         : (orders.length > 0
-                          ? "No delivered orders in the last 90 days yet. Margin will start showing once an order is marked delivered or completed and its menu items have a cost set on the Menu page."
+                          ? `No delivered orders with net cash held and complete item costs in ${getDateRangeLabel(profitabilityRange).toLowerCase()} yet.`
                           : "Once you confirm and deliver your first order, profit margin will appear here.")}
                     </p>
                   </>
@@ -1138,6 +1144,14 @@ function FinancialDashboardInner() {
               </CardContent>
             </Card>
           </div>
+
+          <ProfitabilityOrderReview
+            orders={orders}
+            missingCostOrders={metrics?.missingCostOrderDetails || []}
+            fromDate={toLocalISO(profitabilityRange.from)}
+            toDate={toLocalISO(profitabilityRange.to)}
+            costAuditAvailable={metrics?.profitabilityAuditAvailable ?? false}
+          />
 
           {/* A single section picker keeps finance navigation compact at
               every width while leaving each analysis view one tap away. */}
@@ -1168,8 +1182,8 @@ function FinancialDashboardInner() {
               <div className="grid gap-4 xl:grid-cols-2">
                 <Card collapsible defaultOpen={true} collapseLabel="Financial Summary">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">Financial Summary <InfoTooltip content={"Quick snapshot of money in, money out, and what is still owed.\n\nPulled together from your orders and staff wage ledger."} /></CardTitle>
-<CardDescription>Money received, known costs and the resulting cash position.</CardDescription>
+                    <CardTitle className="flex items-center gap-2">Financial Summary <InfoTooltip content={"Cash held and recorded cost components from orders, the staff wage ledger, recurring costs, suppliers, and menu cost snapshots. Each line shows its own period basis; the components do not form a reconciled net-profit statement."} /></CardTitle>
+<CardDescription>Cash held and tracked cost components, each with its own time basis.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {/* FIN-E (financial dashboard tabs audit): the
@@ -1184,11 +1198,11 @@ function FinancialDashboardInner() {
                         match the new semantics (it's cash actually
                         received, not "total paid orders revenue"). */}
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                      <span className="flex min-w-0 items-center gap-1 text-sm text-slate-600">Cash Received <InfoTooltip content={"Sum of amount_paid across every non-cancelled order. Matches the Current Cash Flow tile up top."} /></span>
+                    <span className="flex min-w-0 items-center gap-1 text-sm text-slate-600">Net Cash Held <InfoTooltip content={"Net amount still held across all bookings, including cancelled orders until their refund is completed. This is an all-time cash balance, not event-date revenue."} /></span>
                       <span className="break-words font-semibold tabular-nums">{formatCurrency(metrics?.cashReceived || 0)}</span>
                     </div>
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                      <span className="flex min-w-0 items-center gap-1 text-sm text-slate-600">Pending Payments <InfoTooltip content={"Balance still owed on orders that are pending or only partly paid."} /></span>
+                      <span className="flex min-w-0 items-center gap-1 text-sm text-slate-600">Booked Balances Due <InfoTooltip content={"Outstanding balance on committed and completed orders only. Unconfirmed pipeline orders and cancelled orders are excluded."} /></span>
                       <span className="break-words font-semibold tabular-nums text-yellow-600">
                         {formatCurrency(metrics?.pendingPayments || 0)}
                       </span>
@@ -1216,7 +1230,7 @@ function FinancialDashboardInner() {
                       </span>
                     </div>
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                      <span className="flex min-w-0 items-center gap-1 text-sm text-slate-600">Inventory Costs <InfoTooltip content={"Sum of ingredient cost on PAID orders in the last 90 days (quantity * unit_cost on usage transactions). Supplier invoices / payroll not yet folded in."} /></span>
+                      <span className="flex min-w-0 items-center gap-1 text-sm text-slate-600">Inventory Costs <InfoTooltip content={"Menu COGS from delivered/completed orders with net cash still held and event dates in the last 90 days. Calculated as quantity multiplied by saved order_items.unit_cost snapshots. Orders with any missing item cost are excluded. This is not a supplier-invoice or payroll total."} /></span>
                       {metrics?.inventoryCosts != null ? (
                         <span className="break-words font-semibold tabular-nums">
                           {formatCurrency(metrics.inventoryCosts)}
@@ -1227,29 +1241,6 @@ function FinancialDashboardInner() {
                         </span>
                       )}
                     </div>
-                    {(() => {
-                      // CASH-C: canonical Net-30. Same helper the
-                      // Current Cash Flow tile above uses, so the
-                      // two surfaces always agree. Inventory now
-                      // counted here too (previously omitted), which
-                      // matches what the tile and operator's mental
-                      // model both expect.
-                      const net = computeCurrentCashPosition({
-                        cashReceived: metrics?.cashReceived || 0,
-                        wages: metrics?.staffPaymentsOwed || 0,
-                        fixedCostsNext30: metrics?.fixedCostsNext30 || 0,
-                        supplierPayablesNext30: metrics?.supplierPayablesNext30 || 0,
-                        inventoryCosts: metrics?.inventoryCosts ?? null,
-                      }).net;
-                      return (
-                        <div className="flex flex-col gap-1 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
-                          <span className="flex items-center gap-1 font-semibold">Net Cash Flow (30d) <InfoTooltip content={"Cash received less wages owed, fixed costs, supplier payables due in the next 30 days, and 90-day inventory cost.\n\nSame number as the Current Cash Flow tile above and the Cashflow Dashboard summary."} /></span>
-                          <span className={`break-words text-base font-bold leading-tight tabular-nums sm:text-lg ${net > 0 ? "text-brand-primary" : "text-rose-600"}`}>
-                            {formatCurrency(net)}
-                          </span>
-                        </div>
-                      );
-                    })()}
                   </CardContent>
                 </Card>
 
@@ -1308,8 +1299,8 @@ function FinancialDashboardInner() {
             <section id="financial-projections" data-chat-section="admin.financial-dashboard.projections" data-chat-section-label="Financial projections" className="space-y-4">
               <Card collapsible defaultOpen={false} collapseLabel="Revenue Projections">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">Revenue Projections <InfoTooltip content={"Revenue you can expect across upcoming booked events, grouped by event date.\n\nIncludes everything booked, paid or not."} /></CardTitle>
-<CardDescription>Expected revenue from upcoming booked events.</CardDescription>
+                  <CardTitle className="flex items-center gap-2">Order Value Projections <InfoTooltip content={"Gross order totals for reportable pipeline and booked events grouped by event date. This includes unconfirmed pipeline value for forecasting, whether paid or not, and excludes cancelled/test orders."} /></CardTitle>
+<CardDescription>Forecast gross order value across the next 30 and 90 days.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
@@ -1364,7 +1355,7 @@ function FinancialDashboardInner() {
                       const note = p30 <= 0
                         ? "No future events are on the books in the next 30 days yet. Get a quote out the door to build the pipeline."
                         : pending > p30
-                          ? `Outstanding from clients (${formatCurrency(pending)}) exceeds next-30-day projected revenue (${formatCurrency(p30)}). Chase collections first - the bulk-remind action above is the fastest path.`
+                          ? `Booked balances due (${formatCurrency(pending)}) exceed projected order value for the next 30 days (${formatCurrency(p30)}). Chase collections first - the bulk-remind action above is the fastest path.`
                           : runway90 < 0
                             ? `90-day net (received + projected - wages - fixed costs - supplier payables) is ${formatCurrency(runway90)}. Tighten outgoing spend or accelerate collections.`
                             : `Next 30 days project ${formatCurrency(p30)} in event revenue against ${formatCurrency(pending)} outstanding from existing clients. 90-day net runway sits at ${formatCurrency(runway90)}.`;
@@ -1539,14 +1530,14 @@ function FinancialDashboardInner() {
 
             {showBranchesTab && selectedFinancialSection === "branches" && (
               <section id="financial-branches" data-chat-section="admin.financial-dashboard.branches" data-chat-section-label="Financial branches" className="space-y-4">
-                <Card collapsible defaultOpen={false} collapseLabel="Per-branch P&L">
+                <Card collapsible defaultOpen={false} collapseLabel="Booked revenue by branch">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Building2 className="w-5 h-5" />
-                      Per-branch P&L
-                      <InfoTooltip content={"Revenue, paid amount, outstanding and order count broken down by branch.\n\nUnassigned rows are orders that don't yet have a branch stamped."} />
+                      Booked revenue by branch
+                      <InfoTooltip content={"Booked revenue, net cash held, outstanding and booked-order count by branch. Unassigned rows are bookings without a branch."} />
                     </CardTitle>
-<CardDescription>Revenue and balances grouped by operating branch.</CardDescription>
+<CardDescription>Committed booking value and balances grouped by operating branch.</CardDescription>
                   </CardHeader>
                   <CardContent>
                     {(() => {
@@ -1572,13 +1563,14 @@ function FinancialDashboardInner() {
                       // Seed with every branch so empty branches render with zeros.
                       branches.forEach((b) => ensure(b.id, b.name, b.address));
                       orders.forEach((o: any) => {
+                        if (!isReportableOrder(o) || !isBookedRevenue(o)) return;
                         const branch = branches.find((b) => b.id === o.region_id);
                         const bucket = ensure(
                           o.region_id || null,
                           branch?.name || (o.region_id ? "Unknown branch" : "Unassigned"),
                           branch?.address ?? null,
                         );
-                        const total = Number(o.total_amount || 0);
+                        const total = orderGrossValue(o);
                         // FIN-E: same enum-drift class as the
                         // Financial Summary row. amount_paid is the
                         // single source of truth for cash received;
@@ -1589,7 +1581,7 @@ function FinancialDashboardInner() {
                         // orders that genuinely held cash). Just
                         // sum amount_paid - it's been the column of
                         // record since FIN-B landed.
-                        const paid = Number(o.amount_paid || 0);
+                        const paid = orderNetCollected(o);
                         bucket.revenue += total;
                         bucket.paid += paid;
                         bucket.outstanding += Math.max(total - paid, 0);
@@ -1619,7 +1611,7 @@ function FinancialDashboardInner() {
                               </div>
                               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                                 <div><dt className="text-xs text-slate-500">Orders</dt><dd className="font-medium tabular-nums">{r.count}</dd></div>
-                                <div><dt className="text-xs text-slate-500">Revenue</dt><dd className="break-words font-semibold tabular-nums">{formatCurrency(r.revenue)}</dd></div>
+                                <div><dt className="text-xs text-slate-500">Booked revenue</dt><dd className="break-words font-semibold tabular-nums">{formatCurrency(r.revenue)}</dd></div>
                                 <div><dt className="text-xs text-slate-500">Paid</dt><dd className="break-words font-medium tabular-nums text-brand-primary">{formatCurrency(r.paid)}</dd></div>
                                 <div><dt className="text-xs text-slate-500">Outstanding</dt><dd className="break-words font-medium tabular-nums text-amber-700">{formatCurrency(r.outstanding)}</dd></div>
                               </dl>
@@ -1630,7 +1622,7 @@ function FinancialDashboardInner() {
                               <h3 className="mb-3 text-sm font-semibold text-slate-900">All branches</h3>
                               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                                 <div><dt className="text-xs text-slate-500">Orders</dt><dd className="font-medium tabular-nums">{totals.count}</dd></div>
-                                <div><dt className="text-xs text-slate-500">Revenue</dt><dd className="break-words font-semibold tabular-nums">{formatCurrency(totals.revenue)}</dd></div>
+                                <div><dt className="text-xs text-slate-500">Booked revenue</dt><dd className="break-words font-semibold tabular-nums">{formatCurrency(totals.revenue)}</dd></div>
                                 <div><dt className="text-xs text-slate-500">Paid</dt><dd className="break-words font-medium tabular-nums text-brand-primary">{formatCurrency(totals.paid)}</dd></div>
                                 <div><dt className="text-xs text-slate-500">Outstanding</dt><dd className="break-words font-medium tabular-nums text-amber-700">{formatCurrency(totals.outstanding)}</dd></div>
                               </dl>
@@ -1643,7 +1635,7 @@ function FinancialDashboardInner() {
                               <tr className="border-b text-left text-xs uppercase tracking-wide text-slate-500">
                                 <th className="py-2 pr-3 font-medium">Branch</th>
                                 <th className="py-2 px-3 font-medium text-right">Orders</th>
-                                <th className="py-2 px-3 font-medium text-right">Revenue</th>
+                                <th className="py-2 px-3 font-medium text-right">Booked revenue</th>
                                 <th className="py-2 px-3 font-medium text-right">Paid</th>
                                 <th className="py-2 pl-3 font-medium text-right">Outstanding</th>
                               </tr>

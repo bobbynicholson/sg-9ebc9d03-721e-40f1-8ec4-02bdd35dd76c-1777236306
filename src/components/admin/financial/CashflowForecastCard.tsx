@@ -37,6 +37,7 @@ import { staffOrderHref } from "@/lib/orderUrls";
 import { toLocalISO } from "@/lib/localDate";
 import * as currencyUtils from "@/lib/currencyUtils";
 import { isPipelineRevenue } from "@/lib/orderRevenueClassification";
+import { isReportableOrder } from "@/lib/orderRevenueMath";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { fixedCostsService, type FixedCost } from "@/services/fixedCostsService";
 import type { Order } from "@/types";
@@ -98,8 +99,11 @@ interface OrderItemRow {
 }
 interface OrderWithItemsRow {
   id: string;
+  order_number?: string | null;
+  event_name?: string | null;
   event_date: string | null;
   client_name: string | null;
+  internal_notes?: string | null;
   order_items: OrderItemRow[] | null;
   // TIGHTEN I.74: fields isPipelineRevenue needs so the COGS feed
   // shares the canonical revenue state machine with everything else.
@@ -309,7 +313,7 @@ export function CashflowForecastCard({
         // pipeline-vs-cancelled call.
         sb
           .from("orders")
-          .select("id, event_date, client_name, status, payment_status, deposit_paid, confirmed_at, cancelled_at, order_items(menu_item_id, quantity, unit_cost)")
+          .select("id, order_number, event_name, event_date, client_name, internal_notes, status, payment_status, deposit_paid, confirmed_at, cancelled_at, order_items(menu_item_id, quantity, unit_cost)")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("event_date", todayIso)
@@ -398,7 +402,7 @@ export function CashflowForecastCard({
       // mid-cancellation order can't pay food cost on the forecast.
       for (const ord of orderItemsRes.data || []) {
         if (!ord?.event_date) continue;
-        if (!isPipelineRevenue(ord as any)) continue;
+        if (!isReportableOrder(ord) || !isPipelineRevenue(ord as any)) continue;
         const orderItems = ord.order_items || [];
         let cogs = 0;
         for (const oi of orderItems) {
@@ -813,7 +817,7 @@ export function CashflowForecastCard({
                     the gross/net split in the label. */}
                 <span>
                   Order revenue (gross)
-                  <InfoTooltip content={"Sum of total_amount on non-cancelled orders with an event_date inside the forecast window. The chart subtracts per-order COGS from each day, so the bottom-line forecast is net of the cost to make. The Inventory (90d COGS) line on the Current Cash Flow tile and the Net Cash Flow row on the financial dashboard report the historical version."} />
+                  <InfoTooltip content={"Sum of total_amount for reportable pipeline and booked orders with event dates inside the forecast window. Unconfirmed pipeline value is included as a forecast, not booked revenue; cancelled and automated test orders are excluded. The chart subtracts recorded menu COGS from each day."} />
                 </span>
                 <span className="whitespace-nowrap text-right tabular-nums text-brand-primary">
                   +{(currencyUtils.formatCurrency as (a: number, c: string) => string)(projectedRevenueForWindow, currency)}

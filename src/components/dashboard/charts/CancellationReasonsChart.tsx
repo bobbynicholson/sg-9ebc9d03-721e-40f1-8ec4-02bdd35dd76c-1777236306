@@ -31,7 +31,7 @@ export function CancellationReasonsChart({ data, loading }: Props) {
   const isEmpty = data.totalCancelled === 0;
   const ariaSummary = isEmpty
     ? "No cancellations recorded in the window."
-    : `${data.totalCancelled} cancellations totalling ${fmtZAR(data.totalRevenueLost)} in lost revenue. Cancellation rate ${(data.cancellationRate * 100).toFixed(1)}%.`;
+    : `${data.totalCancelled} cancellations totalling ${fmtZAR(data.totalRevenueLost)} in cancelled gross order value. Cancellation rate ${(data.cancellationRate * 100).toFixed(1)}%.`;
 
   return (
     <Card className="border-0 shadow-sm">
@@ -41,7 +41,7 @@ export function CancellationReasonsChart({ data, loading }: Props) {
           Cancellation reasons
           <InfoTooltip
             content={
-              "Why orders fall away. Bars sized by revenue lost, not just count - one big cancelled wedding hurts more than five lost lunches.\n\n" +
+              "Bars are sized by cancelled gross order value (total_amount, including tax), grouped by cancellation reason and compared with cancellation count. This is the value of cancelled bookings, not cash lost or refunded; held cash and refunds are tracked separately.\n\n" +
               "Look for patterns: if 'venue conflict' keeps showing up, your booking flow probably needs a clearer date-hold step."
             }
           />
@@ -61,7 +61,7 @@ export function CancellationReasonsChart({ data, loading }: Props) {
             <div className="flex items-baseline justify-between mb-3">
               <div className="text-xs text-slate-500">
                 <span className="font-semibold text-slate-700">{data.totalCancelled}</span> cancellation{data.totalCancelled === 1 ? "" : "s"} ·{" "}
-                <span className="font-semibold text-rose-600">{fmtZAR(data.totalRevenueLost)}</span> lost
+                <span className="font-semibold text-rose-600">{fmtZAR(data.totalRevenueLost)}</span> cancelled value
               </div>
               <div className="text-[11px] text-slate-500">
                 Rate: <span className="font-semibold text-slate-700">{(data.cancellationRate * 100).toFixed(1)}%</span>

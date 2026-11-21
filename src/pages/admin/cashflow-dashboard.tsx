@@ -46,11 +46,11 @@ import { CashflowForecastCard } from "@/components/admin/financial/CashflowForec
 import { BulkRemindDialog } from "@/components/admin/financial/BulkRemindDialog";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
-import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+import { isReportableOrder, orderGrossValue, sumBookedOutstanding, sumNetCollected } from "@/lib/orderRevenueMath";
 import { PageLoader } from "@/components/ui/loading-skeleton";
 
 interface CashflowMetrics {
-  /** Cash received from orders flagged paid_in_full. */
+  /** Net cash still held on reportable orders, including unrefunded cancellations. */
   cashReceived: number;
   /** Open wages already logged but not paid out. */
   staffPaymentsOwed: number;
@@ -179,12 +179,9 @@ function CashflowDashboardInner() {
       // order columns + region_id only. No nested data is touched.
       // Drop to light mode to skip the joins that this tenant's
       // 1000+ orders would otherwise stream uselessly.
-      // Audit fix (2026-07-02): explicit limit. The service default
-      // is the 500 most recent rows, which silently truncated the
-      // received / outstanding totals once a tenant passed 500
-      // orders. 2000 is the service ceiling; past that this page
-      // needs a server-side aggregate (flagged, not yet built).
-      const ordersData = await orderService.getAllOrders(companyId, { mode: "light", limit: 2000 });
+      // Page through the complete order history so received cash and
+      // booked balances do not stop at the service's one-page limit.
+      const ordersData = await orderService.getAllOrdersForFinancialReports(companyId);
       // CASH-A: filter the orders array by the active region filter
       // BEFORE every downstream calc. Staff / fixed costs / supplier
       // payables totals stay company-wide because none of those tables
@@ -196,20 +193,10 @@ function CashflowDashboardInner() {
       setOrders(scopedOrders);
 
       const ledger = await paymentLedgerService.getPaymentLedger(companyId);
-      // CASH-A: same enum-drift fix the financial dashboard got in
-      // FIN-B. payment_status="paid" misses every deposit-paid order
-      // (which is most catering orders); amount_paid on non-cancelled
-      // rows is the source of truth for cash actually received.
-      const cashReceived = scopedOrders
-        .filter((o) => o.status !== "cancelled")
-        .reduce((sum, o) => sum + getOrderPaymentSummary({
-          totalAmount: (o as any).total_amount,
-          amountPaid: (o as any).amount_paid,
-          balanceAmount: (o as any).balance_amount,
-          depositAmount: (o as any).deposit_amount,
-          depositPaid: (o as any).deposit_paid,
-          paymentStatus: (o as any).payment_status,
-        }).amountPaid, 0);
+      // Same net cash definition as Financial Dashboard: amount still
+      // held on all reportable orders, including cancelled orders until
+      // a completed refund reduces the reconciled amount_paid field.
+      const cashReceived = sumNetCollected(scopedOrders);
       const staffPaymentsOwed = ledger.totalOwed || 0;
       // CASH-A: projected revenue feeds the AI alert engine. Pre-CASH-A
       // this passed 0, which made cashFlowRatio = 0 / upcomingExpenses
@@ -234,11 +221,12 @@ function CashflowDashboardInner() {
       const projectedRevenue30Days = scopedOrders
         .filter((o) => {
           if (!o.event_date) return false;
+          if (!isReportableOrder(o)) return false;
           if (!isPipelineRevenue(o as any)) return false;
           const d = parseLocalDay(o.event_date);
           return !!d && d >= today && d <= horizon;
         })
-        .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+        .reduce((sum, o) => sum + orderGrossValue(o), 0);
 
       // Mirror the CashflowForecastCard cost feeds so the summary
       // and chart move in sync. Best-effort: a missing table / RLS
@@ -329,26 +317,7 @@ function CashflowDashboardInner() {
       // partial order, so a R10,587 order with a R5,350 deposit
       // showed up as R10,587 "outstanding" instead of R5,237. Same
       // mismatch the financial-dashboard had at FIN-B.
-      const pendingPayments = scopedOrders
-        .filter((o) => o.status !== "cancelled"
-          && getOrderPaymentSummary({
-            totalAmount: (o as any).total_amount,
-            amountPaid: (o as any).amount_paid,
-            balanceAmount: (o as any).balance_amount,
-            depositAmount: (o as any).deposit_amount,
-            depositPaid: (o as any).deposit_paid,
-            paymentStatus: (o as any).payment_status,
-          }).balanceDue > 0)
-        .reduce((sum, o) => {
-          return sum + getOrderPaymentSummary({
-            totalAmount: (o as any).total_amount,
-            amountPaid: (o as any).amount_paid,
-            balanceAmount: (o as any).balance_amount,
-            depositAmount: (o as any).deposit_amount,
-            depositPaid: (o as any).deposit_paid,
-            paymentStatus: (o as any).payment_status,
-          }).balanceDue;
-        }, 0);
+      const pendingPayments = sumBookedOutstanding(scopedOrders);
 
       setMetrics({
         cashReceived,
@@ -660,11 +629,11 @@ function CashflowDashboardInner() {
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Banknote className="h-4 w-4 shrink-0 text-brand-primary" aria-hidden="true" />
                   30-day cashflow summary
-                  <InfoTooltip content={"The same numbers the forecast chart subtracts.\n\nReceived: cash already in the bank from paid orders.\n\nWages owed, fixed costs and supplier payables are subtracted to get Net 30d."} />
+                  <InfoTooltip content={"Net cash still held across all orders, including cancelled bookings until a refund is completed. This is an all-time cash balance. Wages owed, fixed costs and supplier payables are subtracted to get the forecast position."} />
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Row label="Received" value={fmt(metrics?.cashReceived || 0, currency)} tone="positive" />
+                <Row label="Net cash held" value={fmt(metrics?.cashReceived || 0, currency)} tone="positive" />
                 <Row label="Wages owed" value={`-${fmt(metrics?.staffPaymentsOwed || 0, currency)}`} tone="negative" />
                 <Row label="Fixed costs (next 30d)" value={`-${fmt(metrics?.fixedCostsNext30 || 0, currency)}`} tone="negative" />
                 <Row label="Supplier payables (next 30d)" value={`-${fmt(metrics?.supplierPayablesNext30 || 0, currency)}`} tone="negative" />

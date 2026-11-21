@@ -43,6 +43,7 @@ export interface ShiftLine {
   shift_start: string | null;
   shift_end: string | null;
   total_break_min: number;
+  worked_minutes?: number; // exact approved minutes used by Wages
   notes: string | null;
   needs_review: boolean;
   review_reason: string | null;
@@ -50,6 +51,7 @@ export interface ShiftLine {
   rate_multiplier: number;  // 1, 1.5, 2
   base_hours: number;       // up to OT cutoff
   ot_hours: number;         // beyond OT cutoff
+  sunday_holiday_hours?: number; // BCEA Sunday / public-holiday minutes
   base_pay: number;
   ot_pay: number;
   multiplier_pay: number;
@@ -135,9 +137,15 @@ export async function summariseStaffPay(
     staffId: string;
     periodStart: string; // YYYY-MM-DD inclusive
     periodEnd: string;   // YYYY-MM-DD inclusive
+    rangeStartISO?: string; // Exact UI date-window boundary shared with Wages
+    rangeEndExclusiveISO?: string;
   },
 ): Promise<PaySummary> {
-  const { companyId, staffId, periodStart, periodEnd } = args;
+  const { companyId, staffId, periodStart, periodEnd, rangeStartISO, rangeEndExclusiveISO } = args;
+  const startIso = rangeStartISO || `${periodStart}T00:00:00.000Z`;
+  const utcEndExclusive = new Date(`${periodEnd}T00:00:00.000Z`);
+  utcEndExclusive.setUTCDate(utcEndExclusive.getUTCDate() + 1);
+  const endExclusiveIso = rangeEndExclusiveISO || utcEndExclusive.toISOString();
 
   // Pull the staff profile (for hourly_rate + display name).
   const { data: profile, error: profileError } = await (supabase as any)
@@ -179,15 +187,14 @@ export async function summariseStaffPay(
   // Only queried for shift staff with a linked staff-member row.
   let rosterShiftCount: number | null = null;
   if (payType === "shift" && (ksm as any)?.id) {
-    const endExclusive = new Date(`${periodEnd}T00:00:00.000Z`);
-    endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
     const { count, error: rosterCountError } = await (supabase as any)
       .from("kitchen_staff_shifts")
       .select("id", { count: "exact", head: true })
       .eq("company_id", companyId)
       .eq("staff_member_id", (ksm as any).id)
-      .gte("shift_start", `${periodStart}T00:00:00.000Z`)
-      .lt("shift_start", endExclusive.toISOString())
+      .gte("shift_start", startIso)
+      .lt("shift_start", endExclusiveIso)
+      .not("shift_end", "is", null)
       .is("deleted_at", null);
     if (rosterCountError) throw rosterCountError;
     rosterShiftCount = count || 0;
@@ -218,18 +225,15 @@ export async function summariseStaffPay(
     ks.overtime_after_hours ?? ks.overtimeAfterHours ?? DEFAULT_OT_AFTER_HOURS,
   );
 
-  // Pull every clocked-out duty shift in the window.
-  // Window: shift_end falls between periodStart 00:00 local and
-  // periodEnd 23:59 local. Inclusive both ends.
-  const startIso = `${periodStart}T00:00:00.000Z`;
-  const endIso = `${periodEnd}T23:59:59.999Z`;
+  // Match Wages' date-window rule: shifts belong to the period by their
+  // start time, including overnight shifts that end on the next day.
   const { data: dutyShifts, error: dutyShiftsError } = await (supabase as any)
     .from("kitchen_duty_shifts")
     .select("id, staff_id, shift_start, shift_end, total_break_min, end_note, is_active")
     .eq("company_id", companyId)
     .eq("staff_id", staffId)
-    .gte("shift_end", startIso)
-    .lte("shift_end", endIso)
+    .gte("shift_start", startIso)
+    .lt("shift_start", endExclusiveIso)
     .not("shift_end", "is", null)
 ;
   if (dutyShiftsError) throw dutyShiftsError;
@@ -246,7 +250,7 @@ export async function summariseStaffPay(
       .eq("is_active", true)
       .is("shift_end", null)
       .gte("shift_start", startIso)
-      .lte("shift_start", endIso),
+      .lt("shift_start", endExclusiveIso),
     (ksm as any)?.id
       ? (supabase as any)
         .from("kitchen_staff_shifts")
@@ -255,7 +259,7 @@ export async function summariseStaffPay(
         .eq("staff_member_id", (ksm as any).id)
         .is("shift_end", null)
         .gte("shift_start", startIso)
-        .lte("shift_start", endIso)
+        .lt("shift_start", endExclusiveIso)
         .is("deleted_at", null)
       : Promise.resolve({ data: [], error: null }),
   ]);
@@ -271,8 +275,8 @@ export async function summariseStaffPay(
       .select("id, shift_start, shift_end, total_break_min, notes, standard_min, overtime_min, sunday_holiday_min")
       .eq("company_id", companyId)
       .eq("staff_member_id", (ksm as any).id)
-      .gte("shift_end", startIso)
-      .lte("shift_end", endIso)
+      .gte("shift_start", startIso)
+      .lt("shift_start", endExclusiveIso)
       .not("shift_end", "is", null)
       .is("deleted_at", null);
     if (error) throw error;
@@ -373,6 +377,7 @@ export async function summariseStaffPay(
           shift_start: ds.shift_start,
           shift_end: ds.shift_end,
           total_break_min: breakMin,
+          worked_minutes: 0,
           notes: currentRow.notes || null,
           needs_review: true,
           review_reason: reasons.join("; "),
@@ -380,6 +385,7 @@ export async function summariseStaffPay(
           rate_multiplier: 1,
           base_hours: 0,
           ot_hours: 0,
+          sunday_holiday_hours: 0,
           base_pay: 0,
           ot_pay: 0,
           multiplier_pay: 0,
@@ -398,6 +404,7 @@ export async function summariseStaffPay(
           shift_start: ds.shift_start,
           shift_end: ds.shift_end,
           total_break_min: breakMin,
+          worked_minutes: recordedMin,
           notes: currentRow.notes || null,
           needs_review: false,
           review_reason: null,
@@ -405,6 +412,7 @@ export async function summariseStaffPay(
           rate_multiplier: sundayHolidayHours > 0 && hourlyRate > 0 ? sundayHolidayRate / hourlyRate : 1,
           base_hours: standardHours + sundayHolidayHours,
           ot_hours: overtimeHours,
+          sunday_holiday_hours: sundayHolidayHours,
           base_pay: basePay,
           ot_pay: otPay,
           multiplier_pay: multiplierPay,
@@ -434,6 +442,7 @@ export async function summariseStaffPay(
         shift_start: ds.shift_start,
         shift_end: ds.shift_end,
         total_break_min: breakMin,
+        worked_minutes: 0,
         notes: ds.end_note || null,
         needs_review: true,
         review_reason: reasons.join("; "),
@@ -441,6 +450,7 @@ export async function summariseStaffPay(
         rate_multiplier: multiplier,
         base_hours: 0,
         ot_hours: 0,
+        sunday_holiday_hours: 0,
         base_pay: 0,
         ot_pay: 0,
         multiplier_pay: 0,
@@ -466,6 +476,7 @@ export async function summariseStaffPay(
       shift_start: ds.shift_start,
       shift_end: ds.shift_end,
       total_break_min: breakMin,
+      worked_minutes: workedMin,
       notes: ds.end_note || null,
       needs_review: false,
       review_reason: null,
@@ -473,6 +484,7 @@ export async function summariseStaffPay(
       rate_multiplier: multiplier,
       base_hours: baseHours,
       ot_hours: otHours,
+      sunday_holiday_hours: multiplier > 1 ? hours : 0,
       base_pay: basePay,
       ot_pay: otPay,
       multiplier_pay: multiplierPay,
@@ -493,6 +505,7 @@ export async function summariseStaffPay(
       shift_start: row.shift_start,
       shift_end: null,
       total_break_min: Number(row.total_break_min) || 0,
+      worked_minutes: 0,
       notes: row.notes || null,
       needs_review: true,
       review_reason: "Clock is still open more than 14 hours after starting",
@@ -500,6 +513,7 @@ export async function summariseStaffPay(
       rate_multiplier: 1,
       base_hours: 0,
       ot_hours: 0,
+      sunday_holiday_hours: 0,
       base_pay: 0,
       ot_pay: 0,
       multiplier_pay: 0,
@@ -520,6 +534,7 @@ export async function summariseStaffPay(
       shift_start: row.shift_start,
       shift_end: null,
       total_break_min: Number(row.total_break_min) || 0,
+      worked_minutes: 0,
       notes: row.end_note || null,
       needs_review: true,
       review_reason: "Clock is still open more than 14 hours after starting",
@@ -527,6 +542,7 @@ export async function summariseStaffPay(
       rate_multiplier: 1,
       base_hours: 0,
       ot_hours: 0,
+      sunday_holiday_hours: 0,
       base_pay: 0,
       ot_pay: 0,
       multiplier_pay: 0,
@@ -534,10 +550,17 @@ export async function summariseStaffPay(
     });
   }
 
-  const totalHours = Math.round(shifts.reduce((s, r) => s + r.hours, 0) * 100) / 100;
-  const hourlyBasePay = Math.round(shifts.reduce((s, r) => s + r.base_pay, 0) * 100) / 100;
-  const hourlyOvertimePay = Math.round(shifts.reduce((s, r) => s + r.ot_pay, 0) * 100) / 100;
-  const hourlyMultiplierPay = Math.round(shifts.reduce((s, r) => s + r.multiplier_pay, 0) * 100) / 100;
+  const roundMoney = (amount: number) => Math.round(amount * 100) / 100;
+  const totalMinutes = shifts.reduce((sum, shift) => sum + (shift.worked_minutes ?? Math.round(shift.hours * 60)), 0);
+  const totalHours = Math.round((totalMinutes / 60) * 100) / 100;
+  const ordinaryHours = shifts.reduce((sum, shift) => sum + Math.max(0, shift.base_hours - (shift.sunday_holiday_hours || 0)), 0);
+  const overtimeHours = shifts.reduce((sum, shift) => sum + shift.ot_hours, 0);
+  const sundayHolidayHours = shifts.reduce((sum, shift) => sum + (shift.sunday_holiday_hours || 0), 0);
+  const ordinaryPay = roundMoney(ordinaryHours * hourlyRate);
+  const sundayAtFullRatePay = roundMoney(sundayHolidayHours * sundayHolidayRate);
+  const hourlyBasePay = ordinaryPay;
+  const hourlyOvertimePay = roundMoney(overtimeHours * overtimeRate);
+  const hourlyMultiplierPay = sundayAtFullRatePay;
 
   // Pay model drives the payslip total. hourly = the shift-line
   // roll-up above; monthly = salary prorated to the period; shift =
@@ -550,14 +573,18 @@ export async function summariseStaffPay(
   if (payType === "monthly") {
     basePay = computeMonthlyPeriodPay(monthlySalary, periodStart, periodEnd);
     overtimePay = 0;
-    multiplierPay = 0;
+    // Monthly salary covers ordinary hours; wages adds the extra half of
+    // the recorded 2x Sunday / public-holiday rate as a separate premium.
+    multiplierPay = roundMoney(sundayHolidayHours * sundayHolidayRate / 2);
   } else if (payType === "shift") {
     // Roster count when available (matches the wage report); fall back
     // to the duty-clock actual count for staff clocked only on the
     // tablet with no roster rows.
-    basePay = computeShiftPeriodPay(shiftRate, rosterShiftCount ?? shifts.filter((shift) => !shift.needs_review).length);
+    const completedShiftCount = rosterShiftCount ?? shifts.filter((shift) => !shift.needs_review && shift.shift_end).length;
+    basePay = computeShiftPeriodPay(shiftRate, completedShiftCount);
     overtimePay = 0;
-    multiplierPay = 0;
+    const holidayShiftCount = shifts.filter((shift) => !shift.needs_review && (shift.sunday_holiday_hours || 0) > 0).length;
+    multiplierPay = roundMoney(Math.max(0, (Number((ksm as any)?.sunday_holiday_shift_rate) || shiftRate * 2) - shiftRate) * holidayShiftCount);
   }
   const totalPay = Math.round((basePay + overtimePay + multiplierPay) * 100) / 100;
 

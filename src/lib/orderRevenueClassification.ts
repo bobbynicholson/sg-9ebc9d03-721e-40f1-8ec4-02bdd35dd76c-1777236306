@@ -17,13 +17,15 @@
  * State machine:
  *
  *   ┌────────────────────────────────────────────────────────────┐
- *   │ pipeline   pending order (no deposit, no confirmed_at)     │
+ *   │ pipeline   pending / active order with no payment or       │
+ *   │            confirmation signal.                           │
  *   │            Forward-looking forecast. Counts in pipeline    │
  *   │            KPIs but NOT in booked revenue.                 │
  *   │                                                            │
- *   │ booked     confirmed/preparing/ready/in_transit + AT LEAST │
- *   │            ONE of: deposit_paid, confirmed_at, payment     │
- *   │            paid/partial. This is the deal-locked-in state. │
+ *   │ booked     pending/confirmed/preparing/ready/in_transit +  │
+ *   │            AT LEAST ONE of: deposit_paid, confirmed_at,    │
+ *   │            payment paid/partial/completed.                 │
+ *   │            This is the deal-locked-in state.               │
  *   │            Counts in booked revenue.                       │
  *   │                                                            │
  *   │ realised   delivered or completed. The event happened or   │
@@ -95,8 +97,7 @@ export function classifyOrderRevenue(order: OrderForRevenue | null | undefined):
   const isCancelled = status === "cancelled" || !!order.cancelled_at;
   if (isCancelled) return "churned";
   if (REALISED_STATUSES.has(status)) return "realised";
-  if (status === "pending") return "pipeline";
-  if (ACTIVE_STATUSES.has(status)) {
+  if (status === "pending" || ACTIVE_STATUSES.has(status)) {
     const lockedIn =
       !!order.deposit_paid
       || !!order.confirmed_at

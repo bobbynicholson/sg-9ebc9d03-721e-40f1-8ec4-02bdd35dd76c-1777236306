@@ -164,6 +164,7 @@ function KitchenStaffPage() {
   // pages (e.g. Cleaning team page -> "Cleaning staff" tile) land on
   // the right filter without an extra click.
   const [filterDept, setFilterDept] = useState<"all" | string>("all");
+  const [expandedRosterRows, setExpandedRosterRows] = useState<Set<string>>(() => new Set());
   useEffect(() => {
     if (!router.isReady) return;
     const dept = String(router.query.department || "").toLowerCase();
@@ -465,6 +466,18 @@ function KitchenStaffPage() {
     setError("");
     setDialogOpen(true);
   };
+
+  // Direct management link from settlement roster-only rows.
+  useEffect(() => {
+    if (!router.isReady || typeof router.query.staffId !== "string") return;
+    const target = staff.find((member) => member.id === router.query.staffId);
+    if (!target) return;
+    if (!dialogOpen || editTarget?.id !== target.id) openEdit(target);
+    void router.replace({ pathname: router.pathname, query: { ...router.query, staffId: undefined } }, undefined, { shallow: true });
+    // openEdit is intentionally not a dependency: the deep link should open once when
+    // the roster data arrives, not reopen the dialog after unrelated form state changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.staffId, staff]);
 
   const handleSave = async () => {
     if (!companyId) return;
@@ -1092,6 +1105,7 @@ function KitchenStaffPage() {
                     // STA-C intel: per-row activity rollup. Last
                     // clocked + hours this month + unpaid sessions.
                     const act = activity.get(s.id);
+                    const detailsExpanded = expandedRosterRows.has(s.id);
                     return (
                       <li key={s.id} className={`grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2.5 p-3 sm:gap-y-3 sm:p-4 xl:grid-cols-[auto_minmax(0,1fr)_minmax(9rem,auto)_auto] xl:items-center ${archived ? "opacity-60" : ""}`}>
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-primary/10 sm:h-10 sm:w-10">
@@ -1172,7 +1186,7 @@ function KitchenStaffPage() {
                               </span>
                             )}
                           </div>
-                          <div className="mt-2 grid min-w-0 gap-1.5 text-xs text-slate-600 sm:grid-cols-2">
+                          <div className={`mt-2 grid min-w-0 gap-1.5 text-xs text-slate-600 sm:grid-cols-2 ${detailsExpanded ? "" : "hidden"}`}>
                             {/* Phase 21 #9: click-to-copy phone +
                                 email, same pattern as driver-
                                 management. Kitchen leads paste
@@ -1261,7 +1275,7 @@ function KitchenStaffPage() {
                               member has no recorded activity, so a
                               brand-new staff member doesn't show
                               "0h this month, never clocked" noise. */}
-                          {!archived && act && (act.last_clocked_at || act.hours_this_month_min > 0 || act.unpaid_session_count > 0) && (
+                          {detailsExpanded && !archived && act && (act.last_clocked_at || act.hours_this_month_min > 0 || act.unpaid_session_count > 0) && (
                             <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
                               {act.last_clocked_at ? (
                                 (() => {
@@ -1297,7 +1311,7 @@ function KitchenStaffPage() {
                             </div>
                           )}
                         </div>
-                        <div className="col-span-2 grid min-w-0 grid-cols-2 gap-2 text-left xl:col-span-1 xl:flex xl:items-center xl:justify-end xl:gap-3 xl:text-right">
+                        <div className={`col-span-2 grid min-w-0 grid-cols-2 gap-2 text-left xl:col-span-1 xl:flex xl:items-center xl:justify-end xl:gap-3 xl:text-right ${detailsExpanded ? "" : "hidden"}`}>
                           {/* STA-B: pay-type-aware column block.
                               Pre-STA-B every row rendered the
                               hourly Standard/Overtime/Std-day
@@ -1360,6 +1374,13 @@ function KitchenStaffPage() {
                           </div>
                         </div>
                         <div className="col-span-2 grid grid-cols-2 gap-2 xl:col-span-1 xl:flex xl:items-center">
+                          <Button variant="outline" size="sm" className="h-10 text-xs sm:text-sm xl:h-9" aria-expanded={detailsExpanded} onClick={() => setExpandedRosterRows((current) => {
+                            const next = new Set(current);
+                            if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
+                            return next;
+                          })}>
+                            {detailsExpanded ? "Hide details" : "Details"}
+                          </Button>
                           <Button variant="outline" size="sm" className="h-10 text-xs sm:text-sm xl:h-9" onClick={() => openEdit(s)}>
                             <Pencil className="mr-1 h-3.5 w-3.5" />Edit
                           </Button>

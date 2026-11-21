@@ -497,6 +497,33 @@ export async function getAllOrders(companyId: string, opts: GetAllOrdersOpts = {
   }
 }
 
+/**
+ * Complete light order history for financial rollups. Unlike getAllOrders,
+ * this keeps paging until the tenant's full order history has been read so
+ * totals do not silently stop at the PostgREST/service page limit.
+ */
+export async function getAllOrdersForFinancialReports(companyId: string) {
+  const pageSize = 1000;
+  const rows: any[] = [];
+  let offset = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    const page = data || [];
+    rows.push(...page);
+    if (page.length < pageSize) break;
+    offset += page.length;
+  }
+  return rows;
+}
+
 export async function updateOrder(orderId: string, updates: any) {
   try {
     // Detect a guest_count change BEFORE we write. If the count moves

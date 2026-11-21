@@ -56,9 +56,9 @@ export function RevenueTrendChart({ data, loading }: Props) {
           Revenue trend (last 12 months)
           <InfoTooltip
             content={
-              "Booked = total value of confirmed orders by month of event.\n" +
-              "Collected = money actually received (deposits + balances).\n\n" +
-              "Cancelled orders excluded. The bar shows order count on the right axis."
+              "Booked = gross total_amount, including tax, for reportable committed orders grouped by event month. Unconfirmed pipeline and cancelled/test orders are excluded.\n" +
+              "Collected = net amount_paid after completed refunds for reportable orders grouped by event month. Deposits and partial payments count; cancelled orders count only while cash is still held.\n\n" +
+              "The bar shows booked-order count on the right axis."
             }
           />
         </CardTitle>

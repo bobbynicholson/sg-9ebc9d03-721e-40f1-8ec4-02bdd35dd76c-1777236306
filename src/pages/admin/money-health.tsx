@@ -25,7 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
-import { Activity, AlertTriangle, CheckCircle2, ClipboardCheck, Loader2, Mail, MailX, Send, Banknote, ChevronDown, Eye, ExternalLink } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, ClipboardCheck, Loader2, Mail, MailX, Send, Banknote, ChevronDown, Eye, ExternalLink, Clock3, MessageCircle, RefreshCw } from "lucide-react";
 
 type MoneyIssue = {
   orderId: string;
@@ -65,6 +65,22 @@ type EmailHealth = {
   staleInProgress: boolean;
 };
 
+type CronHealth = {
+  checkedAt: string;
+  tasks: Array<{ taskKey: string; status: string; nextRunAt: string | null }>;
+};
+
+type WhatsAppHealth = {
+  connected: boolean;
+  displayNumber: string | null;
+  webhookVerifiedAt: string | null;
+  webhookAccountSubscribedAt: string | null;
+};
+
+type WhatsAppActivityHealth = {
+  totals?: { waiting?: number; failed?: number; delivered?: number; read?: number };
+};
+
 const ISSUE_LABELS: Record<string, string> = {
   order_vs_invoice_total: "Order / invoice total",
   order_vs_invoice_balance: "Outstanding balance",
@@ -85,6 +101,12 @@ function MoneyHealthPage() {
   const [draining, setDraining] = useState(false);
   const [money, setMoney] = useState<MoneyHealth | null>(null);
   const [email, setEmail] = useState<EmailHealth | null>(null);
+  const [cron, setCron] = useState<CronHealth | null>(null);
+  const [cronError, setCronError] = useState<string | null>(null);
+  const [whatsApp, setWhatsApp] = useState<WhatsAppHealth | null>(null);
+  const [whatsAppActivity, setWhatsAppActivity] = useState<WhatsAppActivityHealth | null>(null);
+  const [whatsAppError, setWhatsAppError] = useState<string | null>(null);
+  const [whatsAppActivityError, setWhatsAppActivityError] = useState<string | null>(null);
   const [expandedIssues, setExpandedIssues] = useState<Record<string, boolean>>({});
   const loadSequence = useRef(0);
   // Audit fix: track per-endpoint failures. Previously both fetches
@@ -94,6 +116,50 @@ function MoneyHealthPage() {
   // silent drift.
   const [moneyError, setMoneyError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
+
+  const loadSystemHealth = useCallback(async () => {
+    const companyId = user?.company_id ? String(user.company_id) : null;
+    const getJson = async (url: string) => {
+      const response = await fetch(url, { cache: "no-store" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body?.ok === false) throw new Error(body?.error || `Request failed (HTTP ${response.status})`);
+      return body;
+    };
+    const [cronResult, whatsAppResult, activityResult] = await Promise.allSettled([
+      getJson("/api/admin/cron-task-status"),
+      getJson(`/api/admin/whatsapp/settings${companyId ? `?companyId=${encodeURIComponent(companyId)}` : ""}`),
+      getJson("/api/admin/whatsapp/activity?days=7&page=1"),
+    ]);
+    if (cronResult.status === "fulfilled") {
+      setCron(cronResult.value as CronHealth);
+      setCronError(null);
+    } else {
+      setCron(null);
+      setCronError(cronResult.reason instanceof Error ? cronResult.reason.message : "Could not load scheduled task health.");
+    }
+    if (whatsAppResult.status === "fulfilled") {
+      setWhatsApp(whatsAppResult.value as WhatsAppHealth);
+      setWhatsAppError(null);
+    } else {
+      setWhatsApp(null);
+      setWhatsAppError(whatsAppResult.reason instanceof Error ? whatsAppResult.reason.message : "Could not load WhatsApp status.");
+    }
+    if (activityResult.status === "fulfilled") {
+      setWhatsAppActivity(activityResult.value as WhatsAppActivityHealth);
+      setWhatsAppActivityError(null);
+    } else {
+      setWhatsAppActivity(null);
+      setWhatsAppActivityError(activityResult.reason instanceof Error ? activityResult.reason.message : "Could not load WhatsApp message activity.");
+    }
+  }, [user?.company_id]);
+
+  useEffect(() => {
+    void loadSystemHealth();
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadSystemHealth();
+    }, 60_000);
+    return () => window.clearInterval(interval);
+  }, [loadSystemHealth]);
 
   const load = useCallback(async () => {
     const sequence = ++loadSequence.current;
@@ -167,13 +233,19 @@ function MoneyHealthPage() {
     email.queued > 0 || email.awaitingApproval > 0 || email.failed > 0 ||
     email.stale || email.staleInProgress
   );
+  const cronAttentionTasks = (cron?.tasks || []).filter((task) =>
+    ["failed", "stuck", "overdue", "never_run"].includes(task.status),
+  );
+  const whatsappWaiting = Number(whatsAppActivity?.totals?.waiting || 0);
+  const whatsappFailed = Number(whatsAppActivity?.totals?.failed || 0);
+  const whatsappWebhookReady = !!(whatsApp?.webhookVerifiedAt && whatsApp?.webhookAccountSubscribedAt);
   const toggleIssue = (key: string) => setExpandedIssues((current) => ({ ...current, [key]: !current[key] }));
   const detailMoney = (amount: number | null) => amount == null ? "Not recorded" : fmtMoney(amount);
 
   return (
     <>
       <NoIndexMeta />
-      <Head><title>Money & email health - CateringMS</title></Head>
+      <Head><title>System health - CateringMS</title></Head>
       <AdminNav />
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
@@ -183,8 +255,8 @@ function MoneyHealthPage() {
               amber = drift or backlog). */}
           <PortalHeader
             variant="hero"
-            title="Money & email health"
-            subtitle="Review email delivery and payment reconciliation issues, then open the affected records."
+            title="System health"
+            subtitle="Review payment and email health, scheduled tasks, and WhatsApp delivery from one place."
             icon={Activity}
             meta={
               <>
@@ -260,6 +332,111 @@ function MoneyHealthPage() {
               />
             </div>
           )}
+
+          <section aria-labelledby="system-health-title" className="mb-6">
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h2 id="system-health-title" className="text-lg font-semibold text-slate-900 dark:text-white">System health</h2>
+                <p className="mt-1 text-sm text-slate-500">Scheduled jobs and WhatsApp connection status.</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => void loadSystemHealth()} className="h-9 gap-2">
+                <RefreshCw className="h-4 w-4" /> Refresh status
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <PortalCard className="min-w-0">
+                <PortalCardHeader
+                  title={<><Clock3 className="h-4 w-4" /> Scheduled tasks</>}
+                  action={cronError ? <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700">Unavailable</Badge> : cron ? (
+                    <Badge variant="outline" className={cronAttentionTasks.length ? "border-amber-200 bg-amber-50 text-amber-800" : "border-emerald-200 bg-emerald-50 text-emerald-700"}>
+                      {cronAttentionTasks.length ? `${cronAttentionTasks.length} need attention` : "Healthy"}
+                    </Badge>
+                  ) : <Badge variant="outline">Loading</Badge>}
+                />
+                <div className="space-y-3">
+                  {cronError ? (
+                    <p role="status" className="text-sm text-rose-700">{cronError}</p>
+                  ) : !cron ? (
+                    <p className="text-sm text-slate-500">Loading scheduled task status…</p>
+                  ) : (
+                    <>
+                      <p className="text-sm text-slate-700 dark:text-slate-300">
+                        {cron.tasks.length} scheduled tasks monitored
+                        {cronAttentionTasks.length > 0 && ` · ${cronAttentionTasks.length} failed, overdue, stuck or not yet run`}
+                        {cronAttentionTasks.length === 0 && " · no missed or failed runs detected"}
+                      </p>
+                      {cronAttentionTasks.length > 0 && (
+                        <ul className="space-y-1.5">
+                          {cronAttentionTasks.slice(0, 3).map((task) => (
+                            <li key={task.taskKey} className="flex min-w-0 items-center justify-between gap-3 rounded-md bg-amber-50/70 px-3 py-2 text-xs">
+                              <span className="min-w-0 truncate font-medium text-slate-800">{task.taskKey.replace(/[-_]/g, " ")}</span>
+                              <span className="shrink-0 capitalize text-amber-800">{task.status.replace(/_/g, " ")}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <p className="text-xs text-slate-500">Checked {new Date(cron.checkedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+                    </>
+                  )}
+                  <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+                    <Button asChild size="sm" className="h-9 gap-1.5 bg-brand-primary hover:bg-brand-primary/90">
+                      <Link href={withSlug("/admin/cron-tasks")}>Open scheduled tasks <ExternalLink className="h-3.5 w-3.5" /></Link>
+                    </Button>
+                  </div>
+                </div>
+              </PortalCard>
+
+              <PortalCard className="min-w-0">
+                <PortalCardHeader
+                  title={<><MessageCircle className="h-4 w-4" /> WhatsApp</>}
+                  action={whatsAppError ? <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700">Status unavailable</Badge> : !whatsApp ? <Badge variant="outline">Loading</Badge> : (
+                    <Badge variant="outline" className={whatsApp.connected && whatsappWebhookReady ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-800"}>
+                      {whatsApp.connected ? (whatsappWebhookReady ? "Connected · webhook ready" : "Connected · setup incomplete") : "Not connected"}
+                    </Badge>
+                  )}
+                />
+                <div className="space-y-3">
+                  {whatsAppError ? (
+                    <p role="status" className="text-sm text-rose-700">{whatsAppError}</p>
+                  ) : !whatsApp ? (
+                    <p className="text-sm text-slate-500">Loading WhatsApp connection and message activity…</p>
+                  ) : (
+                    <>
+                      <p className="text-sm text-slate-700 dark:text-slate-300">
+                        {whatsApp.connected
+                          ? `Business number ${whatsApp.displayNumber || "connected"}. Webhook ${whatsApp.webhookVerifiedAt ? "verified" : "needs verification"}; Meta subscription ${whatsApp.webhookAccountSubscribedAt ? "active" : "needs setup"}.`
+                          : "WhatsApp Business is not connected. Automatic WhatsApp messages cannot be delivered."}
+                      </p>
+                      {whatsAppActivity?.totals && (
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          {[
+                            ["Waiting", whatsappWaiting],
+                            ["Failed · 7d", whatsappFailed],
+                            ["Delivered · 7d", Number(whatsAppActivity.totals.delivered || 0)],
+                            ["Read · 7d", Number(whatsAppActivity.totals.read || 0)],
+                          ].map(([label, value]) => (
+                            <div key={String(label)} className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-800">
+                              <p className="text-xs text-slate-500">{label}</p>
+                              <p className={`mt-1 text-base font-semibold tabular-nums ${label === "Failed · 7d" && Number(value) > 0 ? "text-rose-600" : "text-slate-900 dark:text-white"}`}>{value}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {whatsAppActivityError && <p role="status" className="text-xs text-amber-800">Message counts unavailable: {whatsAppActivityError}</p>}
+                    </>
+                  )}
+                  <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+                    <Button asChild size="sm" className="h-9 gap-1.5 bg-brand-primary hover:bg-brand-primary/90">
+                      <Link href={withSlug("/admin/whatsapp")}>Manage WhatsApp <ExternalLink className="h-3.5 w-3.5" /></Link>
+                    </Button>
+                    <Button asChild size="sm" variant="outline" className="h-9 gap-1.5">
+                      <Link href={withSlug("/admin/whatsapp/activity")}>View activity <ExternalLink className="h-3.5 w-3.5" /></Link>
+                    </Button>
+                  </div>
+                </div>
+              </PortalCard>
+            </div>
+          </section>
 
           {/* Email queue health */}
           <PortalCard className="mb-6">

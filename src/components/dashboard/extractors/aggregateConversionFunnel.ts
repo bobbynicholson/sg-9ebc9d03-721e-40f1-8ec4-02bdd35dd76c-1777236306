@@ -19,6 +19,8 @@
  */
 import type { LeadForYoY, QuoteForYoY } from "./aggregateYoYStrip";
 import type { RevenueByMonthInput } from "./aggregateRevenueByMonth";
+import { isChurnedRevenue, isRealisedRevenue } from "@/lib/orderRevenueClassification";
+import { isReportableOrder } from "@/lib/orderRevenueMath";
 
 export interface ConversionStage {
   key: "leads" | "quotes_sent" | "quotes_viewed" | "quotes_accepted" | "orders_completed";
@@ -163,10 +165,10 @@ export function aggregateConversionFunnel(
   for (const o of orders) {
     if (!o.event_date) continue;
     if (!inDateWindow(o.event_date, rangeStart, rangeEnd)) continue;
-    if (o.status === "completed" || o.status === "delivered") {
+    if (isRealisedRevenue(o) && isReportableOrder(o)) {
       ordersCompleted += 1;
       valueCompleted += Number(o.total_amount || 0);
-    } else if (o.status === "cancelled") {
+    } else if (isChurnedRevenue(o) && isReportableOrder(o)) {
       ordersChurned += 1;
       valueChurned += Number(o.total_amount || 0);
     }

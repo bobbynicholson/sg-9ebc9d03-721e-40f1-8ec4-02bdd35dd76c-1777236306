@@ -22,6 +22,8 @@
 import type { RevenueByMonthInput } from "./aggregateRevenueByMonth";
 import type { QuoteForYoY, LeadForYoY } from "./aggregateYoYStrip";
 import type { CancelledOrder } from "./aggregateCancellationReasons";
+import { isBookedRevenue } from "@/lib/orderRevenueClassification";
+import { isReportableOrder } from "@/lib/orderRevenueMath";
 
 export interface BranchOption {
   id: string;
@@ -61,10 +63,10 @@ export interface BranchSpiderResult {
 }
 
 const AXIS_DEFS = [
-  { key: "revenue",     axis: "Revenue",      description: "Total realised revenue from non-cancelled orders." },
-  { key: "orders",      axis: "Volume",       description: "Number of non-cancelled orders booked." },
+  { key: "revenue",     axis: "Revenue",      description: "Gross total_amount (including tax) for reportable committed orders; unconfirmed pipeline, cancelled and automated test orders are excluded." },
+  { key: "orders",      axis: "Volume",       description: "Number of reportable committed orders; unconfirmed pipeline, cancelled and automated test orders are excluded." },
   { key: "winRate",     axis: "Win rate",     description: "Won leads as a share of leads that reached a decision." },
-  { key: "aov",         axis: "AOV",          description: "Average order value across non-cancelled orders." },
+  { key: "aov",         axis: "AOV",          description: "Average gross total_amount (including tax) across reportable committed orders with a positive total." },
   { key: "speed",       axis: "Speed",        description: "How fast quotes get accepted - inverse of median time-to-accept." },
   { key: "reliability", axis: "Reliability",  description: "Inverse of cancellation rate - higher means fewer orders cancelled." },
 ] as const;
@@ -132,6 +134,7 @@ export function aggregateBranchSpider(
       agg.cancelledCount += 1;
       continue;
     }
+    if (!isReportableOrder(o) || !isBookedRevenue(o)) continue;
     const amount = Number(o.total_amount) || 0;
     agg.revenue += amount;
     agg.orderCount += 1;

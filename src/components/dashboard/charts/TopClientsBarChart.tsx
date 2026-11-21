@@ -44,8 +44,8 @@ export function TopClientsBarChart({ data, loading }: Props) {
           Top 10 clients (lifetime value)
           <InfoTooltip
             content={
-              "Sum of total order value per client (cancelled orders excluded). The solid green segment is paid so far; the lighter amber tail is what's still outstanding.\n\n" +
-              "Use this to spot your most valuable clients and any large outstanding balances. Click a bar to open the client."
+              "Lifetime booked gross order value (total_amount, including tax) per linked client. Reportable committed orders count; cancelled, unconfirmed pipeline and automated test orders are excluded. The solid segment is net amount paid after refunds, capped at booked value; the lighter segment is outstanding.\n\n" +
+              "Click a bar to open the client."
             }
           />
         </CardTitle>

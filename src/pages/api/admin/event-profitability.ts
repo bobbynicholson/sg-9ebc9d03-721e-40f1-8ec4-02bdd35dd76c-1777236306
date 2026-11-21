@@ -49,24 +49,30 @@ async function handler(
 
   try {
     const db = getServiceSupabase() as any;
-    let ordersQuery = db
-      .from("orders")
-      .select(
-        "id, order_number, event_name, client_name, event_date, total_amount, quote_id, status, order_items(quantity, unit_cost, line_total)",
-      )
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .gte("event_date", from)
-      .lte("event_date", to)
-      .order("event_date", { ascending: false });
-    ordersQuery =
-      viewMode === "completed"
+    const orderRows: any[] = [];
+    let offset = 0;
+    while (true) {
+      let ordersQuery = db
+        .from("orders")
+        .select(
+          "id, order_number, event_name, client_name, internal_notes, event_date, total_amount, quote_id, status, payment_status, deposit_paid, confirmed_at, cancelled_at, order_items(quantity, unit_cost, line_total)",
+        )
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .gte("event_date", from)
+        .lte("event_date", to)
+        .order("event_date", { ascending: false })
+        .order("id", { ascending: false });
+      ordersQuery = viewMode === "completed"
         ? ordersQuery.in("status", ["delivered", "completed"])
         : ordersQuery.neq("status", "cancelled");
-    const { data: orders, error: orderError } = await ordersQuery;
-    if (orderError) throw orderError;
-
-    const orderRows = orders || [];
+      const { data: page, error: orderError } = await ordersQuery.range(offset, offset + 999);
+      if (orderError) throw orderError;
+      const pageRows = page || [];
+      orderRows.push(...pageRows);
+      if (pageRows.length < 1000) break;
+      offset += pageRows.length;
+    }
     const orderIds = orderRows.map((row: any) => row.id).filter(Boolean);
     const quoteIds = orderRows.map((row: any) => row.quote_id).filter(Boolean);
     if (!orderIds.length)

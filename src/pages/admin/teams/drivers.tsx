@@ -59,7 +59,7 @@ import { teamBucketsForUser } from "@/lib/teamRoleBuckets";
 import {
   Truck, ArrowLeft, Users, Clock, ClipboardList,
   Receipt, Map as MapIcon, Car, AlertTriangle, Banknote, CalendarDays,
-  CheckCircle2, ArrowRight, Flame, Wrench, Snowflake, RefreshCw,
+  CheckCircle2, ArrowRight, Flame, Wrench, Snowflake, RefreshCw, ChevronDown,
 } from "lucide-react";
 import { PageWorkbench, PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
 
@@ -619,45 +619,17 @@ function DriversTeamPage() {
             )}
           </div>
 
-          {/* DRV-A: per-driver hours-this-week chip strip. Top 6 by
-              mins; overtime tint at 45h (rose + !), 38h (amber). */}
-          {stats.topDriverHours.length > 0 && (
-            <div className="mb-4">
-              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Hours this week
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {stats.topDriverHours.map((d) => {
-                  const hrs = Math.round((d.mins / 60) * 10) / 10;
-                  const overtime = hrs > 45;
-                  const high = hrs > 38;
-                  return (
-                    <Link key={d.id} href={withSlug(`/admin/driver-settlement?driver=${d.id}`)}>
-                      <Badge
-                        variant="outline"
-                        className={`max-w-full whitespace-normal break-words px-2.5 py-1 text-xs tabular-nums cursor-pointer ${
-                          overtime
-                            ? "border-rose-300 text-rose-800 bg-rose-50 hover:bg-rose-100"
-                            : high
-                              ? "border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100"
-                              : "border-slate-200 text-slate-700 bg-white hover:bg-slate-50"
-                        }`}
-                        title={overtime ? "Over 45h - check overtime policy" : high ? "Approaching overtime" : ""}
-                      >
-                        {d.name} · {hrs}h
-                        {overtime && <span className="ml-1 text-rose-600">!</span>}
-                      </Badge>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {/* DRV-A: 4-card intel grid above the tile shortcuts. Hidden
               while loading (the skeleton above stands in) so the zero-
               state copy never shows for data that hasn't arrived. */}
-          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 ${loading ? "hidden" : ""}`}>
+          <details className={`mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm group ${loading ? "hidden" : ""}`}>
+            <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-slate-800 [&::-webkit-details-marker]:hidden max-sm:flex-wrap">
+              <span>Dispatch details</span>
+              <span className="flex items-center gap-2 text-xs font-normal text-slate-500">Delivery progress, fleet readiness and recent issues <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" /></span>
+            </summary>
+            <div className="border-t border-slate-100 p-3 sm:p-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+
             {/* Today's deliveries pipeline. */}
             <Link href={withSlug("/admin/order-assignments")}>
               <Card className={`border shadow-sm transition-colors hover:border-slate-300 ${stats.asnOverdue > 0 ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}>
@@ -787,7 +759,9 @@ function DriversTeamPage() {
                 </CardContent>
               </Card>
             </Link>
-          </div>
+              </div>
+            </div>
+          </details>
 
           {/* Tile shortcuts - slug-wrapped now. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -809,12 +783,6 @@ function DriversTeamPage() {
             ))}
           </div>
 
-          {/* Bottom hint - deeper drilldowns. */}
-          <p className="text-xs text-slate-500 text-center mt-6">
-            Also see <Link href={withSlug("/admin/tracking")} className="text-sky-700 hover:underline">Live operations</Link> ·
-            <Link href={withSlug("/admin/order-assignments")} className="text-sky-700 hover:underline">Dispatch</Link> ·
-            <Link href={withSlug("/admin/wages?tab=drivers")} className="text-sky-700 hover:underline">Driver wages</Link>.
-          </p>
         </PortalShell>
       </div>
     </>

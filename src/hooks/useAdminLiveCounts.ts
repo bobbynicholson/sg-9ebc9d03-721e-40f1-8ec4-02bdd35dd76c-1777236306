@@ -20,8 +20,8 @@
  * AdminLiveStateStrip hides the matching pills for non-finance
  * roles.
  *
- *   revenueToday   - sum(total_amount) on orders today, status
- *                     in collected statuses (delivered + paid)
+ *   revenueToday   - booked gross order value (including tax) for
+ *                     committed events whose event_date is today
  *   unpaidValue    - sum(amount_due) on overdue invoices
  *
  * Reads RegionFilterContext so the counts scope to the selected
@@ -38,6 +38,8 @@ import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { canAccessFinance } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
 import { toLocalISO } from "@/lib/localDate";
+import { isBookedRevenue } from "@/lib/orderRevenueClassification";
+import { isReportableOrder, sumBookedRevenue } from "@/lib/orderRevenueMath";
 
 export interface AdminLiveCounts {
   eventsToday: number;
@@ -192,13 +194,10 @@ export function useAdminLiveCounts(): AdminLiveCounts {
         ? (() => {
             const q = sb
               .from("orders")
-              .select("total_amount")
+              .select("total_amount, status, payment_status, deposit_paid, confirmed_at, cancelled_at, order_number, event_name, client_name, internal_notes")
               .eq("company_id", companyId)
-              .eq("event_date", todayIso)
-              // order_status carries workflow progress only - payment
-              // state lives on payment_status. Keep the values that
-              // genuinely indicate the event is happening or already done.
-              .in("status", ["ready", "in_transit", "delivered", "completed"]);
+              .is("deleted_at", null)
+              .eq("event_date", todayIso);
             if (regionFilterId) q.eq("region_id", regionFilterId);
             return q;
           })()
@@ -258,8 +257,8 @@ export function useAdminLiveCounts(): AdminLiveCounts {
       const alertsRaw = (refundsRes?.count || 0) + (emailFailRes?.count || 0);
       setAlertsTotal(alertsRaw);
 
-      const revRows = (revenueRes?.data as Array<{ total_amount: number | null }> | null) || [];
-      setRevenueToday(revRows.reduce((sum, r) => sum + Number(r.total_amount || 0), 0));
+      const revRows = (revenueRes?.data || []) as any[];
+      setRevenueToday(sumBookedRevenue(revRows.filter((row) => isReportableOrder(row) && isBookedRevenue(row))));
 
       const unpaidRows = (unpaidRes?.data as Array<{ balance_due: number | null }> | null) || [];
       setUnpaidValue(unpaidRows.reduce((sum, r) => sum + Number(r.balance_due || 0), 0));

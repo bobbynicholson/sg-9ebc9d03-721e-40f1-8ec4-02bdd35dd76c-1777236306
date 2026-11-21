@@ -32,6 +32,8 @@ import { fixedCostsService } from "@/services/fixedCostsService";
 import { useTenantHref } from "@/lib/tenantUrl";
 import * as currencyUtils from "@/lib/currencyUtils";
 import { isPipelineRevenue } from "@/lib/orderRevenueClassification";
+import { isReportableOrder, orderNetCollected } from "@/lib/orderRevenueMath";
+import { DEFAULT_TENANT_TIMEZONE, tenantToday, toLocalISO } from "@/lib/localDate";
 
 interface Props {
   companyId: string | null | undefined;
@@ -59,18 +61,21 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
       setLoading(true);
       setLoadError(null);
       try {
-      const today = new Date();
-      const todayIso = today.toISOString().slice(0, 10);
+      // Keep the event-date window on the company's calendar, not UTC or
+      // the admin's browser timezone.
+      const companyRes = await (supabase as any)
+        .from("companies")
+        .select("cash_on_hand_cents, cash_on_hand_updated_at, timezone")
+        .eq("id", companyId)
+        .maybeSingle();
+      const tenantTimezone = companyRes?.data?.timezone || DEFAULT_TENANT_TIMEZONE;
+      const today = tenantToday(tenantTimezone);
+      const todayIso = toLocalISO(today);
       const horizon = new Date(today);
       horizon.setDate(horizon.getDate() + HORIZON_DAYS);
-      const horizonIso = horizon.toISOString().slice(0, 10);
+      const horizonIso = toLocalISO(horizon);
 
-      const [companyRes, ordersRes, hireRes, shoppingRes, payablesRes, fixedRows, orderItemsRes] = await Promise.all([
-        (supabase as any)
-          .from("companies")
-          .select("cash_on_hand_cents, cash_on_hand_updated_at")
-          .eq("id", companyId)
-          .maybeSingle(),
+      const [ordersRes, hireRes, shoppingRes, payablesRes, fixedRows, orderItemsRes] = await Promise.all([
         // Income: orders firing in 30d window. TIGHTEN I.72: pull the
         // fields isPipelineRevenue needs so we can defensively net out
         // cancelled / excluded rows in-memory (status filter alone misses
@@ -78,7 +83,7 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
         // Plus the missed deleted_at guard that was leaking soft-deletes.
         (supabase as any)
           .from("orders")
-          .select("total_amount, status, cancelled_at, deleted_at, payment_status, deposit_paid, confirmed_at")
+          .select("total_amount, amount_paid, balance_amount, deposit_amount, deposit_paid, payment_status, order_number, event_name, client_name, internal_notes, status, cancelled_at, deleted_at, confirmed_at")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .neq("status", "cancelled")
@@ -116,7 +121,7 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
         // the COGS side can't drift from the revenue side.
         (supabase as any)
           .from("orders")
-          .select("id, status, cancelled_at, deleted_at, payment_status, deposit_paid, confirmed_at, order_items(quantity, unit_cost)")
+          .select("id, order_number, event_name, client_name, internal_notes, status, cancelled_at, deleted_at, payment_status, deposit_paid, confirmed_at, order_items(quantity, unit_cost)")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .neq("status", "cancelled")
@@ -144,7 +149,9 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
         setCashUpdatedAt(company.cash_on_hand_updated_at || null);
       }
 
-      // Sum income. TIGHTEN I.72: defensive isPipelineRevenue filter -
+      // Sum expected receipts, not gross order totals: paid deposits and
+      // balances already collected are reflected in the cash balance and
+      // must not be counted as future income again. TIGHTEN I.72: defensive isPipelineRevenue filter -
       // the SQL .neq("status","cancelled") catches the common case but
       // misses rows in weird in-between states (cancelled_at stamped but
       // status not yet committed by a still-running cascade). The
@@ -152,8 +159,9 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
       // platform now.
       let incomeTotal = 0;
       for (const o of (ordersRes as any)?.data || []) {
-        if (!isPipelineRevenue(o as any)) continue;
-        incomeTotal += Number(o.total_amount) || 0;
+        if (!isReportableOrder(o) || !isPipelineRevenue(o as any)) continue;
+        const total = Math.max(0, Number(o.total_amount) || 0);
+        incomeTotal += Math.max(0, total - orderNetCollected(o));
       }
 
       // Sum costs
@@ -166,7 +174,7 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
       for (const ord of (orderItemsRes as any)?.data || []) {
         // TIGHTEN I.72: same pipeline guard on the COGS side so a
         // mid-cancellation order doesn't pay food cost on the forecast.
-        if (!isPipelineRevenue(ord as any)) continue;
+        if (!isReportableOrder(ord) || !isPipelineRevenue(ord as any)) continue;
         for (const oi of (ord.order_items as any[]) || []) {
           const qty = Number(oi.quantity) || 0;
           const cost = Number(oi.unit_cost) || 0;
@@ -251,7 +259,7 @@ export function CashflowSnapshotWidget({ companyId, currency = "ZAR" }: Props) {
           <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
             <Banknote className="w-4 h-4 text-brand-primary" />
             Cashflow snapshot
-            <InfoTooltip content={"30-day forward cashflow read: cash on hand + income still to come (booked orders) - costs still to come (food COGS, equipment hire, shopping, supplier payables, fixed costs).\n\nTap 'Open forecast' for the day-by-day chart + detail drawer + CSV export."} />
+            <InfoTooltip content={"30-day estimate: recorded cash on hand + unpaid balances on reportable pipeline/booked orders with event dates in the next 30 days - estimated menu COGS, equipment hire, shopping, supplier payables and fixed-cost occurrences due in that window. Order deposits and other payments already recorded are removed from expected receipts so they are not counted twice. Cost records can overlap if one expense was entered in more than one source, so check line items before relying on the total; this is a cash forecast, not profit.\n\nOpen the forecast for the day-by-day chart, detail drawer and CSV export."} />
           </CardTitle>
           <Link
             href={withSlug("/admin/financial-dashboard")}

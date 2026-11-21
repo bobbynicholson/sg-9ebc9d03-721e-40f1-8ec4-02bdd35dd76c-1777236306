@@ -13,6 +13,7 @@
  */
 import { isBookedRevenue } from "@/lib/orderRevenueClassification";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+import { isReportableOrder } from "@/lib/orderRevenueMath";
 
 export interface RevenueByMonthInput {
   id: string;
@@ -77,17 +78,16 @@ export function aggregateRevenueByMonth(
 
   for (const o of orders) {
     if (!o.event_date) continue;
-    // TIGHTEN I.70 (2026-06-01): use the canonical booked predicate.
-    // Previously this widget counted "not cancelled" which silently
-    // included pending orders - so the BI chart showed a bigger
-    // number than the dashboard "Booked Revenue" tile for the same
-    // window. Now both use isBookedRevenue.
-    if (!isBookedRevenue(o)) continue;
+    if (!isReportableOrder(o)) continue;
     const monthKey = String(o.event_date).slice(0, 7);
     const bucket = buckets.get(monthKey);
     if (!bucket) continue;
-    bucket.booked += Number(o.total_amount || 0);
+    // Net cash is attached to all events in the month, including a
+    // cancelled order that still has cash held. Booked revenue remains
+    // restricted to the shared committed-order classification.
     bucket.collected += collectedFromOrder(o);
+    if (!isBookedRevenue(o)) continue;
+    bucket.booked += Number(o.total_amount || 0);
     bucket.orderCount += 1;
   }
 

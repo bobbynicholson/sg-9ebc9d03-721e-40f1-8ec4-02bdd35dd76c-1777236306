@@ -33,6 +33,8 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { COUNTRIES, getCountry, type CountryCode } from "@/lib/regionGeography";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { formatClock } from "@/lib/portalTime";
+import { isBookedRevenue } from "@/lib/orderRevenueClassification";
+import { isReportableOrder, sumBookedRevenue } from "@/lib/orderRevenueMath";
 
 interface Region {
   id: string;
@@ -336,11 +338,13 @@ function RegionsPage() {
           // count, revenue and post-count detail requests per region.
           (supabase as any)
             .from("orders")
-            .select("total_amount, venue_lat, venue_lng, event_time", { count: "exact" })
+            .select("id, total_amount, venue_lat, venue_lng, event_time, order_number, event_name, client_name, internal_notes, status, payment_status, deposit_paid, confirmed_at, cancelled_at")
             .eq("region_id", r.id)
             .is("deleted_at", null)
             .gte("event_date", mtdStartIso)
-            .neq("status", "cancelled"),
+            .order("event_date", { ascending: true })
+            .order("id", { ascending: true })
+            .range(0, 999),
           // REG-E: same silent-failure pattern - "revised" is NOT in
           // the quote_status enum (draft / sent / accepted / rejected
           // / expired). The .in() with the bogus literal made Postgres
@@ -363,13 +367,32 @@ function RegionsPage() {
         }
         const staffCount = staffRes?.count;
         const orderCount = orderRes?.count;
-        const mtdOrderCount = mtdOrderRes?.count;
         const openQuoteCount = openQuoteRes?.count;
         const mtdOrderRows = (mtdOrderRes?.data || []) as any[];
-        const mtdRevenue = mtdOrderRows.reduce(
-          (sum: number, row: any) => sum + Number(row?.total_amount || 0),
-          0,
-        );
+        let mtdOffset = mtdOrderRows.length;
+        while (mtdOrderRows.length > 0 && mtdOrderRows.length % 1000 === 0) {
+          const { data: page, error: pageError } = await (supabase as any)
+            .from("orders")
+            .select("id, total_amount, venue_lat, venue_lng, event_time, order_number, event_name, client_name, internal_notes, status, payment_status, deposit_paid, confirmed_at, cancelled_at")
+            .eq("region_id", r.id)
+            .is("deleted_at", null)
+            .gte("event_date", mtdStartIso)
+            .order("event_date", { ascending: true })
+            .order("id", { ascending: true })
+            .range(mtdOffset, mtdOffset + 999);
+          if (pageError) {
+            enrichFailures += 1;
+            console.warn(`[regions] branch event page failed for ${r.name}:`, pageError);
+            break;
+          }
+          const pageRows = (page || []) as any[];
+          mtdOrderRows.push(...pageRows);
+          if (pageRows.length < 1000) break;
+          mtdOffset += pageRows.length;
+        }
+        const mtdBookedRows = mtdOrderRows.filter((row) => isReportableOrder(row) && isBookedRevenue(row));
+        const mtdOrderCount = mtdBookedRows.length;
+        const mtdRevenue = sumBookedRevenue(mtdBookedRows);
 
         // REG-D (regions follow-ups): radius + hours dead-field wiring.
         // Pre-REG-D these columns were stored, displayed, and consumed
@@ -983,7 +1006,7 @@ function RegionsPage() {
                   label="Revenue this month"
                   icon={MapPin}
                   value={currencyFmt.format(stats.mtdRevenue)}
-                  tooltip={"Sum of total_amount on orders with an event_date in the current calendar month. Cancelled orders excluded. For 'booked this month' see /admin/financial."}
+                  tooltip={"Sum of gross total_amount (including tax) for reportable committed orders with an event_date in the current calendar month. Cancelled and automated test orders are excluded. This is events happening this month, not bookings created this month."}
                 />
               </div>
             </>
@@ -1116,7 +1139,7 @@ function RegionsPage() {
                         icon={Users}
                         label="Revenue this month"
                         value={currencyFmt.format(region.mtd_revenue || 0)}
-                        tooltip={"Sum of total_amount on this branch's orders with an event_date in the current calendar month. Cancelled orders excluded."}
+                        tooltip={"Sum of gross total_amount (including tax) for this branch's reportable committed orders with an event_date in the current calendar month. Cancelled and automated test orders are excluded."}
                       />
                       <MiniStat icon={ChefHat} label="Open quotes" value={region.open_quote_count || 0} tooltip={"Quotes for this branch in draft or sent state."} />
                       {/* REG-C: clickable Staff tile that opens the

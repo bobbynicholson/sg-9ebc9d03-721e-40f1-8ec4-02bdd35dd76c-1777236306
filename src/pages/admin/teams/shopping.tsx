@@ -28,7 +28,7 @@ import { canAccessFinance } from "@/lib/authGuards";
 import { captureException } from "@/lib/observability";
 import {
   ShoppingBag, ArrowLeft, Users, ClipboardList, AlertTriangle,
-  Receipt, Truck, TrendingDown,
+  Receipt, Truck, TrendingDown, ChevronDown,
 } from "lucide-react";
 import { PageWorkbench, PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
 import { teamBucketsForUser } from "@/lib/teamRoleBuckets";
@@ -316,7 +316,12 @@ function ShoppingTeamPage() {
           {/* TMS-D: top-vendor card + overdue callout. Operator's
               two daily questions: who am I spending most with and
               which lists are slipping. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
+          <details className="group mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-slate-800 [&::-webkit-details-marker]:hidden max-sm:flex-wrap">
+              <span>Procurement follow-up</span>
+              <span className="flex items-center gap-2 text-xs font-normal text-slate-500">Vendor spend and overdue lists <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" /></span>
+            </summary>
+            <div className="grid grid-cols-1 gap-3 border-t border-slate-100 p-3 sm:grid-cols-2 sm:gap-4 sm:p-4">
             {canSeeFinance && stats.topVendorThisMonth && (
               <Link href={withSlug(`/admin/suppliers?q=${encodeURIComponent(stats.topVendorThisMonth.vendor)}`)}>
                 <Card className="border border-brand-primary/20 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10 shadow-sm transition-colors hover:border-brand-primary/40">
@@ -360,7 +365,8 @@ function ShoppingTeamPage() {
                 </CardContent>
               </Card>
             </Link>
-          </div>
+            </div>
+          </details>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {tiles.map((t) => (

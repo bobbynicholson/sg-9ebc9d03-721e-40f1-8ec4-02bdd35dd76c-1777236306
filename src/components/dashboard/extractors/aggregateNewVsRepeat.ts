@@ -11,6 +11,8 @@
  * Pure function: takes orders + range, returns the split.
  */
 import type { OrderForClientLTV } from "./aggregateTopClients";
+import { isBookedRevenue } from "@/lib/orderRevenueClassification";
+import { isReportableOrder } from "@/lib/orderRevenueMath";
 
 export interface NewVsRepeatBucket {
   revenue: number;
@@ -38,7 +40,7 @@ export function aggregateNewVsRepeat(
   const firstOrderByClient = new Map<string, string>();
   for (const o of orders) {
     if (!o.client_id || !o.event_date) continue;
-    if (o.status === "cancelled") continue;
+    if (!isBookedRevenue(o) || !isReportableOrder(o)) continue;
     const existing = firstOrderByClient.get(o.client_id);
     if (!existing || o.event_date < existing) {
       firstOrderByClient.set(o.client_id, o.event_date);
@@ -61,7 +63,7 @@ export function aggregateNewVsRepeat(
 
   for (const o of orders) {
     if (!o.client_id || !o.event_date) continue;
-    if (o.status === "cancelled") continue;
+    if (!isBookedRevenue(o) || !isReportableOrder(o)) continue;
     if (!inRange(o.event_date)) continue;
     const firstOrder = firstOrderByClient.get(o.client_id);
     if (!firstOrder) continue;

@@ -20,6 +20,8 @@
  * on the same row - the kitchen surface simply never selects those columns.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { monthlySalaryFraction } from "@/lib/payroll/payTypes";
+import { toLocalISO } from "@/lib/localDate";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -74,6 +76,7 @@ export interface KitchenShift {
   staff_member_id: string;
   shift_start: string;
   shift_end: string | null;
+  department?: string | null;
   break_started_at: string | null;
   total_break_min: number;
   standard_min: number | null;
@@ -860,30 +863,13 @@ export const kitchenStaffService = {
     // Pay type drives the formula: hourly = clocked time × rate (with
     // overtime split); monthly = flat salary prorated to the window;
     // shift = flat per-shift fee × shifts_count.
-    const windowDays = Math.max(
-      1,
-      Math.round((new Date(toISO).getTime() - new Date(fromISO).getTime()) / 86_400_000),
-    );
-    // Prorate salary by summing each day in the window as
-    // 1/daysInThatMonth, so a FULL calendar month totals exactly 1.0
-    // regardless of length. The old `windowDays / 30` over-paid in
-    // 31-day months (31/30 = 103%) and under-paid in February
-    // (28/30 = 93%), systematically mis-stating salaried pay on the
-    // monthly wage report. Stepped in UTC by fixed 24h to avoid DST
-    // drift; the for-loop is bounded by a guard.
-    const monthFraction = (() => {
-      const startMs = new Date(fromISO).getTime();
-      const endMs = new Date(toISO).getTime();
-      if (!(endMs > startMs)) return windowDays / 30;
-      let frac = 0;
-      let guard = 0;
-      for (let t = startMs; t < endMs && guard < 4000; t += 86_400_000, guard++) {
-        const d = new Date(t);
-        const daysInMonth = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
-        frac += 1 / daysInMonth;
-      }
-      return frac;
-    })();
+    // Both admin pages select calendar dates in the viewer's local zone.
+    // Convert the shared [start, end-exclusive) timestamps back to those
+    // same inclusive dates before prorating monthly pay. Iterating UTC
+    // instants directly shifted ranges across month boundaries for users
+    // outside UTC and made Wages disagree with settlement payslips.
+    const endDate = new Date(new Date(toISO).getTime() - 1);
+    const monthFraction = monthlySalaryFraction(toLocalISO(new Date(fromISO)), toLocalISO(endDate));
 
     // Include every roster member, even if they have no shifts in this
     // range. This keeps no-login tablet staff visible on the Wages page

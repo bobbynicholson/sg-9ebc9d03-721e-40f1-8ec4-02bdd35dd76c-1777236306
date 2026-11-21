@@ -37,8 +37,8 @@ export function TopProductsBarChart({ data, loading }: Props) {
           Top products
           <InfoTooltip
             content={
-              "Your most lucrative menu items, ranked by total revenue (not just unit count - a R350 spit braai per head is worth more than 50 starters at R45).\n\n" +
-              "Use this to decide what to keep on the menu, what to discount, and what to cut. The 'Other' row is the long tail."
+              "Menu items are ranked by summed order_items.line_total on reportable committed orders in the selected event-date window. Cancelled, unconfirmed pipeline and automated test orders are excluded. This is booked item value, not cash received.\n\n" +
+              "The 'Other' row groups lower-ranked items."
             }
           />
         </CardTitle>
