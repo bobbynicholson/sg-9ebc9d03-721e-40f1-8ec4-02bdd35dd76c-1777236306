@@ -334,8 +334,8 @@ export function AdminNav(_: AdminNavProps = {}) {
         { title: "Kitchen",        href: "/admin/teams/kitchen",     icon: ChefHat,   description: "Prep staff and duties", groupHeading: "Operations teams" },
         { title: "Shopping team",  href: "/admin/teams/shopping",    icon: ShoppingBag, description: "Shoppers and assigned work" },
         { title: "Cleaning",       href: "/admin/teams/cleaning",    icon: Sparkles,  description: "Roster and workflows" },
-        { title: "Drivers",        href: "/admin/teams/drivers",     icon: Truck,     description: "Roster and routes" },
-        { title: "Driver schedule", href: "/admin/driver-schedule",  icon: Clock,     description: "Weekly shift grid" },
+        { title: "Drivers",        href: "/admin/teams/drivers",     icon: Truck,     description: "Roster and routes", groupHeading: "Drivers and scheduling" },
+        { title: "Driver schedule", href: "/admin/driver-schedule",  icon: Clock,     description: "Weekly schedule for the Drivers team" },
         { title: "Staff overview", href: "/admin/hr-solutions",      icon: Users,     description: "Team, invitations and payroll hours", groupHeading: "People and payroll" },
         ...((profile && [
           UserRole.SUPER_ADMIN,
