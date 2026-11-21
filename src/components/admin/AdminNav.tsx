@@ -168,6 +168,14 @@ export function AdminNav(_: AdminNavProps = {}) {
   // are stable - never rename or operators lose saved open/closed state.
   const sections: PortalSidebarSection[] = [
     {
+      id: "onboarding",
+      title: "Onboarding",
+      defaultOpen: true,
+      items: [
+        { title: "Import clients and orders", href: "/admin/onboarding", icon: Wand2, description: "Company setup and data imports" },
+      ],
+    },
+    {
       id: "today",
       title: "Today",
       defaultOpen: false,
@@ -336,7 +344,6 @@ export function AdminNav(_: AdminNavProps = {}) {
         ].includes(effectiveRole)) ? [
           { title: "Holiday calendar", href: "/admin/public-holidays", icon: CalendarHeart, description: "Payroll rate dates" },
         ] : []),
-        { title: "Onboarding",    href: "/admin/onboarding",     icon: Wand2,     description: "Import clients and orders" },
         // Payroll cluster - tighter than the finance gate: excludes
         // super_admin (the platform operator has no need to see a
         // tenant's private staff wages). Pages enforce the same via
