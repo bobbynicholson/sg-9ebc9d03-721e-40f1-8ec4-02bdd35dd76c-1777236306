@@ -171,8 +171,9 @@ export function AdminNav(_: AdminNavProps = {}) {
       id: "onboarding",
       title: "Onboarding",
       defaultOpen: true,
+      alwaysVisible: true,
       items: [
-        { title: "Import clients and orders", href: "/admin/onboarding", icon: Wand2, description: "Company setup and data imports" },
+        { title: "Onboarding", href: "/admin/onboarding", icon: Wand2, description: "Company setup and data imports" },
       ],
     },
     {

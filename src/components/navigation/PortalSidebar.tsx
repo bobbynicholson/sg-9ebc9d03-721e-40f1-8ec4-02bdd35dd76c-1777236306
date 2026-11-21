@@ -66,6 +66,8 @@ export interface PortalSidebarSection {
   title: string;
   defaultOpen: boolean;
   items: PortalSidebarNavItem[];
+  /** Render these links directly without an expandable section header. */
+  alwaysVisible?: boolean;
   /** When true, this section renders as a footer treatment: no
    *  collapsible header, smaller items, muted styling, sits below
    *  the main sections separated by a divider. Used for "less
@@ -587,6 +589,16 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
         )}
         {config.sections.map((section) => {
           const containsActive = section.items.some((i) => isActive(i.href));
+          if (section.alwaysVisible) {
+            return (
+              <div key={section.id} className="space-y-0.5">
+                {section.items.map((item) => renderNavRow(item, {
+                  active: isActive(item.href),
+                  onClickAfterNav: () => setOpen(false),
+                }))}
+              </div>
+            );
+          }
           if (section.footerTreatment) {
             // Footer sections render flat with a top divider, no
             // accordion. Visually deprioritised relative to main nav.
@@ -885,6 +897,9 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                     collapsed: isCollapsed,
                   }),
                 );
+                if (section.alwaysVisible) {
+                  return <div key={section.id} className="space-y-0.5">{linkRows}</div>;
+                }
                 if (section.footerTreatment) {
                   return (
                     <div
