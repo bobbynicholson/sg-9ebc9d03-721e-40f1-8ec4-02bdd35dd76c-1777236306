@@ -26,7 +26,7 @@ import { kitchenStaffService, type StaffWageSummary } from "@/services/kitchenSt
 
 type PeriodKey = "this_week" | "this_month" | "this_year";
 type Period = { fromISO: string; toISO: string; fromDate: string; toDate: string; label: string };
-type Invite = { id: string; email: string | null; full_name: string | null; role: string | null; created_at: string };
+type Invite = { id: string; email: string | null; full_name: string | null; role: string | null; created_at: string | null };
 type DriverProfile = { id: string; full_name: string | null; email: string | null; hourly_rate: number | null; distance_rate_per_km: number | null; base_callout_fee: number | null };
 type DirectoryMember = { id: string; linked_profile_id: string | null; email: string | null; departments: string[] | null };
 type TeamProfile = { id: string; email: string | null; role: string | null; active_role: string | null; is_active: boolean | null };
@@ -150,7 +150,7 @@ function StaffOverviewDashboard() {
           supabase.from("kitchen_staff_members").select("id, linked_profile_id, email, departments").eq("company_id", companyId).eq("is_active", true).is("deleted_at", null),
           supabase.from("user_departments").select("user_id, department, is_primary"),
           supabase.from("staff_invitations").select("id", { count: "exact", head: true }).eq("company_id", companyId).eq("status", "pending"),
-          supabase.from("staff_invitations").select("id, email, full_name, role, created_at").eq("company_id", companyId).eq("status", "pending").order("created_at", { ascending: false }).limit(5),
+          supabase.from("staff_invitations").select("id, user_id, role, created_at").eq("company_id", companyId).eq("status", "pending").order("created_at", { ascending: false }).limit(5),
           driverProfilesQuery,
           canSeePayroll ? kitchenStaffService.getWageSummary(companyId, period.fromISO, period.toISO) : Promise.resolve([] as StaffWageSummary[]),
         ]);
@@ -169,6 +169,29 @@ function StaffOverviewDashboard() {
         );
         const teamCounts = countTeamBuckets(mergedTeam.profiles, mergedTeam.departmentRows);
 
+        const pendingInvites = (inviteRowsResult.data || []).map((invite) => ({
+          id: invite.id,
+          user_id: invite.user_id,
+          role: invite.role,
+          created_at: invite.created_at,
+          email: null as string | null,
+          full_name: null as string | null,
+        }));
+        const inviteeIds = Array.from(new Set(pendingInvites.map((invite) => invite.user_id).filter((id): id is string => Boolean(id))));
+        if (inviteeIds.length > 0) {
+          const { data: inviteeProfiles, error: inviteeProfilesError } = await supabase
+            .from("profiles")
+            .select("id, full_name, email")
+            .in("id", inviteeIds);
+          if (inviteeProfilesError) throw inviteeProfilesError;
+          const invitees = new Map((inviteeProfiles || []).map((person) => [person.id, person]));
+          for (const invite of pendingInvites) {
+            const person = invite.user_id ? invitees.get(invite.user_id) : undefined;
+            invite.email = person?.email || null;
+            invite.full_name = person?.full_name || null;
+          }
+        }
+
         const driverProfiles = (driverProfilesResult.data || []) as DriverProfile[];
         const driverTotals = canSeePayroll ? await driverPayService.getBulkPayTotals({
           companyId,
@@ -186,7 +209,7 @@ function StaffOverviewDashboard() {
             activeStaff: mergedTeam.profiles.length,
             teamCounts,
             pendingInvites: inviteCountResult.count ?? inviteRowsResult.data?.length ?? 0,
-            recentInvites: (inviteRowsResult.data || []) as Invite[],
+            recentInvites: pendingInvites,
             payrollHours: staffHours + driverHours,
             grossPayroll: staffGross + driverGross,
           });
