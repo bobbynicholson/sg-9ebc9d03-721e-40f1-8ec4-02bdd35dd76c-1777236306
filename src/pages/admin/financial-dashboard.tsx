@@ -943,7 +943,7 @@ function FinancialDashboardInner() {
             </p>
           )}
 
-          <div className="mb-4 flex min-w-0 flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div id="financial-profitability-range" data-chat-section="admin.financial-dashboard.profitability-range" data-chat-section-label="Profitability date range" className="mb-4 flex min-w-0 flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <h2 className="text-sm font-semibold text-slate-900">Profitability date range</h2>
               <p className="mt-1 text-xs text-slate-600">

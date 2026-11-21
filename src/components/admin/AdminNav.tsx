@@ -286,7 +286,7 @@ export function AdminNav(_: AdminNavProps = {}) {
       title: "Operations",
       defaultOpen: false,
       items: [
-        { title: "Routes",          href: "/admin/route-planning",  icon: Route,         description: "Plan tomorrow" },
+        { title: "Routes",          href: "/admin/route-planning",  icon: Route,         description: "Assign drivers and plan upcoming deliveries" },
         { title: "Vehicles",        href: "/admin/vehicles",        icon: Truck,         description: "Fleet and cold chain" },
         { title: "Regions",         href: "/admin/regions",         icon: Map,           description: "Manage service regions" },
       ],

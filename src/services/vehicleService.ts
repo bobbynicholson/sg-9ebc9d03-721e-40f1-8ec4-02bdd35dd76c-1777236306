@@ -24,6 +24,7 @@
  * Tenant scoped via RLS on every table this file touches.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { isAutomatedTestOrder } from "@/lib/testDataDetection";
 
 export interface Vehicle {
   id: string;
@@ -461,7 +462,6 @@ export const vehicleService = {
     runs: number;
     plannedHours: number;
     distanceKm: number;
-    revenueCarried: number;
     completedRuns: number;
     cancelledRuns: number;
   }>> {
@@ -472,21 +472,26 @@ export const vehicleService = {
       .from("vehicle_bookings")
       .select(`
         id, vehicle_id, booked_from, booked_until, status,
-        order:order_id(id, total_amount, delivery_distance_km, status)
+        order:order_id(id, delivery_distance_km, status, cancelled_at, deleted_at, internal_notes, order_number, event_name, client_name)
       `)
       .eq("company_id", companyId)
-      .gte("booked_from", fromISO)
-      .lte("booked_until", toISO);
-    if (bookingsErr) console.error("[vehicleService] vehicle_bookings stats lookup failed:", bookingsErr);
+      // Include every booking that overlaps the selected window, even if
+      // it started before the window or finishes after it.
+      .lte("booked_from", toISO)
+      .gte("booked_until", fromISO);
+    if (bookingsErr) {
+      console.error("[vehicleService] vehicle_bookings stats lookup failed:", bookingsErr);
+      throw bookingsErr;
+    }
 
     const byVehicle: Record<string, {
       runs: number; plannedHours: number; distanceKm: number;
-      revenueCarried: number; completedRuns: number; cancelledRuns: number;
+      completedRuns: number; cancelledRuns: number;
     }> = {};
     for (const v of fleet) {
       byVehicle[v.id] = {
         runs: 0, plannedHours: 0, distanceKm: 0,
-        revenueCarried: 0, completedRuns: 0, cancelledRuns: 0,
+        completedRuns: 0, cancelledRuns: 0,
       };
     }
 
@@ -494,27 +499,29 @@ export const vehicleService = {
       const slot = byVehicle[(b as any).vehicle_id];
       if (!slot) continue;
       const status = (b as any).status as string;
-      slot.runs += 1;
-      if (status === "cancelled") {
+      const ord = (b as any).order;
+      if (ord?.deleted_at || (ord && isAutomatedTestOrder(ord))) continue;
+      if (
+        status === "cancelled"
+        || ord?.status === "cancelled"
+        || ord?.cancelled_at
+      ) {
         slot.cancelledRuns += 1;
-        continue; // don't count cancelled time / revenue
+        continue; // don't count cancelled bookings as active runs
       }
+      slot.runs += 1;
       if (status === "completed") slot.completedRuns += 1;
 
-      const fromT = new Date((b as any).booked_from).getTime();
-      const toT   = new Date((b as any).booked_until).getTime();
+      const fromT = Math.max(new Date((b as any).booked_from).getTime(), new Date(fromISO).getTime());
+      const toT   = Math.min(new Date((b as any).booked_until).getTime(), new Date(toISO).getTime());
       const hrs = Math.max(0, (toT - fromT) / (1000 * 60 * 60));
       slot.plannedHours += hrs;
 
-      const ord = (b as any).order;
       if (ord) {
         // delivery_distance_km is stored one-way (kitchen -> venue).
-        // Vehicle actually drives both legs, so utilisation reporting
-        // doubles to match round-trip billing/pay (Phase 29 / 30 #4,7).
+        // Vehicle utilisation estimates both outbound and return legs.
+        // This is a planning estimate, not GPS or odometer mileage.
         slot.distanceKm += Number(ord.delivery_distance_km || 0) * 2;
-        if (ord.status !== "cancelled") {
-          slot.revenueCarried += Number(ord.total_amount || 0);
-        }
       }
     }
 

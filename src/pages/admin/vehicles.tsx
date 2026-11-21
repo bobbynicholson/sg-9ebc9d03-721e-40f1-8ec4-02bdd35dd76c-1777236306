@@ -48,7 +48,6 @@ import { vehicleService, type Vehicle } from "@/services/vehicleService";
 import { supabase } from "@/integrations/supabase/client";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { toLocalISO } from "@/lib/localDate";
-import { formatZAR } from "@/lib/formatters";
 
 interface DriverProfile {
   id: string;
@@ -86,7 +85,6 @@ interface UtilisationRow {
   runs: number;
   plannedHours: number;
   distanceKm: number;
-  revenueCarried: number;
   completedRuns: number;
   cancelledRuns: number;
 }
@@ -1387,15 +1385,10 @@ function UtilisationView({
     runs: acc.runs + r.runs,
     hours: acc.hours + r.plannedHours,
     distance: acc.distance + r.distanceKm,
-    revenue: acc.revenue + r.revenueCarried,
-  }), { runs: 0, hours: 0, distance: 0, revenue: 0 });
+  }), { runs: 0, hours: 0, distance: 0 });
   const totalsHours = Math.max(1, totals.hours); // for share %
-  // formatZAR is the display source of truth for money; the previous
-  // hand-rolled formatter drifted from the "R 15 453" style elsewhere.
-  const fmtR = (v: number) => formatZAR(v, { decimals: 0 });
-
   return (
-    <div className="space-y-3 sm:space-y-4">
+    <div id="vehicle-utilisation" data-chat-section="admin.vehicles.utilisation" data-chat-section-label="Vehicle utilisation" className="space-y-3 sm:space-y-4">
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm sm:gap-3 sm:p-3">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 sm:text-xs">
           Window
@@ -1420,8 +1413,7 @@ function UtilisationView({
         <div className="basis-full text-[11px] leading-4 text-slate-600 sm:ml-auto sm:basis-auto sm:text-xs">
           <strong className="text-slate-900">{totals.runs}</strong> runs ·
           {" "}<strong className="text-slate-900">{totals.hours.toFixed(1)}h</strong> on the road ·
-          {" "}<strong className="text-slate-900">{totals.distance.toFixed(0)}km</strong> ·
-          {" "}<strong className="text-slate-900">{fmtR(totals.revenue)}</strong> carried
+          {" "}<strong className="text-slate-900">{totals.distance.toFixed(0)}km</strong> estimated round trip
         </div>
       </div>
 
@@ -1462,8 +1454,7 @@ function UtilisationView({
                         <div className="rounded bg-slate-50 px-2 py-1"><dt className="text-[10px] text-slate-500">Runs</dt><dd className="font-semibold tabular-nums text-slate-900">{r.runs}</dd></div>
                         <div className="rounded bg-slate-50 px-2 py-1"><dt className="text-[10px] text-slate-500">Hours</dt><dd className="font-semibold tabular-nums text-slate-900">{r.plannedHours.toFixed(1)}</dd></div>
                         <div className="rounded bg-slate-50 px-2 py-1"><dt className="text-[10px] text-slate-500">Share</dt><dd className="flex items-center gap-1.5 font-semibold tabular-nums text-slate-900"><span>{share.toFixed(0)}%</span><span className="h-1 w-10 overflow-hidden rounded-full bg-slate-200"><span className="block h-full bg-brand-primary" style={{ width: `${Math.min(100, share)}%` }} /></span></dd></div>
-                        <div className="rounded bg-slate-50 px-2 py-1"><dt className="text-[10px] text-slate-500">Distance</dt><dd className="font-semibold tabular-nums text-slate-900">{r.distanceKm > 0 ? `${r.distanceKm.toFixed(0)} km` : "-"}</dd></div>
-                        <div className="rounded bg-slate-50 px-2 py-1"><dt className="text-[10px] text-slate-500">Revenue carried</dt><dd className="font-semibold tabular-nums text-slate-900">{r.revenueCarried > 0 ? fmtR(r.revenueCarried) : "-"}</dd></div>
+                        <div className="rounded bg-slate-50 px-2 py-1"><dt className="text-[10px] text-slate-500">Est. round trip</dt><dd className="font-semibold tabular-nums text-slate-900">{r.distanceKm > 0 ? `${r.distanceKm.toFixed(0)} km` : "-"}</dd></div>
                         <div className="rounded bg-slate-50 px-2 py-1"><dt className="text-[10px] text-slate-500">Cancels</dt><dd className={`font-semibold tabular-nums ${r.cancelledRuns > 0 ? "text-rose-700" : "text-slate-500"}`}>{r.cancelledRuns}</dd></div>
                       </dl>
                     </div>
@@ -1480,8 +1471,7 @@ function UtilisationView({
                 <th className="text-right px-3 py-2.5">Runs</th>
                 <th className="text-right px-3 py-2.5">Hours</th>
                 <th className="text-right px-3 py-2.5">Share</th>
-                <th className="text-right px-3 py-2.5">Distance</th>
-                <th className="text-right px-3 py-2.5">Revenue carried</th>
+                <th className="text-right px-3 py-2.5">Est. round trip</th>
                 <th className="text-right px-3 py-2.5">Cancels</th>
               </tr>
             </thead>
@@ -1523,9 +1513,6 @@ function UtilisationView({
                     <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">
                       {r.distanceKm > 0 ? `${r.distanceKm.toFixed(0)}km` : "-"}
                     </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">
-                      {r.revenueCarried > 0 ? fmtR(r.revenueCarried) : "-"}
-                    </td>
                     <td className="px-3 py-2.5 text-right tabular-nums">
                       {r.cancelledRuns > 0 ? (
                         <span className="text-rose-700">{r.cancelledRuns}</span>
@@ -1544,9 +1531,11 @@ function UtilisationView({
       </div>
 
       <p className="text-[10px] leading-4 text-slate-500 sm:text-[11px]">
-        Hours are taken from each booking's depart-to-back-at-kitchen window. Distance and revenue
-        come from the linked order. Cancelled bookings are counted in the Cancels column but not in
-        the runs / hours / distance totals.
+        Hours come from each vehicle booking window, so they are planned occupancy rather than a
+        driver&apos;s clocked hours. Estimated round-trip distance is the order&apos;s saved one-way
+        kitchen-to-venue distance multiplied by two; it is not GPS or odometer mileage. Finance
+        reports revenue and driver settlement reports mileage pay. Cancelled bookings appear only
+        in the Cancels count.
       </p>
     </div>
   );

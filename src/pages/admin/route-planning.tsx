@@ -16,6 +16,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { toLocalISO } from "@/lib/localDate";
+import { formatLocalDate } from "@/lib/localFormat";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -403,7 +404,9 @@ function RoutePlanningInner() {
 
       // Drop the applied route's stops from the optimisation panel and
       // refresh unassigned orders so the dispatcher sees the queue shrink.
-      setOptimizedRoutes((prev) => prev.filter((r) => r.driver_id !== route.driver_id));
+      setOptimizedRoutes((prev) => prev.filter((r) =>
+        r.driver_id !== route.driver_id || r.route_date !== route.route_date,
+      ));
       setSelectedRoute(null);
       emitOrderUpdated(route.stops.map((stop) => stop.order_id), "route-apply");
       loadDispatchData();
@@ -643,7 +646,7 @@ function RoutePlanningInner() {
               )}
 
               {/* Unassigned orders queue */}
-              <Card>
+              <Card id="route-planning-unassigned" data-chat-section="admin.route-planning.unassigned" data-chat-section-label="Unassigned delivery orders">
                 <CardHeader>
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -788,7 +791,7 @@ function RoutePlanningInner() {
               </Card>
 
               {/* Optimised driver routes */}
-              <Card>
+              <Card id="route-planning-optimized" data-chat-section="admin.route-planning.optimized" data-chat-section-label="Optimised driver routes">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Truck className="h-5 w-5" />
@@ -825,9 +828,9 @@ function RoutePlanningInner() {
                       const stats = getRouteStats(route);
                       return (
                         <Card
-                          key={route.driver_id}
+                          key={`${route.driver_id}:${route.route_date || "undated"}`}
                           className={`cursor-pointer transition-all ${
-                            selectedRoute?.driver_id === route.driver_id
+                            selectedRoute?.driver_id === route.driver_id && selectedRoute?.route_date === route.route_date
                               ? "ring-2 ring-brand-primary/60 bg-brand-primary/5"
                               : "hover:bg-slate-50/70 dark:hover:bg-slate-800/40"
                           }`}
@@ -841,7 +844,7 @@ function RoutePlanningInner() {
                                 </div>
                                 <div className="min-w-0">
                                   <p className="font-semibold text-slate-900 truncate">{route.driver_name || "Driver"}</p>
-                                  <p className="text-xs text-slate-500">{route.stops.length} stop{route.stops.length === 1 ? "" : "s"}</p>
+                                  <p className="text-xs text-slate-500">{route.route_date ? formatLocalDate(tenantDateTime(route.route_date, "12:00")) : "Date unavailable"} · {route.stops.length} stop{route.stops.length === 1 ? "" : "s"}</p>
                                 </div>
                               </div>
                               {route.infeasible_count != null && route.infeasible_count > 0 ? (

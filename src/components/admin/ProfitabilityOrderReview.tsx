@@ -76,7 +76,7 @@ export function ProfitabilityOrderReview({
   if (totalExcluded === 0) return null;
 
   return (
-    <details className="mb-6 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+    <details id="financial-excluded-orders" data-chat-section="admin.financial-dashboard.excluded-orders" data-chat-section-label="Orders excluded from gross margin" className="mb-6 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
       <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-amber-950">
           <AlertTriangle className="h-4 w-4 shrink-0 text-amber-700" aria-hidden="true" />

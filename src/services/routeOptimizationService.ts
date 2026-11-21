@@ -3,7 +3,25 @@ import { supabase } from "@/integrations/supabase/client";
 import { googleMapsService } from "./googleMapsService";
 import { notificationService } from "./notificationService";
 import { UserRole } from "@/types/app";
-import { DEFAULT_TENANT_TIMEZONE, toZonedISO } from "@/lib/localDate";
+import { DEFAULT_TENANT_TIMEZONE, tenantToday, toLocalISO } from "@/lib/localDate";
+import { tenantDateTime } from "@/lib/portalTime";
+import { isAutomatedTestOrder } from "@/lib/testDataDetection";
+
+function resolveDeliveryInstant(order: any, timezone: string): string | null {
+  const raw = String(order?.delivery_time || "").trim();
+  if (raw && /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw)) {
+    const absolute = new Date(raw);
+    if (!Number.isNaN(absolute.getTime())) return absolute.toISOString();
+  }
+
+  const localDateTime = /^(\d{4}-\d{2}-\d{2})[T ](\d{1,2}:\d{2}(?::\d{2})?)/.exec(raw);
+  const localTime = /^(\d{1,2}:\d{2}(?::\d{2})?)/.exec(raw);
+  const date = localDateTime?.[1] || order?.event_date;
+  const time = localDateTime?.[2] || localTime?.[1] || order?.event_time || "12:00";
+  if (!date) return null;
+  const instant = tenantDateTime(String(date), String(time), "12:00", timezone);
+  return instant && !Number.isNaN(instant.getTime()) ? instant.toISOString() : null;
+}
 
 export interface DeliveryStop {
   id: string;
@@ -36,6 +54,8 @@ export interface DeliveryStop {
 
 export interface OptimizedRoute {
   driver_id: string;
+  /** Tenant-local service date. Routes never combine stops from different days. */
+  route_date?: string;
   driver_name?: string;
   stops: DeliveryStop[];
   total_distance: number;
@@ -399,7 +419,7 @@ export const routeOptimizationService = {
       console.warn("[routeOptimizationService] company timezone lookup failed; using default:", companyDateConfigError.message);
     }
     const timezone = companyDateConfig?.timezone || DEFAULT_TENANT_TIMEZONE;
-    const today = new Date();
+    const today = tenantToday(timezone);
     const lowerDate = new Date(today);
     lowerDate.setDate(lowerDate.getDate() - 7);
     const upperDate = new Date(today);
@@ -407,8 +427,8 @@ export const routeOptimizationService = {
     // orders.event_date is a date column. Compare date strings rather than
     // full timestamps so a tenant timezone offset cannot move the boundary
     // across a day and hide an otherwise valid assigned stop.
-    const lowerISO = toZonedISO(lowerDate, timezone).slice(0, 10);
-    const upperISO = toZonedISO(upperDate, timezone).slice(0, 10);
+    const lowerISO = toLocalISO(lowerDate);
+    const upperISO = toLocalISO(upperDate);
 
     // Orders may have either `driver_id` (legacy), `assigned_driver_id`
     // (primary), or `secondary_driver_id` (supporting driver) populated.
@@ -418,6 +438,8 @@ export const routeOptimizationService = {
       .select("*")
       .eq("company_id", companyId)
       .or(`assigned_driver_id.eq.${driverId},driver_id.eq.${driverId},secondary_driver_id.eq.${driverId}`)
+      .is("deleted_at", null)
+      .is("cancelled_at", null)
       // Keep this in sync with the driver's assignment flow. Once dispatch
       // assigns a job, its order can remain `confirmed`/`ready` or move
       // through the driver states before the route board is opened.
@@ -439,19 +461,8 @@ export const routeOptimizationService = {
       return [];
     }
 
-    return ((data as any[]) || []).map((order) => {
-      // Bug fix: when delivery_time is NULL the previous fallback was
-      // order.event_date alone - a bare "2026-05-21" - which the UI's
-      // new Date(...).toLocaleTimeString() rendered as "2:00:00 AM"
-      // (UTC midnight in SAST). Mirror the same logic as
-      // getUnassignedOrders below: prefer the real delivery_time,
-      // else combine event_date + event_time, else event_date noon.
-      let deliveryTime = order.delivery_time;
-      if (!deliveryTime && order.event_date) {
-        deliveryTime = order.event_time
-          ? `${order.event_date}T${order.event_time}`
-          : `${order.event_date}T12:00`;
-      }
+    return ((data as any[]) || []).filter((order) => !isAutomatedTestOrder(order)).map((order) => {
+      const deliveryTime = resolveDeliveryInstant(order, timezone);
       return {
         id: order.id,
         order_id: order.id,
@@ -477,11 +488,20 @@ export const routeOptimizationService = {
   async getUnassignedOrders(companyId: string): Promise<DeliveryStop[]> {
     // An order is unassigned only when both legacy `driver_id` and the
     // canonical `assigned_driver_id` are empty.
-    const today = new Date().toISOString().slice(0, 10);
+    const { data: company, error: companyErr } = await supabase
+      .from("companies")
+      .select("timezone, dispatch_settings")
+      .eq("id", companyId)
+      .maybeSingle();
+    if (companyErr) console.error("[routeOptimizationService] company route settings lookup failed:", companyErr);
+    const timezone = (company as any)?.timezone || DEFAULT_TENANT_TIMEZONE;
+    const today = toLocalISO(tenantToday(timezone));
     const { data, error } = await supabase
       .from("orders")
       .select("*")
       .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .is("cancelled_at", null)
       .is("driver_id", null)
       .is("assigned_driver_id", null)
       .in("status", ["confirmed", "preparing", "ready"])
@@ -496,25 +516,19 @@ export const routeOptimizationService = {
 
     // Pull the arrival buffer from dispatch_settings so each stop carries it
     // through the optimiser. Falls back to 30 minutes when unset.
-    const { data: company, error: companyErr } = await supabase
-      .from("companies")
-      .select("dispatch_settings")
-      .eq("id", companyId)
-      .maybeSingle();
-    if (companyErr) console.error("[routeOptimizationService] companies dispatch_settings lookup failed:", companyErr);
-    const arrivalBufferMinutes = Number(
+    const configuredBuffer = Number(
       (company as any)?.dispatch_settings?.arrival_buffer_minutes ?? 30,
     );
+    const arrivalBufferMinutes = Number.isFinite(configuredBuffer) ? Math.max(0, configuredBuffer) : 30;
 
-    return ((data as any[]) || []).map((order) => {
-      // Build a proper deadline. Prefer event_date + event_time when both exist,
-      // fall back to delivery_time, then event_date noon.
-      let deliveryTime = order.delivery_time;
-      if (!deliveryTime && order.event_date) {
-        deliveryTime = order.event_time
-          ? `${order.event_date}T${order.event_time}`
-          : `${order.event_date}T12:00`;
-      }
+    const now = Date.now();
+    return ((data as any[]) || [])
+      .filter((order) => !isAutomatedTestOrder(order))
+      .map((order) => ({ order, deliveryTime: resolveDeliveryInstant(order, timezone) }))
+      // Same-day jobs whose service deadline has passed need operational
+      // follow-up; they must not be offered as an upcoming delivery route.
+      .filter(({ deliveryTime }) => !!deliveryTime && new Date(deliveryTime).getTime() >= now)
+      .map(({ order, deliveryTime }) => {
       return {
         id: order.id,
         order_id: order.id,
@@ -588,12 +602,7 @@ export const routeOptimizationService = {
 
     // Get all orders that need delivery
     const orders = await this.getUnassignedOrders(companyId);
-    const driverOrders: Map<string, DeliveryStop[]> = new Map();
-
-    // Initialize empty arrays for each driver
-    drivers.forEach((driver) => {
-      driverOrders.set(driver.id, []);
-    });
+    const driverOrders: Map<string, { driver: any; routeDate: string; stops: DeliveryStop[] }> = new Map();
 
     // Simple distribution: assign orders to nearest driver with a
     // known GPS ping; drivers without a ping share the remainder
@@ -625,24 +634,29 @@ export const routeOptimizationService = {
         roundRobinCursor += 1;
       }
 
-      driverOrders.get(nearestDriver.id)?.push(order);
+      const routeDate = order.event_date || order.delivery_time.slice(0, 10);
+      const routeKey = `${nearestDriver.id}:${routeDate}`;
+      const routeGroup = driverOrders.get(routeKey) || { driver: nearestDriver, routeDate, stops: [] };
+      routeGroup.stops.push(order);
+      driverOrders.set(routeKey, routeGroup);
     });
 
     // Optimize route for each driver
     const optimizedRoutes: OptimizedRoute[] = [];
-    for (const driver of drivers) {
-      const stops = driverOrders.get(driver.id) || [];
-      if (stops.length > 0) {
-        const gps = gpsByDriver[driver.id];
-        const route = await this.optimizeRoute(
-          driver.id,
-          stops,
-          gps?.lat,
-          gps?.lng,
-        );
-        if (route) {
-          optimizedRoutes.push(route);
-        }
+    for (const group of driverOrders.values()) {
+      const gps = gpsByDriver[group.driver.id];
+      const route = await this.optimizeRoute(
+        group.driver.id,
+        group.stops,
+        gps?.lat,
+        gps?.lng,
+      );
+      if (route) {
+        optimizedRoutes.push({
+          ...route,
+          route_date: group.routeDate,
+          driver_name: group.driver.full_name || "Driver",
+        });
       }
     }
 
@@ -660,7 +674,7 @@ export const routeOptimizationService = {
 
       const { data: orderRows, error: orderErr } = await (supabase as any)
         .from("orders")
-        .select("id, company_id, assigned_driver_id, driver_id, event_date")
+        .select("id, company_id, assigned_driver_id, driver_id, event_date, status, cancelled_at, deleted_at, internal_notes, order_number, event_name, client_name")
         .in("id", orderIds);
       if (orderErr) throw orderErr;
 
@@ -674,20 +688,36 @@ export const routeOptimizationService = {
       if (((orderRows as any[]) || []).some((row) => row.company_id !== companyId)) {
         throw new Error("Route contains orders from more than one company.");
       }
+      const routeDates = new Set(((orderRows as any[]) || []).map((row) => String(row.event_date || "").slice(0, 10)));
+      if (routeDates.size !== 1 || routeDates.has("")) {
+        throw new Error("A saved route must contain orders from one service date only. Rebuild the routes and try again.");
+      }
+      const routeDate = routeDates.values().next().value as string;
+      const { data: companyConfig } = await (supabase as any)
+        .from("companies")
+        .select("timezone")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (routeDate < toLocalISO(tenantToday(companyConfig?.timezone || DEFAULT_TENANT_TIMEZONE))) {
+        throw new Error("This route date has passed. Refresh route planning before saving.");
+      }
+      const invalidOrders = ((orderRows as any[]) || []).filter((row) =>
+        row.deleted_at
+        || row.cancelled_at
+        || !["confirmed", "preparing", "ready"].includes(String(row.status || "").toLowerCase())
+        || isAutomatedTestOrder(row),
+      );
+      if (invalidOrders.length > 0) {
+        throw new Error("Some route stops were cancelled, removed, test data, or are no longer waiting for dispatch. Refresh and rebuild the route.");
+      }
 
       const conflicts = ((orderRows as any[]) || []).filter((row) => {
         const assigned = row.assigned_driver_id || row.driver_id;
-        return assigned && assigned !== route.driver_id;
+        return !!assigned;
       });
       if (conflicts.length > 0) {
-        throw new Error(`${conflicts.length} stop${conflicts.length === 1 ? "" : "s"} were assigned by someone else. Refresh route planning.`);
+        throw new Error(`${conflicts.length} stop${conflicts.length === 1 ? " was" : "s were"} already assigned. Refresh route planning.`);
       }
-
-      const routeDate =
-        route.stops
-          .map((stop) => stop.event_date || stop.delivery_time?.slice(0, 10) || ordersById.get(stop.order_id)?.event_date)
-          .filter(Boolean)
-          .sort()[0] || new Date().toISOString().slice(0, 10);
 
       const { error: deleteErr } = await (supabase as any)
         .from("delivery_routes")
