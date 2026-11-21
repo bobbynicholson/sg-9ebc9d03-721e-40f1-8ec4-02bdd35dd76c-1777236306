@@ -1,11 +1,11 @@
 /**
- * /admin/kitchen-settlement - per-period kitchen pay summary.
+ * /admin/kitchen-settlement - per-period kitchen, cleaning and shopping pay summary.
  *
  * Wave 36.3. Mirrors /admin/driver-settlement.tsx in spirit but
  * leaner because kitchen pay has no distance/callout/vehicle logic
  * to summarise - just clocked-hours x rate (+ OT + multiplier).
  *
- * Pick a date range, scan every kitchen staffer, see who worked
+ * Pick a date range, scan each operations staffer, see who worked
  * how many hours, what they earned, then issue payslips one-tap or
  * in bulk. CSV export for the bookkeeper.
  */
@@ -143,9 +143,9 @@ function KitchenSettlementPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      // 1) Pull all hourly-eligible staff. Wave 40.4: widened to
-      // include cleaning_staff so the same settlement page covers
-      // chef + cleaner payroll. Bobby's brief: same person can do
+      // 1) Pull all hourly-eligible operations staff: kitchen, cleaning
+      // and shopping. One settlement workflow covers all three teams.
+      // Bobby's brief: same person can do
       // both jobs in one shift - pay once, not twice. The
       // kitchen_payslips table is keyed by (company, staff,
       // period) so it's role-agnostic anyway.
@@ -157,12 +157,12 @@ function KitchenSettlementPage() {
       // OR on active_role makes that impossible. (kitchen_manager /
       // cleaning_manager / owner are all valid user_role enum labels
       // now - the old "owner breaks the filter" note is stale.)
-      const KITCHEN_PAY_ROLES = "kitchen_staff,cleaning_staff,kitchen_manager,cleaning_manager,company_admin,admin,owner";
+      const OPERATIONS_PAY_ROLES = "kitchen_staff,cleaning_staff,shopping_staff,kitchen_manager,cleaning_manager,company_admin,admin,owner";
       const { data: staffRes, error: staffResError } = await (supabase as any)
         .from("profiles")
         .select("id, full_name, email, hourly_rate, role, active_role")
         .eq("company_id", companyId)
-        .or(`role.in.(${KITCHEN_PAY_ROLES}),active_role.in.(${KITCHEN_PAY_ROLES})`)
+        .or(`role.in.(${OPERATIONS_PAY_ROLES}),active_role.in.(${OPERATIONS_PAY_ROLES})`)
         .is("deleted_at", null)
         .order("full_name", { ascending: true });
       if (staffResError) {
@@ -516,7 +516,7 @@ function KitchenSettlementPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `kitchen-settlement-${periodStart}_to_${periodEnd}.csv`;
+    a.download = `operations-staff-settlement-${periodStart}_to_${periodEnd}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -611,7 +611,7 @@ function KitchenSettlementPage() {
 
   return (
     <>
-      <Head><title>Kitchen settlement - {companyBrand.name || "CateringMS"}</title></Head>
+      <Head><title>Kitchen, cleaning &amp; shopping settlement - {companyBrand.name || "CateringMS"}</title></Head>
       <NoIndexMeta />
       <AdminNav />
       <div className="admin-page-shell">
@@ -628,12 +628,12 @@ function KitchenSettlementPage() {
                     className="h-6 w-6 shrink-0 rounded-md border border-white/20 bg-white object-contain p-0.5"
                   />
                 )}
-                <span className="truncate">Kitchen settlement</span>
+                <span className="truncate">Kitchen, cleaning &amp; shopping settlement</span>
               </span>
             }
             subtitle={
               <>
-                Kitchen and cleaning pay for this period. Clock issues are held for correction before payslips can be issued.{" "}
+                Kitchen, cleaning and shopping pay for this period. Clock issues are held for correction before payslips can be issued.{" "}
                 <span className="font-semibold text-white">{periodStart}</span> to{" "}
                 <span className="font-semibold text-white">{periodEnd}</span>.
               </>
@@ -817,7 +817,7 @@ function KitchenSettlementPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Staff pay breakdown</CardTitle>
                 <CardDescription className="text-xs">
-                  Closed kitchen and cleaning shifts, paid using each person's hourly, monthly or per-shift rate.
+                  Closed kitchen, cleaning and shopping shifts, paid using each person's hourly, monthly or per-shift rate.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-0">
@@ -827,7 +827,7 @@ function KitchenSettlementPage() {
                   </div>
                 ) : staff.length === 0 ? (
                   <div className="text-center py-12 text-slate-500 text-sm">
-                    <p>No kitchen or cleaning staff on the company roster yet.</p>
+                    <p>No kitchen, cleaning or shopping staff on the company roster yet.</p>
                     <Link href={withSlug("/admin/kitchen-staff")}>
                       <Button variant="outline" size="sm" className="mt-3 gap-1.5">
                         <UserPlus className="w-3.5 h-3.5" />
@@ -1063,7 +1063,7 @@ function KitchenSettlementPage() {
                   <DialogContent className="max-w-2xl p-4 sm:p-5">
                     <DialogHeader className="pr-10 text-left">
                       <DialogTitle className="text-base sm:text-lg">
-                        {editingShift ? "Correct shift record" : selectedStaff?.full_name || selectedStaff?.email || "Kitchen settlement"}
+                        {editingShift ? "Correct shift record" : selectedStaff?.full_name || selectedStaff?.email || "Operations staff settlement"}
                       </DialogTitle>
                       <DialogDescription className="text-xs sm:text-sm">
                         {editingShift

@@ -353,7 +353,7 @@ export function AdminNav(_: AdminNavProps = {}) {
           { title: "Wages",            href: "/admin/wages",             icon: Wallet,     description: "Hours, rates, overtime" },
           { title: "Staff rates",      href: "/admin/staff",             icon: Users,      description: "Pay rates" },
           { title: "Driver settlement", href: "/admin/driver-settlement", icon: Banknote, description: "Distance and callouts" },
-          { title: "Kitchen settlement", href: "/admin/kitchen-settlement", icon: Banknote, description: "Kitchen payslips and balances" },
+          { title: "Kitchen, cleaning & shopping pay", href: "/admin/kitchen-settlement", icon: Banknote, description: "Shared operations team payslips" },
         ] : []),
       ],
     },
