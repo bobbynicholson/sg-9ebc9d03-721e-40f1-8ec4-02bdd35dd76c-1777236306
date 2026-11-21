@@ -88,6 +88,7 @@ export interface VehicleDriverClockReview {
   gps_expected_distance_km: number | null;
   gps_distance_status: string | null;
   gps_distance_review_reason: string | null;
+  gps_attribution_available: boolean;
 }
 
 export interface VehicleRunReviewRow extends VehicleBooking {
@@ -103,6 +104,7 @@ export interface VehicleRunReviewRow extends VehicleBooking {
   driver_name: string | null;
   driver_shifts: VehicleDriverClockReview[];
   gps_columns_available: boolean;
+  gps_attribution_available: boolean;
 }
 
 /**
@@ -286,16 +288,19 @@ export const vehicleService = {
     const profiles = new Map<string, any>((profilesResult.data || []).map((row: any) => [row.id, row]));
     const assignmentsById = new Map<string, any>();
     const assignmentsByTrip = new Map<string, any>();
+    const assignmentsByDriverTrip = new Map<string, any[]>();
     const gpsById = new Map<string, any>(gpsDetails.map((row: any) => [row.id, row]));
     for (const row of (assignmentsResult.data || []) as any[]) {
       const enriched = { ...row, ...(gpsById.get(row.id) || {}) };
       assignmentsById.set(row.id, enriched);
       assignmentsByTrip.set(`${row.order_id}:${row.driver_id}:${row.service_sitting_id || "general"}`, enriched);
+      const tripKey = `${row.order_id}:${row.driver_id}`;
+      assignmentsByDriverTrip.set(tripKey, [...(assignmentsByDriverTrip.get(tripKey) || []), enriched]);
     }
 
     const shiftsResult = orderIds.length && driverIds.length
       ? await (supabase as any).from("kitchen_shifts")
-          .select("id, order_id, staff_id, driver_assignment_id, service_sitting_id, assignment_type, actual_start, actual_end, hours_worked, status, notes, source, deleted_at")
+          .select("id, order_id, staff_id, actual_start, actual_end, hours_worked, status, notes, source, deleted_at")
           .eq("company_id", companyId)
           .in("order_id", orderIds)
           .in("staff_id", driverIds)
@@ -303,8 +308,25 @@ export const vehicleService = {
           .is("deleted_at", null)
       : { data: [], error: null };
     if (shiftsResult.error) throw shiftsResult.error;
+    const shiftRows = (shiftsResult.data || []) as any[];
+    let gpsAttributionAvailable = true;
+    let shiftAttributionRows: any[] = [];
+    if (shiftRows.length) {
+      const attributionResult = await (supabase as any).from("kitchen_shifts")
+        .select("id, driver_assignment_id, service_sitting_id, assignment_type")
+        .eq("company_id", companyId)
+        .in("id", shiftRows.map((shift) => shift.id));
+      if (attributionResult.error) {
+        gpsAttributionAvailable = false;
+        console.warn("[vehicleService] Driver-to-route clock links are unavailable; using an unambiguous order/driver match:", attributionResult.error);
+      } else {
+        shiftAttributionRows = attributionResult.data || [];
+      }
+    }
+    const attributionByShiftId = new Map<string, any>(shiftAttributionRows.map((row: any) => [row.id, row]));
     const shiftsByTrip = new Map<string, any[]>();
-    for (const shift of (shiftsResult.data || []) as any[]) {
+    for (const rawShift of shiftRows) {
+      const shift = { ...rawShift, ...(attributionByShiftId.get(rawShift.id) || {}) };
       if (shift.assignment_type && shift.assignment_type !== "delivery") continue;
       if (!shift.actual_start && !shift.actual_end && ["scheduled", "cancelled"].includes(shift.status)) continue;
       const key = `${shift.order_id}:${shift.staff_id}`;
@@ -325,9 +347,12 @@ export const vehicleService = {
         order: order && !order.deleted_at && !isAutomatedTestOrder(order) ? order : null,
         driver_name: driver?.full_name || driver?.email || null,
         gps_columns_available: gpsColumnsAvailable,
+        gps_attribution_available: gpsAttributionAvailable,
         driver_shifts: driverShifts.map((shift: any): VehicleDriverClockReview => {
+          const tripAssignments = assignmentsByDriverTrip.get(`${shift.order_id}:${shift.staff_id}`) || [];
           const assignment = (shift.driver_assignment_id && assignmentsById.get(shift.driver_assignment_id))
-            || assignmentsByTrip.get(`${shift.order_id}:${shift.staff_id}:${shift.service_sitting_id || "general"}`);
+            || (shift.service_sitting_id && assignmentsByTrip.get(`${shift.order_id}:${shift.staff_id}:${shift.service_sitting_id}`))
+            || (tripAssignments.length === 1 ? tripAssignments[0] : null);
           return {
             id: shift.id,
             actual_start: shift.actual_start,
@@ -336,10 +361,11 @@ export const vehicleService = {
             status: shift.status,
             notes: shift.notes,
             source: shift.source,
-            service_sitting_id: shift.service_sitting_id,
+            service_sitting_id: shift.service_sitting_id || null,
             gps_distance_km: assignment?.gps_distance_km == null ? null : Number(assignment.gps_distance_km),
             gps_expected_distance_km: assignment?.gps_expected_distance_km == null ? null : Number(assignment.gps_expected_distance_km),
-            gps_distance_status: assignment?.gps_distance_status || "not_available",
+            gps_distance_status: assignment?.gps_distance_status || (tripAssignments.length > 1 ? "unlinked" : "not_available"),
+            gps_attribution_available: gpsAttributionAvailable,
             gps_distance_review_reason: assignment?.gps_distance_review_required
               ? assignment.gps_distance_review_reason || "Recorded GPS distance is materially longer than the route estimate."
               : null,

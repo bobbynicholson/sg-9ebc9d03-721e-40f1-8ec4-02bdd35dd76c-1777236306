@@ -746,28 +746,41 @@ function VehiclesPage() {
           )}
 
           {/* Fleet records and utilisation */}
-          <div className="mb-3 flex w-fit gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs shadow-sm">
-            {([
-              { id: "roster", label: "Roster", icon: Truck },
-              { id: "runs", label: "Runs & review", icon: AlertTriangle },
-              { id: "utilisation", label: "Utilisation", icon: BarChart3 },
-            ] as const).map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTab(t.id)}
-                aria-label={`${t.label} view`}
-                title={`${t.label} view`}
-                className={`inline-flex h-10 w-10 items-center justify-center gap-2 rounded-md p-0 md:w-auto md:px-3 ${
-                  tab === t.id
-                    ? "bg-brand-primary/10 text-brand-primary font-medium"
-                    : "text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                <t.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="sr-only md:not-sr-only">{t.label}</span>
-              </button>
-            ))}
+          <div className="mb-3">
+            <label htmlFor="vehicle-section-mobile" className="sr-only">Vehicle section</label>
+            <select
+              id="vehicle-section-mobile"
+              value={tab}
+              onChange={(event) => setTab(event.target.value as "roster" | "runs" | "utilisation")}
+              className="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 shadow-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/30 sm:hidden"
+            >
+              <option value="roster">Roster</option>
+              <option value="runs">Runs &amp; review</option>
+              <option value="utilisation">Utilisation</option>
+            </select>
+            <div className="hidden w-fit gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs shadow-sm sm:flex">
+              {([
+                { id: "roster", label: "Roster", icon: Truck },
+                { id: "runs", label: "Runs & review", icon: AlertTriangle },
+                { id: "utilisation", label: "Utilisation", icon: BarChart3 },
+              ] as const).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTab(t.id)}
+                  aria-label={`${t.label} view`}
+                  title={`${t.label} view`}
+                  className={`inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 ${
+                    tab === t.id
+                      ? "bg-brand-primary/10 text-brand-primary font-medium"
+                      : "text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <t.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>{t.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {tab === "utilisation" ? (

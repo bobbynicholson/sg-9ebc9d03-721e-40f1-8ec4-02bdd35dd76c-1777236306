@@ -61,6 +61,7 @@ function getReviewReasons(row: VehicleRunReviewRow): string[] {
       || (clock.actual_end && clock.status !== "completed" ? "Clock-out exists but the timer is not marked completed." : null);
     if (timeReason) reasons.push(timeReason);
     if (clock.gps_distance_review_reason) reasons.push(clock.gps_distance_review_reason);
+    if (clock.gps_distance_status === "unlinked") reasons.push("GPS route could not be matched to this clock entry.");
     const minutes = clockDuration(clock);
     if (minutes != null && plannedMinutes > 0 && minutes > plannedMinutes + 120) {
       reasons.push("Driver clock ran more than two hours beyond the planned vehicle window.");
@@ -70,6 +71,7 @@ function getReviewReasons(row: VehicleRunReviewRow): string[] {
 }
 
 function distanceSummary(clock: VehicleDriverClockReview): string {
+  if (clock.gps_distance_status === "unlinked") return "GPS route not linked to this clock";
   if (clock.gps_distance_km == null) return "GPS distance not recorded";
   const actual = clock.gps_distance_km;
   const expected = clock.gps_expected_distance_km;
@@ -202,6 +204,7 @@ export function VehicleRunReview({ companyId, actorUserId, vehicles }: Props) {
 
       {loadError && <div role="alert" className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{loadError}</div>}
       {rows.length > 0 && rows.some((row) => !row.gps_columns_available) && <div role="status" className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Vehicle bookings and driver clocks are available, but GPS route distances are not set up in this database yet.</div>}
+      {rows.some((row) => !row.gps_attribution_available) && <div role="status" className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">This database can’t link every clock to a specific sitting route. GPS is shown only where one delivery route matches the driver and order.</div>}
       {loading ? (
         <div className="rounded-lg border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Loading vehicle runs…</div>
       ) : visibleRows.length === 0 ? (
@@ -239,7 +242,8 @@ export function VehicleRunReview({ companyId, actorUserId, vehicles }: Props) {
                         const timeReason = driverShiftReviewReason(clock as any)
                           || (clock.actual_end && clock.status !== "completed" ? "Clock-out exists but the timer is not marked completed." : null);
                         const minutes = clockDuration(clock);
-                        const review = timeReason || clock.gps_distance_review_reason;
+                        const review = timeReason || clock.gps_distance_review_reason
+                          || (clock.gps_distance_status === "unlinked" ? "GPS route could not be matched to this clock entry." : null);
                         return (
                           <li key={clock.id} className={`flex min-w-0 flex-wrap items-start justify-between gap-3 rounded-md border p-2.5 ${review ? "border-amber-200 bg-amber-50/50" : "border-slate-200 bg-slate-50/60"}`}>
                             <div className="min-w-0 flex-1">
