@@ -259,7 +259,7 @@ const ADMIN_SEGMENT_LABELS: Record<string, string> = {
   "money-health": "Health checks",
   "outsource-providers": "Outsource",
   "users": "Users & roles",
-  "hr-solutions": "HR",
+  "hr-solutions": "Staff overview",
   "public-holidays": "Holiday calendar",
   "staff": "Staff rates",
   "company-profile": "Company",

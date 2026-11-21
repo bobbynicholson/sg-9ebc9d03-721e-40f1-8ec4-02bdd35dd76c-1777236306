@@ -100,7 +100,7 @@ export const PAGE_NAVIGATION_REFS: ChatNavigationRef[] = [
   page("admin.packages", "Packages", "/admin/packages", "Manage reusable catering packages", ["packages", "package catalog", "package management"], ADMIN),
   page("admin.subscription", "Subscription", "/admin/subscription", "Review the current company subscription", ["subscription", "plan", "billing plan"], FINANCE),
   page("admin.white-label", "White label", "/admin/white-label", "Configure customer-facing brand and white-label settings", ["white label", "branding", "brand settings"], ADMIN),
-  page("admin.hr-solutions", "HR solutions", "/admin/hr-solutions", "Review HR tools and staff administration options", ["hr", "human resources", "hr solutions"], ADMIN),
+  page("admin.hr-solutions", "Staff overview", "/admin/hr-solutions", "Review team membership, invitations, and payroll hours", ["staff overview", "team overview", "invitations", "hr", "human resources"], ADMIN),
   page("admin.reviews", "Reviews", "/admin/reviews", "Review customer feedback and published reviews", ["reviews", "customer reviews", "ratings"], ADMIN),
   page("admin.tax-purchases", "Tax and purchases", "/admin/tax-purchases", "Review purchase tax information and tax-ready records", ["tax purchases", "purchase tax", "vat purchases"], FINANCE),
   page("admin.outsource-providers", "Outsource providers", "/admin/outsource-providers", "Manage external service providers used for event fulfilment", ["outsource providers", "external providers", "hire in providers"], ADMIN),
