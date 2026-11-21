@@ -47,6 +47,7 @@ import { useToast } from "@/hooks/use-toast";
 import { vehicleService, type Vehicle } from "@/services/vehicleService";
 import { supabase } from "@/integrations/supabase/client";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { VehicleRunReview } from "@/components/admin/VehicleRunReview";
 import { toLocalISO } from "@/lib/localDate";
 
 interface DriverProfile {
@@ -94,7 +95,17 @@ function VehiclesPage() {
   const { toast } = useToast();
   const companyId = profile?.company_id ?? user?.company_id ?? null;
 
-  const [tab, setTab] = useState<"roster" | "utilisation">("roster");
+  const [tab, setTab] = useState<"roster" | "runs" | "utilisation">("roster");
+  useEffect(() => {
+    const openRunsFromHash = () => {
+      if (window.location.hash !== "#vehicle-runs-review") return;
+      setTab("runs");
+      window.setTimeout(() => document.getElementById("vehicle-runs-review")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    };
+    openRunsFromHash();
+    window.addEventListener("hashchange", openRunsFromHash);
+    return () => window.removeEventListener("hashchange", openRunsFromHash);
+  }, []);
   const [utilisation, setUtilisation] = useState<UtilisationRow[]>([]);
   const [utilLoading, setUtilLoading] = useState(false);
   const [utilFromDays, setUtilFromDays] = useState<number>(30);
@@ -734,10 +745,11 @@ function VehiclesPage() {
             </div>
           )}
 
-          {/* Roster vs Utilisation tabs */}
+          {/* Fleet records and utilisation */}
           <div className="mb-3 flex w-fit gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs shadow-sm">
             {([
               { id: "roster", label: "Roster", icon: Truck },
+              { id: "runs", label: "Runs & review", icon: AlertTriangle },
               { id: "utilisation", label: "Utilisation", icon: BarChart3 },
             ] as const).map((t) => (
               <button
@@ -765,6 +777,8 @@ function VehiclesPage() {
               days={utilFromDays}
               onDaysChange={setUtilFromDays}
             />
+          ) : tab === "runs" ? (
+            <VehicleRunReview companyId={companyId} actorUserId={user?.id} vehicles={vehicles} />
           ) : (
             <>
           {/* Filter pills + search - one toolbar card */}

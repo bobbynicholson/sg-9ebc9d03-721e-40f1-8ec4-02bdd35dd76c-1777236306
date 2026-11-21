@@ -75,6 +75,36 @@ export interface VehicleBooking {
   notes: string | null;
 }
 
+export interface VehicleDriverClockReview {
+  id: string;
+  actual_start: string | null;
+  actual_end: string | null;
+  hours_worked: number | null;
+  status: string;
+  notes: string | null;
+  source: string | null;
+  service_sitting_id: string | null;
+  gps_distance_km: number | null;
+  gps_expected_distance_km: number | null;
+  gps_distance_status: string | null;
+  gps_distance_review_reason: string | null;
+}
+
+export interface VehicleRunReviewRow extends VehicleBooking {
+  order: {
+    id: string;
+    order_number: string | null;
+    event_date: string | null;
+    event_time: string | null;
+    status: string | null;
+    client_name: string | null;
+    deleted_at: string | null;
+  } | null;
+  driver_name: string | null;
+  driver_shifts: VehicleDriverClockReview[];
+  gps_columns_available: boolean;
+}
+
 /**
  * Window heuristics. Defaults come from common catering ops; the
  * dispatcher can override on a per-order basis later.
@@ -194,6 +224,249 @@ export interface AvailabilityResult {
 }
 
 export const vehicleService = {
+  async getRunReviewRows(companyId: string): Promise<VehicleRunReviewRow[]> {
+    if (!companyId) return [];
+    const { data: bookingRows, error: bookingError } = await (supabase as any)
+      .from("vehicle_bookings")
+      .select("id, company_id, vehicle_id, order_id, driver_id, booked_from, booked_until, status, notes, created_at, updated_at")
+      .eq("company_id", companyId)
+      .order("booked_from", { ascending: false })
+      .limit(1000);
+    if (bookingError) throw bookingError;
+
+    const bookings = (bookingRows || []) as VehicleBooking[];
+    const orderIds = Array.from(new Set(bookings.map((row) => row.order_id).filter(Boolean))) as string[];
+    const driverIds = Array.from(new Set(bookings.map((row) => row.driver_id).filter(Boolean))) as string[];
+    const [ordersResult, profilesResult, assignmentsResult] = await Promise.all([
+      orderIds.length
+        ? (supabase as any).from("orders")
+            .select("id, order_number, event_date, event_time, status, client_name, deleted_at, internal_notes, event_name")
+            .eq("company_id", companyId)
+            .in("id", orderIds)
+        : Promise.resolve({ data: [], error: null }),
+      driverIds.length
+        ? (supabase as any).from("profiles")
+            .select("id, full_name, email")
+            .eq("company_id", companyId)
+            .in("id", driverIds)
+        : Promise.resolve({ data: [], error: null }),
+      orderIds.length && driverIds.length
+        ? (supabase as any).from("driver_assignments")
+            .select("id, order_id, driver_id, service_sitting_id, assignment_type")
+            .eq("company_id", companyId)
+            .in("order_id", orderIds)
+            .in("driver_id", driverIds)
+            .eq("assignment_type", "delivery")
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (ordersResult.error) throw ordersResult.error;
+    if (profilesResult.error) throw profilesResult.error;
+
+    let gpsColumnsAvailable = true;
+    let gpsDetails: any[] = [];
+    const assignmentIds = ((assignmentsResult.data || []) as any[]).map((row) => row.id);
+    if (assignmentsResult.error) throw assignmentsResult.error;
+    if (assignmentIds.length) {
+      const gpsResult = await (supabase as any).from("driver_assignments")
+        .select("id, gps_distance_km, gps_expected_distance_km, gps_distance_status, gps_distance_review_required, gps_distance_review_reason")
+        .eq("company_id", companyId)
+        .in("id", assignmentIds);
+      if (gpsResult.error) {
+        // Older tenant databases may not have applied the GPS attribution
+        // migration yet. Keep clock and booking review usable while making
+        // the missing distance fields explicit in the UI.
+        gpsColumnsAvailable = false;
+        console.warn("[vehicleService] GPS distance fields are unavailable; showing clock-only run review:", gpsResult.error);
+      } else {
+        gpsDetails = gpsResult.data || [];
+      }
+    }
+
+    const orders = new Map<string, any>((ordersResult.data || []).map((row: any) => [row.id, row]));
+    const profiles = new Map<string, any>((profilesResult.data || []).map((row: any) => [row.id, row]));
+    const assignmentsById = new Map<string, any>();
+    const assignmentsByTrip = new Map<string, any>();
+    const gpsById = new Map<string, any>(gpsDetails.map((row: any) => [row.id, row]));
+    for (const row of (assignmentsResult.data || []) as any[]) {
+      const enriched = { ...row, ...(gpsById.get(row.id) || {}) };
+      assignmentsById.set(row.id, enriched);
+      assignmentsByTrip.set(`${row.order_id}:${row.driver_id}:${row.service_sitting_id || "general"}`, enriched);
+    }
+
+    const shiftsResult = orderIds.length && driverIds.length
+      ? await (supabase as any).from("kitchen_shifts")
+          .select("id, order_id, staff_id, driver_assignment_id, service_sitting_id, assignment_type, actual_start, actual_end, hours_worked, status, notes, source, deleted_at")
+          .eq("company_id", companyId)
+          .in("order_id", orderIds)
+          .in("staff_id", driverIds)
+          .eq("shift_type", "delivery")
+          .is("deleted_at", null)
+      : { data: [], error: null };
+    if (shiftsResult.error) throw shiftsResult.error;
+    const shiftsByTrip = new Map<string, any[]>();
+    for (const shift of (shiftsResult.data || []) as any[]) {
+      if (shift.assignment_type && shift.assignment_type !== "delivery") continue;
+      if (!shift.actual_start && !shift.actual_end && ["scheduled", "cancelled"].includes(shift.status)) continue;
+      const key = `${shift.order_id}:${shift.staff_id}`;
+      shiftsByTrip.set(key, [...(shiftsByTrip.get(key) || []), shift]);
+    }
+
+    return bookings.filter((booking) => {
+      const order = booking.order_id ? orders.get(booking.order_id) : null;
+      return !order || !isAutomatedTestOrder(order);
+    }).map((booking) => {
+      const order = booking.order_id ? orders.get(booking.order_id) : null;
+      const driver = booking.driver_id ? profiles.get(booking.driver_id) : null;
+      const driverShifts = booking.order_id && booking.driver_id
+        ? shiftsByTrip.get(`${booking.order_id}:${booking.driver_id}`) || []
+        : [];
+      return {
+        ...booking,
+        order: order && !order.deleted_at && !isAutomatedTestOrder(order) ? order : null,
+        driver_name: driver?.full_name || driver?.email || null,
+        gps_columns_available: gpsColumnsAvailable,
+        driver_shifts: driverShifts.map((shift: any): VehicleDriverClockReview => {
+          const assignment = (shift.driver_assignment_id && assignmentsById.get(shift.driver_assignment_id))
+            || assignmentsByTrip.get(`${shift.order_id}:${shift.staff_id}:${shift.service_sitting_id || "general"}`);
+          return {
+            id: shift.id,
+            actual_start: shift.actual_start,
+            actual_end: shift.actual_end,
+            hours_worked: shift.hours_worked == null ? null : Number(shift.hours_worked),
+            status: shift.status,
+            notes: shift.notes,
+            source: shift.source,
+            service_sitting_id: shift.service_sitting_id,
+            gps_distance_km: assignment?.gps_distance_km == null ? null : Number(assignment.gps_distance_km),
+            gps_expected_distance_km: assignment?.gps_expected_distance_km == null ? null : Number(assignment.gps_expected_distance_km),
+            gps_distance_status: assignment?.gps_distance_status || "not_available",
+            gps_distance_review_reason: assignment?.gps_distance_review_required
+              ? assignment.gps_distance_review_reason || "Recorded GPS distance is materially longer than the route estimate."
+              : null,
+          };
+        }),
+      };
+    });
+  },
+
+  async updateVehicleBooking(
+    id: string,
+    companyId: string,
+    patch: Pick<VehicleBooking, "booked_from" | "booked_until" | "notes">,
+    actorUserId?: string | null,
+  ): Promise<void> {
+    const { data: before, error: readError } = await (supabase as any)
+      .from("vehicle_bookings")
+      .select("id, company_id, vehicle_id, order_id, driver_id, booked_from, booked_until, status, notes")
+      .eq("id", id)
+      .eq("company_id", companyId)
+      .maybeSingle();
+    if (readError) throw readError;
+    if (!before) throw new Error("Vehicle run entry was not found. Refresh and try again.");
+    if (["planned", "on_route"].includes(before.status)) {
+      const { data: clashes, error: clashError } = await (supabase as any)
+        .from("vehicle_bookings")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("vehicle_id", before.vehicle_id)
+        .in("status", ["planned", "on_route"])
+        .neq("id", id)
+        .lte("booked_from", patch.booked_until)
+        .gte("booked_until", patch.booked_from)
+        .limit(1);
+      if (clashError) throw clashError;
+      if (clashes?.length) throw new Error("This time window overlaps another active booking for the same vehicle.");
+    }
+    const { error } = await (supabase as any)
+      .from("vehicle_bookings")
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("company_id", companyId);
+    if (error) throw error;
+    try {
+      await (supabase as any).from("audit_logs").insert({
+        company_id: companyId,
+        user_id: actorUserId ?? null,
+        action: "vehicle_booking_edited",
+        entity_type: "vehicle_booking",
+        entity_id: id,
+        details: { before, patch },
+      });
+    } catch (auditError) {
+      console.warn("[vehicleService] vehicle booking edit audit failed:", auditError);
+    }
+  },
+
+  async deleteVehicleBooking(id: string, companyId: string, actorUserId?: string | null): Promise<void> {
+    const { data: before, error: readError } = await (supabase as any)
+      .from("vehicle_bookings")
+      .select("id, company_id, vehicle_id, order_id, driver_id, booked_from, booked_until, status, notes")
+      .eq("id", id)
+      .eq("company_id", companyId)
+      .maybeSingle();
+    if (readError) throw readError;
+    if (!before) throw new Error("Vehicle run entry was not found. Refresh and try again.");
+    let clearedPrimaryAssignment = false;
+    let clearedSecondaryAssignment = false;
+    if (before.order_id) {
+      const { data: otherBookings, error: otherBookingsError } = await (supabase as any).from("vehicle_bookings")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("order_id", before.order_id)
+        .eq("vehicle_id", before.vehicle_id)
+        .neq("id", id)
+        .limit(1);
+      if (otherBookingsError) throw otherBookingsError;
+      if (!otherBookings?.length) {
+        const primary = await (supabase as any).from("orders")
+          .update({ assigned_vehicle_id: null })
+          .eq("id", before.order_id)
+          .eq("company_id", companyId)
+          .eq("assigned_vehicle_id", before.vehicle_id)
+          .select("id");
+        if (primary.error) throw primary.error;
+        clearedPrimaryAssignment = !!primary.data?.length;
+        const secondary = await (supabase as any).from("orders")
+          .update({ secondary_vehicle_id: null })
+          .eq("id", before.order_id)
+          .eq("company_id", companyId)
+          .eq("secondary_vehicle_id", before.vehicle_id)
+          .select("id");
+        if (secondary.error) {
+          if (clearedPrimaryAssignment) {
+            await (supabase as any).from("orders").update({ assigned_vehicle_id: before.vehicle_id }).eq("id", before.order_id).eq("company_id", companyId).is("assigned_vehicle_id", null);
+          }
+          throw secondary.error;
+        }
+        clearedSecondaryAssignment = !!secondary.data?.length;
+      }
+    }
+    const { error } = await (supabase as any)
+      .from("vehicle_bookings")
+      .delete()
+      .eq("id", id)
+      .eq("company_id", companyId);
+    if (error) {
+      if (before.order_id) {
+        if (clearedPrimaryAssignment) await (supabase as any).from("orders").update({ assigned_vehicle_id: before.vehicle_id }).eq("id", before.order_id).eq("company_id", companyId).is("assigned_vehicle_id", null);
+        if (clearedSecondaryAssignment) await (supabase as any).from("orders").update({ secondary_vehicle_id: before.vehicle_id }).eq("id", before.order_id).eq("company_id", companyId).is("secondary_vehicle_id", null);
+      }
+      throw error;
+    }
+    try {
+      await (supabase as any).from("audit_logs").insert({
+        company_id: companyId,
+        user_id: actorUserId ?? null,
+        action: "vehicle_booking_deleted",
+        entity_type: "vehicle_booking",
+        entity_id: id,
+        details: { before, reason: "Admin removed vehicle run entry" },
+      });
+    } catch (auditError) {
+      console.warn("[vehicleService] vehicle booking delete audit failed:", auditError);
+    }
+  },
+
   async getVehiclesForCompany(companyId: string): Promise<Vehicle[]> {
     // Cast at the boundary: select("*") returns every column, but the
     // generated supabase types lag the maintenance + region_id additions.
