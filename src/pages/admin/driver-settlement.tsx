@@ -1335,33 +1335,27 @@ function DriverSettlementPage() {
           <Dialog open={!!payoutDialog} onOpenChange={(o) => !o && setPayoutDialog(null)}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Record payout</DialogTitle>
+                <DialogTitle>Confirm driver payout</DialogTitle>
                 <DialogDescription>
-                  Lock in the settlement for {payoutDialog?.driverName}. The totals snapshot here so a future rate change won't rewrite history.
+                  Review the full settlement for {payoutDialog?.driverName}. This records the calculated amount for the selected dates and saves a snapshot of the pay details.
                 </DialogDescription>
               </DialogHeader>
               {payoutDialog && (
                 <div className="space-y-3 py-1">
-                  <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 text-sm">
-                    <div className="flex justify-between text-slate-600">
-                      <span>Hours</span>
-                      <span className="tabular-nums">{payoutDialog.totals.hours_total.toFixed(2)}h</span>
+                  <div className="rounded-xl border border-slate-200 bg-white p-3">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Pay period</span>
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-700">{from} to {to}</span>
                     </div>
-                    <div className="flex justify-between text-slate-600">
-                      <span>Hourly pay</span>
-                      <span className="tabular-nums">{formatR(payoutDialog.totals.hourly_pay)}</span>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="rounded-lg bg-slate-50 p-2.5"><span className="block text-xs text-slate-500">Shift hours</span><span className="font-semibold tabular-nums text-slate-900">{payoutDialog.totals.hours_total.toFixed(2)}h</span></div>
+                      <div className="rounded-lg bg-slate-50 p-2.5"><span className="block text-xs text-slate-500">Hourly pay</span><span className="font-semibold tabular-nums text-slate-900">{formatR(payoutDialog.totals.hourly_pay)}</span></div>
+                      <div className="rounded-lg bg-slate-50 p-2.5"><span className="block text-xs text-slate-500">Distance pay</span><span className="font-semibold tabular-nums text-slate-900">{payoutDialog.totals.distance_total_km.toFixed(1)} km · {formatR(payoutDialog.totals.distance_pay)}</span></div>
+                      <div className="rounded-lg bg-slate-50 p-2.5"><span className="block text-xs text-slate-500">Callout pay</span><span className="font-semibold tabular-nums text-slate-900">{formatR(payoutDialog.totals.callout_pay)}</span></div>
                     </div>
-                    <div className="flex justify-between text-slate-600">
-                      <span>Distance pay</span>
-                      <span className="tabular-nums">{formatR(payoutDialog.totals.distance_pay)}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-600">
-                      <span>Callout pay</span>
-                      <span className="tabular-nums">{formatR(payoutDialog.totals.callout_pay)}</span>
-                    </div>
-                    <div className="flex justify-between text-brand-primary font-semibold pt-1 border-t border-slate-200 mt-2">
-                      <span>Gross total</span>
-                      <span className="tabular-nums">{formatR(payoutDialog.totals.grand_total)}</span>
+                    <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-200 pt-3">
+                      <div><span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Gross settlement</span><span className="text-xs text-slate-500">Full calculated amount for this period</span></div>
+                      <span className="text-lg font-bold tabular-nums text-brand-primary">{formatR(payoutDialog.totals.grand_total)}</span>
                     </div>
                   </div>
                   <div>
@@ -1789,9 +1783,9 @@ function FragmentRows({
           ) : isPaid ? (
             <button
               type="button"
-              onClick={() => onReverse(payout!.id)}
+              onClick={onToggle}
               className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${paidTotalsChanged ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100" : "border-brand-primary/20 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/15"}`}
-              title={`${paidTotalsChanged ? "Current totals differ from the recorded payout. " : ""}Paid via ${payout!.paid_method || "-"}${payout!.paid_reference ? ` (${payout!.paid_reference})` : ""}. Click to reverse and reconcile.`}
+              title="Open the recorded payout details"
             >
               {paidTotalsChanged ? <AlertTriangle className="h-3 w-3" /> : <BadgeCheck className="w-3 h-3" />}
               {paidTotalsChanged ? "Paid · changed" : "Paid"}
@@ -1872,6 +1866,7 @@ function FragmentRows({
       {isOpen && (
         <tr className="bg-slate-50/50">
           <td colSpan={10} className="px-4 py-3">
+            {payout && <DriverPayoutDetails payout={payout} totals={t} formatR={formatR} onReverse={onReverse} />}
             {detailLoading && !detail ? (
               <div className="text-sm text-slate-500 flex items-center gap-2 py-4">
                 <Loader2 className="w-4 h-4 animate-spin" /> Loading shifts and deliveries...
@@ -2136,6 +2131,62 @@ function FragmentRows({
   );
 }
 
+function DriverPayoutDetails({
+  payout, totals, formatR = formatRDefault, onReverse,
+}: {
+  payout: DriverPayoutRow;
+  totals: { hours_total: number; hourly_pay: number; distance_total_km: number; distance_pay: number; callout_pay: number; grand_total: number } | undefined;
+  formatR?: (amount: number) => string;
+  onReverse: (payoutId: string) => void;
+}) {
+  const isPaid = payout.status === "paid";
+  const totalsChanged = !!(isPaid && totals && (
+    Math.abs(Number(payout.gross_total || 0) - totals.grand_total) > 0.01
+    || Math.abs(Number(payout.hours_total || 0) - totals.hours_total) > 0.01
+    || Math.abs(Number(payout.distance_total_km || 0) - totals.distance_total_km) > 0.01
+    || Math.abs(Number(payout.hourly_pay || 0) - totals.hourly_pay) > 0.01
+    || Math.abs(Number(payout.distance_pay || 0) - totals.distance_pay) > 0.01
+    || Math.abs(Number(payout.callout_pay || 0) - totals.callout_pay) > 0.01
+  ));
+  const methodLabel: Record<DriverPayoutMethod, string> = {
+    eft: "EFT / bank transfer",
+    cash: "Cash",
+    mobile_money: "Mobile money",
+    other: "Other",
+  };
+
+  return (
+    <section aria-label="Recorded driver settlement" className={`mb-4 rounded-xl border p-3 sm:p-4 ${totalsChanged ? "border-amber-300 bg-amber-50/70" : "border-emerald-200 bg-emerald-50/50"}`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold text-slate-900">Recorded settlement</h3>
+            <Badge variant="outline" className={isPaid ? "border-emerald-300 bg-white text-emerald-800" : "capitalize"}>{payout.status}</Badge>
+          </div>
+          <p className="mt-1 text-xs text-slate-600">{payout.period_from} to {payout.period_to}{payout.paid_at ? ` · Paid ${new Date(payout.paid_at).toLocaleString("en-ZA")}` : ""}</p>
+          {payout.paid_method && <p className="mt-1 text-xs text-slate-600">Method: {methodLabel[payout.paid_method]}</p>}
+          {payout.paid_reference && <p className="mt-1 break-all text-xs text-slate-600">Reference: {payout.paid_reference}</p>}
+          {payout.paid_notes && <p className="mt-1 text-xs text-slate-600">Note: {payout.paid_notes}</p>}
+        </div>
+        <div className="text-right">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Paid snapshot</p>
+          <p className="text-lg font-bold tabular-nums text-slate-900">{formatR(Number(payout.gross_total) || 0)}</p>
+        </div>
+      </div>
+      <dl className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3 lg:grid-cols-6">
+        <div className="rounded-lg border border-white/80 bg-white/80 p-2"><dt className="text-slate-500">Hours</dt><dd className="mt-0.5 font-semibold tabular-nums text-slate-900">{Number(payout.hours_total).toFixed(2)}h</dd></div>
+        <div className="rounded-lg border border-white/80 bg-white/80 p-2"><dt className="text-slate-500">Hourly pay</dt><dd className="mt-0.5 font-semibold tabular-nums text-slate-900">{formatR(Number(payout.hourly_pay) || 0)}</dd></div>
+        <div className="rounded-lg border border-white/80 bg-white/80 p-2"><dt className="text-slate-500">Distance</dt><dd className="mt-0.5 font-semibold tabular-nums text-slate-900">{Number(payout.distance_total_km).toFixed(1)} km</dd></div>
+        <div className="rounded-lg border border-white/80 bg-white/80 p-2"><dt className="text-slate-500">Distance pay</dt><dd className="mt-0.5 font-semibold tabular-nums text-slate-900">{formatR(Number(payout.distance_pay) || 0)}</dd></div>
+        <div className="rounded-lg border border-white/80 bg-white/80 p-2"><dt className="text-slate-500">Callout pay</dt><dd className="mt-0.5 font-semibold tabular-nums text-slate-900">{formatR(Number(payout.callout_pay) || 0)}</dd></div>
+        <div className="rounded-lg border border-white/80 bg-white/80 p-2"><dt className="text-slate-500">Current total</dt><dd className="mt-0.5 font-semibold tabular-nums text-slate-900">{totals ? formatR(totals.grand_total) : "—"}</dd></div>
+      </dl>
+      {totalsChanged && totals && <p className="mt-3 rounded-lg border border-amber-300 bg-white/70 px-3 py-2 text-xs leading-5 text-amber-900">The live calculation is {formatR(totals.grand_total - Number(payout.gross_total || 0))} different from the paid snapshot. The recorded payout is unchanged; review before reconciling.</p>}
+      {isPaid && <div className="mt-3 flex justify-end"><Button type="button" variant="outline" size="sm" className="min-h-9 border-rose-200 text-rose-700 hover:bg-rose-50" onClick={() => onReverse(payout.id)}>Reverse payout</Button></div>}
+    </section>
+  );
+}
+
 /**
  * DRV-B: per-driver mobile card. The desktop table is unusable on
  * phones (10 columns); this card carries the same headline numbers
@@ -2160,6 +2211,7 @@ function DriverSettlementCard({
   /** TIGHTEN I.107: tenant-aware money formatter passed from parent. */
   formatR?: (n: number) => string;
 }) {
+  const { withSlug } = useTenantHref();
   const t = row.summary?.totals;
   const hasPay = !!(t && t.grand_total > 0);
   const reviewCount = t?.shifts_needing_review || 0;
@@ -2319,12 +2371,12 @@ function DriverSettlementCard({
         ) : isPaid ? (
           <button
             type="button"
-            onClick={() => onReverse(payout!.id)}
+            onClick={() => setDetailsOpen(true)}
             className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium ${paidTotalsChanged ? "border-amber-300 bg-amber-50 text-amber-800" : "border-brand-primary/20 bg-brand-primary/10 text-brand-primary"}`}
-            title={paidTotalsChanged ? "Current totals differ from the recorded payout. Tap to reverse and reconcile." : "Tap to reverse the recorded payout."}
+            title="Open the recorded payout details"
           >
             {paidTotalsChanged ? <AlertTriangle className="h-3 w-3" /> : <BadgeCheck className="w-3 h-3" />}
-            {paidTotalsChanged ? "Paid · changed" : "Paid · reverse"}
+            {paidTotalsChanged ? "Paid · review" : "Paid · details"}
           </button>
         ) : (
           <button
@@ -2344,11 +2396,12 @@ function DriverSettlementCard({
       </div>
       {detailsOpen && (
         <div className="mt-3 border-t border-slate-100 pt-3">
+          {payout && <DriverPayoutDetails payout={payout} totals={t} formatR={formatR} onReverse={onReverse} />}
           {detailLoading && !detail ? (
             <p className="flex items-center gap-1.5 py-2 text-xs text-slate-500"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading shift details…</p>
           ) : !detail ? (
             <p className="py-2 text-xs text-rose-700">Could not load shift details. Close and reopen to retry.</p>
-          ) : detail.shifts.length === 0 ? (
+          ) : detail.shifts.length === 0 && detail.deliveries.length === 0 ? (
             <p className="py-2 text-xs text-slate-500">No shifts in this period.</p>
           ) : (
             <ul className="space-y-2">
@@ -2365,6 +2418,19 @@ function DriverSettlementCard({
                 </li>
               ))}
             </ul>
+          )}
+          {detail && detail.deliveries.length > 0 && (
+            <div className="mt-4">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">Deliveries ({detail.deliveries.length})</h3>
+              <ul className="space-y-2">
+                {detail.deliveries.map((delivery) => (
+                  <li key={delivery.line_id || delivery.order_id} className="flex items-start justify-between gap-3 rounded-md border border-slate-100 bg-slate-50/60 p-2 text-xs">
+                    <Link href={withSlug(staffOrderHref(delivery.order_id, "admin"))} className="font-medium text-brand-primary hover:underline">Order {delivery.order_id.slice(0, 8)}{delivery.sitting_sequence ? ` · Sitting ${delivery.sitting_sequence}` : ""}</Link>
+                    <span className="shrink-0 text-right tabular-nums text-slate-600">{delivery.distance_km.toFixed(1)} km · {formatR(delivery.total)}{delivery.distance_source === "gps_actual" && <span className="block text-[10px] text-emerald-700">GPS distance</span>}{delivery.gps_distance_review_required && <span className="block text-[10px] font-semibold text-rose-700">GPS review needed</span>}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
       )}
