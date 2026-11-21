@@ -429,7 +429,7 @@ export default function ClientOrderPage() {
             The link pre-fills the email so the user sees one tap on
             the login page (`Email me a sign-in link` button).
           */}
-          {company.slug && (
+          {company.slug && !canLeaveReview && (
             <Card
               className="border-0 shadow-lg overflow-hidden"
               style={{
