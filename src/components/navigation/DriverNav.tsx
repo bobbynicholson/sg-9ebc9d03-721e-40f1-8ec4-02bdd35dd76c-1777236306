@@ -55,12 +55,12 @@ const config: PortalSidebarConfig = {
       title: "Live now",
       defaultOpen: true,
       items: [
-        { title: "Today",        href: "/team-portal/driver/dashboard#today", icon: LayoutDashboard, description: "Today's deliveries" },
+        { title: "Today",        href: "/team-portal/driver/dashboard#today", icon: LayoutDashboard, description: "Today's deliveries", groupHeading: "Shift & clock" },
         // Clock in / out lives on the dashboard (DriverClockButton).
         // Surfaced as its own labelled item so a driver looking for
         // "the clock" finds it instantly at shift start / end.
         { title: "Clock",        href: "/team-portal/driver/dashboard#clock", icon: Clock,           description: "Clock in / out for your shift" },
-        { title: "Routes",       href: "/team-portal/driver/routes",    icon: Navigation,      description: "What you're driving" },
+        { title: "Routes",       href: "/team-portal/driver/routes",    icon: Navigation,      description: "What you're driving", groupHeading: "Deliveries" },
         // Command-centre consolidation: the old /tracking page was a strict
         // subset of the routes board's current-stop panel (same order, same
         // actions, minus the map). Its manifest now lives on the routes page

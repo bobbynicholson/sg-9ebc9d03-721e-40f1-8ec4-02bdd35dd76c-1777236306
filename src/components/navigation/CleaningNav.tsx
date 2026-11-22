@@ -132,6 +132,7 @@ export function CleaningNav(_: CleaningNavProps = {}) {
             href: "/team-portal/cleaning/dashboard",
             icon: LayoutDashboard,
             description: "The full cleaning desk",
+            groupHeading: "Shift & clock",
             liveDescription: () => {
               if (mode.outboundToday === 0 && mode.returnsDue === 0 && mode.activeHandovers === 0) {
                 return "Nothing live";
@@ -154,6 +155,7 @@ export function CleaningNav(_: CleaningNavProps = {}) {
             href: "/team-portal/cleaning/dashboard#returns",
             icon: PackageOpen,
             description: "Equipment coming back",
+            groupHeading: "Equipment flow",
             badge: () => {
               if (counts.returnsDue > 0) {
                 return { text: `${counts.returnsDue} due`, tone: "critical", pulse: isReturnsActive };
@@ -189,7 +191,7 @@ export function CleaningNav(_: CleaningNavProps = {}) {
         title: "Inventory",
         defaultOpen: false,
         items: [
-          { title: "Equipment", href: "/team-portal/cleaning/equipment", icon: Package,   description: "Catalogue + verify returns" },
+          { title: "Equipment", href: "/team-portal/cleaning/equipment", icon: Package,   description: "Catalogue + verify returns", groupHeading: "Equipment & supplies" },
           {
             title: "Supplies",
             href: "/team-portal/cleaning/supplies",
@@ -209,6 +211,7 @@ export function CleaningNav(_: CleaningNavProps = {}) {
             href: "/team-portal/cleaning/damage",
             icon: AlertTriangle,
             description: "Broken + missing register",
+            groupHeading: "Review & planning",
             badge: () => counts.openDamages > 0
               ? { text: `${counts.openDamages} open`, tone: "warning" }
               : null,
@@ -221,7 +224,7 @@ export function CleaningNav(_: CleaningNavProps = {}) {
         title: "Manager",
         defaultOpen: true,
         items: [
-          { title: "Manage team", href: "/team-portal/cleaning/management", icon: Users, description: "Roster, clock-ins and diary" },
+          { title: "Manage team", href: "/team-portal/cleaning/management", icon: Users, description: "Roster, clock-ins and diary", groupHeading: "People & shifts" },
           { title: "Team overview", href: "/admin/teams/cleaning", icon: Users, description: "Live handovers and staffing" },
           { title: "Shift roster", href: "/admin/cleaning-schedule", icon: CalendarClock, description: "Plan staff shifts + duties" },
         ],

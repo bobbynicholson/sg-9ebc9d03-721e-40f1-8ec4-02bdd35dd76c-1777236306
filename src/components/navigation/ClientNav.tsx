@@ -52,9 +52,9 @@ export function ClientNav() {
         title: "Bookings",
         defaultOpen: true,
         items: [
-          { title: "Quotes", href: "/client-portal/quotes", icon: FileText, description: "Approve or request edits" },
+          { title: "Quotes", href: "/client-portal/quotes", icon: FileText, description: "Approve or request edits", groupHeading: "Quotes & bookings" },
           { title: "Bookings", href: "/client-portal/my-orders", icon: ShoppingCart, description: "Upcoming and past events" },
-          { title: "Live tracking", href: "/client-portal/tracking", icon: MapPin, description: "Delivery ETA and status" },
+          { title: "Live tracking", href: "/client-portal/tracking", icon: MapPin, description: "Delivery ETA and status", groupHeading: "Event day & payments" },
           { title: "Billing", href: "/client-portal/billing", icon: Receipt, description: "Invoices and payments" },
         ],
       },

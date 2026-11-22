@@ -185,6 +185,7 @@ export function AdminNav(_: AdminNavProps = {}) {
           title: "Dashboard",
           href: "/admin/dashboard",
           icon: LayoutDashboard,
+          groupHeading: "Overview",
           description: "Daily overview",
           liveDescription: () => {
             const bits: string[] = [];
@@ -208,6 +209,7 @@ export function AdminNav(_: AdminNavProps = {}) {
           href: "/admin/order-assignments",
           icon: ClipboardList,
           description: "Driver assignments",
+          groupHeading: "Dispatch & team work",
           loading: () => liveCounts.loading && liveCounts.refreshedAt === null,
           badge: () => liveCounts.dispatchGaps > 0
             ? { text: `${liveCounts.dispatchGaps} gap${liveCounts.dispatchGaps === 1 ? "" : "s"}`, tone: "critical" as const, pulse: portalMode.mode === "ops" }
@@ -227,6 +229,7 @@ export function AdminNav(_: AdminNavProps = {}) {
           href: "/admin/quotes?view=opportunity",
           icon: Sparkles,
           description: "Quote opportunities by date",
+          groupHeading: "Planning",
         },
         {
           title: "Daily operations",
@@ -241,7 +244,7 @@ export function AdminNav(_: AdminNavProps = {}) {
       title: "Sales",
       defaultOpen: false,
       items: [
-        { title: "Contacts",      href: "/admin/contacts",      icon: MessageSquare,    description: "Inbox and follow-ups" },
+        { title: "Contacts",      href: "/admin/contacts",      icon: MessageSquare,    description: "Inbox and follow-ups", groupHeading: "Enquiries & quotes" },
         {
           title: "Leads",
           href: "/admin/leads",
@@ -265,6 +268,7 @@ export function AdminNav(_: AdminNavProps = {}) {
           href: "/admin/orders",
           icon: Package,
           description: "Booked events",
+          groupHeading: "Bookings & payments",
           liveDescription: () => liveCounts.eventsToday > 0
             ? `${liveCounts.eventsToday} today`
             : "Booked events",
@@ -286,9 +290,9 @@ export function AdminNav(_: AdminNavProps = {}) {
       title: "Operations",
       defaultOpen: false,
       items: [
-        { title: "Routes",          href: "/admin/route-planning",  icon: Route,         description: "Assign drivers and plan upcoming deliveries" },
+        { title: "Routes",          href: "/admin/route-planning",  icon: Route,         description: "Assign drivers and plan upcoming deliveries", groupHeading: "Delivery planning" },
         { title: "Vehicles",        href: "/admin/vehicles",        icon: Truck,         description: "Fleet and cold chain" },
-        { title: "Regions",         href: "/admin/regions",         icon: Map,           description: "Manage service regions" },
+        { title: "Regions",         href: "/admin/regions",         icon: Map,           description: "Manage service regions", groupHeading: "Service coverage" },
       ],
     },
     // MONEY - finance nucleus, gated to finance-bearing roles.
@@ -297,7 +301,7 @@ export function AdminNav(_: AdminNavProps = {}) {
       title: "Finance",
       defaultOpen: false,
       items: [
-        { title: "Finance overview", href: "/admin/financial-dashboard", icon: Banknote, description: "Revenue, collections, costs and margin" },
+        { title: "Finance overview", href: "/admin/financial-dashboard", icon: Banknote, description: "Revenue, collections, costs and margin", groupHeading: "Overview" },
         { title: "Cashflow & costs", href: "/admin/cashflow-dashboard", icon: TrendingUp, description: "Forecast, supplier payables and fixed costs", groupHeading: "Planning & costs" },
         { title: "Recurring invoices", href: "/admin/recurring-invoices", icon: Receipt, description: "Repeat client billing", groupHeading: "Client money" },
         { title: "Balances", href: "/admin/outstanding-balances", icon: Wallet, description: "Unpaid client invoices" },
@@ -317,7 +321,7 @@ export function AdminNav(_: AdminNavProps = {}) {
       title: "Health",
       defaultOpen: false,
       items: [
-        { title: "System health", href: "/admin/money-health", icon: Activity, description: "Payments, email and WhatsApp status" },
+        { title: "System health", href: "/admin/money-health", icon: Activity, description: "Payments, email and WhatsApp status", groupHeading: "Service status" },
         { title: "Scheduled tasks", href: "/admin/cron-tasks", icon: Activity, description: "Cron status, failures and next runs" },
       ],
     } as PortalSidebarSection] : []),
@@ -326,8 +330,8 @@ export function AdminNav(_: AdminNavProps = {}) {
       title: "WhatsApp",
       defaultOpen: false,
       items: [
-        { title: "WhatsApp settings", href: "/admin/whatsapp", icon: MessageCircle, description: "Connect the business number and automate messages" },
-        { title: "Replies", href: "/admin/whatsapp/replies", icon: MessageCircle, description: "Read and answer client replies" },
+        { title: "WhatsApp settings", href: "/admin/whatsapp", icon: MessageCircle, description: "Connect the business number and automate messages", groupHeading: "Business account" },
+        { title: "Replies", href: "/admin/whatsapp/replies", icon: MessageCircle, description: "Read and answer client replies", groupHeading: "Messages & delivery" },
         { title: "Activity", href: "/admin/whatsapp/activity", icon: Activity, description: "Delivery status and failures" },
       ],
     } as PortalSidebarSection] : []),
@@ -336,12 +340,12 @@ export function AdminNav(_: AdminNavProps = {}) {
       title: "Catalogue",
       defaultOpen: false,
       items: [
-        { title: "Offering",            href: "/admin/offering",            icon: Sparkles,    description: "Menu and equipment hub" },
+        { title: "Offering",            href: "/admin/offering",            icon: Sparkles,    description: "Menu and equipment hub", groupHeading: "What you offer" },
         { title: "Menu",                href: "/admin/menu",                icon: BookOpen,    description: "Items and recipes" },
-        { title: "Stock",               href: "/admin/stock",               icon: BarChart3,   description: "Low and committed stock" },
+        { title: "Stock",               href: "/admin/stock",               icon: BarChart3,   description: "Low and committed stock", groupHeading: "Stock & equipment" },
         { title: "Inventory",           href: "/admin/inventory",           icon: Package,     description: "Pantry and chiller" },
         { title: "Equipment",           href: "/admin/equipment",           icon: Layers,      description: "Availability and hire-in" },
-        { title: "Suppliers",           href: "/admin/suppliers",           icon: Building2,   description: "Contacts, products, spend" },
+        { title: "Suppliers",           href: "/admin/suppliers",           icon: Building2,   description: "Contacts, products, spend", groupHeading: "Supply & fulfilment" },
         { title: "Outsource",           href: "/admin/outsource-providers", icon: HardHat,     description: "External event help" },
         { title: "Shopping",            href: "/admin/shopping",            icon: ShoppingBag, description: "Buy lists and slips" },
       ],
@@ -351,7 +355,7 @@ export function AdminNav(_: AdminNavProps = {}) {
       title: "Team",
       defaultOpen: false,
       items: [
-        { title: "Teams hub",      href: "/admin/teams",             icon: Briefcase, description: "All teams at a glance" },
+        { title: "Teams hub",      href: "/admin/teams",             icon: Briefcase, description: "All teams at a glance", groupHeading: "Team setup" },
         { title: "Users & roles",  href: "/admin/users",             icon: Users,     description: "Access and permissions" },
         { title: "Kitchen",        href: "/admin/teams/kitchen",     icon: ChefHat,   description: "Prep staff and duties", groupHeading: "Operations teams" },
         { title: "Shopping team",  href: "/admin/teams/shopping",    icon: ShoppingBag, description: "Shoppers and assigned work" },
@@ -410,14 +414,14 @@ export function AdminNav(_: AdminNavProps = {}) {
       title: "Platform",
       defaultOpen: false,
       items: [
-        { title: "Platform Dashboard",      href: "/admin/platform/dashboard",              icon: LayoutDashboard, description: "Platform overview" },
-        { title: "Company Database",        href: "/admin/platform/company-database",       icon: Building2,       description: "Manage all companies" },
+        { title: "Platform Dashboard",      href: "/admin/platform/dashboard",              icon: LayoutDashboard, description: "Platform overview", groupHeading: "Overview" },
+        { title: "Company Database",        href: "/admin/platform/company-database",       icon: Building2,       description: "Manage all companies", groupHeading: "Companies & accounts" },
         { title: "User Management",         href: "/admin/platform/user-management",        icon: Users,           description: "Platform-wide users" },
         { title: "Subscription Management", href: "/admin/platform/subscription-management", icon: CreditCard,      description: "Platform subscriptions" },
-        { title: "Pricing Management",      href: "/admin/platform/pricing-management",     icon: Banknote,      description: "Manage pricing tiers" },
+        { title: "Pricing Management",      href: "/admin/platform/pricing-management",     icon: Banknote,      description: "Manage pricing tiers", groupHeading: "Platform finance" },
         { title: "Trial Management",        href: "/admin/platform/trial-management",       icon: Clock,           description: "Manage trial periods" },
         { title: "Currency Monitoring",     href: "/admin/platform/currency-monitoring",    icon: TrendingUp,      description: "Monitor exchange rates" },
-        { title: "CMS Blog",                href: "/admin/platform/cms-blog",               icon: FileText,        description: "Manage blog content" },
+        { title: "CMS Blog",                href: "/admin/platform/cms-blog",               icon: FileText,        description: "Manage blog content", groupHeading: "Website & messaging" },
         { title: "CMS Pages",               href: "/admin/platform/cms-pages",              icon: Globe,           description: "Manage static pages" },
         { title: "SA Tax Rules",            href: "/admin/platform/tax-rules",              icon: FileText,        description: "Edit slip-scanner deductibility rules" },
       ],

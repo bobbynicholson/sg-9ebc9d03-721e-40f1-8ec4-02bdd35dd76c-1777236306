@@ -109,6 +109,7 @@ export function KitchenNav(_: KitchenNavProps = {}) {
             href: "/team-portal/kitchen/today",
             icon: LayoutDashboard,
             description: "Your service desk",
+            groupHeading: "Shift & clock",
             liveDescription: () => serviceMode.todayEventCount === 0
               ? "No events today"
               : `${serviceMode.todayEventCount} event${serviceMode.todayEventCount === 1 ? "" : "s"}`,
@@ -129,6 +130,7 @@ export function KitchenNav(_: KitchenNavProps = {}) {
             href: "/team-portal/kitchen/prep-list",
             icon: ClipboardList,
             description: "Daily prep tasks",
+            groupHeading: "Production",
           },
         ],
       },
@@ -137,9 +139,9 @@ export function KitchenNav(_: KitchenNavProps = {}) {
         title: "Kitchen ops",
         defaultOpen: false,
         items: [
-          { title: "Kitchen calendar", href: "/team-portal/kitchen/calendar", icon: CalendarDays, description: "Month planning" },
+          { title: "Kitchen calendar", href: "/team-portal/kitchen/calendar", icon: CalendarDays, description: "Month planning", groupHeading: "Planning & people" },
           { title: "Team",    href: "/team-portal/kitchen/duty#team",  icon: Users,    description: "Staff on duty" },
-          { title: "Stock",   href: "/team-portal/kitchen/stock", icon: Package,  description: "Inventory levels" },
+          { title: "Stock",   href: "/team-portal/kitchen/stock", icon: Package,  description: "Inventory levels", groupHeading: "Kitchen resources" },
           { title: "Recipes", href: "/team-portal/kitchen/menu",  icon: BookOpen, description: "Recipe library" },
         ],
       },
@@ -148,9 +150,9 @@ export function KitchenNav(_: KitchenNavProps = {}) {
         title: "Manager",
         defaultOpen: true,
         items: [
-          { title: "Manage team", href: "/team-portal/kitchen/management", icon: Users, description: "Roster, clock-ins and diary" },
+          { title: "Manage team", href: "/team-portal/kitchen/management", icon: Users, description: "Roster, clock-ins and diary", groupHeading: "People & shifts" },
           { title: "Team overview", href: "/admin/teams/kitchen", icon: Users, description: "Prep intelligence and broadcasts" },
-          { title: "Schedule", href: "/admin/kitchen-schedule", icon: CalendarClock, description: "Plan shifts + clock-ins" },
+          { title: "Schedule", href: "/admin/kitchen-schedule", icon: CalendarClock, description: "Plan shifts + clock-ins", groupHeading: "Rules & planning" },
           { title: "Rules", href: "/admin/kitchen-settings", icon: Settings, description: "Prep timing + alerts" },
         ],
       }] : []),

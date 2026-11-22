@@ -147,6 +147,7 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
             href: "/team-portal/shopping/buy-list",
             icon: TrendingDown,
             description: "Shortfall + low-stock",
+            groupHeading: "Buying work",
             badge: () => counts.shortItems > 0
               ? { text: `${counts.shortItems} to buy`, tone: "critical", pulse: true }
               : null,
@@ -181,6 +182,7 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
             href: "/team-portal/shopping/receipts",
             icon: Camera,
             description: "Snap supplier slips",
+            groupHeading: "Close out purchases",
             badge: () => counts.receiptsToFile > 0
               ? { text: `${counts.receiptsToFile} to file`, tone: "warning" }
               : null,
@@ -195,7 +197,7 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
         title: "Catalogue",
         defaultOpen: false,
         items: [
-          { title: "Inventory", href: "/team-portal/shopping/inventory", icon: Warehouse, description: "Stock + minimums" },
+          { title: "Inventory", href: "/team-portal/shopping/inventory", icon: Warehouse, description: "Stock + minimums", groupHeading: "Stock & suppliers" },
           {
             title: "Restock",
             href: "/team-portal/shopping/restock",
@@ -210,7 +212,7 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
         title: "Insights",
         defaultOpen: false,
         items: [
-          { title: "Kitchen demand", href: "/team-portal/shopping/kitchen-demand", icon: ChefHat, description: "Recipe pull from orders" },
+          { title: "Kitchen demand", href: "/team-portal/shopping/kitchen-demand", icon: ChefHat, description: "Recipe pull from orders", groupHeading: "Usage & spend" },
           { title: "Spend",          href: "/team-portal/shopping/invoices",       icon: Wallet,  description: "Completed lists + totals" },
         ],
       },
