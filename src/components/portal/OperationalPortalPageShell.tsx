@@ -64,7 +64,7 @@ export function OperationalPortalPageShell({
 
       {navigation}
 
-      <div className="min-h-screen overflow-x-hidden pt-16 lg:pl-72 lg:pt-0 xl:pl-80">
+      <div className="operational-portal-shell min-h-screen overflow-x-hidden pt-16 lg:pl-72 lg:pt-0 xl:pl-80">
         <PortalShell width={width === "narrow" ? "narrow" : "default"}>
           <StaffPreviewBanner />
           <PortalRoleSwitchBar

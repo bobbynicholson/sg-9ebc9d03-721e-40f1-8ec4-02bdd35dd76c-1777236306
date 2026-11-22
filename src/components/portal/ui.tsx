@@ -109,9 +109,11 @@ export function PortalHeader({
   const actionsRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    const labelledActions = actionsRef.current?.querySelectorAll<HTMLElement>("[aria-label]");
-    labelledActions?.forEach((action) => {
-      if (!action.title) action.title = action.getAttribute("aria-label") || "";
+    const actionElements = actionsRef.current?.querySelectorAll<HTMLElement>("button:has(> svg), a:has(> svg)");
+    actionElements?.forEach((action) => {
+      const label = action.getAttribute("aria-label") || action.textContent?.replace(/\s+/g, " ").trim() || "";
+      if (label && !action.getAttribute("aria-label")) action.setAttribute("aria-label", label);
+      if (label && !action.title) action.title = label;
     });
   }, [actions]);
 
@@ -123,7 +125,7 @@ export function PortalHeader({
     return (
       <header
         className={cn(
-          "relative mb-4 overflow-hidden rounded-xl border px-4 py-4 text-white sm:px-5",
+          "relative mb-4 overflow-hidden rounded-xl border px-3 py-3 text-white sm:px-5 sm:py-4",
           isBrand
             ? "border-white/15 bg-[linear-gradient(130deg,rgb(var(--brand-primary-rgb)),rgb(var(--brand-secondary-rgb)))]"
             : "border-slate-800 bg-slate-950",
