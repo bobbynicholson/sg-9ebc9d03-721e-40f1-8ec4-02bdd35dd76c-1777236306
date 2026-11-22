@@ -212,44 +212,44 @@ export function ShoppingSection({ orderId, companyId, defaultOpen, forceOpen, hi
       highlight={highlight}
     >
       {loading ? (
-        <div className="flex items-center justify-center py-6 text-slate-500">
-          <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading demand...
+        <div role="status" className="flex items-center gap-2 py-4 text-sm text-slate-600">
+          <Loader2 aria-hidden="true" className="size-4 shrink-0 animate-spin" /> Loading ingredients…
         </div>
       ) : demand.length === 0 ? (
-        <p className="text-sm text-slate-500 py-2">No ingredient demand on this order. Add menu items with recipes to populate.</p>
+        <p className="rounded-lg bg-slate-50 p-4 text-sm leading-relaxed text-slate-700">No ingredients to shop for. Ingredients appear here when the order includes menu items with recipes.</p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-5">
           {short.length > 0 && (
             <div>
-              <div className="flex items-center justify-between mb-1.5 gap-2">
-                <p className="text-xs font-semibold uppercase tracking-wider text-amber-800">Shortfalls</p>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-base font-semibold text-slate-950">Shortfalls <span className="font-medium text-amber-800">({short.length})</span></h3>
                 {/* ODOC Phase 2: one-tap push of every shortfall on this
                     order to a new shopping list. Mirrors the kitchen
                     stock page's KS-B flow, scoped to this single order. */}
                 {canPush && !pushed && (
                   <Button
-                    size="sm"
+                    type="button"
                     onClick={pushToShopping}
                     disabled={pushing}
-                    className="h-7 text-xs bg-amber-600 hover:bg-amber-700"
+                    className="h-auto min-h-11 max-w-full whitespace-normal"
                   >
-                    {pushing ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <ShoppingCart className="w-3 h-3 mr-1" />}
+                    {pushing ? <Loader2 aria-hidden="true" className="animate-spin" /> : <ShoppingCart aria-hidden="true" />}
                     Add to list
                   </Button>
                 )}
                 {pushed && (
-                  <span className="inline-flex items-center gap-1 text-[11px] text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded px-1.5 py-0.5">
-                    <CheckCircle2 className="w-3 h-3" />
+                  <span role="status" className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-1 text-sm text-emerald-800">
+                    <CheckCircle2 aria-hidden="true" className="size-4" />
                     Added ({pushed.itemCount})
                   </span>
                 )}
               </div>
-              <ul className="space-y-1">
+              <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 px-3">
                 {short.map((d) => (
-                  <li key={d.inventory_item_id || d.name} className="flex items-center justify-between gap-2 text-sm p-2 rounded border border-amber-200 bg-amber-50">
-                    <span className="font-medium text-amber-900 truncate">{d.name}</span>
-                    <span className="text-xs text-amber-800 tabular-nums">
-                      need {Number(d.shortfall).toFixed(2)} {d.unit}
+                  <li key={d.inventory_item_id || d.name} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-2.5 text-sm">
+                    <span className="min-w-0 break-words font-medium text-slate-900">{d.name}</span>
+                    <span className="tabular-nums text-amber-800">
+                      Need {Number(d.shortfall).toFixed(2)} {d.unit}
                     </span>
                   </li>
                 ))}
@@ -258,16 +258,13 @@ export function ShoppingSection({ orderId, companyId, defaultOpen, forceOpen, hi
           )}
           {ok > 0 && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-brand-primary mt-3 mb-1.5">In stock</p>
-              <ul className="space-y-1">
+              <h3 className="mb-2 text-base font-semibold text-slate-950">In stock <span className="font-medium text-slate-600">({ok})</span></h3>
+              <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 px-3">
                 {demand.filter((d) => Number(d.shortfall || 0) === 0).map((d) => (
-                  <li key={d.inventory_item_id || d.name} className="flex items-center justify-between gap-2 text-sm p-2 rounded border border-brand-primary/20 bg-brand-primary/10">
-                    <span className="inline-flex items-center gap-1.5 text-brand-primary">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span className="truncate">{d.name}</span>
-                    </span>
-                    <span className="text-xs text-brand-primary tabular-nums">
-                      need {Number(d.total_quantity || 0).toFixed(2)} {d.unit} · have {Number(d.on_hand || 0).toFixed(2)}
+                  <li key={d.inventory_item_id || d.name} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-2.5 text-sm">
+                    <span className="min-w-0 break-words font-medium text-slate-900">{d.name}</span>
+                    <span className="tabular-nums text-slate-600">
+                      Need {Number(d.total_quantity || 0).toFixed(2)} {d.unit} · Have {Number(d.on_hand || 0).toFixed(2)}
                     </span>
                   </li>
                 ))}

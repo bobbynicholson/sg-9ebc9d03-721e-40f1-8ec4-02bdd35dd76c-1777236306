@@ -59,7 +59,7 @@ interface Payment {
 
 const fmtZAR = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR" });
 
-export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, highlight, inSidePanel = false }: Props) {
+export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, highlight }: Props) {
   const [money, setMoney] = useState<OrderMoney | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [invoice, setInvoice] = useState<InvoiceSendDialogInvoice | null>(null);
@@ -332,99 +332,71 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
       {loading ? (
         <SectionSkeleton rows={4} variant="tiles" />
       ) : (
-        <div className="space-y-4">
-          <div className={`grid grid-cols-2 sm:grid-cols-4 gap-3 ${inSidePanel ? "lg:grid-cols-2" : ""}`}>
-            <div className="rounded-md border p-3">
-              <p className="text-xs text-slate-500 uppercase tracking-wider">Subtotal</p>
-              <p className="text-sm font-semibold text-slate-900 tabular-nums mt-0.5">{fmtZAR.format(Number(money?.subtotal || 0))}</p>
+        <div className="min-w-0 space-y-5 [overflow-wrap:anywhere]">
+          <div className="rounded-lg bg-slate-50 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="text-sm font-medium text-slate-700">Order total</h3>
+                <p className="mt-1 text-2xl font-semibold leading-tight tabular-nums tracking-tight text-slate-950">{fmtZAR.format(total)}</p>
+              </div>
+              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${outstanding > 0 ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-900"}`}>
+                {paymentStatus}
+              </span>
             </div>
-            <div className="rounded-md border p-3">
-              <p className="text-xs text-slate-500 uppercase tracking-wider">VAT</p>
-              <p className="text-sm font-semibold text-slate-900 tabular-nums mt-0.5">{fmtZAR.format(Number(money?.tax_amount || 0))}</p>
-            </div>
-            <div className="rounded-md border p-3 bg-brand-primary/10 border-brand-primary/20">
-              <p className="text-xs text-brand-primary uppercase tracking-wider">Total</p>
-              <p className="text-sm font-bold text-brand-primary tabular-nums mt-0.5">{fmtZAR.format(total)}</p>
-            </div>
-            <div className={`rounded-md border p-3 ${outstanding > 0 ? "bg-amber-50 border-amber-200" : "bg-brand-primary/10 border-brand-primary/20"}`}>
-              <p className={`text-xs uppercase tracking-wider ${outstanding > 0 ? "text-amber-800" : "text-brand-primary"}`}>
-                {outstanding > 0 ? "Outstanding" : payment.label}
-              </p>
-              <p className={`text-sm font-bold tabular-nums mt-0.5 ${outstanding > 0 ? "text-amber-900" : "text-brand-primary"}`}>
-                {fmtZAR.format(outstanding)}
-              </p>
-            </div>
+            <dl className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-3 border-t border-slate-200 pt-3">
+              <div className="min-w-0">
+                <dt className="text-sm text-slate-600">Paid</dt>
+                <dd className="mt-0.5 font-semibold tabular-nums text-slate-900">{fmtZAR.format(paid)}</dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-sm text-slate-600">Balance due</dt>
+                <dd className={`mt-0.5 font-semibold tabular-nums ${outstanding > 0 ? "text-amber-900" : "text-slate-900"}`}>{fmtZAR.format(outstanding)}</dd>
+              </div>
+            </dl>
           </div>
 
-          {money?.deposit_amount != null && Number(money.deposit_amount) > 0 && (
-            <div className="text-xs text-slate-600 inline-flex items-center gap-1.5">
-              {money.deposit_paid || paid >= Number(money.deposit_amount) ? (
-                <><CheckCircle2 className="w-3 h-3 text-brand-primary" />Deposit ({fmtZAR.format(Number(money.deposit_amount))}) received</>
-              ) : (
-                <><AlertCircle className="w-3 h-3 text-amber-600" />Deposit due: {fmtZAR.format(Number(money.deposit_amount))}</>
-              )}
+          <dl className="space-y-2 text-sm">
+            <div className="flex flex-wrap justify-between gap-x-3 gap-y-1">
+              <dt className="text-slate-600">Subtotal</dt>
+              <dd className="font-medium tabular-nums text-slate-900">{fmtZAR.format(Number(money?.subtotal || 0))}</dd>
             </div>
-          )}
-
-          {(payments.length > 0 || openingPaid > 0) && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">Payments</p>
-              <ul className="divide-y divide-slate-100 border rounded-md">
-                {openingPaid > 0 && (
-                  <li className="p-2.5 flex items-center justify-between gap-3 text-sm">
-                    <div className="min-w-0">
-                      <p className="font-medium text-slate-900 tabular-nums">{fmtZAR.format(openingPaid)}</p>
-                      <p className="text-xs text-slate-500">Paid before this invoice was in the system</p>
-                    </div>
-                    <span className="text-[10px] uppercase tracking-wider text-brand-primary">Paid</span>
-                  </li>
-                )}
-                {payments.map((p) => (
-                  <li key={p.id} className="p-2.5 flex items-center justify-between text-sm">
-                    <div className="min-w-0">
-                      <p className="font-medium text-slate-900 tabular-nums">
-                        {fmtZAR.format(Number(p.amount || 0))}
-                        {p.payment_type && (
-                          <span className="ml-2 text-[10px] uppercase tracking-wider text-slate-500 font-normal">{p.payment_type}</span>
-                        )}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {p.payment_method || p.gateway_provider || "-"}
-                        {(p.payment_date || p.processed_at || p.created_at) && <span> · {new Date(p.payment_date || p.processed_at || p.created_at!).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</span>}
-                        {p.payment_reference && <span> · ref {p.payment_reference}</span>}
-                      </p>
-                    </div>
-                    <span className={`text-[10px] uppercase tracking-wider ${p.payment_status === "completed" || p.payment_status === "received" ? "text-brand-primary" : "text-slate-500"}`}>
-                      {p.payment_status || "-"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+            <div className="flex flex-wrap justify-between gap-x-3 gap-y-1">
+              <dt className="text-slate-600">VAT</dt>
+              <dd className="font-medium tabular-nums text-slate-900">{fmtZAR.format(Number(money?.tax_amount || 0))}</dd>
             </div>
-          )}
+            {money?.deposit_amount != null && Number(money.deposit_amount) > 0 && (
+              <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-t border-slate-200 pt-2">
+                <dt className="inline-flex min-w-0 items-center gap-2 text-slate-600">
+                  {money.deposit_paid || paid >= Number(money.deposit_amount) ? (
+                    <><CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-emerald-700" /> Deposit received</>
+                  ) : (
+                    <><AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0 text-amber-700" /> Deposit due</>
+                  )}
+                </dt>
+                <dd className="font-medium tabular-nums text-slate-900">{fmtZAR.format(Number(money.deposit_amount))}</dd>
+              </div>
+            )}
+          </dl>
 
           {outstanding > 0 && clientCredit > 0 && (
-            <p className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3 text-sm text-slate-700">
-              This client has <strong>{fmtZAR.format(clientCredit)}</strong> credit. Use it from <strong>Record payment</strong>; the client can also use it themselves on their payment link.
+            <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+              This client has <strong>{fmtZAR.format(clientCredit)}</strong> credit. Use it from <strong>Record payment</strong> or have the client apply it on their payment link.
             </p>
           )}
 
           {outstanding > 0 && (
-            <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3 ${inSidePanel ? "lg:flex-col lg:items-stretch" : ""}`}>
+            <div className="space-y-3 border-t border-slate-200 pt-4 print:hidden">
               <div>
-                <p className="text-sm font-semibold text-slate-900">Request the remaining payment</p>
-                <p className="text-xs text-slate-600 mt-0.5">
-                  The client will see what they have paid, the remaining balance, and the current payment link.
-                </p>
+                <h3 className="text-base font-semibold text-slate-950">Collect the balance</h3>
+                <p className="mt-1 text-sm text-slate-600">Send the latest invoice and payment link, or record money already received.</p>
               </div>
-              <div className={`flex flex-col sm:flex-row gap-2 ${inSidePanel ? "lg:flex-col" : ""}`}>
-                <Button type="button" size="sm" onClick={openPaymentRequest} disabled={creatingRequest} className="bg-brand-primary hover:opacity-90">
-                  {creatingRequest ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-2">
+                <Button type="button" onClick={openPaymentRequest} disabled={creatingRequest} className="h-auto min-h-[44px] min-w-0 whitespace-normal">
+                  {creatingRequest ? <Loader2 className="animate-spin" /> : <Send />}
                   {creatingRequest ? "Preparing…" : invoice ? "Send payment request" : "Create payment request"}
                 </Button>
-                <Button type="button" size="sm" variant="outline" onClick={openRecordPayment} disabled={preparingPayment}
-                  title="Record money already received - EFT, cash or card. Part payments are fine.">
-                  {preparingPayment ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Banknote className="w-4 h-4 mr-2" />}
+                <Button type="button" variant="outline" onClick={openRecordPayment} disabled={preparingPayment} className="h-auto min-h-[44px] min-w-0 whitespace-normal">
+                  {preparingPayment ? <Loader2 className="animate-spin" /> : <Banknote />}
                   Record payment
                 </Button>
               </div>
@@ -432,16 +404,57 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
           )}
 
           {overpaidBy > 0.01 && (
-            <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
               The client has paid <strong className="tabular-nums">{fmtZAR.format(overpaidBy)}</strong> more than the total. It was recorded without saying whether it is credit or a refund, so agree with the client how to settle it.
             </p>
           )}
 
+          {(payments.length > 0 || openingPaid > 0) && (
+            <div>
+              <h3 className="border-b border-slate-200 pb-2 text-base font-semibold text-slate-950">Payment history</h3>
+              <ul className="divide-y divide-slate-200">
+                {openingPaid > 0 && (
+                  <li className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 py-3 text-sm">
+                    <div className="min-w-0">
+                      <p className="font-semibold tabular-nums text-slate-900">{fmtZAR.format(openingPaid)}</p>
+                      <p className="mt-0.5 text-slate-600">Paid before this invoice was in the system</p>
+                    </div>
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">Paid</span>
+                  </li>
+                )}
+                {payments.map((entry) => {
+                  const date = entry.payment_date || entry.processed_at || entry.created_at;
+                  const received = entry.payment_status === "completed" || entry.payment_status === "received";
+                  return (
+                    <li key={entry.id} className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 py-3 text-sm">
+                      <div className="min-w-0 flex-auto">
+                        <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                          <span className="font-semibold tabular-nums text-slate-900">{fmtZAR.format(Number(entry.amount || 0))}</span>
+                          {entry.payment_type && <span className="capitalize text-slate-600">{entry.payment_type.replace(/_/g, " ")}</span>}
+                        </p>
+                        <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-slate-600">
+                          {(entry.payment_method || entry.gateway_provider) && <span className="capitalize">{(entry.payment_method || entry.gateway_provider)?.replace(/_/g, " ")}</span>}
+                          {date && <time dateTime={date}>{new Date(date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</time>}
+                        </p>
+                        {entry.payment_reference && <p className="mt-0.5 text-slate-600">Reference: {entry.payment_reference}</p>}
+                      </div>
+                      {entry.payment_status && (
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${received ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-700"}`}>
+                          {entry.payment_status.replace(/_/g, " ")}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
           {outstanding <= 0 && invoice && (
-            <div className={`flex flex-col gap-2 rounded-lg border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between ${inSidePanel ? "lg:flex-col lg:items-stretch" : ""}`}>
-              <p className="min-w-0 text-xs text-slate-600">Fully paid. If the client sent money on top (for example paid twice), record it here as credit or a refund.</p>
-              <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={openRecordPayment} disabled={preparingPayment}>
-                <Banknote className="w-4 h-4 mr-2" />
+            <div className="flex flex-wrap items-start justify-between gap-3 border-t border-slate-200 pt-3 print:hidden">
+              <p className="min-w-0 flex-[1_1_12rem] text-sm text-slate-600">Record customer overpayments as credit or a refund.</p>
+              <Button type="button" variant="outline" className="h-auto min-h-[44px] max-w-full whitespace-normal" onClick={openRecordPayment} disabled={preparingPayment}>
+                {preparingPayment ? <Loader2 className="animate-spin" /> : <Banknote />}
                 Record extra payment
               </Button>
             </div>

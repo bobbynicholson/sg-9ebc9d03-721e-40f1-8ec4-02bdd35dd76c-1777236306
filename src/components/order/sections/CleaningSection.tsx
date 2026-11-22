@@ -112,24 +112,35 @@ export function CleaningSection({ orderId, companyId, defaultOpen, forceOpen, hi
     >
       <OrderContributors orderId={orderId} area="cleaning" label="Cleaned by" />
       {loading ? (
-        <div className="flex items-center justify-center py-6 text-slate-500">
-          <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading cleaning queue...
+        <div role="status" className="flex items-center gap-2 py-4 text-sm text-slate-600">
+          <Loader2 aria-hidden="true" className="size-4 shrink-0 animate-spin" /> Loading cleaning queue…
         </div>
       ) : jobs.length === 0 ? (
-        <p className="text-sm text-slate-500 py-2">No cleaning jobs queued yet. They auto-spawn once equipment requiring cleaning has been booked against this order.</p>
+        <p className="rounded-lg bg-slate-50 p-4 text-sm leading-relaxed text-slate-700">No cleaning jobs queued. Jobs appear when equipment that needs cleaning is booked on this order.</p>
       ) : (
-        <ul className="space-y-2">
+        <ul aria-label="Cleaning jobs" className="divide-y divide-slate-200 rounded-lg border border-slate-200 px-3">
           {jobs.map((j) => {
             const doneish = j.status === "complete" || j.status === "completed";
             return (
-              <li key={j.id} className={`flex items-center gap-2 p-2.5 rounded-md border text-sm ${doneish ? "bg-brand-primary/10 border-brand-primary/20" : "bg-brand-primary/10 border-brand-primary/20"}`}>
-                {doneish ? <CheckCircle2 className="w-4 h-4 text-brand-primary flex-shrink-0" /> : <Clock className="w-4 h-4 text-brand-primary flex-shrink-0" />}
-                <span className="font-medium text-slate-900 truncate flex-1">
-                  {j.equipment?.name || "Equipment"}
-                  {j.quantity != null && <span className="text-slate-500 font-normal"> · {j.quantity}</span>}
-                  {j.method && <span className="text-[10px] uppercase tracking-wider text-slate-500 ml-2">{j.method}</span>}
+              <li key={j.id} className="flex items-start gap-3 py-3">
+                <span className={`flex size-8 shrink-0 items-center justify-center rounded-full ${doneish ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
+                  {doneish ? <CheckCircle2 aria-hidden="true" className="size-4" /> : <Clock aria-hidden="true" className="size-4" />}
                 </span>
-                <span className="text-xs text-slate-600 capitalize flex-shrink-0">{j.status?.replace(/_/g, " ")}</span>
+                <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                  <div className="min-w-0">
+                    <p className="break-words text-base font-medium text-slate-900">{j.equipment?.name || "Equipment"}</p>
+                    {(j.quantity != null || j.method) && (
+                      <p className="mt-0.5 text-sm text-slate-600">
+                        {j.quantity != null && <span className="tabular-nums">Qty {j.quantity}</span>}
+                        {j.quantity != null && j.method && " · "}
+                        {j.method && <span className="capitalize">{j.method.replace(/_/g, " ")}</span>}
+                      </p>
+                    )}
+                  </div>
+                  <span className={`rounded-full px-2 py-0.5 text-sm font-medium capitalize ${doneish ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-700"}`}>
+                    {j.status?.replace(/_/g, " ") || "Queued"}
+                  </span>
+                </div>
               </li>
             );
           })}

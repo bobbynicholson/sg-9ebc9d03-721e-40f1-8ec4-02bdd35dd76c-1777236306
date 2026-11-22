@@ -147,7 +147,7 @@ function KitchenPrepListPageInner() {
   const [loading, setLoading] = useState(true);
   // Command-centre restructure (2026-07-02): load failures used to be
   // console.error-ed and the page rendered the "Nothing booked yet"
-  // empty state - a lie at 6am. Both loads now surface a Retry card.
+  // empty state - a lie at 6am. Both loads now surface a recovery card.
   const [loadError, setLoadError] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>("by_order");
 
@@ -176,7 +176,7 @@ function KitchenPrepListPageInner() {
   const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
 
   // Monotonic load counter: load() is callable from the initial mount,
-  // the horizon/region deps, the Refresh button AND debounced realtime
+  // the horizon/region deps and debounced realtime
   // ticks, so two invocations can overlap. Every state write below is
   // guarded by "am I still the newest load"; a superseded invocation
   // drops its writes instead of clobbering fresher data (the old
@@ -668,19 +668,6 @@ function KitchenPrepListPageInner() {
             : `What to pull from stores across ${orders.length} order${orders.length === 1 ? "" : "s"} for ${horizonLabel.toLowerCase()}.`
       }
       icon={ClipboardList}
-      headerAction={
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => load()}
-          disabled={loading}
-          className="gap-1.5"
-          title={lastLoadedAt ? `Last loaded ${lastLoadedAt.toLocaleTimeString("en-ZA")}` : "Refresh"}
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
-      }
       meta={
         <>
           {!loading && !loadError && (
@@ -830,14 +817,40 @@ function KitchenPrepListPageInner() {
             </PortalCard>
           )}
 
-          {/* Wave 33.1 + command-centre restructure: ONE toolbar card
-              holds every control - the by-order / by-ingredient view
-              toggle plus the KIT3-E horizon picker (previously stranded
-              up in the header). Segments keep min-h-10 tap targets for
-              kitchen tablets. */}
+          {/* One toolbar card holds the view and look-ahead controls.
+              Phones use labeled selects instead of tab-like button strips;
+              wider screens keep the faster segmented controls. */}
           <PortalCard className="mb-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex w-full flex-1 gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-x-auto">
+            <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:hidden">
+              <label className="min-w-0 text-xs font-medium text-slate-600 dark:text-slate-300">
+                View
+                <select
+                  aria-label="Prep list view"
+                  value={view}
+                  onChange={(event) => setView(event.target.value as ViewMode)}
+                  className="mt-1 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-medium text-slate-900 shadow-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                >
+                  <option value="by_order">By order</option>
+                  <option value="by_ingredient">By ingredient</option>
+                </select>
+              </label>
+              <label className="min-w-0 text-xs font-medium text-slate-600 dark:text-slate-300">
+                Look ahead
+                <select
+                  aria-label="Prep list look-ahead period"
+                  value={horizonDays}
+                  onChange={(event) => setHorizonDays(Number(event.target.value) as HorizonDays)}
+                  className="mt-1 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-medium text-slate-900 shadow-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                >
+                  <option value={0}>Today</option>
+                  <option value={7}>Next 7 days</option>
+                  <option value={14}>Next 14 days</option>
+                  <option value={30}>Next 30 days</option>
+                </select>
+              </label>
+            </div>
+            <div className="hidden flex-col gap-3 sm:flex sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex w-full flex-1 gap-1 rounded-lg border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-800">
                 <button
                   type="button"
                   onClick={() => setView("by_order")}
@@ -974,7 +987,64 @@ function KitchenPrepListPageInner() {
                   Shortfalls float to the top.
                 </p>
                 <div>
-                  <div className="overflow-x-auto">
+                  <div className="space-y-3 sm:hidden">
+                    {aggregated.map((d) => {
+                      const isShort = d.shortfall > 0;
+                      const usedDates = Array.from(new Set(d.used_by.map((item) => item.event_date))).slice(0, 2);
+                      return (
+                        <article
+                          key={`mobile-${d.name}-${d.unit}`}
+                          className={`rounded-lg border p-3 ${isShort ? "border-rose-200 bg-rose-50/50 dark:border-rose-900 dark:bg-rose-950/20" : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"}`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <h3 className="min-w-0 break-words font-semibold text-slate-900 dark:text-white">{d.name}</h3>
+                            {isShort ? (
+                              <Badge className="shrink-0 bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200">Short</Badge>
+                            ) : (
+                              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-primary" aria-label="In stock" />
+                            )}
+                          </div>
+                          <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                            <div className="min-w-0 rounded-md bg-slate-50 p-2 dark:bg-slate-800/70">
+                              <p className="text-slate-500 dark:text-slate-400">Need</p>
+                              <p className="mt-1 break-words font-semibold tabular-nums text-slate-900 dark:text-white">
+                                {d.total_quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })} {d.unit}
+                              </p>
+                            </div>
+                            <div className="min-w-0 rounded-md bg-slate-50 p-2 dark:bg-slate-800/70">
+                              <p className="text-slate-500 dark:text-slate-400">On hand</p>
+                              <p className="mt-1 font-semibold tabular-nums text-slate-900 dark:text-white">
+                                {d.on_hand.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                            <div className={`min-w-0 rounded-md p-2 ${isShort ? "bg-rose-100/70 dark:bg-rose-950/50" : "bg-slate-50 dark:bg-slate-800/70"}`}>
+                              <p className="text-slate-500 dark:text-slate-400">Short</p>
+                              <p className={`mt-1 font-semibold tabular-nums ${isShort ? "text-rose-700 dark:text-rose-300" : "text-slate-900 dark:text-white"}`}>
+                                {isShort ? d.shortfall.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "0"}
+                              </p>
+                            </div>
+                          </div>
+                          <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
+                            Used by {d.used_by.length} order{d.used_by.length === 1 ? "" : "s"}
+                            {usedDates.length > 0 ? ` · ${usedDates.join(", ")}${d.used_by.length > 2 ? "…" : ""}` : ""}
+                          </p>
+                          {isShort && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="mt-3 min-h-11 w-full gap-1 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/5"
+                              onClick={() => handleAddToShoppingList(d)}
+                              disabled={addingId !== null || creatingList}
+                            >
+                              <ShoppingCart className="h-4 w-4" />
+                              {addingId === (d.inventory_item_id || d.name) ? "Adding..." : "Add to shopping list"}
+                            </Button>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                  <div className="hidden overflow-x-auto sm:block">
                     <table className="w-full text-sm">
                       <thead className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                         <tr>
@@ -1149,29 +1219,31 @@ function KitchenPrepListPageInner() {
                       const isFlipped = flippedOrderIds.has(o.order_id);
 
                       return (
-                        <PortalCard key={o.order_id} padded={false} className={cardBorder}>
-                          <div className="p-5 pb-3">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <h3 className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
+                        <PortalCard key={o.order_id} padded={false} className={`prep-list-order-card ${cardBorder} min-w-0 overflow-hidden`}>
+                          <div className="min-w-0 p-3 pb-3 sm:p-5 sm:pb-3">
+                            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
+                              <div className="min-w-0 flex-1">
+                                <h3 className="min-w-0 text-base font-semibold text-slate-900 dark:text-white sm:flex sm:flex-wrap sm:items-center sm:gap-2">
                                   {/* event_name is often the literal
                                       "Untitled"; orderDisplayName falls back
                                       to the client name so the chef sees a
                                       real name. client_name lives on meta. */}
-                                  <span className="truncate">
+                                  <span className="block min-w-0 break-words [overflow-wrap:anywhere]">
                                     {cardTitle}
                                   </span>
-                                  <Badge variant="outline" className="text-[10px]">{o.order_number}</Badge>
-                                  {urgencyBadge && (
-                                    <Badge
-                                      className={`text-[9px] font-bold tracking-wide border-0 ${urgencyBadge.className}`}
-                                      title={`${urgency.slackHours.toFixed(1)}h slack vs ${kitchenLeadHours}h lead time`}
-                                    >
-                                      {urgencyBadge.label}
-                                    </Badge>
-                                  )}
+                                  <span className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 sm:mt-0">
+                                    <Badge variant="outline" className="max-w-full text-[10px]">{o.order_number}</Badge>
+                                    {urgencyBadge && (
+                                      <Badge
+                                        className={`max-w-full text-[9px] font-bold tracking-wide border-0 ${urgencyBadge.className}`}
+                                        title={`${urgency.slackHours.toFixed(1)}h slack vs ${kitchenLeadHours}h lead time`}
+                                      >
+                                        {urgencyBadge.label}
+                                      </Badge>
+                                    )}
+                                  </span>
                                 </h3>
-                                <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
+                                <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-slate-600 dark:text-slate-400">
                                   <span className="flex items-center gap-1">
                                     <Calendar className="w-3 h-3" />
                                     {/* parseLocalDay: a bare new Date("YYYY-MM-DD")
@@ -1190,9 +1262,9 @@ function KitchenPrepListPageInner() {
                                 </div>
                                 <BookingSittings bookingId={o.order_id} showOperations />
                                 {meta?.venue_address && (
-                                  <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1">
-                                    <MapPin className="w-3 h-3" />
-                                    <span className="truncate">{meta.venue_address}</span>
+                                  <p className="mt-1 flex min-w-0 items-start gap-1 text-xs text-slate-500 dark:text-slate-400">
+                                    <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
+                                    <span className="min-w-0 break-words">{meta.venue_address}</span>
                                   </p>
                                 )}
                               </div>
@@ -1202,20 +1274,20 @@ function KitchenPrepListPageInner() {
                                 variant="outline"
                                 onClick={() => toggleOrderFlip(o.order_id)}
                                 aria-pressed={isFlipped}
-                                className="h-8 shrink-0 gap-1 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/5"
+                                className="min-h-11 w-full gap-1 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/5 sm:h-9 sm:min-h-9 sm:w-auto sm:shrink-0"
                               >
                                 <RotateCcw className="h-3.5 w-3.5" />
-                                {isFlipped ? "Event" : "Requirements"}
+                                {isFlipped ? "Show event summary" : "Show all requirements"}
                               </Button>
                             </div>
                           </div>
-                          <div className="px-5 pb-5 pt-0 [perspective:1200px]">
+                          <div className="prep-list-flip px-3 pb-4 pt-0 sm:px-5 sm:pb-5 [perspective:1200px]">
                             <div
-                              className="relative transition-transform duration-500 ease-out [transform-style:preserve-3d] motion-reduce:transition-none"
+                              className="prep-list-flip-inner relative min-w-0 transition-transform duration-500 ease-out [transform-style:preserve-3d] motion-reduce:transition-none"
                               style={{ transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)" }}
                             >
                               <div
-                                className={`space-y-4 [backface-visibility:hidden] ${isFlipped ? "pointer-events-none absolute inset-x-0 top-0" : "relative"}`}
+                                className={`prep-list-flip-face min-w-0 space-y-4 [backface-visibility:hidden] ${isFlipped ? "pointer-events-none absolute inset-x-0 top-0" : "relative"}`}
                                 aria-hidden={isFlipped}
                               >
                               {(meta?.dietary_requirements || meta?.kitchen_instructions || meta?.special_instructions) && (
@@ -1251,15 +1323,15 @@ function KitchenPrepListPageInner() {
                                 </div>
                               </div>
 
-                              <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+                                <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
                                 <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                   Quick required preview
                                 </p>
                                 <div className="space-y-2">
                                   {ingredientRows.slice(0, 4).map((ing) => (
-                                    <div key={ing.ingredient_name} className="flex items-center justify-between gap-2 text-sm">
-                                      <span className="truncate text-slate-700 dark:text-slate-300">{ing.ingredient_name}</span>
-                                      <span className="flex shrink-0 items-center gap-1.5 font-medium tabular-nums text-slate-950 dark:text-white">
+                                  <div key={ing.ingredient_name} className="flex min-w-0 flex-col items-start gap-1 rounded-md border-b border-slate-100 pb-2 text-sm last:border-0 last:pb-0 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                                      <span className="block min-w-0 w-full break-words [overflow-wrap:anywhere] text-slate-700 dark:text-slate-300 sm:flex-1">{ing.ingredient_name}</span>
+                                      <span className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1 text-left font-medium tabular-nums text-slate-950 dark:bg-slate-800 dark:text-white sm:shrink-0 sm:bg-transparent sm:px-0 sm:py-0">
                                         {Number(ing.quantity).toFixed(ing.quantity % 1 === 0 ? 0 : 2)} {ing.unit}
                                         {ing.isShortOverall ? (
                                           <AlertTriangle className="h-3.5 w-3.5 text-rose-500" />
@@ -1273,7 +1345,7 @@ function KitchenPrepListPageInner() {
                                 <button
                                   type="button"
                                   onClick={() => toggleOrderFlip(o.order_id)}
-                                  className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-brand-primary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary/90"
+                                  className="mt-3 hidden min-h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-brand-primary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary/90 sm:inline-flex"
                                 >
                                   <RotateCcw className="h-4 w-4" />
                                   Flip to all requirements
@@ -1281,7 +1353,7 @@ function KitchenPrepListPageInner() {
                               </div>
                               </div>
                               <div
-                                className={`space-y-3 [backface-visibility:hidden] [transform:rotateY(180deg)] ${!isFlipped ? "pointer-events-none absolute inset-x-0 top-0" : "relative"}`}
+                                className={`prep-list-flip-face min-w-0 space-y-3 [backface-visibility:hidden] [transform:rotateY(180deg)] ${!isFlipped ? "pointer-events-none absolute inset-x-0 top-0" : "relative"}`}
                                 aria-hidden={!isFlipped}
                               >
                             <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 px-3 py-2">

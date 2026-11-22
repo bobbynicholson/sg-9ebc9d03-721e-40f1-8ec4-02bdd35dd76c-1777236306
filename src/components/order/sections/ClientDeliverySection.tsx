@@ -295,7 +295,7 @@ export function ClientDeliverySection({ order, defaultOpen, forceOpen, highlight
 
         {/* Delivered proof + timestamps */}
         {(order.picked_up_at || order.arrived_at_venue_at || order.delivered_at) && (
-          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200">
+          <div className="grid grid-cols-1 gap-2 border-t border-slate-200 pt-2 min-[420px]:grid-cols-3">
             <div className="text-xs">
               <p className="text-slate-500 uppercase tracking-wider">Collected</p>
               <p className="text-slate-900 mt-0.5 tabular-nums">{fmtStamp(order.picked_up_at) || "-"}</p>

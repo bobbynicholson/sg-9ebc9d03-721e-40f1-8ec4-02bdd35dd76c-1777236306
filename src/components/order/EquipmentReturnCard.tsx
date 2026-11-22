@@ -17,9 +17,11 @@ import { tenantDateTime } from "@/lib/portalTime";
 import { useCallback, useEffect, useState } from "react";
 import { PackageCheck, Loader2, AlertTriangle, CheckCircle2, Clock, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import operationStyles from "./OrderOperations.module.css";
 import {
   EQUIPMENT_RETURN_METHODS, EQUIPMENT_RETURN_OPTIONS, computeReturnStatus, isDriverCollection,
   resolveEquipmentReturn, type EquipmentReturnMethod, type ReturnStatus,
@@ -171,87 +173,88 @@ export function EquipmentReturnCard({
   const showDriverPicker = canEdit && isDriverCollection(method) && status?.state !== "returned" && tripOpen && (!!trip || delivered);
 
   return (
-    <div id="order-equipment-return" className="rounded-lg border border-slate-200 bg-white px-3 py-2 space-y-2">
-      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="flex items-start gap-2 flex-1 min-w-0">
-          <PackageCheck className="w-4 h-4 text-brand-primary mt-0.5 flex-shrink-0" />
+    <section id="order-equipment-return" className={`${operationStyles.panel} min-w-0 space-y-3 rounded-xl border border-slate-200 bg-white p-4`}>
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 grow items-start gap-3">
+          <PackageCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-slate-600" />
           <div className="min-w-0">
-            <p className="text-xs leading-relaxed text-slate-900 sm:text-sm">
-              <span className="font-semibold">Equipment return:</span> {opt.responsible}
-            </p>
-            <p className="text-xs leading-relaxed text-slate-500">
+            <h2 className="text-base font-semibold text-slate-950">Equipment return</h2>
+            <p className="mt-0.5 text-sm font-medium text-slate-800">{opt.responsible}</p>
+            <p className="mt-1 break-words text-sm leading-relaxed text-slate-600">
               {opt.detail}
               {!chosen && " (Not chosen on the quote, so this follows the default rule.)"}
             </p>
             {method === "waiter" && !hasWaiter && (
-              <p className="text-xs font-medium leading-relaxed text-amber-800">No waiter is booked on this order. Choose who brings the equipment back.</p>
+              <p className="mt-1 text-sm font-medium leading-relaxed text-amber-800">No waiter is booked on this order. Choose who brings the equipment back.</p>
             )}
           </div>
         </div>
         {canEdit && (
-          <div className="flex w-full items-center gap-2 sm:w-auto">
-            {saving && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />}
-            <select
+          <div className={`${operationStyles.rowActions} min-w-0 max-w-full items-center`}>
+            {saving && <Loader2 aria-hidden="true" className="size-4 shrink-0 animate-spin text-slate-600" />}
+            <Select
               value={chosen ? method : ""}
-              onChange={(e) => e.target.value && change(e.target.value as EquipmentReturnMethod)}
+              onValueChange={(value) => { if (value) change(value as EquipmentReturnMethod); }}
               disabled={saving}
-              aria-label="Who brings the equipment back"
-              className="h-10 min-w-0 w-full rounded-md border border-slate-300 bg-white px-2 text-xs sm:w-auto"
             >
-              {!chosen && <option value="">Choose who returns it...</option>}
-              {EQUIPMENT_RETURN_METHODS.map((m) => (
-                <option key={m} value={m}>{EQUIPMENT_RETURN_OPTIONS[m].label}</option>
-              ))}
-            </select>
+              <SelectTrigger aria-label="Who brings the equipment back" className="h-auto min-h-11 min-w-0 max-w-full flex-1 whitespace-normal rounded-md border-slate-300 bg-white px-3 text-left text-base text-slate-800 focus-visible:ring-2 focus-visible:ring-brand-primary">
+                <SelectValue placeholder="Choose who returns it..." />
+              </SelectTrigger>
+              <SelectContent align="start" className="w-[var(--radix-select-trigger-width)]">
+                {EQUIPMENT_RETURN_METHODS.map((m) => (
+                  <SelectItem key={m} value={m}>{EQUIPMENT_RETURN_OPTIONS[m].label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
       </div>
 
       {/* Collection trip: driver + time (driver collections). */}
       {isDriverCollection(method) && (trip || delivered) && (
-        <p className="flex items-center gap-1 pl-6 text-xs leading-relaxed text-slate-700">
-          <Truck className="w-3 h-3" />
-          {trip
+        <p className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-sm leading-relaxed text-slate-700">
+          <Truck aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <span className="min-w-0 break-words">{trip
             ? <>Collection driver: <span className="font-semibold">{(trip.driver_id && names[trip.driver_id]) || "Unknown"}</span>
                 {trip.scheduled_for ? ` · ${new Date(trip.scheduled_for).toLocaleString("en-ZA", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : ""}</>
-            : <span className="font-medium text-amber-800">No collection trip booked yet - choose a driver.</span>}
+            : <span className="font-medium text-amber-800">No collection trip booked yet. Choose a driver.</span>}</span>
         </p>
       )}
 
       {/* Live status + who returned it. */}
       {status && status.state !== "not_applicable" && (
-        <p className={`flex items-center gap-1 pl-6 text-xs font-medium leading-relaxed ${
-          status.state === "overdue" ? "text-rose-700"
-            : status.state === "returned" ? (status.missing ? "text-amber-800" : "text-emerald-700")
-            : "text-slate-700"}`}>
-          {status.state === "overdue" ? <AlertTriangle className="w-3 h-3" />
-            : status.state === "returned" ? <CheckCircle2 className="w-3 h-3" />
-            : <Clock className="w-3 h-3" />}
+        <p className={`flex items-start gap-2 rounded-lg p-3 text-sm leading-relaxed ${
+          status.state === "overdue" ? "bg-rose-50 text-rose-900"
+            : status.state === "returned" ? (status.missing ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-900")
+            : "bg-slate-50 text-slate-700"}`}>
+          {status.state === "overdue" ? <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            : status.state === "returned" ? <CheckCircle2 aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            : <Clock aria-hidden="true" className="mt-0.5 size-4 shrink-0" />}
+          <span className="min-w-0 break-words">
           {status.text}
           {status.state === "returned" && returnedBy ? ` Returned by ${returnedBy}.` : ""}
           {status.state !== "returned" && status.booked > 0 ? ` ${status.booked} item${status.booked === 1 ? "" : "s"} out.` : ""}
+          </span>
         </p>
       )}
 
       {showDriverPicker && (
-        <div className="grid min-w-0 grid-cols-1 gap-2 pl-6 sm:flex sm:flex-wrap sm:items-center">
-          <select
-            value={pickDriver}
-            onChange={(e) => setPickDriver(e.target.value)}
-            disabled={saving}
-            aria-label="Collection driver"
-            className="h-10 min-w-0 w-full rounded-md border border-slate-300 bg-white px-2 text-xs sm:w-auto sm:min-w-[12rem]"
-          >
-            <option value="">{trip ? "Give the collection to..." : "Choose the collection driver..."}</option>
-            {drivers.filter((d) => d.id !== trip?.driver_id).map((d) => (
-              <option key={d.id} value={d.id}>{d.full_name || "Driver"}</option>
-            ))}
-          </select>
-          <Button size="sm" variant="outline" className="h-10 w-full text-xs sm:w-auto" disabled={!pickDriver || saving} onClick={bookCollection}>
+        <div className={`${operationStyles.fields} min-w-0 items-center`}>
+          <Select value={pickDriver} onValueChange={setPickDriver} disabled={saving}>
+            <SelectTrigger aria-label="Collection driver" className="h-auto min-h-11 w-full min-w-0 whitespace-normal rounded-md border-slate-300 bg-white px-3 text-left text-base text-slate-800 focus-visible:ring-2 focus-visible:ring-brand-primary">
+              <SelectValue placeholder={trip ? "Give the collection to..." : "Choose the collection driver..."} />
+            </SelectTrigger>
+            <SelectContent align="start" className="w-[var(--radix-select-trigger-width)]">
+              {drivers.filter((d) => d.id !== trip?.driver_id).map((d) => (
+                <SelectItem key={d.id} value={d.id}>{d.full_name || "Driver"}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button type="button" variant="outline" className="h-auto min-h-11 whitespace-normal" disabled={!pickDriver || saving} onClick={bookCollection}>
             {trip ? "Reassign collection" : "Book collection"}
           </Button>
         </div>
       )}
-    </div>
+    </section>
   );
 }

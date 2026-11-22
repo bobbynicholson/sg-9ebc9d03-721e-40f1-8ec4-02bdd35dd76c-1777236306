@@ -43,20 +43,25 @@ interface FeedbackRow {
 
 const STARS = [1, 2, 3, 4, 5];
 
+function RatingStars({ value, size = "small" }: { value: number; size?: "small" | "large" }) {
+  return (
+    <span aria-hidden="true" className="inline-flex shrink-0 items-center gap-0.5">
+      {STARS.map((star) => (
+        <Star key={star} className={`${size === "large" ? "h-5 w-5" : "h-3.5 w-3.5"} ${star <= value ? "fill-amber-400 text-amber-700" : "text-slate-400"}`} />
+      ))}
+    </span>
+  );
+}
+
 function RatingRow({ label, value }: { label: string; value: number | null }) {
   if (value == null) return null;
   return (
-    <div className="flex items-center gap-3 text-sm">
-      <span className="text-slate-700 min-w-[10rem] text-xs uppercase tracking-wider">{label}</span>
-      <div className="flex items-center gap-0.5">
-        {STARS.map((s) => (
-          <Star
-            key={s}
-            className={`w-3.5 h-3.5 ${s <= value ? "fill-amber-400 text-amber-500" : "text-slate-300"}`}
-          />
-        ))}
-      </div>
-      <span className="text-xs tabular-nums text-slate-500">{value}/5</span>
+    <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5">
+      <dt className="font-medium text-slate-800">{label}</dt>
+      <dd className="flex flex-wrap items-center gap-2 font-semibold tabular-nums text-slate-900">
+        <RatingStars value={value} />
+        <span>{value} <span className="font-normal text-slate-600">/ 5</span></span>
+      </dd>
     </div>
   );
 }
@@ -146,7 +151,7 @@ export function FeedbackSection({ orderId, companyId, delivered, defaultOpen, fo
     : !feedback
       ? "Awaiting customer rating"
       : stars != null
-        ? `${"★".repeat(Math.round(stars))}${"☆".repeat(5 - Math.round(stars))} - ${stars}/5${feedback.requires_follow_up && !feedback.followed_up_at ? " · Follow-up pending" : ""}`
+        ? `${stars}/5 overall${feedback.requires_follow_up && !feedback.followed_up_at ? " · Follow-up pending" : ""}`
         : "Comments only";
 
   return (
@@ -160,83 +165,76 @@ export function FeedbackSection({ orderId, companyId, delivered, defaultOpen, fo
       forceOpen={forceOpen}
     >
       {loading ? (
-        <div className="flex items-center justify-center py-6 text-slate-500">
-          <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading feedback...
-        </div>
+        <p role="status" className="flex items-center gap-2 py-4 text-sm text-slate-600">
+          <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin" /> Loading feedback…
+        </p>
       ) : !feedback ? (
-        <div className="space-y-3">
-          <div className="flex items-start gap-2 p-3 rounded-md bg-slate-50 border border-slate-200">
-            <AlertCircle className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-slate-700">No rating yet</p>
-              <p className="text-xs text-slate-500 mt-0.5">A combined thank-you and review request is sent when the order is completed. You can also send it now.</p>
-            </div>
+        <div className="min-w-0 space-y-3">
+          <div className="rounded-lg bg-slate-50 p-4">
+            <h3 className="text-base font-semibold text-slate-950">No rating yet</h3>
+            {canSendReviewRequest && (
+              <p className="mt-1 text-sm text-slate-600">The customer receives a thank-you and review request when the order is completed.</p>
+            )}
           </div>
           {canSendReviewRequest && (
-            <Button type="button" size="sm" variant="outline" onClick={sendReviewRequest} disabled={sendingReview}>
-              {sendingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-              Send thank-you &amp; review
+            <Button type="button" variant="outline" onClick={sendReviewRequest} disabled={sendingReview} className="h-auto min-h-[44px] max-w-full whitespace-normal print:hidden">
+              {sendingReview ? <Loader2 className="animate-spin" /> : <Mail />}
+              {sendingReview ? "Sending…" : "Send thank-you & review request"}
             </Button>
           )}
         </div>
       ) : (
-        <div className="space-y-3">
-          {/* Headline overall rating */}
-          {feedback.overall_rating != null && (
-            <div className="p-3 rounded-md bg-amber-50 border border-amber-200">
-              <p className="text-[10px] uppercase tracking-wider text-amber-800 font-semibold mb-1">Overall rating</p>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-0.5">
-                  {STARS.map((s) => (
-                    <Star
-                      key={s}
-                      className={`w-5 h-5 ${s <= feedback.overall_rating! ? "fill-amber-400 text-amber-500" : "text-slate-300"}`}
-                    />
-                  ))}
-                </div>
-                <span className="text-lg font-bold text-amber-900 tabular-nums">{feedback.overall_rating}/5</span>
+        <div className="min-w-0 space-y-4 [overflow-wrap:anywhere]">
+          {stars != null && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-slate-50 p-4">
+              <div>
+                <h3 className="text-sm font-medium text-slate-700">Overall rating</h3>
+                <p className="mt-0.5 text-2xl font-semibold leading-tight tabular-nums tracking-tight text-slate-950">
+                  {stars} <span className="text-base font-normal text-slate-600">/ 5</span>
+                </p>
               </div>
+              <RatingStars value={stars} size="large" />
             </div>
           )}
 
-          {/* Sub-ratings */}
-          <div className="space-y-1.5">
-            <RatingRow label="Food quality" value={feedback.food_quality_rating} />
-            <RatingRow label="Delivery timing" value={feedback.delivery_timeliness_rating} />
-            <RatingRow label="Driver" value={feedback.driver_professionalism_rating} />
-          </div>
+          {(feedback.food_quality_rating != null || feedback.delivery_timeliness_rating != null || feedback.driver_professionalism_rating != null) && (
+            <dl aria-label="Rating breakdown" className="divide-y divide-slate-200 border-y border-slate-200 text-sm">
+              <RatingRow label="Food quality" value={feedback.food_quality_rating} />
+              <RatingRow label="Delivery timing" value={feedback.delivery_timeliness_rating} />
+              <RatingRow label="Driver professionalism" value={feedback.driver_professionalism_rating} />
+            </dl>
+          )}
 
-          {/* Comments */}
           {feedback.comments && (
-            <div className="p-3 rounded-md bg-white border border-slate-200">
-              <p className="text-[10px] uppercase tracking-wider text-slate-600 font-semibold mb-1 inline-flex items-center gap-1">
-                <MessageSquare className="w-3 h-3" />
-                Comments
-              </p>
-              <p className="text-sm text-slate-800 whitespace-pre-wrap">{feedback.comments}</p>
+            <div>
+              <h3 className="mb-1 flex items-center gap-2 text-base font-semibold text-slate-950">
+                <MessageSquare aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-600" /> Comments
+              </h3>
+              <p className="max-w-prose whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{feedback.comments}</p>
             </div>
           )}
 
-          {/* Follow-up state */}
           {feedback.requires_follow_up && (
             feedback.followed_up_at ? (
-              <div className="flex items-center gap-2 text-xs text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded p-2">
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+              <p className="flex items-start gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">
+                <CheckCircle2 aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>Follow-up resolved on {new Date(feedback.followed_up_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</span>
-              </div>
+              </p>
             ) : (
-              <div className="flex items-center gap-2 text-xs text-rose-800 bg-rose-50 border border-rose-300 rounded p-2 font-medium">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span>Customer flagged for follow-up. Not yet resolved.</span>
-              </div>
+              <p className="flex items-start gap-2 rounded-lg bg-rose-50 p-3 text-sm font-medium text-rose-900">
+                <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>Customer follow-up pending</span>
+              </p>
             )
           )}
 
-          {feedback.created_at && (
-            <p className="text-[10px] text-slate-400 text-right tabular-nums">
-              Submitted {new Date(feedback.created_at).toLocaleString("en-ZA", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-              {feedback.is_public && <span className="ml-2 text-brand-primary">· Public</span>}
-            </p>
+          {(feedback.created_at || feedback.is_public) && (
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-slate-200 pt-3 text-sm text-slate-600">
+              {feedback.created_at && (
+                <span>Submitted <time dateTime={feedback.created_at} className="tabular-nums">{new Date(feedback.created_at).toLocaleString("en-ZA", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</time></span>
+              )}
+              {feedback.is_public && <span className="font-medium text-slate-900">Public</span>}
+            </div>
           )}
         </div>
       )}

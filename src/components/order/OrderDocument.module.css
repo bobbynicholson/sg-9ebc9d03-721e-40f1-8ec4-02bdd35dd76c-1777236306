@@ -1,0 +1,132 @@
+.document {
+  container: order-document / inline-size;
+  padding-inline: clamp(0.75rem, 2vw, 1.75rem);
+}
+
+.overview {
+  container: order-overview / inline-size;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.venueFact {
+  min-width: 0;
+}
+
+.sectionNav {
+  min-width: 0;
+}
+
+.sectionNavBody {
+  flex-wrap: wrap;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.sectionStack {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.anchor {
+  min-width: 0;
+  scroll-margin-top: 1.5rem;
+}
+
+.control {
+  min-height: 44px;
+  max-width: 100%;
+}
+
+.menuItem {
+  min-height: 44px;
+  white-space: normal;
+}
+
+/* Keep the order page's type scale in line with the admin screens.
+   The timeline subtree is explicitly excluded to preserve its existing UI. */
+.document :global(.text-base):not([id="section-timeline"]):not([id="section-timeline"] *) {
+  font-size: 0.875rem;
+}
+
+.document :global(.text-lg):not([id="section-timeline"]):not([id="section-timeline"] *) {
+  font-size: 0.9375rem;
+}
+
+.document :global(.text-xl):not([id="section-timeline"]):not([id="section-timeline"] *) {
+  font-size: 1rem;
+}
+
+.document :global(.text-2xl):not([id="section-timeline"]):not([id="section-timeline"] *) {
+  font-size: 1.125rem;
+}
+
+.document :global(.text-3xl):not([id="section-timeline"]):not([id="section-timeline"] *) {
+  font-size: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .document :global(.sm\:text-lg):not([id="section-timeline"]):not([id="section-timeline"] *) {
+    font-size: 0.9375rem;
+  }
+
+  .document :global(.sm\:text-3xl):not([id="section-timeline"]):not([id="section-timeline"] *) {
+    font-size: 1.25rem;
+  }
+}
+
+@container order-overview (min-width: 34rem) {
+  .facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .venueFact {
+    grid-column: 1 / -1;
+  }
+}
+
+@container order-overview (min-width: 58rem) {
+  .facts {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.65fr) minmax(0, 1.5fr);
+  }
+
+  .venueFact {
+    grid-column: auto;
+  }
+}
+
+@container order-document (min-width: 70rem) {
+  .workspace {
+    grid-template-columns: minmax(0, 1.6fr) minmax(22rem, 0.85fr);
+    gap: 1.5rem;
+  }
+}
+
+@media print {
+  .document {
+    padding-inline: 0;
+  }
+
+  .workspace {
+    display: block;
+  }
+
+  .sectionStack {
+    gap: 0.75rem;
+  }
+
+  .anchor {
+    scroll-margin-top: 0;
+  }
+}

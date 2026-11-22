@@ -26,16 +26,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DynamicNav } from "@/components/DynamicNav";
-import { PortalShell, PortalHeader,
-  PageWorkbench,
-  StatTile,
-} from "@/components/portal/ui";
+import { PortalShell, PortalHeader, StatTile } from "@/components/portal/ui";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { supabase } from "@/integrations/supabase/client";
-import { CalendarClock, CalendarPlus, ChevronLeft, ChevronRight, Loader2, Download, RefreshCw, AlertTriangle, Users, ExternalLink, LayoutGrid, Calendar as CalendarIcon, Clock, MessageSquare } from "lucide-react";
+import { CalendarClock, CalendarPlus, ChevronLeft, ChevronRight, Loader2, Download, RefreshCw, AlertTriangle, Users, LayoutGrid, Calendar as CalendarIcon, Clock, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
@@ -696,14 +693,19 @@ function KitchenScheduleGrid() {
               variant="hero"
               title="Kitchen schedule"
               icon={CalendarClock}
-              subtitle="Check today’s kitchen coverage and open the full schedule to plan shifts."
+              subtitle="Plan kitchen shifts and review staffing and event coverage."
               meta={
                 !loading && !loadError ? (
                   <>
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                      {staff.length} chef{staff.length === 1 ? "" : "s"} on the roster
+                      {staff.length} kitchen member{staff.length === 1 ? "" : "s"} on the roster
                     </span>
+                    {staff.some((person) => !person.profile_id) && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/40 bg-amber-100/15 px-2.5 py-1 text-[11px] font-semibold text-white">
+                        {staff.filter((person) => !person.profile_id).length} admin-managed · no login
+                      </span>
+                    )}
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
                       {shifts.length} shift{shifts.length === 1 ? "" : "s"} in view
                     </span>
@@ -713,103 +715,117 @@ function KitchenScheduleGrid() {
                   </>
                 ) : undefined
               }
-              actions={
-              <>
-                {/* Wave 66.2 - view-mode toggle. Week stays the
-                    daily-ops surface (Mon-Sun grid with per-cell
-                    rostering); Month gives the planner a 5-6 week
-                    overview showing chef + event load per day, with
-                    click-through to that week. Glass styling so the
-                    custom toggle sits on the dark hero band. */}
-                <div className="inline-flex rounded-md border border-white/20 overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("week")}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition ${viewMode === "week" ? "bg-brand-primary text-white" : "bg-white/10 text-white hover:bg-white/20"}`}
-                    title="Daily-ops view - one week, one cell per chef per day"
-                  >
-                    <LayoutGrid className="w-3.5 h-3.5" />
-                    Week
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("month")}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border-l border-white/20 transition ${viewMode === "month" ? "bg-brand-primary text-white" : "bg-white/10 text-white hover:bg-white/20"}`}
-                    title="Planning view - a month at a glance, chef + event load per day"
-                  >
-                    <CalendarIcon className="w-3.5 h-3.5" />
-                    Month
-                  </button>
-                </div>
-                {viewMode === "week" ? (
-                  <>
-                    <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, -7))}>
-                      <ChevronLeft className="w-4 h-4" />
-                    </Button>
-                    <div className="text-sm font-medium text-white px-2 tabular-nums whitespace-nowrap">{weekLabel}</div>
-                    <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, 7))}>
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date()))}>
-                      This week
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button variant="outline" size="sm" onClick={() => setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() - 1, 1))}>
-                      <ChevronLeft className="w-4 h-4" />
-                    </Button>
-                    <div className="text-sm font-medium text-white px-2 tabular-nums whitespace-nowrap">
-                      {monthCursor.toLocaleDateString("en-ZA", { month: "long", year: "numeric" })}
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1))}>
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => setMonthCursor(startOfMonth(new Date()))}>
-                      This month
-                    </Button>
-                  </>
-                )}
-                <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-                </Button>
+
+            />
+
+            <section
+              aria-label="Schedule controls"
+              className="grid min-w-0 gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:grid-cols-[auto_minmax(15rem,1fr)_auto] lg:items-center lg:gap-4"
+            >
+              <label className="min-w-0 text-xs font-semibold text-slate-600 dark:text-slate-300 lg:hidden">
+                Schedule view
+                <select
+                  aria-label="Schedule view"
+                  value={viewMode}
+                  onChange={(event) => setViewMode(event.target.value as "week" | "month")}
+                  className="mt-1 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-base font-medium text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                >
+                  <option value="week">Week view</option>
+                  <option value="month">Month view</option>
+                </select>
+              </label>
+
+              <div className="hidden shrink-0 items-center rounded-md border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-950 lg:inline-flex">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("week")}
+                  aria-pressed={viewMode === "week"}
+                  className={`inline-flex min-h-9 items-center gap-2 rounded px-3 text-sm font-medium transition ${viewMode === "week" ? "bg-white text-brand-primary shadow-sm dark:bg-slate-800" : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"}`}
+                  title="One week of kitchen shifts"
+                >
+                  <LayoutGrid className="h-4 w-4" aria-hidden="true" /> Week
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("month")}
+                  aria-pressed={viewMode === "month"}
+                  className={`inline-flex min-h-9 items-center gap-2 rounded px-3 text-sm font-medium transition ${viewMode === "month" ? "bg-white text-brand-primary shadow-sm dark:bg-slate-800" : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"}`}
+                  title="Monthly staffing and event overview"
+                >
+                  <CalendarIcon className="h-4 w-4" aria-hidden="true" /> Month
+                </button>
+              </div>
+
+              <div className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-2 lg:flex lg:justify-center">
                 <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-11 w-11"
+                  aria-label={viewMode === "week" ? "Previous week" : "Previous month"}
+                  title={viewMode === "week" ? "Previous week" : "Previous month"}
+                  onClick={() => viewMode === "week"
+                    ? setWeekStart(addDays(weekStart, -7))
+                    : setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() - 1, 1))}
+                >
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                </Button>
+                <p className="min-w-0 text-center text-sm font-semibold tabular-nums text-slate-900 dark:text-white lg:min-w-[15rem]">
+                  {viewMode === "week" ? weekLabel : monthCursor.toLocaleDateString("en-ZA", { month: "long", year: "numeric" })}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-11 w-11"
+                  aria-label={viewMode === "week" ? "Next week" : "Next month"}
+                  title={viewMode === "week" ? "Next week" : "Next month"}
+                  onClick={() => viewMode === "week"
+                    ? setWeekStart(addDays(weekStart, 7))
+                    : setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1))}
+                >
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 lg:flex lg:shrink-0">
+                <Button
+                  type="button"
                   variant="outline"
                   size="sm"
-                  className="gap-1.5"
+                  className="min-h-11 w-full lg:w-auto"
+                  onClick={() => viewMode === "week"
+                    ? setWeekStart(startOfWeek(new Date()))
+                    : setMonthCursor(startOfMonth(new Date()))}
+                >
+                  {viewMode === "week" ? "This week" : "This month"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="min-h-11 w-full gap-1.5 lg:w-auto"
                   onClick={() => {
                     if (staff.length === 0) return;
-                    const esc = (v: any) => {
-                      if (v == null) return "";
-                      const s = String(v).replace(/"/g, '""');
-                      return /[",\n]/.test(s) ? `"${s}"` : s;
+                    const esc = (value: unknown) => {
+                      if (value == null) return "";
+                      const text = String(value).replace(/"/g, '""');
+                      return /[",\n]/.test(text) ? `"${text}"` : text;
                     };
-                    const headers = ["Chef", "Email", "Day", "Date", "Planned start", "Planned end", "Planned hours", "Actual hours", "Status", "Rate multiplier"];
-                    const lines = [headers.join(",")];
-                    // Export what's on screen: the whole fetched range
-                    // (7 days in week view, the full grid in month
-                    // view). Pre-fix the month view exported only the
-                    // last-visited week.
+                    const lines = [["Kitchen staff member", "Email", "Day", "Date", "Planned start", "Planned end", "Planned hours", "Actual hours", "Status", "Rate multiplier"].join(",")];
                     const exportDays: Date[] = [];
-                    for (let d = fetchRange.from; d <= fetchRange.to; d = addDays(d, 1)) exportDays.push(d);
-                    for (const p of staff) {
-                      for (let i = 0; i < exportDays.length; i++) {
-                        const day = exportDays[i];
+                    for (let day = fetchRange.from; day <= fetchRange.to; day = addDays(day, 1)) exportDays.push(day);
+                    for (const person of staff) {
+                      for (const day of exportDays) {
                         const iso = toLocalISO(day);
-                        const dayShifts = shiftIndex[`${p.id}|${iso}`] || [];
-                        if (dayShifts.length === 0) continue;
-                        for (const s of dayShifts) {
+                        for (const shift of shiftIndex[`${person.id}|${iso}`] || []) {
                           lines.push([
-                            esc(p.full_name || ""),
-                            esc(p.email || ""),
-                            esc(DAY_LABELS[(day.getDay() + 6) % 7]),
-                            esc(iso),
-                            esc(fmtTime(s.planned_start)),
-                            esc(fmtTime(s.planned_end)),
-                            esc(plannedHours(s.planned_start, s.planned_end).toFixed(2)),
-                            esc(actualHours(s.actual_start, s.actual_end).toFixed(2)),
-                            esc(s.status || ""),
-                            esc(s.rate_multiplier ?? 1),
+                            esc(person.full_name || ""), esc(person.email || ""),
+                            esc(DAY_LABELS[(day.getDay() + 6) % 7]), esc(iso),
+                            esc(fmtTime(shift.planned_start)), esc(fmtTime(shift.planned_end)),
+                            esc(plannedHours(shift.planned_start, shift.planned_end).toFixed(2)),
+                            esc(actualHours(shift.actual_start, shift.actual_end).toFixed(2)),
+                            esc(shift.status || ""), esc(shift.rate_multiplier ?? 1),
                           ].join(","));
                         }
                       }
@@ -817,37 +833,35 @@ function KitchenScheduleGrid() {
                     if (lines.length === 1) return;
                     const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
                     const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `kitchen-schedule-${toLocalISO(fetchRange.from)}.csv`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
+                    const anchor = document.createElement("a");
+                    anchor.href = url;
+                    anchor.download = `kitchen-schedule-${toLocalISO(fetchRange.from)}.csv`;
+                    document.body.appendChild(anchor);
+                    anchor.click();
+                    document.body.removeChild(anchor);
                     URL.revokeObjectURL(url);
                   }}
                   disabled={staff.length === 0 || shifts.length === 0}
                 >
-                  <Download className="w-3.5 h-3.5" /> Export CSV
+                  <Download className="h-4 w-4" aria-hidden="true" /> Export CSV
                 </Button>
-              </>
-              }
-            />
-            <PageWorkbench />
+              </div>
+            </section>
 
             {/* Range summary stays permanently visible so the four operational totals are always available. */}
             <Card className="mb-4 border-slate-200 shadow-sm dark:border-slate-800">
               <CardHeader className="py-3">
-                <div><CardTitle className="text-sm">Range summary</CardTitle><CardDescription className="text-xs">Totals for the selected week or month.</CardDescription></div>
+                <div><CardTitle className="text-sm">Range summary</CardTitle><CardDescription className="max-w-3xl text-xs">Kitchen shifts in the selected range. Shift count includes active clock-ins without a saved roster shift; planned hours use saved start and end times.</CardDescription></div>
               </CardHeader>
               <CardContent className="border-t border-slate-200 pt-4 dark:border-slate-800"><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <StatTile
-                label="Chefs on roster"
+                label="Kitchen members"
                 value={loading ? "…" : staff.length}
                 icon={Users}
                 hint="Kitchen-eligible staff"
               />
               <StatTile
-                label="Shifts in view"
+                label="Kitchen shifts in view"
                 value={loading ? "…" : shifts.length}
                 icon={CalendarClock}
                 hint={viewMode === "week" ? "This week" : "This month"}
@@ -867,6 +881,26 @@ function KitchenScheduleGrid() {
               </div></CardContent>
             </Card>
 
+            {!loading && staff.length > 0 && (
+              <section aria-label="Kitchen roster" className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 md:hidden">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                  <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Kitchen roster</h2>
+                  <p className="text-xs text-slate-500">
+                    {staff.length} member{staff.length === 1 ? "" : "s"}
+                    {staff.some((person) => !person.profile_id) ? ` · ${staff.filter((person) => !person.profile_id).length} admin-managed without login` : ""}
+                  </p>
+                </div>
+                <ul className="mt-2 flex flex-wrap gap-1.5">
+                  {staff.map((person) => (
+                    <li key={person.id} className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-md bg-slate-50 px-2 py-1 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      <span className="max-w-[14rem] truncate font-medium">{person.full_name || person.email}</span>
+                      {!person.profile_id && <Badge variant="outline" className="border-amber-300 bg-amber-50 px-1.5 py-0 text-[10px] text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">No login · admin-managed</Badge>}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
             <Card className="mb-4 border-brand-primary/20 shadow-sm">
               <CardHeader className="flex flex-row items-start justify-between gap-3 border-b border-brand-primary/10 bg-brand-primary/5 pb-3 dark:bg-brand-primary/10">
                 <div className="min-w-0">
@@ -882,7 +916,7 @@ function KitchenScheduleGrid() {
                 <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"><p className="text-[11px] text-slate-500">Events</p><p className="mt-1 text-xl font-semibold tabular-nums">{loading ? "…" : selectedDayOrders.length}</p></div>
                   <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"><p className="text-[11px] text-slate-500">Shifts</p><p className="mt-1 text-xl font-semibold tabular-nums">{loading ? "…" : selectedDayShifts.length}</p></div>
-                  <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"><p className="text-[11px] text-slate-500">Chefs</p><p className="mt-1 text-xl font-semibold tabular-nums">{loading ? "…" : new Set(selectedDayShifts.map((shift) => staffRosterKey(shift.staff_id, shift.staff_member_id))).size}</p></div>
+                  <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"><p className="text-[11px] text-slate-500">Kitchen team</p><p className="mt-1 text-xl font-semibold tabular-nums">{loading ? "…" : new Set(selectedDayShifts.map((shift) => staffRosterKey(shift.staff_id, shift.staff_member_id))).size}</p></div>
                   <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"><p className="text-[11px] text-slate-500">Planned hours</p><p className="mt-1 text-xl font-semibold tabular-nums">{loading ? "…" : `${selectedDayShifts.reduce((sum, shift) => sum + plannedHours(shift.planned_start, shift.planned_end), 0).toFixed(1)}h`}</p></div>
                 </div>
                 {selectedDayOrders.length > 0 && <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50/70 p-3 dark:border-blue-900 dark:bg-blue-950/20"><p className="text-xs font-semibold uppercase tracking-wide text-blue-800 dark:text-blue-200">Booked events</p><div className="mt-2 flex flex-wrap gap-2">{selectedDayOrders.map((order) => <Link key={order.id} href={withSlug(`/admin/orders/${order.id}`)} className="rounded-md bg-white px-2 py-1 text-xs font-medium text-blue-800 shadow-sm hover:underline dark:bg-slate-900 dark:text-blue-200">{order.order_number || order.client_name || "Event"} · {order.guest_count ?? "?"} guests</Link>)}</div></div>}
@@ -905,7 +939,7 @@ function KitchenScheduleGrid() {
             {isFullScheduleOpen && <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">
-                  {staff.length} chef{staff.length === 1 ? "" : "s"}
+                  {staff.length} kitchen member{staff.length === 1 ? "" : "s"}
                 </CardTitle>
                 <CardDescription className="text-xs">
                   Cells show planned hours. A clock-in from the team portal or staff tablet updates actual hours and lateness here.
@@ -977,7 +1011,7 @@ function KitchenScheduleGrid() {
                                 <p className="text-sm font-semibold tabular-nums">
                                   {dayTotalHours.toFixed(1)}h
                                 </p>
-                                <p className="text-[11px] text-slate-500">{cellsForDay.length} chef{cellsForDay.length === 1 ? "" : "s"}</p>
+                                <p className="text-[11px] text-slate-500">{cellsForDay.length} kitchen member{cellsForDay.length === 1 ? "" : "s"} rostered</p>
                               </div>
                             </div>
 
@@ -1010,9 +1044,10 @@ function KitchenScheduleGrid() {
                             ) : (
                               <ul className="space-y-1">
                                 {cellsForDay.map((c) => (
-                                  <li key={c.p.id} className="flex items-center justify-between gap-2 text-xs">
-                                    <span className="min-w-0 truncate font-medium text-slate-900">
-                                      {c.p.full_name || c.p.email}
+                                  <li key={c.p.id} className="flex min-w-0 items-center justify-between gap-2 text-xs">
+                                    <span className="flex min-w-0 flex-wrap items-center gap-1 font-medium text-slate-900">
+                                      <span className="max-w-full truncate">{c.p.full_name || c.p.email}</span>
+                                      {!c.p.profile_id && <Badge variant="outline" className="border-amber-300 bg-amber-50 px-1.5 py-0 text-[10px] text-amber-800">No login · admin-managed</Badge>}
                                     </span>
                                     <span className="shrink-0 text-slate-600 tabular-nums">
                                       {c.totalPlanned.toFixed(1)}h
@@ -1040,7 +1075,7 @@ function KitchenScheduleGrid() {
                       <thead>
                         <tr className="text-left">
                           <th className="px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold sticky left-0 bg-white">
-                            Chef
+                            Kitchen staff
                           </th>
                           {weekDays.map((d, i) => {
                             const iso = toLocalISO(d);
@@ -1118,7 +1153,10 @@ function KitchenScheduleGrid() {
                             <tr key={p.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                               <td className="px-3 py-2 sticky left-0 bg-white">
                                 <div className="font-medium text-slate-900 truncate">{p.full_name || p.email}</div>
-                                <div className="text-[11px] text-slate-500 truncate capitalize">{displayRosterRole(p)}</div>
+                                <div className="flex flex-wrap items-center gap-1 text-[11px] text-slate-500">
+                                  <span className="truncate capitalize">{displayRosterRole(p)}</span>
+                                  {!p.profile_id && <Badge variant="outline" className="border-amber-300 bg-amber-50 px-1.5 py-0 text-[10px] text-amber-800">No login · admin-managed</Badge>}
+                                </div>
                               </td>
                               {weekDays.map((day, i) => {
                                 const iso = toLocalISO(day);
@@ -1398,7 +1436,7 @@ function KitchenScheduleGrid() {
                                 {distinctChefs > 0 && (
                                   <div className="text-[9px] sm:text-[10px] text-brand-primary mt-1 inline-flex items-center gap-0.5">
                                     <Users className="w-2.5 h-2.5" />
-                                    <span className="hidden sm:inline">{distinctChefs} chef{distinctChefs === 1 ? "" : "s"}</span>
+                                    <span className="hidden sm:inline">{distinctChefs} kitchen member{distinctChefs === 1 ? "" : "s"}</span>
                                     <span className="sm:hidden tabular-nums">{distinctChefs}</span>
                                   </div>
                                 )}
@@ -1419,7 +1457,7 @@ function KitchenScheduleGrid() {
                           </span>
                           <span className="inline-flex items-center gap-1">
                             <span className="w-2.5 h-2.5 rounded-sm bg-rose-100 border border-rose-200"></span>
-                            No chef rostered
+                            No kitchen staff rostered
                           </span>
                           <span className="inline-flex items-center gap-1">
                             {/* Swatch matches the actual today-cell tint. */}

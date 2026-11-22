@@ -98,6 +98,12 @@ export interface IngredientDemand {
   used_by: Array<{ order_id: string; client_name?: string; event_date: string; qty: number }>;
 }
 
+export interface IngredientDemandCoverageIssue {
+  menu_item_name: string;
+  reason: "recipe missing" | "no recipe ingredients" | "ingredient not linked to inventory" | "menu item not linked" | "recipe unit differs from stock unit";
+  detail?: string;
+}
+
 export interface KitchenStation {
   id: string;
   company_id: string;
@@ -1275,7 +1281,8 @@ export const kitchenPrepService = {
       // visibility on legacy orders that never got stamped.
       ordersQuery = ordersQuery.or(`region_id.eq.${regionId},region_id.is.null`);
     }
-    const { data: orders } = await ordersQuery;
+    const { data: orders, error: ordersErr } = await ordersQuery;
+    if (ordersErr) throw ordersErr;
     if (!orders || orders.length === 0) return [];
     const orderMeta = new Map<string, any>((orders as any[]).map((o) => [o.id, o]));
 
@@ -1289,7 +1296,7 @@ export const kitchenPrepService = {
       .in("order_status", ["confirmed", "preparing", "ready", "in_transit", "delivered"]);
     if (demandErr) {
       console.error("[kitchenPrepService] order_ingredient_demand fetch failed:", demandErr);
-      return [];
+      throw demandErr;
     }
 
     const demandByIngredient = new Map<string, IngredientDemand>();
@@ -1301,7 +1308,12 @@ export const kitchenPrepService = {
       const qty = Number(r.quantity_required || 0);
       if (!name || qty <= 0) continue;
 
-      const key = `${name.toLowerCase()}|${unit.toLowerCase()}`;
+      // Aggregate against the inventory identity first, not the free-text
+      // ingredient label. Two recipe names mapped to one stock item must be
+      // summed before subtracting that stock exactly once.
+      const key = r.inventory_item_id
+        ? `inventory:${r.inventory_item_id}`
+        : `name:${name.toLowerCase()}|${unit.toLowerCase()}`;
       const ord = orderMeta.get(r.order_id);
       const usedBy = {
         order_id: r.order_id as string,
@@ -1341,7 +1353,11 @@ export const kitchenPrepService = {
     if (regionId) {
       invQuery = invQuery.or(`region_id.eq.${regionId},is_shared.eq.true`);
     }
-    const { data: inv } = await invQuery;
+    const { data: inv, error: inventoryErr } = await invQuery;
+    if (inventoryErr) {
+      console.error("[kitchenPrepService] inventory fetch for demand failed:", inventoryErr);
+      throw inventoryErr;
+    }
     const invByName = new Map<string, any>();
     const invById = new Map<string, any>();
     for (const i of (inv || []) as any[]) {
@@ -1370,6 +1386,91 @@ export const kitchenPrepService = {
   },
 
   // ── Hand-offs ─────────────────────────────────────────────────────────────
+
+  async getDemandCoverageIssues(
+    companyId: string,
+    fromDate: string,
+    toDate: string,
+    regionId: string | null = null,
+  ): Promise<IngredientDemandCoverageIssue[]> {
+    let ordersQuery = supabase
+      .from("orders")
+      .select("id, region_id")
+      .eq("company_id", companyId)
+      .gte("event_date", fromDate)
+      .lte("event_date", toDate)
+      .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered"]);
+    if (regionId) ordersQuery = ordersQuery.or(`region_id.eq.${regionId},region_id.is.null`);
+    const { data: orders, error: ordersError } = await ordersQuery;
+    if (ordersError) throw ordersError;
+    if (!orders?.length) return [];
+
+    const { data: orderItems, error: itemsError } = await supabase
+      .from("order_items")
+      .select("menu_item_id, item_name")
+      .in("order_id", orders.map((order) => order.id));
+    if (itemsError) throw itemsError;
+    const menuIds = Array.from(new Set((orderItems || []).map((item) => item.menu_item_id).filter(Boolean))) as string[];
+    const issues: IngredientDemandCoverageIssue[] = Array.from(new Set(
+      (orderItems || []).filter((item) => !item.menu_item_id).map((item) => item.item_name || "Unlinked order item"),
+    )).map((menu_item_name) => ({ menu_item_name, reason: "menu item not linked" }));
+    if (!menuIds.length) return issues;
+
+    const { data: menuItems, error: menuError } = await supabase
+      .from("menu_items")
+      .select("id, item_name, is_buy_and_sell, linked_inventory_item_id")
+      .eq("company_id", companyId)
+      .in("id", menuIds);
+    if (menuError) throw menuError;
+    const { data: recipes, error: recipesError } = await supabase
+      .from("recipes")
+      .select("id, menu_item_id")
+      .eq("company_id", companyId)
+      .in("menu_item_id", menuIds);
+    if (recipesError) throw recipesError;
+
+    const recipeIds = (recipes || []).map((recipe) => recipe.id);
+    const { data: ingredients, error: ingredientsError } = recipeIds.length
+      ? await supabase.from("recipe_ingredients").select("recipe_id, inventory_item_id, ingredient_name, unit").in("recipe_id", recipeIds)
+      : { data: [], error: null };
+    if (ingredientsError) throw ingredientsError;
+    const inventoryIds = Array.from(new Set((ingredients || []).map((ingredient) => ingredient.inventory_item_id).filter(Boolean))) as string[];
+    const { data: stockItems, error: stockError } = inventoryIds.length
+      ? await supabase.from("inventory_items").select("id, unit_of_measure").eq("company_id", companyId).in("id", inventoryIds)
+      : { data: [], error: null };
+    if (stockError) throw stockError;
+    const stockUnits = new Map((stockItems || []).map((item) => [item.id, String(item.unit_of_measure || "").trim().toLowerCase()]));
+
+    for (const menu of menuItems || []) {
+      const itemRecipes = (recipes || []).filter((recipe) => recipe.menu_item_id === menu.id);
+      if (itemRecipes.length === 0) {
+        if (menu.is_buy_and_sell && !menu.linked_inventory_item_id) {
+          issues.push({ menu_item_name: menu.item_name, reason: "menu item not linked" });
+        } else if (!menu.is_buy_and_sell) {
+          issues.push({ menu_item_name: menu.item_name, reason: "recipe missing" });
+        }
+        continue;
+      }
+      const itemIngredients = (ingredients || []).filter((ingredient) => itemRecipes.some((recipe) => recipe.id === ingredient.recipe_id));
+      if (itemIngredients.length === 0) issues.push({ menu_item_name: menu.item_name, reason: "no recipe ingredients" });
+      else if (itemIngredients.some((ingredient) => !ingredient.inventory_item_id)) {
+        issues.push({ menu_item_name: menu.item_name, reason: "ingredient not linked to inventory" });
+      } else {
+        for (const ingredient of itemIngredients) {
+          const recipeUnit = String(ingredient.unit || "").trim().toLowerCase();
+          const stockUnit = ingredient.inventory_item_id ? stockUnits.get(ingredient.inventory_item_id) : undefined;
+          if (stockUnit && recipeUnit !== stockUnit) {
+            issues.push({
+              menu_item_name: menu.item_name,
+              reason: "recipe unit differs from stock unit",
+              detail: `${ingredient.ingredient_name}: recipe uses ${ingredient.unit}; inventory uses ${(stockItems || []).find((item) => item.id === ingredient.inventory_item_id)?.unit_of_measure || "an unspecified unit"}`,
+            });
+          }
+        }
+      }
+    }
+    return issues;
+  },
 
   async createHandoff(payload: {
     companyId: string;
@@ -1625,7 +1726,7 @@ export const kitchenPrepService = {
     // first time. shopper_id stays NULL so the shopper picks it up via
     // the "team list" fallback in useActiveShoppingList.
     let list: { id: string } | null = null;
-    const { data: existingList } = await supabase
+    const { data: existingList, error: existingListErr } = await supabase
       .from("shopping_lists")
       .select("id")
       .eq("company_id", companyId)
@@ -1634,6 +1735,7 @@ export const kitchenPrepService = {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (existingListErr) throw existingListErr;
     if (existingList?.id) {
       list = existingList as { id: string };
     } else {
@@ -1652,20 +1754,22 @@ export const kitchenPrepService = {
         }])
         .select("id")
         .single();
-      if (lErr || !created) {
+      if (lErr) {
         console.error("Error creating shopping list:", lErr);
-        return null;
+        throw lErr;
       }
+      if (!created) throw new Error("The shopping list was not created. Try again.");
       list = created as { id: string };
     }
 
     // Skip items already on the list (by inventory item_id, else by name)
     // so re-adding the same shortfall doesn't pile up duplicate rows.
-    const { data: existingItems } = await supabase
+    const { data: existingItems, error: existingItemsErr } = await supabase
       .from("shopping_list_items")
       .select("item_id, name")
       .eq("shopping_list_id", list.id)
       .is("removed_at", null);
+    if (existingItemsErr) throw existingItemsErr;
     const seenIds = new Set(
       (existingItems || []).map((r: any) => r.item_id).filter(Boolean) as string[],
     );
@@ -1703,7 +1807,7 @@ export const kitchenPrepService = {
       const { error: iErr } = await supabase.from("shopping_list_items").insert(rows);
       if (iErr) {
         console.error("Error creating shopping list items:", iErr);
-        return null;
+        throw iErr;
       }
     }
 

@@ -14,14 +14,14 @@
  * (is_client_visible) optionally surface on the magic-link client
  * portal too - default off, so internal docs stay internal.
  */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Paperclip, Upload, Loader2, Trash2, Download, AlertCircle, FileText, FileImage, FileSignature } from "lucide-react";
+import { Paperclip, Upload, Loader2, Trash2, Download, FileText, FileImage, FileSignature } from "lucide-react";
 
 interface Props {
   orderId: string;
@@ -66,12 +66,14 @@ export function AttachmentsSection({ orderId, companyId, defaultOpen, forceOpen 
   const [rows, setRows] = useState<AttachmentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Only the first load for an order shows the spinner. Live updates refresh
   // the rows in place so the section does not blink.
   const shownOrderRef = useRef<string | null>(null);
-  const load = async () => {
+  const load = useCallback(async () => {
     if (shownOrderRef.current !== orderId) setLoading(true);
     try {
       const { data, error } = await (supabase as any)
@@ -83,14 +85,16 @@ export function AttachmentsSection({ orderId, companyId, defaultOpen, forceOpen 
       if (error) throw error;
       setRows((data || []) as AttachmentRow[]);
       shownOrderRef.current = orderId;
+      setLoadError(false);
     } catch (e: any) {
       captureException(e, { tags: { route: "/order/[id]", step: "loadAttachments", orderId, companyId } });
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
-  };
+  }, [orderId, companyId]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [orderId]);
+  useEffect(() => { void load(); }, [load]);
 
   // Realtime: new uploads from elsewhere should appear here.
   useEffect(() => {
@@ -103,8 +107,7 @@ export function AttachmentsSection({ orderId, companyId, defaultOpen, forceOpen 
       )
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderId]);
+  }, [orderId, load]);
 
   const onUpload = async (file: File) => {
     if (!user?.id) return;
@@ -184,6 +187,7 @@ export function AttachmentsSection({ orderId, companyId, defaultOpen, forceOpen 
 
   const summary = loading
     ? "Loading..."
+    : loadError ? "Unable to load files"
     : rows.length === 0
       ? "No files attached"
       : `${rows.length} file${rows.length === 1 ? "" : "s"}`;
@@ -198,75 +202,89 @@ export function AttachmentsSection({ orderId, companyId, defaultOpen, forceOpen 
       defaultOpen={defaultOpen}
       forceOpen={forceOpen}
     >
-      <div className="space-y-3">
-        {/* Upload affordance - hidden file input + styled label so the
-            button looks like a primary action. */}
-        <label
-          htmlFor={`attach-file-${orderId}`}
-          className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold cursor-pointer ${uploading ? "bg-slate-200 text-slate-500 cursor-wait" : "bg-slate-900 text-white hover:bg-slate-800"}`}
-        >
-          {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-          {uploading ? "Uploading..." : "Upload file"}
+      <div className="min-w-0 space-y-4 [overflow-wrap:anywhere]">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 print:hidden">
+          <Button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="h-auto min-h-[44px] max-w-full whitespace-normal"
+          >
+            {uploading ? <Loader2 className="animate-spin" /> : <Upload />}
+            {uploading ? "Uploading…" : "Upload file"}
+          </Button>
+          <p className="text-sm text-slate-600">Up to 25 MB per file</p>
           <input
-            id={`attach-file-${orderId}`}
+            ref={fileInputRef}
             type="file"
-            className="sr-only"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) onUpload(f);
-              e.target.value = "";
+            hidden
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              if (file) void onUpload(file);
+              event.currentTarget.value = "";
             }}
             disabled={uploading}
           />
-        </label>
+        </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-6 text-slate-500">
-            <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading attachments...
+          <p role="status" className="flex items-center gap-2 py-4 text-sm text-slate-600">
+            <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin" /> Loading attachments…
+          </p>
+        ) : loadError ? (
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-900">
+            <p>Attachments could not be loaded.</p>
+            <Button type="button" variant="outline" className="h-auto min-h-[44px] max-w-full whitespace-normal print:hidden" onClick={() => void load()}>Retry</Button>
           </div>
         ) : rows.length === 0 ? (
-          <div className="flex items-start gap-2 p-3 rounded-md bg-slate-50 border border-slate-200">
-            <AlertCircle className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-slate-700">No files yet</p>
-              <p className="text-xs text-slate-500 mt-0.5">Attach signed contracts, dietary forms, venue maps, or anything else operators need on this order.</p>
-            </div>
-          </div>
+          <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">No files attached to this order.</p>
         ) : (
-          <ul className="space-y-1.5">
-            {rows.map((r) => {
-              const Icon = iconFor(r.mime_type);
+          <ul className="divide-y divide-slate-200 border-t border-slate-200" aria-label="Order files">
+            {rows.map((row) => {
+              const Icon = iconFor(row.mime_type);
+              const addedOn = new Date(row.created_at);
+              const size = fmtSize(row.size_bytes);
               return (
-                <li key={r.id} className="flex items-center gap-3 p-2.5 rounded-md border border-slate-200 bg-white">
-                  <Icon className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-slate-900 truncate">{r.file_name}</p>
-                    <p className="text-[11px] text-slate-500 truncate">
-                      {fmtSize(r.size_bytes)}
-                      {r.uploader?.full_name && <span> · {r.uploader.full_name}</span>}
-                      <span> · {new Date(r.created_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</span>
-                      {r.is_client_visible && <span className="ml-1 text-brand-primary">· Client visible</span>}
-                    </p>
+                <li key={row.id} className="flex min-w-0 flex-wrap items-start justify-between gap-2 py-3">
+                  <div className="flex min-w-0 flex-[1_1_12rem] items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-600">
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-950">{row.file_name}</p>
+                      <p className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-sm text-slate-600">
+                        {size && <span>{size}</span>}
+                        <time dateTime={row.created_at}>{addedOn.toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</time>
+                        {row.uploader?.full_name && <span>{row.uploader.full_name}</span>}
+                      </p>
+                      {row.is_client_visible && <p className="mt-1 text-sm font-medium text-brand-primary">Visible to client</p>}
+                    </div>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onDownload(r)}
-                    className="h-7 text-xs"
-                    title="Download"
-                  >
-                    <Download className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onDelete(r)}
-                    disabled={deletingId === r.id}
-                    className="h-7 text-xs text-rose-700 border-rose-200 hover:bg-rose-50"
-                    title="Delete"
-                  >
-                    {deletingId === r.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                  </Button>
+                  <div className="flex max-w-full flex-wrap gap-1 print:hidden">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      onClick={() => onDownload(row)}
+                      className="h-11 w-11 min-h-[44px] min-w-[44px]"
+                      aria-label={`Download ${row.file_name}`}
+                      title="Download"
+                    >
+                      <Download />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => onDelete(row)}
+                      disabled={deletingId === row.id}
+                      className="h-11 w-11 min-h-[44px] min-w-[44px] text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                      aria-label={`Delete ${row.file_name}`}
+                      title="Delete"
+                    >
+                      {deletingId === row.id ? <Loader2 className="animate-spin" /> : <Trash2 />}
+                    </Button>
+                  </div>
                 </li>
               );
             })}

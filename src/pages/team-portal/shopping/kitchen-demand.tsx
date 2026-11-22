@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import {
   kitchenPrepService,
   type IngredientDemand,
+  type IngredientDemandCoverageIssue,
 } from "@/services/kitchenPrepService";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -47,6 +48,8 @@ function ShoppingKitchenDemandPageInner() {
 
   const [horizon, setHorizon] = useState(7);
   const [demand, setDemand] = useState<IngredientDemand[]>([]);
+  const [coverageIssues, setCoverageIssues] = useState<IngredientDemandCoverageIssue[]>([]);
+  const [coverageError, setCoverageError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loaded, setLoaded] = useState(false);
   // Command-centre restructure: a failed demand read used to toast and
@@ -58,26 +61,36 @@ function ShoppingKitchenDemandPageInner() {
   const [creating, setCreating] = useState(false);
 
   const todayStr = useMemo(() => toLocalISO(new Date()), []);
-  const horizonStr = useMemo(() => isoOffset(horizon), [horizon]);
+  // Date queries use an inclusive end date: a 7-day window is today through
+  // day 6, matching the SQL outlook's [today, today + 7 days) interval.
+  const horizonStr = useMemo(() => isoOffset(horizon - 1), [horizon]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!companyId) return;
     setLoading(true);
-    try {
-      const data = await kitchenPrepService.getAggregatedDemand(companyId, todayStr, horizonStr, regionFilterId);
-      setDemand(data);
+    const [demandResult, coverageResult] = await Promise.allSettled([
+      kitchenPrepService.getAggregatedDemand(companyId, todayStr, horizonStr, regionFilterId),
+      kitchenPrepService.getDemandCoverageIssues(companyId, todayStr, horizonStr, regionFilterId),
+    ]);
+    if (demandResult.status === "fulfilled") {
+      setDemand(demandResult.value);
       setLoadError(null);
-      setLoaded(true);
-    } catch (e: any) {
-      setLoadError(e?.message || "We couldn't reach the server. Check your connection and retry.");
-    } finally {
-      setLoading(false);
+    } else {
+      setLoadError(demandResult.reason?.message || "We couldn't reach the server. Check your connection and retry.");
     }
-  };
+    if (coverageResult.status === "fulfilled") {
+      setCoverageIssues(coverageResult.value);
+      setCoverageError(false);
+    } else {
+      setCoverageError(true);
+    }
+    setLoaded(true);
+    setLoading(false);
+  }, [companyId, todayStr, horizonStr, regionFilterId]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId, todayStr, horizonStr, regionFilterId]);
+  useEffect(() => { void load(); }, [load]);
 
-  // Realtime: kitchen demand is derived from confirmed orders and their
+  // Realtime: kitchen demand is derived from active orders and their
   // items, netted against inventory. It was mount/param-only, so a new
   // order, an edited order line, or a stock movement (a shopper buying an
   // ingredient) left the shortfall numbers stale until a manual reload -
@@ -92,6 +105,9 @@ function ShoppingKitchenDemandPageInner() {
       .channel(`kitchen-demand-${companyId}-${Math.random().toString(36).slice(2, 10)}`)
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` }, () => { void load(); })
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "order_items" }, () => { void load(); })
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "menu_items", filter: `company_id=eq.${companyId}` }, () => { void load(); })
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "recipes", filter: `company_id=eq.${companyId}` }, () => { void load(); })
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "recipe_ingredients" }, () => { void load(); })
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "inventory_items", filter: `company_id=eq.${companyId}` }, () => { void load(); })
       .subscribe();
     const onLocal = () => { void load(); };
@@ -100,8 +116,7 @@ function ShoppingKitchenDemandPageInner() {
       void supabase.removeChannel(channel);
       if (typeof window !== "undefined") window.removeEventListener("cateringms:shopping-updated", onLocal);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId, todayStr, horizonStr, regionFilterId]);
+  }, [companyId, todayStr, horizonStr, regionFilterId, load]);
 
   // ── Filtering ─────────────────────────────────────────────────────────
 
@@ -140,10 +155,15 @@ function ShoppingKitchenDemandPageInner() {
         `Kitchen demand ${todayStr} -> ${horizonStr}`,
       );
       if (result) {
-        toast({
-          title: "Shopping list created",
-          description: `${result.itemCount} item${result.itemCount === 1 ? "" : "s"} ready to buy.`,
-        });
+        toast(result.itemCount > 0
+          ? {
+              title: "Shopping list updated",
+              description: `${result.itemCount} shortfall item${result.itemCount === 1 ? "" : "s"} added to the active shopping list.`,
+            }
+          : {
+              title: "Shortfalls already listed",
+              description: "All current shortage items are already on the active shopping list.",
+            });
       } else {
         toast({ title: "Nothing to buy", description: "No shortfalls in this window." });
       }
@@ -164,9 +184,9 @@ function ShoppingKitchenDemandPageInner() {
       subheading={
         chipsReady
           ? stats.shortfall > 0
-            ? `${stats.shortfall} ingredient${stats.shortfall === 1 ? "" : "s"} short for confirmed orders in the next ${horizon} days.`
-            : `Confirmed orders in the next ${horizon} days are covered by stock on hand.`
-          : `Aggregated ingredient need from confirmed orders in the next ${horizon} days.`
+            ? `${stats.shortfall} ingredient${stats.shortfall === 1 ? "" : "s"} short for active orders in the next ${horizon} days.`
+            : `Active orders in the next ${horizon} days are covered by stock on hand.`
+          : `Aggregated ingredient need from active orders in the next ${horizon} days.`
       }
       icon={ChefHat}
       // Only offered when something is short; a disabled brand button on
@@ -220,11 +240,38 @@ function ShoppingKitchenDemandPageInner() {
         </div>
       )}
 
+      {(coverageIssues.length > 0 || coverageError) && (
+        <section className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/70 dark:bg-amber-950/30" aria-label="Demand coverage warnings">
+          <h2 className="font-semibold text-amber-950 dark:text-amber-200">Recipe-based demand coverage</h2>
+          {coverageError ? (
+            <p className="mt-1 text-sm text-amber-900 dark:text-amber-100">Recipe coverage could not be checked. Retry before treating this list as complete.</p>
+          ) : (
+            <>
+              <p className="mt-1 text-sm text-amber-900 dark:text-amber-100">Recipes are optional. Items with missing setup are not included in automatic recipe-based estimates; the team can still add needed food manually to a shopping list. For automatic estimates, link each ingredient to inventory and use matching units—this calculation does not convert units.</p>
+              <ul className="mt-2 space-y-1 text-sm text-amber-950 dark:text-amber-100">
+                {coverageIssues.map((issue, index) => (
+                  <li key={`${issue.menu_item_name}-${issue.reason}-${index}`} className="flex flex-wrap gap-x-2">
+                    <span className="font-medium">{issue.menu_item_name}</span>
+                    <span className="text-amber-800 dark:text-amber-200">— {issue.reason}</span>
+                    {issue.detail && <span className="basis-full text-xs text-amber-800 dark:text-amber-300">{issue.detail}</span>}
+                  </li>
+                ))}
+              </ul>
+              {canOpenMenuBuilder && (
+                <Link href={withSlug("/admin/menu")} className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-amber-950 underline underline-offset-2 dark:text-amber-100">
+                  Open menu builder <ExternalLink className="h-3.5 w-3.5" />
+                </Link>
+              )}
+            </>
+          )}
+        </section>
+      )}
+
       {/* Stat strip */}
       <div className="grid grid-cols-2 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1 gap-3 mb-5 sm:grid-cols-3 sm:gap-4">
         <StatTile tone="info"
           label="Ingredients in play"
-          hint="From confirmed orders"
+          hint="From active orders"
           value={stats.ingredients}
           icon={Boxes}
         />
@@ -240,7 +287,7 @@ function ShoppingKitchenDemandPageInner() {
         />
         <StatTile tone="info"
           label="Orders feeding this"
-          hint="Confirmed in this window"
+          hint="Active in this window"
           value={stats.orders}
           icon={ClipboardList}
         />
@@ -334,7 +381,7 @@ function ShoppingKitchenDemandPageInner() {
           </p>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1.5 max-w-md mx-auto">
             {demand.length === 0
-              ? "This page pulls recipe ingredients from confirmed orders, then subtracts what's on hand. Once a confirmed order's menu items have recipes attached, their ingredients show up here, ready to buy."
+              ? "This page pulls linked recipe ingredients from active orders, then subtracts what's on hand. Menu items need a recipe and each recipe ingredient needs an inventory item link to appear here. Buy-and-sell menu items use their linked inventory item directly."
               : shortfallOnly
                 ? "Everything in this window is covered by stock. Toggle 'Shortfall only' off to see the full pull list."
                 : "Nothing matches that search. Try a different ingredient or unit."}

@@ -81,10 +81,7 @@ export function CollapsibleSection({
   return (
     <section
       id={id}
-      // ODOC Wave D: scroll-margin-top so anchor scroll clears the
-      // sticky nav (72px on mobile incl. safe-area, 64px desktop).
-      style={{ scrollMarginTop: "72px" }}
-      className={`relative rounded-xl border bg-white shadow-sm overflow-hidden scroll-mt-[72px] ${highlight ? `ring-2 ring-offset-1 ${a.ring}` : ""}`}
+      className={`relative min-w-0 scroll-mt-[calc(136px+env(safe-area-inset-top,0px))] overflow-hidden rounded-xl border bg-white shadow-sm lg:scroll-mt-[72px] ${highlight ? `ring-2 ring-offset-1 ${a.ring}` : ""}`}
     >
       {/* Coloured left stripe so the eye locates the section type at a glance */}
       <span className={`absolute left-0 top-0 bottom-0 w-1.5 ${bar}`} aria-hidden />
@@ -97,12 +94,12 @@ export function CollapsibleSection({
         aria-controls={`${id}-body`}
       >
         <div className="min-w-0 flex-1 pl-3">
-          <h2 className={`text-base sm:text-lg font-semibold ${a.text} flex items-center gap-2`}>
+          <h2 className={`flex min-w-0 items-center gap-2 text-lg font-semibold leading-snug tracking-tight ${a.text}`}>
             {Icon && <Icon className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />}
-            {title}
+            <span className="min-w-0 break-words">{title}</span>
           </h2>
           {summary && !isOpen && (
-            <p className="text-xs sm:text-sm text-slate-500 mt-0.5 truncate">{summary}</p>
+            <p className="mt-0.5 line-clamp-2 break-words text-xs leading-snug text-slate-600 sm:text-sm">{summary}</p>
           )}
         </div>
         {!forceOpen && (
@@ -112,7 +109,7 @@ export function CollapsibleSection({
         )}
       </button>
       {isOpen && (
-        <div id={`${id}-body`} className={`px-4 sm:px-5 pb-5 pl-7 sm:pl-8 ${a.bg}`}>{children}</div>
+        <div id={`${id}-body`} className={`min-w-0 px-3 pb-4 pl-6 [overflow-wrap:anywhere] min-[400px]:px-4 min-[400px]:pl-7 sm:px-5 sm:pb-5 sm:pl-8 ${a.bg}`}>{children}</div>
       )}
     </section>
   );

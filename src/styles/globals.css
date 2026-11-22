@@ -702,6 +702,39 @@
     font-size: 0 !important;
     line-height: 0;
   }
+
+  /* Keep prep order cards in normal document flow on phones. The desktop
+     3D card flip can clip long ingredient and equipment requirements at
+     narrow widths; the same Event / Requirements control swaps faces here. */
+  .operational-portal-shell .prep-list-flip-inner {
+    transform: none !important;
+    transform-style: flat !important;
+    transition: none !important;
+  }
+
+  .operational-portal-shell .prep-list-flip-face {
+    backface-visibility: visible !important;
+    transform: none !important;
+  }
+
+  /* Keep the inactive face out of layout and hit testing on phones. An
+     absolutely positioned hidden face can otherwise sit over wrapped text
+     when the card is narrower than the desktop flip layout expects. */
+  .operational-portal-shell .prep-list-flip-face[aria-hidden="true"] {
+    display: none !important;
+  }
+
+  .operational-portal-shell .prep-list-flip-face[aria-hidden="false"] {
+    position: relative !important;
+    inset: auto !important;
+    width: 100%;
+  }
+
+  .operational-portal-shell .prep-list-order-card,
+  .operational-portal-shell .prep-list-order-card :where(h3, p, span, li) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
 }
 
 @media (min-width: 640px) {
@@ -861,6 +894,49 @@
 .order-details-dialog [class~="text-sm"] {
   font-size: 0.8125rem !important;
   line-height: 1.25rem !important;
+}
+
+/* The standalone order document is used by kitchen, delivery and admin
+   teams on phones as well as at a desk. Keep dense operational labels
+   readable without changing the sizing of unrelated admin pages. */
+.order-document-surface [class~="text-[10px]"] {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+}
+
+.order-document-surface [class~="text-[11px]"] {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.order-document-surface [class~="text-xs"] {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+@media (max-width: 639px) {
+  .order-document-surface [class~="text-xs"] {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
+  .order-document-surface [class~="text-sm"] {
+    font-size: 0.9375rem;
+    line-height: 1.375rem;
+  }
+
+  .order-document-surface input,
+  .order-document-surface select,
+  .order-document-surface textarea {
+    font-size: 1rem;
+  }
+}
+
+@media (pointer: coarse) {
+  .order-document-surface button,
+  .order-document-surface [role="button"] {
+    min-height: 2.75rem;
+  }
 }
 
 @media (max-width: 639px) {

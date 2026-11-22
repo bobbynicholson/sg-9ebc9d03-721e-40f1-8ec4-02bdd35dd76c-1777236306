@@ -412,7 +412,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
       <div key={item.href}>
         {item.groupHeading && !collapsed && !footer && (
           <div className={cn(
-            "mb-1 mt-3 border-t pt-3 px-2.5 text-xs font-semibold uppercase tracking-[0.12em]",
+            "mb-1 mt-3 border-t pt-3 px-2.5 text-[13px] font-semibold uppercase tracking-[0.12em] lg:text-xs",
             forceBrand ? "border-white/15 text-white/65" : "border-slate-200/70 text-slate-500 dark:border-slate-700/60 dark:text-slate-400",
           )}>
             {item.groupHeading}
@@ -429,7 +429,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           // Keep nav rows easy to tap while the text and icon columns stay
           // compact. Specific transition properties avoid animating layout.
           "group relative flex min-h-11 items-center gap-2.5 overflow-hidden rounded-lg border border-transparent transition-[color,background-color,border-color,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset active:scale-[0.99] motion-reduce:transform-none",
-          footer ? "px-3 py-2 text-xs font-medium lg:text-sm" : "px-2.5 py-2 text-sm font-medium lg:px-3 lg:py-2.5",
+          footer ? "px-3 py-2 text-[15px] font-medium lg:text-sm" : "px-2.5 py-2 text-[15px] font-medium lg:px-3 lg:py-2.5 lg:text-sm",
           // Brand rail: white-glass rows (brand-tinted states would be
           // tone-on-tone against the brand-painted surface).
           forceBrand
@@ -489,7 +489,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               <div className="truncate">{item.title}</div>
               {description && !active && !footer && (
                 <div className={cn(
-                  "truncate text-xs",
+                  "truncate text-[13px] lg:text-xs",
                   forceBrand ? "text-white/60" : "text-slate-500/90 dark:text-slate-400",
                 )}>{description}</div>
               )}
@@ -508,7 +508,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                   // flex-shrink-0 keeps the badge from being squashed
                   // when the title is short; max-w + truncate cap it
                   // when the title is long.
-                  "inline-flex items-center justify-center px-1.5 py-0.5 rounded-md border text-xs font-semibold tabular-nums flex-shrink-0 max-w-[80px] truncate",
+                  "inline-flex items-center justify-center px-1.5 py-0.5 rounded-md border text-[13px] font-semibold tabular-nums flex-shrink-0 max-w-[80px] truncate lg:text-xs",
                   badgeTone,
                   badge.pulse ? "motion-safe:animate-pulse" : "",
                 )}
@@ -721,7 +721,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                   >
                     <PortalLogoTile config={config} logoUrl={logoUrl} size="lg" />
                     <div className="min-w-0">
-                      <h2 className={cn("truncate text-sm font-semibold", forceBrand ? "text-white" : "text-slate-950 dark:text-white")}>{config.title}</h2>
+                      <h2 className={cn("truncate text-[15px] font-semibold lg:text-sm", forceBrand ? "text-white" : "text-slate-950 dark:text-white")}>{config.title}</h2>
                     </div>
                   </Link>
                 </div>
@@ -764,7 +764,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             </Sheet>
             <Link href={withSlug(config.dashboardHref)} className="flex min-w-0 shrink-0 items-center gap-2" aria-label={`${config.title} home`}>
               <PortalLogoTile config={config} logoUrl={logoUrl} size="lg" />
-              <span className="truncate text-sm font-bold text-slate-900">{config.title}</span>
+              <span className="truncate text-[15px] font-bold text-slate-900 lg:text-sm">{config.title}</span>
             </Link>
           </div>
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
@@ -819,7 +819,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                     <PortalLogoTile config={config} logoUrl={logoUrl} size="lg" />
                     <div className="min-w-0">
                       <h1 className={cn("font-bold truncate", forceBrand ? "text-white" : "text-slate-900 dark:text-white")}>{config.title}</h1>
-                      <p className={cn("text-xs truncate", forceBrand ? "text-white/70" : "text-slate-600 dark:text-slate-400")}>{companyName}</p>
+                      <p className={cn("text-[13px] truncate lg:text-xs", forceBrand ? "text-white/70" : "text-slate-600 dark:text-slate-400")}>{companyName}</p>
                     </div>
                   </Link>
                   {/* The labelled role picker sits right below this row, so

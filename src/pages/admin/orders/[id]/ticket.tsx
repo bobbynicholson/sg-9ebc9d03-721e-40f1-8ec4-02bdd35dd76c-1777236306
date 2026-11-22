@@ -213,7 +213,11 @@ function KitchenTicketPage() {
       <div className="admin-page-shell admin-page-shell--no-sidebar admin-page-shell--document admin-page-shell--print">
         <div className="no-print bg-white border-b border-slate-200 px-4 py-3 flex flex-wrap items-center justify-between gap-2 sticky top-0 z-10">
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => router.back()}><ArrowLeft className="w-4 h-4 mr-2" /> Back</Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link href={withSlug("/admin/orders")}>
+                <ArrowLeft className="w-4 h-4 mr-2" /> Back
+              </Link>
+            </Button>
             <Link href={withSlug(staffOrderHref(orderId, "kitchen_staff"))} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-semibold text-orange-700 hover:bg-orange-50 border border-orange-200">
               <FileText className="w-4 h-4" /> Open full order document
             </Link>

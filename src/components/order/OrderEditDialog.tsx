@@ -21,6 +21,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, Plus, Trash2, X, Users, MapPin, Clock, Utensils, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type MenuLine = {
   key: string;
@@ -345,15 +346,19 @@ export function OrderEditDialog({
                   {menuLines.length === 0 && <p className="text-xs text-slate-400">No menu items.</p>}
                 </div>
                 {addableMenu.length > 0 && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <select value={addMenuId} onChange={(e) => setAddMenuId(e.target.value)} className="flex-1 px-3 py-2 rounded-md border border-slate-300 text-sm bg-white">
-                      <option value="">Add a dish...</option>
-                      {addableMenu.map((c) => (
-                        <option key={c.menu_item_id} value={c.menu_item_id}>
-                          {c.item_name} — {fmt.format(c.unit_price)}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="flex min-w-0 items-center gap-2 mt-2">
+                    <Select value={addMenuId} onValueChange={setAddMenuId}>
+                      <SelectTrigger className="h-auto min-h-10 min-w-0 flex-1 whitespace-normal rounded-md border-slate-300 bg-white px-3 text-left text-sm">
+                        <SelectValue placeholder="Add a dish..." />
+                      </SelectTrigger>
+                      <SelectContent align="start" className="w-[var(--radix-select-trigger-width)]">
+                        {addableMenu.map((c) => (
+                          <SelectItem key={c.menu_item_id} value={c.menu_item_id} className="break-all">
+                            {c.item_name} — {fmt.format(c.unit_price)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Button type="button" variant="outline" onClick={addMenu} disabled={!addMenuId} className="shrink-0">
                       <Plus className="w-4 h-4" />
                     </Button>
@@ -387,15 +392,19 @@ export function OrderEditDialog({
                   {equipLines.length === 0 && <p className="text-xs text-slate-400">No equipment.</p>}
                 </div>
                 {addableEquip.length > 0 && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <select value={addEquipId} onChange={(e) => setAddEquipId(e.target.value)} className="flex-1 px-3 py-2 rounded-md border border-slate-300 text-sm bg-white">
-                      <option value="">Add equipment...</option>
-                      {addableEquip.map((c) => (
-                        <option key={c.equipment_id} value={c.equipment_id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="flex min-w-0 items-center gap-2 mt-2">
+                    <Select value={addEquipId} onValueChange={setAddEquipId}>
+                      <SelectTrigger className="h-auto min-h-10 min-w-0 flex-1 whitespace-normal rounded-md border-slate-300 bg-white px-3 text-left text-sm">
+                        <SelectValue placeholder="Add equipment..." />
+                      </SelectTrigger>
+                      <SelectContent align="start" className="w-[var(--radix-select-trigger-width)]">
+                        {addableEquip.map((c) => (
+                          <SelectItem key={c.equipment_id} value={c.equipment_id} className="break-all">
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Button type="button" variant="outline" onClick={addEquip} disabled={!addEquipId} className="shrink-0">
                       <Plus className="w-4 h-4" />
                     </Button>

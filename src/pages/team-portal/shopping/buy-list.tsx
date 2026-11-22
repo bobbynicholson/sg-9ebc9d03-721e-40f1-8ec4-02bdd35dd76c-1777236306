@@ -63,6 +63,7 @@ interface OutlookRow {
   minimum_stock: number;
   reorder_quantity: number | null;
   demand_next_7_days: number;
+  demand_next_14_days?: number;
   shortfall_next_7_days: number;
   upcoming_order_count: number;
   status: "shortfall" | "below_minimum" | "low" | "ok";
@@ -185,6 +186,21 @@ function ShoppingBuyListPageInner() {
       )
       .on(
         "postgres_changes",
+        { event: "*", schema: "public", table: "menu_items", filter: `company_id=eq.${companyId}` },
+        () => { void loadRows(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "recipes", filter: `company_id=eq.${companyId}` },
+        () => { void loadRows(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "recipe_ingredients" },
+        () => { void loadRows(); },
+      )
+      .on(
+        "postgres_changes",
         { event: "*", schema: "public", table: "inventory_items", filter: `company_id=eq.${companyId}` },
         () => { void loadRows(); },
       )
@@ -249,6 +265,13 @@ function ShoppingBuyListPageInner() {
   const buyQtyFor = (r: OutlookRow): number => {
     const short = Number(r.shortfall_next_7_days || 0);
     if (short > 0) return Math.ceil(short * 100) / 100;
+    // A "Low" item is short over the next 14 days, although not the next
+    // 7. Recommend enough to cover that projected demand before falling
+    // back to the reorder/minimum quantity.
+    if (r.status === "low") {
+      const projectedGap = Number(r.demand_next_14_days || 0) - Number(r.current_stock || 0);
+      if (projectedGap > 0) return Math.ceil(projectedGap * 100) / 100;
+    }
     const reorder = Number(r.reorder_quantity || 0);
     if (reorder > 0) return reorder;
     const min = Number(r.minimum_stock || 0);

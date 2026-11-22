@@ -35,9 +35,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  ShoppingCart, CheckCircle, Clock, Package, ListChecks, Camera,
+  ShoppingCart, CheckCircle, Clock, Package, ListChecks, Camera, Plus,
   ArrowRight, Loader2, User, Users as UsersIcon, AlertCircle,
-  Printer, RefreshCw,
+  Printer, RefreshCw, ChevronDown,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
@@ -68,8 +68,14 @@ function ShoppingDashboardInner() {
   const activeList = useActiveShoppingList();
 
   const [filter, setFilter] = useState<"all" | "pending" | "purchased">("pending");
+  const [openSupplierGroups, setOpenSupplierGroups] = useState<Set<string>>(() => new Set());
   const [completing, setCompleting] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
+  const [addItemOpen, setAddItemOpen] = useState(false);
+  const [manualItemName, setManualItemName] = useState("");
+  const [manualItemQuantity, setManualItemQuantity] = useState("1");
+  const [manualItemUnit, setManualItemUnit] = useState("");
+  const [addingManualItem, setAddingManualItem] = useState(false);
   const [actualTotalInput, setActualTotalInput] = useState("");
   const [noReceiptReason, setNoReceiptReason] = useState("");
   // SHP2-G (shopping deep audit, SHP2-32 part b): live search input so
@@ -77,6 +83,29 @@ function ShoppingDashboardInner() {
   // "tom" and immediately see tomatoes - faster than scrolling 30
   // rows. Case-insensitive substring match against item name + notes.
   const [searchTerm, setSearchTerm] = useState("");
+
+  const handleAddManualItem = async () => {
+    const name = manualItemName.trim();
+    const quantity = Number(manualItemQuantity);
+    if (!name || !Number.isFinite(quantity) || quantity <= 0 || addingManualItem) return;
+    setAddingManualItem(true);
+    try {
+      const created = await activeList.addItem({ name, quantity, unit: manualItemUnit.trim() || null });
+      if (!created) {
+        toast({ title: "Could not add item", description: activeList.error || "Try again.", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Added to shopping list", description: `${quantity} ${manualItemUnit.trim()} ${name}`.trim() });
+      setManualItemName("");
+      setManualItemQuantity("1");
+      setManualItemUnit("");
+      setAddItemOpen(false);
+    } catch (error: any) {
+      toast({ title: "Could not add item", description: error?.message || "Try again.", variant: "destructive" });
+    } finally {
+      setAddingManualItem(false);
+    }
+  };
 
   // SHP2-J (shopping deep audit, SHP2-34): cross-page peeks. Two
   // counts surface alongside the Buy-list + Receipts action tiles:
@@ -213,6 +242,9 @@ function ShoppingDashboardInner() {
   // supplier? If everything is at one shop (or all "Other"), skip
   // the grouped layout and render the flat list.
   const showSupplierGroups = itemsBySupplier.length > 1;
+  const allSupplierGroupsCollapsed = itemsBySupplier.length > 0 && itemsBySupplier.every(
+    group => !openSupplierGroups.has(group.id ?? "__other__"),
+  );
 
   // Rough estimate from the notes ("Need X unit, have Y") isn't
   // reliable, so we use the list's estimated_total if set,
@@ -360,17 +392,6 @@ function ShoppingDashboardInner() {
             : "Start from Buy list for shortfalls, or Active shop when you already know what needs buying."
         }
         icon={ShoppingCart}
-        headerAction={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={activeList.refresh}
-            disabled={activeList.loading}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${activeList.loading ? "animate-spin motion-reduce:animate-none" : ""}`} />
-            Refresh
-          </Button>
-        }
         meta={
           chipsReady ? (
             activeList.list ? (
@@ -467,7 +488,15 @@ function ShoppingDashboardInner() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2 sm:shrink-0">
+                  <div className="grid grid-cols-1 gap-2 min-[390px]:grid-cols-2 sm:flex sm:flex-wrap sm:shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-10"
+                      onClick={() => setAddItemOpen(true)}
+                    >
+                      <Plus className="mr-1.5 h-4 w-4" /> Add item manually
+                    </Button>
                     <Link
                       href={withSlug("/team-portal/shopping/buy-list")}
                       className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-brand-primary px-3 text-xs font-semibold text-white transition-opacity hover:opacity-90"
@@ -510,7 +539,11 @@ function ShoppingDashboardInner() {
 
 
               {lowStockItems.length > 0 && (
-                <PortalCard className="mb-6 border-amber-200 dark:border-amber-500/30">
+                <PortalCard
+                  className="mb-6 border-amber-200 dark:border-amber-500/30"
+                  collapsible
+                  collapseLabel="low stock alerts"
+                >
                   <PortalCardHeader
                     title={
                       <span className="flex items-center gap-2 text-base sm:text-lg text-slate-900 dark:text-white">
@@ -590,7 +623,10 @@ function ShoppingDashboardInner() {
                         </div>
                       )}
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-row">
+                      <Button variant="outline" className="flex-1 h-10 sm:h-11 gap-1.5" onClick={() => setAddItemOpen(true)}>
+                        <Plus className="w-4 h-4" /> Add item manually
+                      </Button>
                       <Link href={withSlug("/team-portal/shopping/buy-list")} className="flex-1">
                         <Button variant="outline" className="w-full text-sm sm:text-base h-10 sm:h-11 gap-1.5">
                           <ListChecks className="w-4 h-4" />
@@ -714,7 +750,19 @@ function ShoppingDashboardInner() {
               </div>
 
               {/* Filter chips */}
-              <div className="flex gap-2 mb-4">
+              <div className="mb-4">
+                <label className="sr-only" htmlFor="shopping-list-filter">Show list items</label>
+                <select
+                  id="shopping-list-filter"
+                  value={filter}
+                  onChange={(event) => setFilter(event.target.value as typeof filter)}
+                  className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary sm:hidden dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                >
+                  <option value="pending">Remaining to buy ({remaining.length})</option>
+                  <option value="all">All items ({items.length})</option>
+                  <option value="purchased">Bought ({bought.length})</option>
+                </select>
+                <div className="hidden gap-2 sm:flex">
                 {(["pending", "all", "purchased"] as const).map(f => (
                   <Button
                     key={f}
@@ -726,12 +774,31 @@ function ShoppingDashboardInner() {
                     {f === "pending" ? "Remaining" : f === "purchased" ? "Bought" : "All"}
                   </Button>
                 ))}
+                </div>
               </div>
 
               {/* Shopping list - persisted */}
               <PortalCard>
                 <PortalCardHeader
                   title={filter === "pending" ? "Still to buy" : filter === "purchased" ? "Already bought" : "All items"}
+                  action={showSupplierGroups ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      aria-label={`${allSupplierGroupsCollapsed ? "Expand" : "Collapse"} all supplier groups`}
+                      title={`${allSupplierGroupsCollapsed ? "Expand" : "Collapse"} all supplier groups`}
+                      onClick={() => setOpenSupplierGroups(
+                        allSupplierGroupsCollapsed
+                          ? new Set(itemsBySupplier.map(group => group.id ?? "__other__"))
+                          : new Set(),
+                      )}
+                      className="min-h-10 shrink-0 gap-1.5 px-2.5 text-xs sm:text-sm"
+                    >
+                      <ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform motion-reduce:transition-none ${allSupplierGroupsCollapsed ? "" : "rotate-180"}`} />
+                      <span>{allSupplierGroupsCollapsed ? "Expand all" : "Collapse all"}</span>
+                    </Button>
+                  ) : undefined}
                 />
                 <div>
                   <div className="space-y-2 sm:space-y-3">
@@ -756,13 +823,28 @@ function ShoppingDashboardInner() {
                       // beneath in the same style as the flat layout.
                       itemsBySupplier.map((group) => {
                         const pendingCount = group.items.filter(i => !i.purchased).length;
+                        const supplierKey = group.id ?? "__other__";
+                        const supplierPanelId = `shopping-supplier-${supplierKey.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+                        const isSupplierOpen = openSupplierGroups.has(supplierKey);
                         return (
                           <div key={group.id ?? "__other__"} className="mb-3">
-                            <div className="flex items-center justify-between gap-2 px-3 py-2 mb-2 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                            <button
+                              type="button"
+                              aria-expanded={isSupplierOpen}
+                              aria-controls={supplierPanelId}
+                              aria-label={`${isSupplierOpen ? "Collapse" : "Expand"} ${group.name}, ${pendingCount} of ${group.items.length} items left to buy`}
+                              onClick={() => setOpenSupplierGroups(current => {
+                                const next = new Set(current);
+                                if (next.has(supplierKey)) next.delete(supplierKey);
+                                else next.add(supplierKey);
+                                return next;
+                              })}
+                              className="mb-2 flex min-h-11 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-left transition-colors hover:border-brand-primary/30 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-800/70"
+                            >
+                              <span className="min-w-0 flex-1 break-words text-sm font-semibold text-slate-700 dark:text-slate-200">
                                 {group.name}
-                              </p>
-                              <Badge variant="outline" className={`text-[10px] tabular-nums ${
+                              </span>
+                              <Badge variant="outline" className={`shrink-0 text-[10px] tabular-nums ${
                                 pendingCount > 0
                                   ? "bg-white text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700"
                                   : "bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30"
@@ -771,13 +853,14 @@ function ShoppingDashboardInner() {
                                   ? `${pendingCount} of ${group.items.length} to buy`
                                   : `${group.items.length} done`}
                               </Badge>
-                            </div>
+                              <ChevronDown aria-hidden="true" className={`h-4 w-4 shrink-0 text-slate-500 transition-transform motion-reduce:transition-none dark:text-slate-400 ${isSupplierOpen ? "rotate-180" : ""}`} />
+                            </button>
                             {/* SHP2-G (SHP2-32): whole row tappable via
                                 role=button + onClick on the wrapper div.
                                 Visible checkbox is preserved so the
                                 affordance stays obvious; checkbox click
                                 stops propagation so it doesn't fire twice. */}
-                            <div className="space-y-2 sm:space-y-3">
+                            <div id={supplierPanelId} hidden={!isSupplierOpen} className="space-y-2 sm:space-y-3">
                               {group.items.map(item => (
                                 <div
                                   key={item.id}
@@ -859,7 +942,7 @@ function ShoppingDashboardInner() {
                                             type="button"
                                             onClick={(e) => handleClaim(e, item.id, true)}
                                             onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, true); }}
-                                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-slate-100 text-slate-600 border-slate-200 hover:bg-brand-primary/10 hover:text-brand-primary hover:border-brand-primary/30 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-brand-primary/10 dark:hover:text-brand-primary dark:hover:border-brand-primary/40"
+                                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-11 min-w-[44px] sm:min-h-9 transition-colors duration-150 flex-shrink-0 bg-slate-100 text-slate-600 border-slate-200 hover:bg-brand-primary/10 hover:text-brand-primary hover:border-brand-primary/30 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-brand-primary/10 dark:hover:text-brand-primary dark:hover:border-brand-primary/40"
                                             title="Claim this line - shows your teammates you're on it"
                                           >Claim</button>
                                         );
@@ -870,7 +953,7 @@ function ShoppingDashboardInner() {
                                             type="button"
                                             onClick={(e) => handleClaim(e, item.id, false)}
                                             onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, false); }}
-                                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-brand-primary/10 text-brand-primary border-brand-primary/20 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 dark:bg-brand-primary/10 dark:text-brand-primary dark:border-brand-primary/30 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:hover:border-rose-900"
+                                            className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-11 min-w-[44px] sm:min-h-9 transition-colors duration-150 flex-shrink-0 bg-brand-primary/10 text-brand-primary border-brand-primary/20 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 dark:bg-brand-primary/10 dark:text-brand-primary dark:border-brand-primary/30 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:hover:border-rose-900"
                                             title="You claimed this. Tap to release."
                                           >You</button>
                                         );
@@ -891,7 +974,7 @@ function ShoppingDashboardInner() {
                                       onKeyDown={(e) => {
                                         if (e.key === " " || e.key === "Enter") handleFlagOOS(e, item.id, item.supplier_name);
                                       }}
-                                      className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 ${
+                                      className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-11 min-w-[44px] sm:min-h-9 transition-colors duration-150 flex-shrink-0 ${
                                         readOosSuppliers(item.notes).includes(item.supplier_name ?? "Unknown")
                                           ? "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900"
                                           : "bg-slate-100 text-slate-600 border-slate-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:hover:border-rose-900"
@@ -972,7 +1055,7 @@ function ShoppingDashboardInner() {
                                     type="button"
                                     onClick={(e) => handleClaim(e, item.id, true)}
                                     onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, true); }}
-                                    className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-slate-100 text-slate-600 border-slate-200 hover:bg-brand-primary/10 hover:text-brand-primary hover:border-brand-primary/30 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-brand-primary/10 dark:hover:text-brand-primary dark:hover:border-brand-primary/40"
+                                    className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-11 min-w-[44px] sm:min-h-9 transition-colors duration-150 flex-shrink-0 bg-slate-100 text-slate-600 border-slate-200 hover:bg-brand-primary/10 hover:text-brand-primary hover:border-brand-primary/30 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-brand-primary/10 dark:hover:text-brand-primary dark:hover:border-brand-primary/40"
                                     title="Claim this line - shows your teammates you're on it"
                                   >Claim</button>
                                 );
@@ -983,7 +1066,7 @@ function ShoppingDashboardInner() {
                                     type="button"
                                     onClick={(e) => handleClaim(e, item.id, false)}
                                     onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") handleClaim(e, item.id, false); }}
-                                    className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 bg-brand-primary/10 text-brand-primary border-brand-primary/20 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 dark:bg-brand-primary/10 dark:text-brand-primary dark:border-brand-primary/30 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:hover:border-rose-900"
+                                    className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-11 min-w-[44px] sm:min-h-9 transition-colors duration-150 flex-shrink-0 bg-brand-primary/10 text-brand-primary border-brand-primary/20 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 dark:bg-brand-primary/10 dark:text-brand-primary dark:border-brand-primary/30 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:hover:border-rose-900"
                                     title="You claimed this. Tap to release."
                                   >You</button>
                                 );
@@ -1004,7 +1087,7 @@ function ShoppingDashboardInner() {
                               onKeyDown={(e) => {
                                 if (e.key === " " || e.key === "Enter") handleFlagOOS(e, item.id, item.supplier_name);
                               }}
-                              className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-9 transition-colors duration-150 flex-shrink-0 ${
+                              className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded border min-h-11 min-w-[44px] sm:min-h-9 transition-colors duration-150 flex-shrink-0 ${
                                 readOosSuppliers(item.notes).includes(item.supplier_name ?? "Unknown")
                                   ? "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900"
                                   : "bg-slate-100 text-slate-600 border-slate-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:hover:border-rose-900"
@@ -1034,6 +1117,39 @@ function ShoppingDashboardInner() {
             </>
           )}
       </ShoppingPageShell>
+
+      <Dialog open={addItemOpen} onOpenChange={setAddItemOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add an item manually</DialogTitle>
+            <DialogDescription>
+              Add any food or supply the team needs, even when it has no recipe or inventory setup.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="manual-shopping-item">Item</Label>
+              <Input id="manual-shopping-item" autoFocus value={manualItemName} onChange={(event) => setManualItemName(event.target.value)} placeholder="e.g. tomatoes" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="manual-shopping-quantity">Quantity</Label>
+                <Input id="manual-shopping-quantity" type="number" min="0.01" step="0.01" value={manualItemQuantity} onChange={(event) => setManualItemQuantity(event.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="manual-shopping-unit">Unit (optional)</Label>
+                <Input id="manual-shopping-unit" value={manualItemUnit} onChange={(event) => setManualItemUnit(event.target.value)} placeholder="kg, packs, each" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddItemOpen(false)} disabled={addingManualItem}>Cancel</Button>
+            <Button onClick={() => void handleAddManualItem()} disabled={addingManualItem || !manualItemName.trim() || !Number.isFinite(Number(manualItemQuantity)) || Number(manualItemQuantity) <= 0} className="bg-brand-primary text-white">
+              {addingManualItem ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Adding</> : "Add to list"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Complete-list dialog */}
       <Dialog

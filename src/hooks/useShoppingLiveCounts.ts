@@ -119,6 +119,13 @@ export function useShoppingLiveCounts(): ShoppingLiveCounts {
           : Promise.resolve({ count: 0 }),
       ]);
 
+      // Supabase resolves query failures into { error } instead of rejecting
+      // Promise.all. Treat a failed source read as an unavailable snapshot;
+      // otherwise a shopper can see a false zero-shortage badge.
+      const failedRead = [shortRes, activeListsRes, unfiledRes, spendRes, notifRes]
+        .find((result) => result?.error);
+      if (failedRead?.error) throw failedRead.error;
+
       setShortItems(
         ((shortRes?.data || []) as Array<{ status: string | null; current_stock: number | null; minimum_stock: number | null }>)
           .filter((r) => effectiveOutlookStatus(r) !== "ok").length,

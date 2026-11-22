@@ -34,6 +34,7 @@ import { sortByCourse } from "@/lib/menuCourses";
 import { dedupeKitchenPrepTasks, formatKitchenPrepTaskType } from "@/lib/kitchen/prepTasks";
 import { RecipeDialog } from "./RecipeDialog";
 import { SectionSkeleton } from "./SectionSkeleton";
+import operationStyles from "../OrderOperations.module.css";
 import { HandoverToDriverPanel } from "@/components/kitchen/HandoverToDriverPanel";
 import { KitchenMenuItemPreviewDialog, type KitchenMenuItemPreviewData } from "@/components/kitchen/KitchenMenuItemPreviewDialog";
 import {
@@ -112,11 +113,11 @@ interface EquipmentBookingRow {
 }
 
 const TASK_STATUS_TONES: Record<string, string> = {
-  pending: "bg-slate-50 text-slate-700 border-slate-200",
-  in_progress: "bg-orange-50 text-orange-700 border-orange-200",
-  done: "bg-brand-primary/10 text-brand-primary border-brand-primary/20",
-  completed: "bg-brand-primary/10 text-brand-primary border-brand-primary/20",
-  skipped: "bg-slate-50 text-slate-500 border-slate-200",
+  pending: "bg-slate-100 text-slate-700",
+  in_progress: "bg-amber-50 text-amber-900",
+  done: "bg-emerald-50 text-emerald-800",
+  completed: "bg-emerald-50 text-emerald-800",
+  skipped: "bg-slate-100 text-slate-600",
 };
 
 function KitchenMenuPhoto({
@@ -133,7 +134,7 @@ function KitchenMenuPhoto({
       <div
         aria-hidden="true"
         title={`No photo available for ${itemName}`}
-        className="flex h-10 w-10 shrink-0 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-slate-300 bg-slate-50 text-slate-400 sm:h-[76px] sm:w-[76px]"
+        className="flex size-11 shrink-0 items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 text-slate-500"
       >
         <ImageIcon className="h-4 w-4" />
       </div>
@@ -141,7 +142,7 @@ function KitchenMenuPhoto({
   }
 
   return (
-    <span className="group relative block h-10 w-10 shrink-0 cursor-zoom-in overflow-hidden rounded-md border border-slate-200 bg-slate-100 sm:h-[76px] sm:w-[76px]">
+    <span className="group relative block size-11 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-slate-100">
       <img
         src={imageUrl}
         alt={itemName}
@@ -434,11 +435,11 @@ export function KitchenSection({
     >
       <OrderContributors orderId={orderId} area="kitchen" label="Helped by" />
       {collectionLabel && (
-        <div className="flex items-start gap-2 mb-4 p-3 rounded-md bg-orange-50/80 border border-orange-200">
-          <Clock className="w-4 h-4 text-orange-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-xs uppercase tracking-wider text-orange-800 font-semibold">Driver collects from kitchen</p>
-            <p className="text-sm font-semibold text-orange-900">{collectionLabel}</p>
+        <div className="mb-4 flex items-start gap-3 rounded-lg bg-slate-50 p-4">
+          <Clock aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-slate-600" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-slate-700">Driver collects from kitchen</p>
+            <p className="mt-0.5 text-base font-semibold tabular-nums text-slate-950">{collectionLabel}</p>
           </div>
         </div>
       )}
@@ -448,19 +449,19 @@ export function KitchenSection({
           <SectionSkeleton rows={4} variant="rows" />
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className={`${operationStyles.panel} space-y-6`}>
           {/* ----- 1. Menu items to prep ----- */}
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Utensils className="w-3.5 h-3.5 text-orange-700" />
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-orange-800">
-                Menu to prep {itemsToPrep > 0 && <span className="ml-1 text-orange-600">({itemsToPrep} make-from-scratch)</span>}
+            <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <h3 className="flex items-center gap-2 text-base font-semibold text-slate-950">
+                <Utensils aria-hidden="true" className="size-4 shrink-0 text-slate-600" /> Menu to prep
               </h3>
+              {itemsToPrep > 0 && <p className="text-sm text-slate-600">{itemsToPrep} made from scratch</p>}
             </div>
             {items.length === 0 ? (
               <p className="text-sm text-slate-500 italic">No menu lines on this order.</p>
             ) : (
-              <ul className="space-y-1.5">
+              <ul className="space-y-2">
                 {orderedItems.map((it) => {
                   const mi = it.menu_item;
                   const isBuyAndSell = !!mi?.is_buy_and_sell;
@@ -488,57 +489,49 @@ export function KitchenSection({
                   return (
                     <li
                       key={it.id}
-                      className="flex min-w-0 items-start gap-1.5 sm:gap-2"
+                      className="min-w-0 rounded-lg border border-slate-200 bg-white"
                     >
                       <button
                         type="button"
                         onClick={openItemPreview}
                         aria-label={`Open photo and kitchen details for ${it.item_name}`}
                         title="Open photo and kitchen details"
-                        className={`flex min-w-0 flex-1 cursor-pointer items-start gap-1.5 rounded-md border p-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 sm:gap-2.5 sm:p-2.5 ${isBuyAndSell ? "border-slate-200 bg-slate-50 hover:bg-slate-100" : "border-orange-200 bg-white hover:bg-orange-50/70"}`}
+                        className="flex min-h-11 w-full min-w-0 items-start gap-3 rounded-lg p-3 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-primary"
                       >
-                        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-orange-100 text-[11px] font-bold tabular-nums text-orange-800 sm:h-7 sm:w-7 sm:text-xs">
-                          {it.quantity}
-                        </span>
                         <KitchenMenuPhoto imageUrl={mi?.image_url} itemName={it.item_name} />
                         <span className="min-w-0 flex-1">
-                          <span className="block break-words text-xs font-medium text-slate-900 sm:text-sm">
-                          {it.item_name}
-                          {isBuyAndSell && (
-                            <span className="ml-1 inline-block text-[9px] uppercase tracking-wide text-slate-600 bg-slate-100 border border-slate-200 rounded px-1 py-0.5 sm:ml-2 sm:text-[10px] sm:tracking-wider sm:px-1.5">Buy-and-sell</span>
-                          )}
-                          {mi?.fulfilment_type === "outsourced" && (
-                            <span className="ml-1 inline-block text-[9px] uppercase tracking-wide text-slate-700 bg-slate-50 border border-slate-200 rounded px-1 py-0.5 sm:ml-2 sm:text-[10px] sm:tracking-wider sm:px-1.5">Outsourced</span>
-                          )}
+                          <span className="block break-words text-base font-semibold leading-snug text-slate-950">{it.item_name}</span>
+                          <span className="mt-0.5 block text-sm tabular-nums text-slate-600">
+                            Qty {it.quantity}{isBuyAndSell && " · Buy-and-sell"}{mi?.fulfilment_type === "outsourced" && " · Outsourced"}
                           </span>
-                        {it.description && (
-                          <span className="mt-0.5 block break-words text-[11px] text-slate-600 sm:text-xs">{it.description}</span>
+                        {it.description && it.description.trim() !== it.item_name.trim() && (
+                          <span className="mt-1 block break-words text-sm text-slate-600">{it.description}</span>
                         )}
                         {/* Tag strip - category + dietary + allergens */}
                         {(tagBits.length > 0 || (mi?.allergen_codes && mi.allergen_codes.length > 0)) && (
-                          <span className="mt-1 flex flex-wrap gap-1">
+                          <span className="mt-2 flex flex-wrap gap-1">
                             {tagBits.map((t) => (
-                              <span key={t} className="text-[10px] text-slate-600 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">
+                              <span key={t} className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">
                                 {t}
                               </span>
                             ))}
                             {mi?.allergen_codes?.map((a) => (
-                              <span key={a} className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                              <span key={a} className="rounded-md bg-amber-50 px-1.5 py-0.5 text-xs text-amber-900">
                                 Allergen: {a}
                               </span>
                             ))}
                           </span>
                         )}
                         {it.special_instructions && (
-                          <span className="mt-1.5 block break-words rounded border border-amber-200 bg-amber-50 p-1.5 text-[11px] text-amber-800 sm:text-xs">
-                            <span className="font-semibold">Special: </span>{it.special_instructions}
+                          <span className="mt-2 block break-words rounded-md bg-amber-50 px-2 py-1.5 text-sm text-amber-900">
+                            <span className="font-semibold">Special instructions: </span>{it.special_instructions}
                           </span>
                         )}
                         {totalMinutes > 0 && !isBuyAndSell && (
-                          <span className="mt-1 block text-[10px] tabular-nums text-slate-500 sm:text-[11px]">
-                            {mi?.prep_time_minutes ? `Prep ${mi.prep_time_minutes}min` : ""}
+                          <span className="mt-2 block text-sm tabular-nums text-slate-600">
+                            {mi?.prep_time_minutes ? `Prep ${mi.prep_time_minutes} min` : ""}
                             {mi?.prep_time_minutes && mi?.cook_time_minutes ? " · " : ""}
-                            {mi?.cook_time_minutes ? `Cook ${mi.cook_time_minutes}min` : ""}
+                            {mi?.cook_time_minutes ? `Cook ${mi.cook_time_minutes} min` : ""}
                           </span>
                         )}
                         </span>
@@ -548,6 +541,7 @@ export function KitchenSection({
                           ingredient quantities and method without
                           navigating away. */}
                       {hasRecipe && !isBuyAndSell && it.menu_item_id && (
+                        <div className="border-t border-slate-100 px-3">
                         <button
                           type="button"
                           onClick={() => setRecipeFor({
@@ -555,13 +549,14 @@ export function KitchenSection({
                             itemName: it.item_name,
                             quantity: it.quantity,
                           })}
-                          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded border border-orange-300 p-0 text-orange-800 hover:bg-orange-50 sm:h-8 sm:w-auto sm:gap-1 sm:px-2"
+                          className="inline-flex min-h-11 max-w-full items-center gap-2 rounded-md px-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-brand-primary"
                           aria-label={`View recipe for ${it.item_name}`}
                           title="View recipe and ingredients scaled for this order"
                         >
-                          <BookOpen className="h-4 w-4 sm:h-3 sm:w-3" />
-                          <span className="sr-only sm:not-sr-only">Recipe</span>
+                          <BookOpen aria-hidden="true" className="size-4 shrink-0" />
+                          View recipe
                         </button>
+                        </div>
                       )}
                     </li>
                   );
@@ -573,46 +568,42 @@ export function KitchenSection({
           {/* ----- 2. Equipment to ready ----- */}
           {equipment.length > 0 && (
             <div>
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <div className="flex items-center gap-2">
-                  <Box className="w-3.5 h-3.5 text-orange-700" />
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-orange-800">
-                    Equipment for collection
-                    {equipNeedsClean > 0 && (
-                      <span className="ml-2 text-rose-700 bg-rose-50 border border-rose-200 rounded px-1.5 py-0.5 normal-case tracking-normal font-normal">
-                        {equipNeedsClean} needs cleaning
-                      </span>
-                    )}
+              <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className="flex items-center gap-2 text-base font-semibold text-slate-950">
+                    <Box aria-hidden="true" className="size-4 shrink-0 text-slate-600" /> Equipment for collection
                   </h3>
+                  {equipNeedsClean > 0 && <p className="mt-1 text-sm font-medium text-amber-800">{equipNeedsClean} needs cleaning</p>}
                 </div>
                 <Link
                   href={withSlug(`/admin/equipment?order=${orderId}`)}
-                  className="text-[11px] text-orange-700 hover:underline inline-flex items-center gap-1"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
                 >
-                  Equipment page <ExternalLink className="w-3 h-3" />
+                  Equipment page <ExternalLink aria-hidden="true" className="size-4 shrink-0" />
                 </Link>
               </div>
 
               {equipNeedsCleanList.length > 0 && (
-                <div className="mb-2">
-                  <p className="text-[11px] uppercase tracking-wider text-rose-700 mb-1">Cleaning queue</p>
-                  <ul className="space-y-1">
+                <div className="mb-3">
+                  <h4 className="mb-1 text-sm font-semibold text-slate-800">Cleaning queue</h4>
+                  <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 px-3">
                     {equipNeedsCleanList.map((b) => {
                       const eq = b.equipment;
                       const minutes = eq?.dishwasher_safe
                         ? eq?.cleaning_time_dishwasher_minutes || null
                         : eq?.cleaning_time_manual_minutes || null;
                       return (
-                        <li key={b.id} className="flex items-center gap-2 p-2 rounded border border-rose-200 bg-rose-50">
-                          <Sparkles className="w-3.5 h-3.5 text-rose-600 flex-shrink-0" />
-                          <span className="inline-flex items-center justify-center min-w-[1.5rem] h-5 rounded-full bg-white border border-rose-200 text-rose-800 text-[10px] font-bold tabular-nums px-1.5 flex-shrink-0">
+                        <li key={b.id} className="flex items-start gap-2 py-2.5">
+                          <span className="inline-flex min-w-7 shrink-0 items-center justify-center rounded-md bg-amber-50 px-1.5 py-0.5 text-sm font-semibold tabular-nums text-amber-900">
                             {b.quantity || 1}
                           </span>
-                          <span className="text-sm font-medium text-rose-900 truncate flex-1">{eq?.name || "Equipment"}</span>
-                          <span className="text-[11px] text-rose-700 tabular-nums flex-shrink-0">
-                            {eq?.dishwasher_safe ? "Dishwasher" : "Manual"}
-                            {minutes ? ` · ${minutes}min` : ""}
-                          </span>
+                          <div className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-sm">
+                            <span className="min-w-0 break-words font-medium text-slate-900">{eq?.name || "Equipment"}</span>
+                            <span className="tabular-nums text-slate-600">
+                              {eq?.dishwasher_safe ? "Dishwasher" : "Manual"}
+                              {minutes ? ` · ${minutes} min` : ""}
+                            </span>
+                          </div>
                         </li>
                       );
                     })}
@@ -622,20 +613,19 @@ export function KitchenSection({
 
               {equipReadyList.length > 0 && (
                 <div>
-                  <p className="text-[11px] uppercase tracking-wider text-brand-primary mb-1">Ready to load</p>
-                  <ul className="space-y-1">
+                  <h4 className="mb-1 text-sm font-semibold text-slate-800">Ready to load</h4>
+                  <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 px-3">
                     {equipReadyList.map((b) => {
                       const eq = b.equipment;
                       return (
-                        <li key={b.id} className="flex items-center gap-2 p-2 rounded border border-brand-primary/20 bg-brand-primary/10">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-brand-primary flex-shrink-0" />
-                          <span className="inline-flex items-center justify-center min-w-[1.5rem] h-5 rounded-full bg-white border border-brand-primary/20 text-brand-primary text-[10px] font-bold tabular-nums px-1.5 flex-shrink-0">
+                        <li key={b.id} className="flex items-start gap-2 py-2.5">
+                          <span className="inline-flex min-w-7 shrink-0 items-center justify-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-sm font-semibold tabular-nums text-emerald-800">
                             {b.quantity || 1}
                           </span>
-                          <span className="text-sm text-brand-primary truncate flex-1">{eq?.name || "Equipment"}</span>
-                          {!eq?.requires_cleaning && (
-                            <span className="text-[10px] uppercase tracking-wider text-brand-primary">No clean needed</span>
-                          )}
+                          <div className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-sm">
+                            <span className="min-w-0 break-words font-medium text-slate-900">{eq?.name || "Equipment"}</span>
+                            {!eq?.requires_cleaning && <span className="text-slate-600">No cleaning needed</span>}
+                          </div>
                         </li>
                       );
                     })}
@@ -647,9 +637,9 @@ export function KitchenSection({
 
           {/* ----- 3. Prep tasks ----- */}
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <ChefHat className="w-3.5 h-3.5 text-orange-700" />
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-orange-800">Prep tasks</h3>
+            <div className="mb-2 flex items-center gap-2">
+              <ChefHat aria-hidden="true" className="size-4 shrink-0 text-slate-600" />
+              <h3 className="text-base font-semibold text-slate-950">Prep tasks</h3>
             </div>
             {tasks.length === 0 ? (
               <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-md bg-amber-50 border border-amber-200">
@@ -661,32 +651,33 @@ export function KitchenSection({
                 </div>
                 </div>
                 {canAct && (
-                  <Button size="sm" onClick={handleGeneratePrepPlan} disabled={generatingPlan} className="bg-brand-primary hover:bg-brand-primary/90 text-white">
+                  <Button type="button" onClick={handleGeneratePrepPlan} disabled={generatingPlan} className="h-auto min-h-11 max-w-full whitespace-normal">
                     {generatingPlan ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
                     Generate prep plan
                   </Button>
                 )}
               </div>
             ) : (
-              <ul className="space-y-2">
+              <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 px-3">
                 {tasks.map((t) => {
                   const tone = TASK_STATUS_TONES[t.status?.toLowerCase()] || TASK_STATUS_TONES.pending;
                   const doneish = t.status === "done" || t.status === "completed";
                   const inProgress = t.status === "in_progress";
                   const isActing = acting === t.id;
                   return (
-                    <li key={t.id} className={`flex items-center gap-3 p-2.5 rounded-md border ${tone}`}>
+                    <li key={t.id} className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 py-3">
+                      <div className="flex min-w-0 flex-1 items-start gap-2">
                       {doneish ? (
-                        <CheckCircle2 className="w-4 h-4 text-brand-primary flex-shrink-0" />
+                        <CheckCircle2 aria-hidden="true" className="mt-1 size-4 shrink-0 text-emerald-700" />
                       ) : (
-                        <Clock className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                        <Clock aria-hidden="true" className="mt-1 size-4 shrink-0 text-slate-600" />
                       )}
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-slate-900 truncate">
+                        <p className="min-w-0 break-words text-base font-medium leading-snug text-slate-900">
                           <span>{formatKitchenPrepTaskType(t.task_type)}</span>
                           {t.menu_item_name && <span className="text-slate-500"> · {t.menu_item_name}</span>}
                         </p>
-                        <p className="text-xs text-slate-500">
+                        <p className="mt-0.5 text-sm text-slate-600">
                           {t.station?.name && <span>{t.station.name}</span>}
                           {t.start_at && (
                             <span>{t.station?.name ? " · " : ""}{new Date(t.start_at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}</span>
@@ -698,43 +689,44 @@ export function KitchenSection({
                             work (or that it was an admin override) rather
                             than just a status flip. */}
                         {doneish && t.completed_at && (
-                          <p className="text-[11px] text-brand-primary mt-0.5">
+                          <p className="mt-1 text-sm text-emerald-800">
                             Done{t.completed_by && actorNames.get(t.completed_by) ? ` by ${actorNames.get(t.completed_by)}` : ""}
                             {" · "}
                             {new Date(t.completed_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                           </p>
                         )}
                         {inProgress && t.started_at && (
-                          <p className="text-[11px] text-orange-700 mt-0.5">
+                          <p className="mt-1 text-sm text-amber-800">
                             Started · {new Date(t.started_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                           </p>
                         )}
                       </div>
+                      </div>
                       {canAct && !doneish && (
-                        <div className="flex items-center gap-1">
+                        <div className={operationStyles.rowActions}>
                           {!inProgress && (
                             <Button
-                              size="sm"
+                              type="button"
                               variant="outline"
                               onClick={() => handleStart(t.id)}
                               disabled={isActing}
-                              className="h-7 text-xs"
+                              className="min-h-11"
                             >
                               {isActing ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Play className="w-3 h-3 mr-1" />Start</>}
                             </Button>
                           )}
                           <Button
-                            size="sm"
+                            type="button"
                             onClick={() => handleComplete(t.id)}
                             disabled={isActing}
-                            className="h-7 text-xs bg-brand-primary hover:bg-brand-primary/90"
+                            className="min-h-11"
                           >
                             {isActing ? <Loader2 className="w-3 h-3 animate-spin" /> : <><CheckCircle2 className="w-3 h-3 mr-1" />Done</>}
                           </Button>
                         </div>
                       )}
                       {(!canAct || doneish) && (
-                        <span className="text-[10px] uppercase tracking-wider text-slate-600">{t.status}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-sm font-medium capitalize ${tone}`}>{t.status?.replace(/_/g, " ") || "Pending"}</span>
                       )}
                     </li>
                   );
@@ -751,8 +743,8 @@ export function KitchenSection({
           old status gate hid the only handover control in that case. The
           panel itself shows whether dispatch still needs a driver. */}
       {canAct && (
-        <div className="mt-3 pt-3 border-t border-slate-200">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Hand over to driver</p>
+        <div className="mt-5 border-t border-slate-200 pt-4">
+          <h3 className="mb-2 text-base font-semibold text-slate-950">Hand over to driver</h3>
           <HandoverToDriverPanel orderId={orderId} orderNumber={orderNumber || orderId} />
         </div>
       )}

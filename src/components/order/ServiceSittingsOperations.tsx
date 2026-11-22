@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatClock } from "@/lib/portalTime";
 import { formatDate } from "@/lib/formatters";
@@ -373,14 +374,20 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
     )}
     {mayEdit && !!rows.length && <>
       {rows.some(row => row.equipmentItems?.length) && <p className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">Equipment listed on each sitting is the load for that stop. Shared equipment without a sitting assignment remains at the main venue; assign it to a sitting in the quote when it needs another address.</p>}
-      <label className="mt-4 block text-sm font-medium text-slate-900">Equipment returns
-        <select value={returnPlan} disabled={!mayEdit || saving} onChange={e => { setReturnPlan(e.target.value); setSaved(false); }} className="mt-1 block min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-base">
-          <option value="final_collection">One collection after the final sitting</option>
-          <option value="per_sitting_collection">Separate collection after each sitting</option>
-          <option value="on_site_return">On-site team brings equipment back</option>
-          <option value="client_return">Client returns equipment / nothing to collect</option>
-        </select>
-      </label>
+      <div className="mt-4 min-w-0 text-sm font-medium text-slate-900">
+        <label htmlFor={`${uid}-equipment-return-plan`} className="block">Equipment returns</label>
+        <Select value={returnPlan} disabled={!mayEdit || saving} onValueChange={value => { setReturnPlan(value); setSaved(false); }}>
+          <SelectTrigger id={`${uid}-equipment-return-plan`} className="mt-1 h-auto min-h-11 w-full min-w-0 whitespace-normal rounded-md border-slate-300 bg-white px-3 text-left text-base">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="start" className="w-[var(--radix-select-trigger-width)]">
+            <SelectItem value="final_collection">One collection after the final sitting</SelectItem>
+            <SelectItem value="per_sitting_collection">Separate collection after each sitting</SelectItem>
+            <SelectItem value="on_site_return">On-site team brings equipment back</SelectItem>
+            <SelectItem value="client_return">Client returns equipment / nothing to collect</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       <p className="mt-3 text-xs text-slate-600">If a driver is assigned to several stops at nearby times, saving will ask whether those stops are one planned shared route.</p>
       <div className="mt-5 divide-y divide-slate-200">{rows.map((s, index) => {
         const collection = returnPlan === "per_sitting_collection" || (returnPlan === "final_collection" && index === rows.length - 1);

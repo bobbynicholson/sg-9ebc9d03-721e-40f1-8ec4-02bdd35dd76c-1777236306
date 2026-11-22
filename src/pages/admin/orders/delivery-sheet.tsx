@@ -16,6 +16,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Printer, ArrowLeft, Loader2, Calendar } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -24,6 +25,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toLocalISO } from "@/lib/localDate";
 import { PageWorkbench } from "@/components/portal/ui";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 interface OrderRow {
   id: string;
@@ -50,6 +52,7 @@ const fmtTime = (t: string | null): string => (t ? t.slice(0, 5) : "TBC");
 
 function DeliverySheet() {
   const router = useRouter();
+  const { withSlug } = useTenantHref();
   const { user } = useAuth() as any;
   const companyId = user?.company_id ?? null;
   const queryDate = typeof router.query.date === "string" ? router.query.date : null;
@@ -152,8 +155,10 @@ function DeliverySheet() {
       `}</style>
       <div className="admin-page-shell admin-page-shell--no-sidebar admin-page-shell--document admin-page-shell--print">
         <div className="no-print bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-10">
-          <Button variant="ghost" size="sm" onClick={() => router.back()}>
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back
+          <Button asChild variant="ghost" size="sm">
+            <Link href={withSlug("/admin/orders")}>
+              <ArrowLeft className="w-4 h-4 mr-2" /> Back
+            </Link>
           </Button>
           <div className="flex items-center gap-2">
             <input

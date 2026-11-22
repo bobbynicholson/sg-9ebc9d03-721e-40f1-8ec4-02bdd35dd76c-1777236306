@@ -190,78 +190,73 @@ export function CommsLogSection({ orderId, companyId, defaultOpen, forceOpen }: 
       defaultOpen={defaultOpen}
       forceOpen={forceOpen}
     >
-      <WhatsAppOrderSend orderId={orderId} companyId={companyId} onSent={() => setReloadTick((tick) => tick + 1)} />
-      {loading ? (
-        <div className="flex items-center justify-center py-6 text-slate-500">
-          <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading comms log...
+      <div className="min-w-0 space-y-4 [overflow-wrap:anywhere]">
+        <div className="print:hidden [&_button]:min-h-[44px] [&_button]:max-w-full [&_button]:whitespace-normal">
+          <WhatsAppOrderSend orderId={orderId} companyId={companyId} onSent={() => setReloadTick((tick) => tick + 1)} />
         </div>
-      ) : events.length === 0 ? (
-        <p className="text-sm text-slate-500 py-2">
-          No emails or notifications recorded against this order yet. Transactional comms (deposit confirmation, order_ready, etc) will appear here as they go out.
-        </p>
-      ) : (
-        <ul className="space-y-2">
-          {events.map((e) => {
-            const Icon = e.kind === "email" ? Mail : e.kind === "whatsapp" ? MessageSquare : Bell;
-            const statusTone =
-              e.status === "sent" ? "bg-brand-primary/10 border-brand-primary/20" :
-              e.status === "failed" ? "bg-rose-50 border-rose-300" :
-              e.status === "queued" ? "bg-amber-50 border-amber-200" :
-              "bg-slate-50 border-slate-200";
-            const StatusIcon =
-              e.status === "sent" ? CheckCircle2 :
-              e.status === "failed" ? AlertCircle :
-              e.status === "queued" ? Clock :
-              Bell;
-            const statusColor =
-              e.status === "sent" ? "text-brand-primary" :
-              e.status === "failed" ? "text-rose-700" :
-              e.status === "queued" ? "text-amber-700" :
-              "text-slate-600";
-            return (
-              <li key={e.id} className={`flex items-start gap-3 p-2.5 rounded-md border ${statusTone}`}>
-                <Icon className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-slate-900">{e.title}</p>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
-                    <span className={`text-[10px] uppercase tracking-wider font-semibold inline-flex items-center gap-1 ${statusColor}`}>
-                      <StatusIcon className="w-3 h-3" />{e.status}
-                    </span>
-                    {e.recipient && <span className="text-xs text-slate-600 truncate">{e.recipient}</span>}
+        {loading ? (
+          <p role="status" className="flex items-center gap-2 py-4 text-sm text-slate-600">
+            <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin" /> Loading communications…
+          </p>
+        ) : events.length === 0 ? (
+          <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">No messages or notifications recorded for this order.</p>
+        ) : (
+          <ul className="divide-y divide-slate-200 border-t border-slate-200" aria-label="Recent order communications">
+            {events.map((event) => {
+              const Icon = event.kind === "email" ? Mail : event.kind === "whatsapp" ? MessageSquare : Bell;
+              const channel = event.kind === "email" ? "Email" : event.kind === "whatsapp" ? "WhatsApp" : "Team notification";
+              const amendment = amendmentFor(event);
+              const date = new Date(event.created_at);
+              const StatusIcon = event.status === "sent" ? CheckCircle2 : event.status === "failed" ? AlertCircle : event.status === "queued" ? Clock : Bell;
+              const statusTone = event.status === "failed" ? "bg-rose-50 text-rose-800"
+                : event.status === "queued" ? "bg-amber-50 text-amber-900"
+                : event.status === "sent" ? "bg-emerald-50 text-emerald-800"
+                : "bg-slate-100 text-slate-700";
+              return (
+                <li key={event.id} className="min-w-0 space-y-2 py-3">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-600">
+                      <Icon aria-hidden="true" className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold leading-snug text-slate-950">{event.title}</p>
+                      <p className="mt-0.5 text-sm text-slate-600">{channel}</p>
+                    </div>
                   </div>
-                  {amendmentFor(e) && (
-                    <AmendmentInlineSummary proposed={amendmentFor(e)!.proposed} before={amendmentFor(e)!.before} max={3} />
-                  )}
-                  {e.detail && (
-                    <p className={`text-xs mt-1 line-clamp-2 break-words ${e.status === "failed" ? "text-rose-800 font-medium" : "text-slate-600"}`}>
-                      {e.detail}
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-600">
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusTone}`}>
+                      <StatusIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                      {event.status === "info" ? "Recorded" : event.status}
+                    </span>
+                    <time dateTime={event.created_at} className="tabular-nums" title={date.toLocaleString("en-ZA")}>{rel(event.created_at)}</time>
+                  </div>
+                  {event.recipient && <p className="text-sm text-slate-600">{event.recipient}</p>}
+                  {amendment && <AmendmentInlineSummary proposed={amendment.proposed} before={amendment.before} max={3} />}
+                  {event.detail && (
+                    <p className={`line-clamp-2 text-sm ${event.status === "failed" ? "font-medium text-rose-800" : "text-slate-600"}`}>
+                      {event.detail}
                     </p>
                   )}
-                </div>
-                <div className="flex flex-shrink-0 flex-col items-end gap-1">
-                  <span className="text-[10px] text-slate-400 tabular-nums mt-0.5" title={new Date(e.created_at).toLocaleString("en-ZA")}>
-                    {rel(e.created_at)}
-                  </span>
-                  <button
+                  <Button
                     type="button"
-                    onClick={() => setViewing(e)}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
-                    aria-label={`Read the full message: ${e.title}`}
-                    title="Read the full message"
+                    variant="outline"
+                    onClick={() => setViewing(event)}
+                    className="h-auto min-h-[44px] max-w-full whitespace-normal print:hidden"
+                    aria-label={`Read details: ${event.title}`}
                   >
-                    <Eye className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                    <Eye /> View details
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
 
       <Dialog open={!!viewing} onOpenChange={(o) => { if (!o) setViewing(null); }}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle className="break-words pr-6">{viewing?.title}</DialogTitle>
+        <DialogContent className="min-w-0 [overflow-wrap:anywhere] sm:max-w-xl">
+          <DialogHeader className="min-w-0 pr-12 text-left">
+            <DialogTitle>{viewing?.title}</DialogTitle>
             <DialogDescription>
               {viewing?.kind === "email" ? "Email" : viewing?.kind === "whatsapp" ? "WhatsApp message" : "Team notification"}
               {" · "}<strong className="capitalize">{viewing?.status === "info" ? "Recorded" : viewing?.status}</strong>
@@ -289,7 +284,7 @@ export function CommsLogSection({ orderId, companyId, defaultOpen, forceOpen }: 
             <p className="text-sm text-slate-600">No message text was saved for this {viewing?.kind === "email" ? "email" : "notification"}.</p>
           )}
           {viewing?.aboutAmendment && (
-            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => { setShowAmendment(amendmentFor(viewing)?.id || "all"); setViewing(null); }}>
+            <Button type="button" variant="outline" className="h-auto min-h-[44px] w-full whitespace-normal sm:w-auto" onClick={() => { setShowAmendment(amendmentFor(viewing)?.id || "all"); setViewing(null); }}>
               See the full change request
             </Button>
           )}

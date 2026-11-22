@@ -6,6 +6,7 @@
  */
 import { useEffect, useState } from "react";
 import { CollapsibleSection } from "./CollapsibleSection";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { Eye, History, Loader2 } from "lucide-react";
@@ -90,44 +91,42 @@ export function HistorySection({ orderId, companyId, defaultOpen, forceOpen }: P
       forceOpen={forceOpen}
     >
       {loading ? (
-        <div className="flex items-center justify-center py-6 text-slate-500">
-          <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading history...
-        </div>
+        <p role="status" className="flex items-center gap-2 py-4 text-sm text-slate-600">
+          <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin" /> Loading history…
+        </p>
       ) : entries.length === 0 ? (
-        <p className="text-sm text-slate-500 py-2">No audit entries for this order.</p>
+        <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">No changes recorded for this order.</p>
       ) : (
-        <ul className="space-y-2 text-sm">
-          {entries.map((e) => (
-            <li key={e.id} className="flex items-start gap-2 border-l-2 border-slate-200 pl-3 py-1">
-              <div className="min-w-0 flex-1">
-                <p className="text-slate-900">
-                  <span className="font-medium">{actorName(e)}</span>
-                  <span className="text-slate-500"> · </span>
-                  <span className="text-slate-700">{historyActionLabel(e.action)}</span>
-                </p>
-                {isAmendmentAction(e.action) && amendments[e.details?.request_id] && (
-                  <AmendmentInlineSummary
-                    proposed={amendments[e.details.request_id].proposed}
-                    before={amendments[e.details.request_id].before}
-                  />
-                )}
-                <p className="text-xs text-slate-500 tabular-nums">
-                  {formatDistanceToNow(new Date(e.created_at), { addSuffix: true })}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setViewing(e)}
-                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
-                aria-label={`View details: ${historyActionLabel(e.action)}`}
-                title="View details"
-              >
-                <Eye className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">View details</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <ol aria-label="Recent order changes" className="divide-y divide-slate-200 border-t border-slate-200">
+          {entries.map((entry) => {
+            const action = historyActionLabel(entry.action);
+            const amendment = isAmendmentAction(entry.action) ? amendments[entry.details?.request_id] : null;
+            const date = new Date(entry.created_at);
+            return (
+              <li key={entry.id} className="flex min-w-0 flex-wrap items-start justify-between gap-x-4 gap-y-2 py-3 [overflow-wrap:anywhere]">
+                <div className="min-w-0 flex-[1_1_14rem]">
+                  <p className="text-base font-semibold leading-snug text-slate-950">{action}</p>
+                  <p className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-slate-600">
+                    <span>{actorName(entry)}</span>
+                    <time className="tabular-nums" dateTime={entry.created_at} title={date.toLocaleString("en-ZA")}>
+                      {formatDistanceToNow(date, { addSuffix: true })}
+                    </time>
+                  </p>
+                  {amendment && <AmendmentInlineSummary proposed={amendment.proposed} before={amendment.before} />}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setViewing(entry)}
+                  className="h-auto min-h-[44px] max-w-full whitespace-normal print:hidden"
+                  aria-label={`View details: ${action}`}
+                >
+                  <Eye /> View details
+                </Button>
+              </li>
+            );
+          })}
+        </ol>
       )}
 
       {viewing && isAmendmentAction(viewing.action) ? (
@@ -140,8 +139,8 @@ export function HistorySection({ orderId, companyId, defaultOpen, forceOpen }: P
         />
       ) : (
         <Dialog open={!!viewing} onOpenChange={(o) => { if (!o) setViewing(null); }}>
-          <DialogContent className="sm:max-w-xl">
-            <DialogHeader>
+          <DialogContent className="min-w-0 [overflow-wrap:anywhere] sm:max-w-xl">
+            <DialogHeader className="min-w-0 pr-12 text-left">
               <DialogTitle>{historyActionLabel(viewing?.action)}</DialogTitle>
               <DialogDescription>
                 By <strong>{viewing ? actorName(viewing) : ""}</strong>
@@ -184,9 +183,9 @@ function AuditDetails({ details }: { details: any }) {
     return <p className="text-sm text-slate-600">No further details were recorded for this change.</p>;
   }
   return (
-    <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-[minmax(8rem,auto),1fr]">
+    <dl className="divide-y divide-slate-200 border-y border-slate-200 text-sm dark:divide-slate-700 dark:border-slate-700">
       {rows.map(([label, value]) => (
-        <div key={label} className="contents">
+        <div key={label} className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-2 py-3">
           <dt className="font-semibold text-slate-900 dark:text-white">{label}</dt>
           <dd className="min-w-0 whitespace-pre-wrap break-words text-slate-700 dark:text-slate-300">{value}</dd>
         </div>

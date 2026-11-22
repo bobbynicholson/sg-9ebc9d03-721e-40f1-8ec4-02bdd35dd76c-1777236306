@@ -24,6 +24,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { PwaLoadingScreen } from "@/components/pwa/PwaLoadingScreen";
 import { UserRole } from "@/types/app";
 import { cn } from "@/lib/utils";
 
@@ -70,7 +71,8 @@ interface RoleSwitcherProps {
 export function RoleSwitcher({ variant = "default", showLabel = true, className }: RoleSwitcherProps) {
   const { userRoles, activeRole, switchRole, companySlug, staffPreview } = useAuth();
   const { toast } = useToast();
-  const [switching, setSwitching] = useState(false);
+  const [switchingRole, setSwitchingRole] = useState<UserRole | null>(null);
+  const switching = switchingRole !== null;
 
   // The picker only ever offers roles the user has actually been
   // granted. Super_admin used to get a "god mode" path that let them
@@ -87,14 +89,18 @@ export function RoleSwitcher({ variant = "default", showLabel = true, className 
     if (newRole === activeRole || switching) return;
 
     try {
-      setSwitching(true);
+      setSwitchingRole(newRole);
       await switchRole(newRole);
       // Use a full navigation so the new request gets the fresh active_role
       // from Supabase and rehydrates every portal context. The Supabase
       // session cookie is retained, so switching never asks for the password
       // again.
+      // Give React a paint for the tenant-branded transition screen before
+      // the browser tears down this page for the full navigation.
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
       window.location.assign(roleService.getRoleDashboardUrl(newRole, companySlug || undefined));
     } catch (error) {
+      setSwitchingRole(null);
       console.error("Failed to switch role:", error);
       toast({
         title: "Role not switched",
@@ -103,17 +109,17 @@ export function RoleSwitcher({ variant = "default", showLabel = true, className 
           : "We could not open that portal. Refresh and try again.",
         variant: "destructive",
       });
-    } finally {
-      setSwitching(false);
     }
   };
 
-  const currentRoleName = roleService.getRoleDisplayName(activeRole as any);
+  const currentRoleName = roleService.getRoleDisplayName(activeRole as UserRole);
   const currentRoleIcon = roleIcons[activeRole] || <Users className="h-4 w-4" />;
   const currentRoleColor = roleColors[activeRole] || "bg-gray-100 text-gray-700";
 
   if (variant === "compact") {
     return (
+      <>
+      {switchingRole && <PwaLoadingScreen message={`Opening ${roleService.getRoleDisplayName(switchingRole)} workspace`} />}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -163,10 +169,13 @@ export function RoleSwitcher({ variant = "default", showLabel = true, className 
           })}
         </DropdownMenuContent>
       </DropdownMenu>
+      </>
     );
   }
 
   return (
+    <>
+    {switchingRole && <PwaLoadingScreen message={`Opening ${roleService.getRoleDisplayName(switchingRole)} workspace`} />}
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
@@ -230,5 +239,6 @@ export function RoleSwitcher({ variant = "default", showLabel = true, className 
         })}
       </DropdownMenuContent>
     </DropdownMenu>
+    </>
   );
 }

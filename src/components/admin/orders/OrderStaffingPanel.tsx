@@ -278,104 +278,100 @@ export function OrderStaffingPanel({ orderId, companyId, order }: OrderStaffingP
     const end = row.activityEnd ? new Date(row.activityEnd) : new Date();
     return sum + Math.max(0, end.getTime() - new Date(row.activityStart).getTime()) / 3600000;
   }, 0), [rows]);
-  const roleSummary = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const row of rows) counts.set(row.role, (counts.get(row.role) || 0) + 1);
-    return Array.from(counts.entries());
-  }, [rows]);
-
-  if (loading) {
-    return <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">Loading order staffing…</div>;
-  }
-  if (error) {
-    return <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"><AlertCircle className="mr-2 inline h-4 w-4" />We could not load the order staffing details. {error}</div>;
-  }
+  const peopleCount = new Set(rows.map((row) => row.personId)).size;
 
   return (
-    <Card className="border-slate-200 bg-slate-50/70">
-      <CardHeader className="pb-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-base"><Users className="h-4 w-4 text-slate-600" />Order staffing &amp; time</CardTitle>
-            <p className="mt-1 text-xs text-slate-500">Every person attached to this order, with their assignment role and order-specific clock time.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-            <Badge variant="outline">{new Set(rows.map((row) => row.personId)).size} people</Badge>
-            <Badge variant="outline">{rows.length} role assignment{rows.length === 1 ? "" : "s"}</Badge>
-            {rows.some((row) => row.activityStart) && <Badge variant="outline"><Clock3 className="mr-1 h-3 w-3" />{totalHours.toFixed(1)}h tracked</Badge>}
-          </div>
+    <Card className="min-w-0 rounded-xl border-slate-200 bg-white shadow-none">
+      <CardHeader className="min-w-0 gap-3 px-4 pb-4 pt-5 sm:px-6">
+        <div>
+          <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-950">
+            <Users aria-hidden="true" className="h-5 w-5 shrink-0 text-slate-600" /> Order staffing &amp; time
+          </CardTitle>
+          {!loading && !error && (
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
+              <span>{peopleCount} {peopleCount === 1 ? "person" : "people"}</span>
+              <span>{rows.length} {rows.length === 1 ? "assignment" : "assignments"}</span>
+              {rows.some((row) => row.activityStart) && (
+                <span className="inline-flex items-center gap-1.5 tabular-nums">
+                  <Clock3 aria-hidden="true" className="h-4 w-4 shrink-0" /> {totalHours.toFixed(1)}h tracked
+                </span>
+              )}
+            </p>
+          )}
         </div>
-        {roleSummary.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Order roles represented">
-            {roleSummary.map(([role, count]) => (
-              <span key={role} className={`rounded-full border px-2 py-1 text-[11px] font-medium ${ROLE_TONES[role] || "border-slate-200 bg-white text-slate-700"}`}>
-                {roleLabel(role)} · {count}
-              </span>
-            ))}
-          </div>
-        )}
-        <div className="mt-4" aria-label="Order staffing sections">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Operational sections</p>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+        {!loading && !error && rows.length > 0 && (
+          <dl aria-label="Assignments by team" className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-x-4 gap-y-3 rounded-lg bg-slate-50 p-3 sm:p-4">
             {ROLE_SECTIONS.map((section) => {
               const sectionRows = rows.filter((row) => section.roles.some((role) => role === row.role));
-              const sectionPeople = new Set(sectionRows.map((row) => row.personId)).size;
               return (
-                <div key={section.key} className="rounded-md border border-slate-200 bg-white px-3 py-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-slate-800">{section.label}</span>
-                    <Badge variant="outline" className="text-[10px]">{sectionRows.length}</Badge>
-                  </div>
-                  <p className="mt-1 text-[10px] text-slate-500">
-                    {sectionRows.length ? `${sectionPeople} ${sectionPeople === 1 ? "person" : "people"} attached` : section.empty}
-                  </p>
+                <div key={section.key} className="min-w-0">
+                  <dt className="text-sm font-medium text-slate-900">{section.label}</dt>
+                  <dd className="mt-0.5 text-sm tabular-nums text-slate-600">
+                    {sectionRows.length ? `${sectionRows.length} ${sectionRows.length === 1 ? "assignment" : "assignments"}` : "No assignments"}
+                  </dd>
                 </div>
               );
             })}
-          </div>
-        </div>
+          </dl>
+        )}
       </CardHeader>
-      <CardContent className="pt-0">
-        {rows.length === 0 ? (
-          <p className="rounded-md border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-600">No team members have been attached to this order yet. Assign the driver, kitchen shift, waiter, or cleaning work from the relevant operational section.</p>
+
+      <CardContent className="min-w-0 px-4 pb-5 pt-0 sm:px-6">
+        {loading ? (
+          <p role="status" className="border-t border-slate-200 py-4 text-sm text-slate-600">Loading order staffing…</p>
+        ) : error ? (
+          <p role="alert" className="flex items-start gap-2 rounded-lg bg-rose-50 p-3 text-sm text-rose-900 [overflow-wrap:anywhere]">
+            <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>We could not load the order staffing details. {error}</span>
+          </p>
+        ) : rows.length === 0 ? (
+          <p className="border-t border-slate-200 pt-4 text-sm text-slate-600">No team members assigned to this order. Assign staff in the relevant operational section.</p>
         ) : (
-          <>
-          <div className="space-y-2 xl:hidden">
+          <ul className="divide-y divide-slate-200 border-y border-slate-200" aria-label="Order assignments">
             {rows.map((row) => {
               const profile = profiles.get(row.personId);
+              const allRoles = (rolesByUser.get(row.personId) || []).filter((role) => role !== row.role);
+              const statusTone = row.status === "active" ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-700";
               return (
-                <article key={row.id} className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
-                  <div className="flex min-w-0 items-start justify-between gap-3">
+                <li key={row.id} className="min-w-0 space-y-3 py-4 [overflow-wrap:anywhere]">
+                  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
                     <div className="min-w-0">
-                      <p className="break-words text-sm font-semibold text-slate-900">{profile?.full_name || profile?.email || "Unknown user"}</p>
-                      <p className="break-all text-[11px] text-slate-500">{profile?.email || "No email recorded"}</p>
+                      <p className="text-base font-semibold text-slate-950">{profile?.full_name || profile?.email || "Unknown user"}</p>
+                      {profile?.email && profile.full_name && <p className="mt-0.5 text-sm text-slate-600">{profile.email}</p>}
+                      {allRoles.length > 0 && <p className="mt-0.5 text-sm text-slate-600">Also: {allRoles.map(roleLabel).join(", ")}</p>}
                     </div>
-                    <Badge variant="outline" className={`shrink-0 capitalize ${ROLE_TONES[row.role] || ""}`}>{roleLabel(row.role)}</Badge>
+                    <Badge variant="outline" className={`max-w-full whitespace-normal text-xs ${ROLE_TONES[row.role] || "border-slate-200 text-slate-700"}`}>{roleLabel(row.role)}</Badge>
                   </div>
-                  <p className="mt-2 break-words text-xs font-medium text-slate-800">{row.assignment}</p>
-                  <p className="text-[11px] text-slate-500">Source: {row.source}</p>
-                  <div className="mt-3 grid grid-cols-2 gap-3 border-t border-slate-100 pt-2 text-[11px]">
+                  <dl className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-3 rounded-lg bg-slate-50 p-3 text-sm">
                     <div className="min-w-0">
-                      <p className="font-medium uppercase tracking-wide text-slate-400">Planned</p>
-                      <p className="break-words text-slate-600">{row.plannedStart ? `${formatClock(row.plannedStart)}${row.plannedEnd ? ` – ${formatClock(row.plannedEnd)}` : ""}` : "Not scheduled"}</p>
+                      <dt className="font-medium text-slate-600">Assignment</dt>
+                      <dd className="mt-0.5 font-medium text-slate-900">{row.assignment}</dd>
+                      <dd className="mt-0.5 text-slate-600">Source: {row.source}</dd>
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium uppercase tracking-wide text-slate-400">Actual time</p>
-                      <p className="break-words text-slate-600">{row.actualStart ? `${formatStamp(row.actualStart)}${row.actualEnd ? ` – ${formatStamp(row.actualEnd)}` : row.status === "completed" ? " · end time unavailable" : " · active"}` : "Not clocked"}</p>
+                      <dt className="font-medium text-slate-600">Planned</dt>
+                      <dd className="mt-0.5 tabular-nums text-slate-800">
+                        {row.plannedStart ? `${formatClock(row.plannedStart)}${row.plannedEnd ? ` – ${formatClock(row.plannedEnd)}` : ""}` : "Not scheduled"}
+                      </dd>
                     </div>
-                    <div>
-                      <p className="font-medium uppercase tracking-wide text-slate-400">Duration</p>
-                      <p className="font-semibold tabular-nums text-slate-700">{durationLabel(row.activityStart, row.activityEnd, row.status === "completed")}</p>
+                    <div className="min-w-0">
+                      <dt className="font-medium text-slate-600">Actual time</dt>
+                      <dd className="mt-0.5 tabular-nums text-slate-800">
+                        {row.actualStart ? `${formatStamp(row.actualStart)}${row.actualEnd ? ` – ${formatStamp(row.actualEnd)}` : row.status === "completed" ? " · end time unavailable" : " · active"}` : "Not clocked"}
+                      </dd>
                     </div>
-                    {row.status && (
-                      <div>
-                        <p className="font-medium uppercase tracking-wide text-slate-400">Status</p>
-                        <p className="capitalize text-slate-700">{row.status.replace(/_/g, " ")}</p>
-                      </div>
-                    )}
-                  </div>
+                    <div className="min-w-0">
+                      <dt className="font-medium text-slate-600">Duration</dt>
+                      <dd className="mt-0.5 font-semibold tabular-nums text-slate-900">{durationLabel(row.activityStart, row.activityEnd, row.status === "completed")}</dd>
+                      {row.status && (
+                        <dd className={`mt-1 inline-flex max-w-full rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusTone}`}>
+                          {row.status.replace(/_/g, " ")}
+                        </dd>
+                      )}
+                    </div>
+                  </dl>
                   {row.role === "driver" && profile && (
-                    <div className="mt-3 border-t border-slate-100 pt-3">
+                    <div className="[&_button]:min-h-[44px] [&_button]:max-w-full [&_button]:whitespace-normal">
                       <WhatsAppTemplateSend
                         entityType="staff_order"
                         entityId={orderId}
@@ -386,46 +382,17 @@ export function OrderStaffingPanel({ orderId, companyId, order }: OrderStaffingP
                       />
                     </div>
                   )}
-                </article>
+                </li>
               );
             })}
-          </div>
-          <div className="hidden overflow-x-auto rounded-md border border-slate-200 bg-white xl:block">
-            <table className="w-full min-w-[900px] text-left text-xs">
-              <thead className="bg-slate-100 text-[10px] uppercase tracking-wide text-slate-500">
-                <tr><th className="px-3 py-2">Person</th><th className="px-3 py-2">Role for this order</th><th className="px-3 py-2">Assignment</th><th className="px-3 py-2">Planned / assigned</th><th className="px-3 py-2">Actual time</th><th className="px-3 py-2">Time</th><th className="px-3 py-2">Staff message</th></tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => {
-                  const profile = profiles.get(row.personId);
-                  const allRoles = (rolesByUser.get(row.personId) || []).filter((role) => role !== row.role);
-                  return (
-                    <tr key={row.id} className="border-t border-slate-100 align-top">
-                      <td className="px-3 py-2"><div className="font-medium text-slate-900">{profile?.full_name || profile?.email || "Unknown user"}</div><div className="text-[10px] text-slate-500">{profile?.email || "No email recorded"}</div>{allRoles.length > 0 && <div className="mt-1 text-[10px] text-slate-500">Other roles: {allRoles.map(roleLabel).join(", ")}</div>}</td>
-                      <td className="px-3 py-2"><Badge variant="outline" className={`capitalize ${ROLE_TONES[row.role] || ""}`}>{roleLabel(row.role)}</Badge></td>
-                      <td className="px-3 py-2"><div className="font-medium text-slate-700">{row.assignment}</div><div className="mt-0.5 text-[10px] text-slate-500">Source: {row.source}</div>{row.status && <span className={`mt-1 inline-flex rounded-full px-1.5 py-0.5 text-[10px] capitalize ${row.status === "active" ? "bg-emerald-100 text-emerald-800" : row.status === "completed" ? "bg-slate-100 text-slate-600" : "bg-blue-100 text-blue-800"}`}>{row.status.replace(/_/g, " ")}</span>}</td>
-                      <td className="px-3 py-2 text-slate-600">{row.plannedStart ? `${formatClock(row.plannedStart)}${row.plannedEnd ? ` – ${formatClock(row.plannedEnd)}` : ""}` : row.activityStart ? `Started ${formatStamp(row.activityStart)}` : "Not scheduled"}</td>
-                      <td className="px-3 py-2 text-slate-600">{row.actualStart ? `${formatStamp(row.actualStart)}${row.actualEnd ? ` – ${formatStamp(row.actualEnd)}` : row.status === "completed" ? " · end time unavailable" : " · active"}` : "Not clocked"}</td>
-                      <td className="px-3 py-2 font-medium tabular-nums text-slate-700">{durationLabel(row.activityStart, row.activityEnd, row.status === "completed")}</td>
-                      <td className="px-3 py-2">
-                        {row.role === "driver" && profile && <WhatsAppTemplateSend
-                          entityType="staff_order"
-                          entityId={orderId}
-                          recipientId={row.personId}
-                          companyId={companyId}
-                          recipientName={profile.full_name || profile.email}
-                          buttonLabel="Notify driver"
-                        />}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          </>
+          </ul>
         )}
-        <p className="mt-3 flex items-start gap-1.5 text-[11px] text-slate-500"><CalendarClock className="mt-0.5 h-3.5 w-3.5 shrink-0" />Role time is calculated from the order-linked record for that role. A person with kitchen and cleaning assignments appears on separate rows, so their hours are not mixed.</p>
+        {!loading && !error && rows.length > 0 && (
+          <p className="mt-4 flex items-start gap-2 text-sm text-slate-600">
+            <CalendarClock aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>Time is tracked by assignment. Staff who work across roles appear once per assignment.</span>
+          </p>
+        )}
       </CardContent>
     </Card>
   );

@@ -25,6 +25,7 @@ import { protectedCompanyFileUrl } from "@/lib/companyFiles";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CollapsibleSection } from "./CollapsibleSection";
+import operationStyles from "../OrderOperations.module.css";
 import { OrderContributors } from "../OrderContributors";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
@@ -32,6 +33,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
 import { UserRole } from "@/types/app";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Truck, MapPin, Clock, CheckCircle2, Loader2, Camera, User, Navigation,
   Snowflake, Flame, Car, Phone, MessageSquare, Users, Route, AlertCircle, CalendarClock,
@@ -329,33 +331,33 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
     if (!v) return null;
     const incompatibleColdChain = order.requires_refrigeration && !v.refrigerated;
     return (
-      <div className="flex flex-wrap items-center gap-1 mt-1">
+      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-sm text-slate-700">
         {v.plate && (
-          <span className="text-[11px] bg-slate-100 text-slate-800 border border-slate-200 rounded-full px-2 py-0.5 font-mono">
+          <span className="rounded-md bg-slate-100 px-2 py-0.5 font-medium tabular-nums text-slate-800">
             {v.plate}
           </span>
         )}
         {(v.make || v.model) && (
-          <span className="text-[11px] text-slate-600">
+          <span className="min-w-0 break-words text-slate-600">
             {[v.make, v.model].filter(Boolean).join(" ")}
           </span>
         )}
         {v.refrigerated && (
-          <span className="inline-flex items-center gap-1 text-[10px] bg-brand-primary/10 text-brand-primary border border-brand-primary/20 rounded-full px-1.5 py-0.5">
-            <Snowflake className="w-3 h-3" />Cold chain
+          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">
+            <Snowflake aria-hidden="true" className="size-4 shrink-0" />Cold chain
           </span>
         )}
         {v.has_warmer && (
-          <span className="inline-flex items-center gap-1 text-[10px] bg-orange-50 text-orange-800 border border-orange-200 rounded-full px-1.5 py-0.5">
-            <Flame className="w-3 h-3" />Warmer
+          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">
+            <Flame aria-hidden="true" className="size-4 shrink-0" />Warmer
           </span>
         )}
         {v.capacity_kg && (
-          <span className="text-[10px] text-slate-500">{v.capacity_kg}kg</span>
+          <span className="tabular-nums text-slate-600">{v.capacity_kg} kg</span>
         )}
         {incompatibleColdChain && (
-          <span className="inline-flex items-center gap-1 text-[10px] bg-rose-50 text-rose-800 border border-rose-300 rounded-full px-1.5 py-0.5 font-semibold">
-            <AlertCircle className="w-3 h-3" />Not cold-chain capable
+          <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-900">
+            <AlertCircle aria-hidden="true" className="size-4 shrink-0" />Not cold-chain capable
           </span>
         )}
       </div>
@@ -374,44 +376,43 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
       highlight={highlight}
     >
       {loading ? (
-        <div className="flex items-center justify-center py-6 text-slate-500">
-          <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading driver info...
+        <div role="status" className="flex items-center gap-2 py-4 text-sm text-slate-600">
+          <Loader2 aria-hidden="true" className="size-4 shrink-0 animate-spin" /> Loading driver details…
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className={`${operationStyles.panel} space-y-4`}>
           {/* Collection time + distance + leave-by header strip */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className={operationStyles.metadata}>
             {collectionLabel && (
-              <div className="flex items-start gap-2 p-3 rounded-md bg-brand-primary/10 border border-brand-primary/20">
-                <Clock className="w-4 h-4 text-brand-primary flex-shrink-0 mt-0.5" />
+              <div className="flex min-w-0 items-start gap-2 rounded-lg bg-slate-50 p-3">
+                <Clock aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-slate-600" />
                 <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-wider text-brand-primary font-semibold">Collection time</p>
-                  <p className="text-sm font-semibold text-brand-primary">{collectionLabel}</p>
+                  <p className="text-sm text-slate-700">Collection time</p>
+                  <p className="mt-0.5 text-base font-semibold leading-snug tabular-nums text-slate-950">{collectionLabel}</p>
                 </div>
               </div>
             )}
             {(order.delivery_distance_km != null || order.delivery_duration_minutes != null) && (
-              <div className="flex items-start gap-2 p-3 rounded-md bg-slate-50 border border-slate-200">
-                <Route className="w-4 h-4 text-slate-600 flex-shrink-0 mt-0.5" />
+              <div className="flex min-w-0 items-start gap-2 rounded-lg bg-slate-50 p-3">
+                <Route aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-slate-600" />
                 <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-wider text-slate-700 font-semibold">Distance · drive</p>
-                  <p className="text-sm font-semibold text-slate-900">
-                    {order.delivery_distance_km != null ? `${Number(order.delivery_distance_km).toFixed(1)} km` : "-"}
-                    {order.delivery_duration_minutes != null && (
-                      <span className="text-slate-600"> · {order.delivery_duration_minutes} min</span>
-                    )}
+                  <p className="text-sm text-slate-700">Estimated drive</p>
+                  <p className="mt-0.5 flex flex-wrap gap-x-1.5 text-base font-semibold tabular-nums text-slate-950">
+                    {order.delivery_distance_km != null && <span>{Number(order.delivery_distance_km).toFixed(1)} km</span>}
+                    {order.delivery_distance_km != null && order.delivery_duration_minutes != null && <span aria-hidden="true">·</span>}
+                    {order.delivery_duration_minutes != null && <span>{order.delivery_duration_minutes} min</span>}
                   </p>
                 </div>
               </div>
             )}
             {leaveByLabel && (
-              <div className={`flex items-start gap-2 p-3 rounded-md border ${isLeaveByRed ? "bg-rose-50 border-rose-300" : "bg-brand-primary/10 border-brand-primary/20"}`}>
-                <CalendarClock className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isLeaveByRed ? "text-rose-700" : "text-brand-primary"}`} />
+              <div className={`flex min-w-0 items-start gap-2 rounded-lg p-3 ${isLeaveByRed ? "bg-rose-50 text-rose-900" : "bg-slate-50 text-slate-900"}`}>
+                <CalendarClock aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
                 <div className="min-w-0">
-                  <p className={`text-[10px] uppercase tracking-wider font-semibold ${isLeaveByRed ? "text-rose-800" : "text-brand-primary"}`}>
+                  <p className="text-sm">
                     {isLeaveByRed ? "Should have left" : "Leave by"}
                   </p>
-                  <p className={`text-sm font-semibold ${isLeaveByRed ? "text-rose-900" : "text-brand-primary"}`}>{leaveByLabel}</p>
+                  <p className="mt-0.5 text-base font-semibold leading-snug tabular-nums">{leaveByLabel}</p>
                 </div>
               </div>
             )}
@@ -419,29 +420,30 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
 
           {/* Driver acknowledgement chip */}
           {order.driver_acknowledged_at && (
-            <div className="inline-flex items-center gap-1.5 text-[11px] text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded px-2 py-0.5">
-              <CheckCircle2 className="w-3 h-3" />
-              Driver acknowledged
-              {order.driver_acknowledged_via && <span className="text-brand-primary">via {order.driver_acknowledged_via}</span>}
-              <span className="text-brand-primary">· {new Date(order.driver_acknowledged_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-600">
+              <span className="inline-flex items-center gap-1.5 font-medium text-emerald-800">
+                <CheckCircle2 aria-hidden="true" className="size-4 shrink-0" /> Driver acknowledged
+              </span>
+              {order.driver_acknowledged_via && <span>via {order.driver_acknowledged_via}</span>}
+              <time dateTime={order.driver_acknowledged_at} className="tabular-nums">{new Date(order.driver_acknowledged_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time>
             </div>
           )}
 
           {/* Primary driver + vehicle block */}
           {driver ? (
-            <div className="flex items-start gap-2 p-2.5 rounded-md border border-brand-primary/20 bg-brand-primary/10">
-              <User className="w-4 h-4 text-brand-primary flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 rounded-lg border border-slate-200 p-3">
+              <User aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-slate-600" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-slate-900">{driver.full_name || "Assigned driver"}</p>
+                <h3 className="break-words text-base font-semibold text-slate-950">{driver.full_name || "Assigned driver"}</h3>
                 {driver.phone && (
-                  <a href={`tel:${driver.phone}`} className="inline-flex items-center gap-1 text-xs text-brand-primary hover:underline mt-0.5">
-                    <Phone className="w-3 h-3" />{driver.phone}
+                  <a href={`tel:${driver.phone}`} className="inline-flex min-h-11 max-w-full items-center gap-2 break-all text-sm font-medium text-slate-800 underline-offset-4 hover:underline">
+                    <Phone aria-hidden="true" className="size-4 shrink-0" />{driver.phone}
                   </a>
                 )}
                 {vehicle && (
                   <div className="mt-1">
-                    <p className="inline-flex items-center gap-1 text-xs text-slate-700">
-                      <Car className="w-3 h-3 text-slate-400" />
+                    <p className="inline-flex max-w-full items-center gap-2 break-words text-sm font-medium text-slate-800">
+                      <Car aria-hidden="true" className="size-4 shrink-0 text-slate-600" />
                       {vehicle.nickname || "Vehicle"}
                     </p>
                     {renderVehicleChips(vehicle)}
@@ -450,14 +452,14 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
               </div>
             </div>
           ) : (
-            <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded p-2.5 flex items-center justify-between gap-3 flex-wrap">
-              <span>No driver assigned yet. Dispatch will pick one closer to the collection time.</span>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
+              <span className="font-medium">No driver assigned</span>
               {isAdminViewer && (
                 <Link
                   href={withSlug(`/admin/order-assignments?orderId=${order.id}`)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-brand-primary text-white text-xs font-semibold hover:opacity-90 flex-shrink-0 whitespace-nowrap"
+                  className="inline-flex min-h-11 max-w-full items-center gap-2 rounded-md bg-brand-primary px-3 py-2 text-sm font-semibold text-white hover:bg-brand-primary/90"
                 >
-                  <Truck className="w-3.5 h-3.5" /> Assign driver
+                  <Truck aria-hidden="true" className="size-4 shrink-0" /> Assign driver
                 </Link>
               )}
             </div>
@@ -465,40 +467,43 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
 
           {/* Secondary driver + vehicle (two-driver jobs) */}
           {(order.requires_two_drivers || secondaryDriver || secondaryVehicle) && (
-            <div className="flex items-start gap-2 p-2.5 rounded-md border border-brand-primary/20 bg-brand-primary/10">
-              <Users className="w-4 h-4 text-brand-primary flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 rounded-lg border border-slate-200 p-3">
+              <Users aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-slate-600" />
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] uppercase tracking-wider text-brand-primary font-semibold">Secondary</p>
+                <h3 className="text-base font-semibold text-slate-950">Secondary driver</h3>
                 {secondaryDriver ? (
                   <>
-                    <p className="text-sm font-medium text-slate-900">{secondaryDriver.full_name || "Secondary driver"}</p>
+                    <p className="mt-0.5 break-words text-sm font-medium text-slate-800">{secondaryDriver.full_name || "Assigned"}</p>
                     {secondaryDriver.phone && (
-                      <a href={`tel:${secondaryDriver.phone}`} className="inline-flex items-center gap-1 text-xs text-brand-primary hover:underline mt-0.5">
-                        <Phone className="w-3 h-3" />{secondaryDriver.phone}
+                      <a href={`tel:${secondaryDriver.phone}`} className="inline-flex min-h-11 max-w-full items-center gap-2 break-all text-sm font-medium text-slate-800 underline-offset-4 hover:underline">
+                        <Phone aria-hidden="true" className="size-4 shrink-0" />{secondaryDriver.phone}
                       </a>
                     )}
                   </>
                 ) : (
                   <>
-                    <p className="text-xs text-amber-700">No secondary driver assigned (required for this job).</p>
+                    <p className="mt-0.5 text-sm text-amber-800">A second driver is required and hasn’t been assigned.</p>
                     {isAdminViewer && (
-                      <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-                        <select
-                          aria-label="Assign secondary driver"
-                          disabled={savingSecondary}
+                      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+                        <Select
                           defaultValue=""
-                          onChange={(e) => { if (e.target.value) void assignSecondaryDriver(e.target.value); }}
-                          className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary/40 disabled:opacity-60"
+                          onValueChange={(driverId) => { if (driverId) void assignSecondaryDriver(driverId); }}
+                          disabled={savingSecondary}
                         >
-                          <option value="" disabled>
-                            {companyDrivers.length ? "Pick a secondary driver..." : "No other drivers found"}
-                          </option>
-                          {companyDrivers
-                            .filter((d) => d.id !== order.assigned_driver_id)
-                            .map((d) => (
-                              <option key={d.id} value={d.id}>{d.full_name || "Driver"}</option>
-                            ))}
-                        </select>
+                          <SelectTrigger
+                            aria-label="Assign secondary driver"
+                            className="h-auto min-h-11 min-w-0 max-w-full flex-1 whitespace-normal rounded-md border-slate-300 bg-white px-2 text-left text-base text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary/40 disabled:opacity-60"
+                          >
+                            <SelectValue placeholder={companyDrivers.some((d) => d.id !== order.assigned_driver_id) ? "Choose a secondary driver" : "No other drivers found"} />
+                          </SelectTrigger>
+                          <SelectContent align="start" className="w-[var(--radix-select-trigger-width)]">
+                            {companyDrivers
+                              .filter((d) => d.id !== order.assigned_driver_id)
+                              .map((d) => (
+                                <SelectItem key={d.id} value={d.id}>{d.full_name || "Driver"}</SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
                         {savingSecondary && <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-primary" />}
                       </div>
                     )}
@@ -506,8 +511,8 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
                 )}
                 {secondaryVehicle && (
                   <div className="mt-1">
-                    <p className="inline-flex items-center gap-1 text-xs text-slate-700">
-                      <Car className="w-3 h-3 text-slate-400" />
+                    <p className="inline-flex max-w-full items-center gap-2 break-words text-sm font-medium text-slate-800">
+                      <Car aria-hidden="true" className="size-4 shrink-0 text-slate-600" />
                       {secondaryVehicle.nickname || "Vehicle"}
                     </p>
                     {renderVehicleChips(secondaryVehicle)}
@@ -519,33 +524,34 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
 
           {/* Venue block */}
           {(order.venue_name || order.venue_address) && (
-            <div className="flex items-start gap-2">
-              <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
-              <div className="min-w-0 flex-1">
-                {order.venue_name && <p className="text-sm font-medium text-slate-900">{order.venue_name}</p>}
-                {order.venue_address && <p className="text-xs text-slate-500">{order.venue_address}</p>}
+            <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-slate-200 p-3">
+              <div className="flex min-w-0 grow items-start gap-3">
+              <MapPin aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-slate-600" />
+              <div className="min-w-0">
+                <h3 className="break-words text-base font-semibold text-slate-950">{order.venue_name || "Delivery address"}</h3>
+                {order.venue_address && <p className="mt-0.5 break-words text-sm leading-relaxed text-slate-600">{order.venue_address}</p>}
                 {(order.venue_contact_person || order.venue_contact_phone) && (
-                  <p className="text-xs text-slate-700 mt-1">
-                    Venue contact:
-                    {order.venue_contact_person && <span className="font-medium ml-1">{order.venue_contact_person}</span>}
+                  <div className="mt-2 text-sm text-slate-700">
+                    <p>Venue contact{order.venue_contact_person && <span className="font-medium"> · {order.venue_contact_person}</span>}</p>
                     {order.venue_contact_phone && (
-                      <a href={`tel:${order.venue_contact_phone}`} className="ml-1 text-brand-primary hover:underline inline-flex items-center gap-1">
-                        <Phone className="w-3 h-3" />{order.venue_contact_phone}
+                      <a href={`tel:${order.venue_contact_phone}`} className="inline-flex min-h-11 max-w-full items-center gap-2 break-all text-sm font-medium text-slate-800 underline-offset-4 hover:underline">
+                        <Phone aria-hidden="true" className="size-4 shrink-0" />{order.venue_contact_phone}
                       </a>
                     )}
-                  </p>
+                  </div>
                 )}
+              </div>
               </div>
               {navUrl && (
                 <a
                   href={navUrl}
                   target="_blank"
                   rel="noopener"
-                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10 flex-shrink-0"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
                   title="Open in Google Maps"
                 >
-                  <Navigation className="w-3 h-3" />
-                  Navigate
+                  <Navigation aria-hidden="true" className="size-4 shrink-0" />
+                  Open map
                 </a>
               )}
             </div>
@@ -555,80 +561,76 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
           {isAssignedDriver && !podCaptured && !delivered && (
             <Link
               href={podDeepLink}
-              className="inline-flex items-center justify-center gap-1.5 w-full sm:w-auto px-4 py-2.5 rounded-md bg-brand-primary hover:opacity-90 text-white text-sm font-semibold"
+              className="inline-flex min-h-11 max-w-full items-center justify-center gap-2 rounded-md bg-brand-primary px-4 py-2 text-sm font-semibold text-white hover:bg-brand-primary/90"
             >
-              <Camera className="w-4 h-4" />
-              Capture POD on driver dashboard
+              <Camera aria-hidden="true" className="size-4 shrink-0" />
+              Capture proof of delivery
             </Link>
           )}
 
           {/* Pre-flight checklist (from driver_assignments booleans) */}
           {assignment && (assignment.checklist_food_verified != null || assignment.checklist_crockery_confirmed != null || assignment.checklist_cutlery_confirmed != null) && (
-            <div className="pt-2 border-t border-slate-200">
-              <p className="text-[10px] uppercase tracking-wider text-slate-600 font-semibold mb-1.5">Pre-departure checklist</p>
-              <div className="flex flex-wrap gap-1.5">
+            <div className="border-t border-slate-200 pt-3">
+              <h3 className="mb-2 text-base font-semibold text-slate-950">Pre-departure checklist</h3>
+              <ul className="flex flex-wrap gap-2">
                 {[
                   { key: "food", label: "Food verified", checked: !!assignment.checklist_food_verified },
                   { key: "crockery", label: "Crockery", checked: !!assignment.checklist_crockery_confirmed },
                   { key: "cutlery", label: "Cutlery", checked: !!assignment.checklist_cutlery_confirmed },
                 ].map((c) => (
-                  <span
+                  <li
                     key={c.key}
-                    className={`inline-flex items-center gap-1 text-[11px] rounded-full px-2 py-0.5 border ${c.checked ? "bg-brand-primary/10 text-brand-primary border-brand-primary/20" : "bg-slate-50 text-slate-600 border-slate-200"}`}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-sm ${c.checked ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-700"}`}
                   >
-                    {c.checked ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                    {c.label}
-                  </span>
+                    {c.checked ? <CheckCircle2 aria-hidden="true" className="size-4 shrink-0" /> : <AlertCircle aria-hidden="true" className="size-4 shrink-0" />}
+                    <span>{c.label}<span className="sr-only">{c.checked ? ": confirmed" : ": not confirmed"}</span></span>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
           )}
 
           {/* Status timestamps grid */}
           {(assignment || pickedUpAt) && (
-            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200">
-              <div className="text-xs">
-                <p className="text-slate-500 uppercase tracking-wider">Collected</p>
-                <p className="text-slate-900 mt-0.5 tabular-nums">
-                  {pickedUpAt
-                    ? new Date(pickedUpAt).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
-                    : enRouteAt
-                      ? new Date(enRouteAt).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
-                      : "-"}
-                </p>
-              </div>
-              <div className="text-xs">
-                <p className="text-slate-500 uppercase tracking-wider">Arrived</p>
-                <p className="text-slate-900 mt-0.5 tabular-nums">
-                  {arrivedAt
-                    ? new Date(arrivedAt).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
-                    : "-"}
-                </p>
-              </div>
-              <div className="text-xs">
-                <p className="text-slate-500 uppercase tracking-wider">Delivered</p>
-                <p className="text-slate-900 mt-0.5 tabular-nums">
-                  {deliveredAt
-                    ? new Date(deliveredAt).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
-                    : "-"}
-                </p>
-              </div>
+            <div className="border-t border-slate-200 pt-3">
+              <h3 className="mb-2 text-base font-semibold text-slate-950">Delivery progress</h3>
+              <dl className={operationStyles.metadata}>
+                {[
+                  { label: "Collected", at: pickedUpAt || enRouteAt },
+                  { label: "Arrived", at: arrivedAt },
+                  { label: "Delivered", at: deliveredAt },
+                ].map(({ label, at }) => (
+                  <div key={label} className="min-w-0 rounded-lg bg-slate-50 p-3">
+                    <dt className="text-sm text-slate-600">{label}</dt>
+                    <dd className="mt-0.5 text-base font-medium tabular-nums text-slate-950">
+                      {at ? (
+                        <time dateTime={at}>{new Date(at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time>
+                      ) : "Not recorded"}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
             </div>
           )}
 
           {podCaptured && (
-            <div className="flex items-center gap-2 text-sm text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded p-2.5">
-              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-              <span className="font-medium">POD captured</span>
-              {order.pod_photo_url && (
-                <a href={protectedCompanyFileUrl(order.pod_photo_url)} target="_blank" rel="noopener" className="ml-auto text-xs hover:underline inline-flex items-center gap-1">
-                  <Camera className="w-3 h-3" />View photo
-                </a>
-              )}
-              {order.pod_signature_url && (
-                <a href={protectedCompanyFileUrl(order.pod_signature_url)} target="_blank" rel="noopener" className="text-xs hover:underline inline-flex items-center gap-1">
-                  <MessageSquare className="w-3 h-3" />Signature
-                </a>
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-emerald-50 p-3 text-emerald-900">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <CheckCircle2 aria-hidden="true" className="size-4 shrink-0" /> Proof of delivery captured
+              </div>
+              {(order.pod_photo_url || order.pod_signature_url) && (
+                <div className={operationStyles.rowActions}>
+                  {order.pod_photo_url && (
+                    <a href={protectedCompanyFileUrl(order.pod_photo_url)} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-sm font-medium underline-offset-4 hover:bg-emerald-100 hover:underline">
+                      <Camera aria-hidden="true" className="size-4 shrink-0" /> View photo
+                    </a>
+                  )}
+                  {order.pod_signature_url && (
+                    <a href={protectedCompanyFileUrl(order.pod_signature_url)} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-sm font-medium underline-offset-4 hover:bg-emerald-100 hover:underline">
+                      <MessageSquare aria-hidden="true" className="size-4 shrink-0" /> View signature
+                    </a>
+                  )}
+                </div>
               )}
             </div>
           )}

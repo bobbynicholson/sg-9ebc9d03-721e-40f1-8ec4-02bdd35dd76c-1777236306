@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
 import { canSeeOrderFinance } from "@/lib/authGuards";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { buildCompanyTermsPath } from "@/lib/companyLegal";
 import { configuredPaymentTerms } from "@/lib/paymentTerms";
 import { captureException } from "@/lib/observability";
@@ -34,18 +35,19 @@ import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Loader2, Printer, ArrowLeft, RefreshCw,
-  FileText, Activity, ChefHat, ShoppingCart, Truck, Sparkles, Droplets, Wallet, History, Star,
-  MessageSquare, MessageCircle, Paperclip, ArrowRight, Utensils,
-  MoreHorizontal, ChevronDown, List,
+  FileText, Activity, ChefHat, ShoppingCart, Truck, Droplets, Wallet, History, Star,
+  MessageSquare, MessageCircle, Paperclip, Utensils, CalendarDays, MapPin, Users,
+  MoreHorizontal, ChevronDown, List, type LucideIcon,
 } from "lucide-react";
-import { computeOrderTimeline, type OrderTimelineStage } from "@/services/order/orderTimeline";
 import { OrderHeaderSection } from "./sections/OrderHeaderSection";
 import { OrderAlertBanners } from "./OrderAlertBanners";
 import { OrderSuggestedAction } from "./OrderSuggestedAction";
@@ -73,6 +75,7 @@ import type { OrderChatRole } from "@/services/orderChatService";
 import { EquipmentReturnCard } from "@/components/order/EquipmentReturnCard";
 import { BankTransferDetailsCard } from "@/components/documents/BankTransferDetailsCard";
 import { resolveCompanyEftDetails } from "@/lib/companyEftDetails";
+import styles from "./OrderDocument.module.css";
 
 const ROUTE_TAG = "/order/[id]";
 
@@ -198,20 +201,12 @@ const ACTIVE_ROLE_SECTION: Record<ViewerSection, string> = {
   client: "section-timeline",
 };
 
+type OrderSectionGroup = "Order" | "Operations" | "Records";
+type OrderJump = { id: string; label: string; icon: LucideIcon; group: OrderSectionGroup };
+const ORDER_SECTION_GROUPS: OrderSectionGroup[] = ["Order", "Operations", "Records"];
+
 function cleanStatus(status: string | null | undefined): string {
   return String(status || "unknown").replace(/_/g, " ");
-}
-
-function fmtOrderStamp(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleString("en-ZA", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 function fmtEventWhen(order: OrderHead): string {
@@ -223,253 +218,59 @@ function fmtEventWhen(order: OrderHead): string {
   return order.event_time ? `${date} at ${formatClock(order.event_time)}` : date;
 }
 
-function latestStamp(order: OrderHead): string | null {
-  return [
-    order.completed_at,
-    order.departed_venue_at,
-    order.delivered_at,
-    order.pod_captured_at,
-    order.arrived_at_venue_at,
-    order.picked_up_at,
-    order.ready_at,
-    order.prep_started_at,
-    order.confirmed_at,
-    order.created_at,
-  ].filter((s): s is string => !!s).sort().pop() || null;
+const GENERIC_EVENT_NAMES = new Set(["quote", "order", "event", "untitled", "new event", "tbd", "tba"]);
+
+function orderTitle(order: OrderHead) {
+  const eventName = order.event_name?.trim();
+  return eventName && !GENERIC_EVENT_NAMES.has(eventName.toLowerCase())
+    ? eventName
+    : order.client_name || "Order details";
 }
 
-function stageSectionId(stage: OrderTimelineStage | null | undefined, isClient: boolean): string {
-  if (!stage || isClient) return "section-timeline";
-  switch (stage.key) {
-    case "pre_event_shopping":
-      return "section-shopping";
-    case "kitchen_prep_in_progress":
-    case "ready_for_dispatch":
-      return "section-kitchen";
-    case "driver_assigned_delivery":
-    case "in_transit":
-    case "delivered":
-    case "departed_venue":
-    case "collection_scheduled":
-    case "collection_picked_up":
-    case "collection_done":
-      return "section-driver";
-    case "setup_started":
-    case "service_started":
-    case "service_ended":
-    case "event_complete":
-      return "section-waiter";
-    case "pre_event_cleaning":
-      return "section-cleaning";
-    case "deposit_invoice_issued":
-    case "deposit_paid":
-    case "final_invoice_issued":
-    case "final_invoice_sent":
-    case "balance_paid":
-    case "receipt_issued":
-      return "section-admin";
-    case "completed":
-    case "thank_you_sent":
-      return "section-history";
-    default:
-      return "section-header";
-  }
-}
-
-function stageOwner(stage: OrderTimelineStage | null | undefined, isClient: boolean): string {
-  if (!stage) return isClient ? "Catering team" : "Team";
-  if (isClient) {
-    switch (stage.group) {
-      case "dispatch":
-        return "Delivery team";
-      case "on_site":
-        return "Event team";
-      default:
-        return "Catering team";
-    }
-  }
-  switch (stage.key) {
-    case "pre_event_shopping":
-      return "Shopping";
-    case "kitchen_prep_in_progress":
-    case "ready_for_dispatch":
-      return "Kitchen";
-    case "driver_assigned_delivery":
-    case "in_transit":
-    case "delivered":
-    case "departed_venue":
-    case "collection_scheduled":
-    case "collection_picked_up":
-    case "collection_done":
-      return "Driver";
-    case "setup_started":
-    case "service_started":
-    case "service_ended":
-    case "event_complete":
-      return "Service";
-    case "pre_event_cleaning":
-      return "Cleaning";
-    case "deposit_invoice_issued":
-    case "deposit_paid":
-    case "final_invoice_issued":
-    case "final_invoice_sent":
-    case "balance_paid":
-    case "receipt_issued":
-    case "completed":
-    case "thank_you_sent":
-      return "Admin";
-    default:
-      return "Admin";
-  }
-}
-
-function OrderTrackingOverview({
-  order,
-  primary,
-  isClient,
-  lastLoadedAt,
-  scrollToSection,
-}: {
-  order: OrderHead;
-  primary: ViewerSection;
-  isClient: boolean;
-  lastLoadedAt: Date | null;
-  scrollToSection: (sectionId: string) => void;
-}) {
-  const timeline = useMemo(() => computeOrderTimeline({
-    order,
-    hasOnSiteService: !!(
-      order.requires_waiter ||
-      order.waiter_service_required ||
-      order.setup_started_at ||
-      order.service_started_at ||
-      order.departed_venue_at
-    ),
-  }), [order]);
+function OrderOverview({ order }: { order: OrderHead }) {
+  const title = orderTitle(order);
   const status = String(order.status || "").toLowerCase();
-  const cancelled = status === "cancelled" || !!order.cancelled_at;
-  const postponed = status === "postponed" || !!order.postponed_at;
-  const applicableStages = timeline.stages.filter((s) => s.status !== "not_applicable" && s.status !== "skipped");
-  const currentTimelineStage = timeline.stages.find((s) => s.status === "current" || s.status === "blocked")
-    || [...applicableStages].reverse().find((s) => s.status === "completed")
-    || applicableStages[0]
-    || null;
-  const currentStageIndex = currentTimelineStage
-    ? timeline.stages.findIndex((s) => s.key === currentTimelineStage.key)
-    : -1;
-  const nextStage = !cancelled && !postponed && currentStageIndex >= 0
-    ? timeline.stages.slice(currentStageIndex + 1).find((s) => s.status === "upcoming")
-    : null;
-  const eventLabel = fmtEventWhen(order);
-  const displayLabel = cancelled
-    ? "Cancelled"
-    : postponed
-      ? "Postponed"
-      : currentTimelineStage?.label || "Order received";
-  const currentSectionId = cancelled || postponed
-    ? "section-timeline"
-    : stageSectionId(currentTimelineStage, isClient);
-  const lastStamp = fmtOrderStamp(
-    (cancelled ? order.cancelled_at : postponed ? order.postponed_at : null)
-      || currentTimelineStage?.completedAt
-      || currentTimelineStage?.startedAt
-      || latestStamp(order),
-  );
-  const ownerLabel = cancelled || postponed ? "Admin" : stageOwner(currentTimelineStage, isClient);
-  const mySectionId = ACTIVE_ROLE_SECTION[primary];
-  const canJumpToMySection = !isClient && mySectionId && mySectionId !== currentSectionId;
-  const statusTone = cancelled
-    ? "border-rose-200 bg-rose-50 text-rose-700"
-    : postponed
-      ? "border-amber-200 bg-amber-50 text-amber-800"
-      : status === "completed" || status === "delivered"
-        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-        : "border-blue-200 bg-blue-50 text-blue-700";
-  const isBlocked = currentTimelineStage?.status === "blocked";
-  const nowTone = cancelled
-    ? "border-rose-200 bg-rose-50"
-    : postponed
-      ? "border-amber-200 bg-amber-50"
-      : isBlocked
-        ? "border-rose-200 bg-rose-50"
-        : "border-orange-200 bg-orange-50/70";
-  const title = order.event_name || order.client_name || "Order";
+  const tone = ["completed", "delivered"].includes(status)
+    ? "bg-emerald-100 text-emerald-900"
+    : status === "cancelled"
+      ? "bg-rose-100 text-rose-900"
+      : ["postponed", "paused"].includes(status)
+        ? "bg-amber-100 text-amber-900"
+        : "bg-slate-100 text-slate-800";
+  const venue = order.venue_name || order.venue_address;
+  const facts = [
+    { label: "Event", value: fmtEventWhen(order), icon: CalendarDays },
+    { label: "Guests", value: order.guest_count == null ? null : order.guest_count.toLocaleString("en-ZA"), icon: Users },
+    { label: "Venue", value: venue, icon: MapPin },
+  ].filter((fact) => fact.value != null);
 
-  // One header for the whole document: who/what/when on the left, status
-  // on the right, then a single "Now" strip. The detailed per-stage
-  // timeline lives once, in the Status timeline section below - an
-  // earlier copy here was computed from the order row alone and showed
-  // different counts from the real one.
   return (
-    <section className="mb-3 sm:mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm print:border-slate-300">
-      <div className="h-1 bg-gradient-to-r from-brand-primary via-brand-primary/70 to-brand-secondary" aria-hidden="true" />
-      <div className="p-3.5 sm:p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="flex flex-wrap items-center gap-x-2 text-xs font-medium text-slate-500">
-              {order.order_number && <span className="font-mono">#{order.order_number}</span>}
-              {order.client_name && order.event_name && <span>· {order.client_name}</span>}
-            </p>
-            <h1 className="mt-1 text-xl font-semibold leading-tight tracking-tight text-slate-950 sm:text-2xl">
-              {title}
-            </h1>
-            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-600 sm:gap-x-3 sm:gap-y-1 sm:text-sm">
-              <span>{eventLabel}</span>
-              {order.guest_count ? <span>· {order.guest_count} guests</span> : null}
-              {(order.venue_name || order.venue_address) && (
-                <span className="min-w-0 max-w-full truncate">· {order.venue_name || order.venue_address}</span>
-              )}
-            </p>
-          </div>
-          <Badge variant="outline" className={`${statusTone} px-3 py-1 text-xs font-semibold capitalize`}>
-            {cleanStatus(order.status)}
-          </Badge>
+    <header className={`${styles.overview} min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-6`}>
+      <div className="flex flex-wrap items-start justify-between gap-x-5 gap-y-3">
+        <div className="min-w-0">
+          {order.order_number && <p className="text-sm font-medium tabular-nums text-slate-600">#{order.order_number}</p>}
+          <h1 className="mt-1 break-words text-2xl font-semibold leading-tight tracking-tight text-slate-950 sm:text-3xl">{title}</h1>
+          {order.client_name && title !== order.client_name && (
+            <p className="mt-1.5 break-words text-base text-slate-700">{order.client_name}</p>
+          )}
         </div>
-
-        <div className={`mt-3 flex min-w-0 items-center gap-2.5 rounded-lg border px-3 py-2.5 ${nowTone}`}>
-          <span
-            aria-hidden="true"
-            className={`h-2 w-2 shrink-0 rounded-full ${cancelled || isBlocked ? "bg-rose-500" : postponed ? "bg-amber-500" : "animate-pulse bg-orange-500 motion-reduce:animate-none"}`}
-          />
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-              {cancelled ? "Order cancelled" : postponed ? "Order postponed" : isBlocked ? "Needs attention" : "Now"}
-            </p>
-            <p className="text-xs font-semibold text-slate-950 sm:text-sm">
-              {displayLabel}
-              <span className="font-normal text-slate-600"> · {ownerLabel}{lastStamp ? ` · Updated ${lastStamp}` : lastLoadedAt ? ` · Checked ${lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}` : ""}</span>
-            </p>
-            {nextStage && (
-              <p className="mt-0.5 text-[11px] text-slate-600">
-                Next: <span className="font-medium text-slate-800">{nextStage.label}</span>
-              </p>
-            )}
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="outline" className="h-10 w-10 shrink-0 bg-white p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3" aria-label="Navigate to order section" title="Navigate to order section">
-                <ArrowRight className="h-4 w-4" />
-                <span className="hidden sm:inline">Go to</span>
-                <ChevronDown className="hidden h-4 w-4 sm:inline" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onSelect={() => scrollToSection(currentSectionId)}>
-                <ArrowRight className="mr-2 h-4 w-4" />Current step: {displayLabel}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => scrollToSection("section-timeline")}>
-                <Activity className="mr-2 h-4 w-4" />Status timeline
-              </DropdownMenuItem>
-              {canJumpToMySection && (
-                <DropdownMenuItem onSelect={() => scrollToSection(mySectionId)}>
-                  <List className="mr-2 h-4 w-4" />My section
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        <span className={`inline-flex max-w-full items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold capitalize ${tone}`}>
+          <span className="size-1.5 shrink-0 rounded-full bg-current" aria-hidden="true" />
+          {cleanStatus(order.status)}
+        </span>
       </div>
-    </section>
+      <dl className={`${styles.facts} mt-4 gap-x-6 gap-y-3 border-t border-slate-200 pt-4 sm:mt-5`}>
+        {facts.map(({ label, value, icon: Icon }) => (
+          <div key={label} className={`flex min-w-0 items-start gap-2.5 ${label === "Venue" ? styles.venueFact : ""}`}>
+            <Icon className="mt-0.5 size-4 shrink-0 text-slate-500" aria-hidden="true" />
+            <div className="min-w-0">
+              <dt className="text-xs text-slate-600">{label}</dt>
+              <dd className="mt-0.5 break-words text-base font-medium leading-snug text-slate-900">{value}</dd>
+            </div>
+          </div>
+        ))}
+      </dl>
+    </header>
   );
 }
 
@@ -482,7 +283,7 @@ function OrderPrintCover({ order }: { order: OrderHead }) {
   const eventDate = new Date(order.event_date).toLocaleDateString("en-ZA", {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
-  const title = order.event_name || order.client_name || "Order";
+  const title = orderTitle(order);
   const eventTime = order.event_time ? formatClock(order.event_time) : null;
   const venue = [order.venue_name, order.venue_address].filter(Boolean).join(" - ");
 
@@ -541,6 +342,7 @@ export interface OrderDocumentProps {
 
 export function OrderDocument({ orderId, mode = "interactive", forceSection = null }: OrderDocumentProps) {
   const router = useRouter();
+  const { withSlug } = useTenantHref();
   const { user, userRoles } = useAuth();
   const [order, setOrder] = useState<OrderHead | null>(null);
   const [loading, setLoading] = useState(true);
@@ -572,6 +374,15 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
   // sections already hide their action buttons for non-matching roles,
   // but a client shouldn't see the sections at all.
   const isClient = mode === "client" || role === UserRole.CLIENT;
+  const backHref = isClient
+    ? withSlug("/client-portal/dashboard")
+    : primary === "admin"
+      ? role === UserRole.SUPER_ADMIN ? "/admin/platform/dashboard" : withSlug("/admin/orders")
+      : withSlug(primary === "kitchen" ? "/team-portal/kitchen/today"
+        : primary === "driver" ? "/team-portal/driver/dashboard"
+          : primary === "waiter" ? "/team-portal/waiter/dashboard"
+            : primary === "shopping" ? "/team-portal/shopping/dashboard"
+              : "/team-portal/cleaning/dashboard");
   // A user's primary section is a presentation choice (for example, a
   // multi-role admin may land on the driver or kitchen section). It must
   // not remove admin permissions from order management controls.
@@ -711,65 +522,31 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
     // Two raf ticks - first paints the expanded body, second lets
     // layout settle before scrolling. Fallback to setTimeout for
     // older browsers.
-    const doScroll = () => el.scrollIntoView({ behavior: "smooth", block: "start" });
+    const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    const doScroll = () => el.scrollIntoView({ behavior, block: "start" });
     if (typeof requestAnimationFrame !== "undefined") {
       requestAnimationFrame(() => requestAnimationFrame(doScroll));
     } else {
       setTimeout(doScroll, 50);
     }
     if (typeof window !== "undefined" && window.history?.replaceState) {
-      window.history.replaceState(null, "", `#${sectionId}`);
+      window.history.replaceState(window.history.state, "", `#${sectionId}`);
     }
   }, []);
 
-  // ODOC Wave D: track which section is in view as the user scrolls
-  // (IntersectionObserver). Drives the anchor nav chip highlight and
-  // the URL hash. Cheap - 10 sections, root margin tuned so only one
-  // entry is "active" at a time.
-  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  // Open the linked section once per order so a live refresh does not
+  // interrupt someone reading the service record.
+  const loadedOrderId = order?.id;
   useEffect(() => {
-    if (loading || !order || mode === "print") return;
-    if (typeof window === "undefined" || !("IntersectionObserver" in window)) return;
-    const sectionIds = [
-      "section-header", "section-timeline", "section-kitchen",
-      "section-shopping", "section-driver", "section-waiter",
-      "section-cleaning", "section-admin", "section-feedback",
-      "section-comms", "section-attachments", "section-history",
-    ];
-    const observer = new IntersectionObserver(
-      (entries) => {
-        // Pick the entry closest to the top of the viewport that's
-        // intersecting. Falls back to last-known active otherwise.
-        const visible = entries.filter((e) => e.isIntersecting).sort(
-          (a, b) => a.boundingClientRect.top - b.boundingClientRect.top,
-        );
-        if (visible.length > 0) {
-          const id = visible[0].target.id;
-          setActiveSectionId(id);
-          // Reflect in URL hash without scroll-jump
-          if (window.history?.replaceState) {
-            window.history.replaceState(null, "", `#${id}`);
-          }
-        }
-      },
-      { rootMargin: "-72px 0px -60% 0px", threshold: [0, 0.1, 0.5] },
-    );
-    for (const id of sectionIds) {
-      const el = document.getElementById(id);
-      if (el) observer.observe(el);
-    }
-    return () => observer.disconnect();
-  }, [loading, order, mode]);
-
-  // ODOC: scroll to primary section on first render. Honours hash
-  // if the URL already has one (deep-link from elsewhere).
-  useEffect(() => {
-    if (loading || !order || mode === "print") return;
+    if (loading || !loadedOrderId || mode === "print") return;
     const hash = typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
-    const target = hash && hash.startsWith("section-") ? hash : `section-${primary}`;
+    const target = hash.startsWith("section-")
+      ? hash
+      : primary === "admin" || primary === "client" ? null : ACTIVE_ROLE_SECTION[primary];
+    if (!target) return;
     const t = setTimeout(() => scrollToSection(target), 300);
     return () => clearTimeout(t);
-  }, [loading, order, primary, mode, scrollToSection]);
+  }, [loading, loadedOrderId, primary, mode, scrollToSection]);
 
   // Order-list chat CTAs use a deep link so the driver can open the same
   // conversation from calendar/earnings without duplicating modal state.
@@ -792,36 +569,60 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
     document.title = bits.join(" · ");
   }, [order]);
 
-  // ODOC: anchor nav strip - one chip per section. Tap to scroll.
-  // The viewer's primary section is visually marked. Order matches
-  // the document's render order so the strip reads top-to-bottom.
+  const showSittings = !isClient && (canManageServicePlan || (order?.service_sittings?.length ?? 0) > 1);
+  const showDriver = !isClient && showFor("driver") && (order?.service_sittings?.length ?? 0) < 2;
+  const showFeedback = showFor("feedback") && !!order &&
+    (order.status === "delivered" || order.status === "completed" || !!order.delivered_at);
   const navItems = useMemo(() => {
-    const items: Array<{ id: string; label: string; icon: any; key: ViewerSection | "header" | "timeline" | "admin" | "history" }> = [
-      { id: "section-header", label: "Order", icon: FileText, key: "header" },
-      { id: "section-timeline", label: "Status", icon: Activity, key: "timeline" },
-      // History is admin-tier context; staff roles work off the status
-      // timeline, so the audit chip is noise on their run sheets.
-      ...(!isClient && showFor("history") ? [{ id: "section-history", label: "History", icon: History, key: "history" as const }] : []),
+    const items: OrderJump[] = [
+      { id: "section-timeline", label: "Status timeline", icon: Activity, group: "Order" },
+      { id: "section-header", label: "Event & client details", icon: FileText, group: "Order" },
     ];
-    // Chips mirror the role-relevance gates below so no chip ever
-    // scrolls to a section that isn't mounted for this viewer.
-    // Client-only Delivery chip -> the ClientDeliverySection.
-    if (isClient) items.push({ id: "section-delivery", label: "Delivery", icon: Truck, key: "client" });
-    if (showFor("kitchen")) items.push({ id: "section-kitchen", label: isClient ? "Menu" : "Kitchen", icon: isClient ? Utensils : ChefHat, key: "kitchen" });
-    if (!isClient && showFor("shopping")) items.push({ id: "section-shopping", label: "Shopping", icon: ShoppingCart, key: "shopping" });
-    if (!isClient && showFor("driver")) items.push({ id: "section-driver", label: "Driver", icon: Truck, key: "driver" });
-    if (!isClient && showFor("waiter")) items.push({ id: "section-waiter", label: "Service", icon: Sparkles, key: "waiter" });
-    if (!isClient && showFor("cleaning")) items.push({ id: "section-cleaning", label: "Cleaning", icon: Droplets, key: "cleaning" });
-    if (canSeeFinance) items.push({ id: "section-admin", label: "Finance", icon: Wallet, key: "admin" });
-    // Feedback chip only shows on delivered orders. The section
-    // itself returns null otherwise so the chip would scroll to
-    // nothing - safer to omit when not delivered.
-    const isDelivered = !!order && (order.status === "delivered" || order.status === "completed" || !!order.delivered_at);
-    if (isDelivered && showFor("feedback")) items.push({ id: "section-feedback", label: "Feedback", icon: Star, key: "history" as any });
-    if (canSeeFinance) items.push({ id: "section-comms", label: "Comms", icon: MessageSquare, key: "history" as any });
-    if (!isClient && showFor("attachments")) items.push({ id: "section-attachments", label: "Files", icon: Paperclip, key: "history" as any });
+    if (showSittings) items.push({ id: "section-sittings", label: "Service sittings & trips", icon: CalendarDays, group: "Operations" });
+    if (isClient) items.push({ id: "section-delivery", label: "Delivery", icon: Truck, group: "Operations" });
+    if (showFor("kitchen")) items.push({ id: "section-kitchen", label: isClient ? "Menu" : "Kitchen", icon: isClient ? Utensils : ChefHat, group: "Operations" });
+    if (!isClient && showFor("shopping")) items.push({ id: "section-shopping", label: "Shopping", icon: ShoppingCart, group: "Operations" });
+    if (showDriver) items.push({ id: "section-driver", label: "Driver", icon: Truck, group: "Operations" });
+    if (!isClient && showFor("waiter")) items.push({ id: "section-waiter", label: "Service team", icon: Users, group: "Operations" });
+    if (!isClient && showFor("cleaning")) items.push({ id: "section-cleaning", label: "Cleaning", icon: Droplets, group: "Operations" });
+    if (canSeeFinance) items.push(
+      { id: "section-staffing", label: "Staffing & time", icon: Users, group: "Records" },
+      { id: "section-admin", label: "Finance", icon: Wallet, group: "Records" },
+      { id: "section-comms", label: "Communications", icon: MessageSquare, group: "Records" },
+    );
+    if (showFeedback) items.push({ id: "section-feedback", label: "Customer feedback", icon: Star, group: "Records" });
+    if (!isClient && showFor("attachments")) items.push({ id: "section-attachments", label: "Attachments", icon: Paperclip, group: "Records" });
+    if (!isClient && showFor("history")) items.push({ id: "section-history", label: "Order history", icon: History, group: "Records" });
     return items;
-  }, [canSeeFinance, isClient, order, showFor]);
+  }, [canSeeFinance, isClient, showDriver, showFeedback, showFor, showSittings]);
+
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  const sectionNavRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (loading || !loadedOrderId || mode === "print") return;
+    let frame = 0;
+    const syncVisibleSection = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const offset = (sectionNavRef.current?.getBoundingClientRect().bottom ?? 0) + 12;
+        const visible = navItems.flatMap(({ id }) => {
+          const bounds = document.getElementById(id)?.getBoundingClientRect();
+          return bounds && bounds.bottom > offset && bounds.top < window.innerHeight ? [{ id, top: bounds.top }] : [];
+        });
+        // With both desktop columns in view, follow the heading nearest the picker.
+        const closest = visible.sort((a, b) => Math.abs(a.top - offset) - Math.abs(b.top - offset))[0];
+        setActiveSectionId(closest?.id ?? null);
+      });
+    };
+    syncVisibleSection();
+    window.addEventListener("scroll", syncVisibleSection, { passive: true });
+    window.addEventListener("resize", syncVisibleSection);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", syncVisibleSection);
+      window.removeEventListener("resize", syncVisibleSection);
+    };
+  }, [loadedOrderId, loading, mode, navItems]);
 
   if (loading) {
     return (
@@ -835,18 +636,20 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
       <div className="max-w-md mx-auto text-center py-20 px-4">
         <p className="text-lg font-semibold text-slate-900">Order not found</p>
         <p className="text-sm text-slate-500 mt-1">It may have been deleted or you don't have access.</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.back()}>
-          <ArrowLeft className="w-4 h-4 mr-2" />Back
+        <Button asChild variant="outline" className="mt-4">
+          <Link href={backHref}>
+            <ArrowLeft className="w-4 h-4 mr-2" />Back
+          </Link>
         </Button>
       </div>
     );
   }
 
   const forceAll = mode === "print";
-  const activeNavLabel = navItems.find((item) => item.id === activeSectionId)?.label || "Choose a section";
+  const activeNavLabel = navItems.find((item) => item.id === activeSectionId)?.label;
 
   return (
-    <div className={mode === "print" ? "order-print-document mx-auto w-full min-w-0 max-w-5xl overflow-x-clip px-4 py-8 print:px-0 print:py-0" : "mx-auto w-full min-w-0 max-w-[90rem] overflow-x-clip px-3 py-4 sm:px-4 sm:py-6 md:px-6"}>
+    <div className={forceAll ? "order-print-document order-document-surface mx-auto w-full min-w-0 max-w-5xl px-4 py-8 print:px-0 print:py-0" : `order-document-surface ${styles.document} mx-auto w-full min-w-0 max-w-[90rem] py-3 sm:py-5 lg:py-6`}>
       {!isClient && mode !== "print" && <ImportReadinessBanner orderId={order.id} />}
       {mode === "print" && (
         <div className="order-print-toolbar no-print print:hidden sticky top-0 z-30 -mx-4 mb-4 flex min-w-0 items-center justify-between gap-2 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:mx-0 sm:rounded-xl sm:border">
@@ -873,121 +676,95 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
           </Button>
         </div>
       )}
-      {/* Toolbar - hidden in print mode */}
-      {mode !== "print" && (
-        <div className="mb-3 flex min-w-0 items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
-            <Button variant="ghost" size="sm" onClick={() => router.back()} className="h-10 w-10 shrink-0 p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3" aria-label="Back" title="Back">
-              <ArrowLeft className="h-4 w-4" /><span className="hidden sm:inline">Back</span>
+      {!forceAll && (
+        <>
+          <div className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-2">
+            <Button asChild variant="ghost" className={`${styles.control} -ml-2 px-2`}>
+              <Link href={backHref}>
+                <ArrowLeft className="size-4" /> Back
+              </Link>
             </Button>
-            {lastLoadedAt && (
-              <span className="hidden text-[11px] tabular-nums text-slate-500 md:inline" title={lastLoadedAt.toLocaleString("en-ZA")}>
-                As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
-              </span>
-            )}
-            <Badge variant="outline" className="shrink-0 text-[10px] uppercase tracking-wider">
-              {primary}
-            </Badge>
-          </div>
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            {/* ODOC Wave F: live presence pill - avatar stack of other
-                staff currently viewing this order. */}
-            <OrderPresence orderId={order.id} />
-            {user?.id && (
-              <Button
-                size="sm"
-                onClick={() => setChatOpen(true)}
-                className="h-10 w-10 shrink-0 rounded-lg bg-blue-600 p-0 text-white shadow-sm shadow-blue-600/20 hover:bg-blue-700 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3"
-                aria-label={chatLabel}
-                title={chatLabel}
-              >
-                <MessageCircle className="h-4 w-4" />
-                <span className="hidden sm:inline">{chatLabel}</span>
-              </Button>
-            )}
-            <DropdownMenu modal={false} open={orderActionsOpen} onOpenChange={setOrderActionsOpen}>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" variant="outline" size="sm" className="h-10 w-10 shrink-0 p-0 data-[state=open]:border-brand-primary/40 data-[state=open]:bg-brand-primary/5 sm:h-9 sm:w-9" aria-label="More order actions" title="More order actions">
-                  <MoreHorizontal className="h-4 w-4" />
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <OrderPresence orderId={order.id} />
+              {user?.id && (
+                <Button type="button" onClick={() => setChatOpen(true)} className={`${styles.control} whitespace-normal text-left`}>
+                  <MessageCircle className="size-4" /> {chatLabel}
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="z-[80] w-48">
-                <DropdownMenuItem onSelect={() => void load()}>
-                  <RefreshCw className="mr-2 h-4 w-4" />Refresh order
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href={{ pathname: router.pathname, query: { ...router.query, print: "1" } }} target="_blank">
-                    <Printer className="mr-2 h-4 w-4" />Print order
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      )}
-
-      {/* ODOC: sticky anchor nav. One chip per section. Tap to scroll.
-          The viewer's primary section gets an accent ring so they can
-          see at a glance where "their" part of the doc lives. Hidden
-          in print mode - print is one continuous document. */}
-      {mode !== "print" && (
-        <nav
-          aria-label="Jump to section"
-          className="sticky top-0 z-20 -mx-3 mb-3 border-b border-slate-200 bg-white/95 px-3 py-2 backdrop-blur sm:-mx-4 sm:mb-4 sm:px-4 md:-mx-6 md:px-6 print:hidden"
-        >
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-10 max-w-full justify-start gap-2">
-                <List className="h-4 w-4 shrink-0 text-slate-500" />
-                <span className="shrink-0 font-medium">Sections</span>
-                <span className="min-w-0 truncate text-slate-500">{activeNavLabel}</span>
-                <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-slate-500" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="max-h-[min(70dvh,28rem)] w-64 overflow-y-auto">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeSectionId === item.id;
-                return (
-                  <DropdownMenuItem
-                    key={item.id}
-                    onSelect={() => scrollToSection(item.id)}
-                    aria-current={isActive ? "location" : undefined}
-                    className={isActive ? "font-semibold text-brand-primary" : undefined}
-                  >
-                    <Icon className="mr-2 h-4 w-4 shrink-0" />{item.label}
+              )}
+              <DropdownMenu modal={false} open={orderActionsOpen} onOpenChange={setOrderActionsOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline" size="icon" className={styles.control} aria-label="More order actions">
+                    <MoreHorizontal className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="z-[80] w-48">
+                  <DropdownMenuItem onSelect={() => void load()} className={styles.menuItem}>
+                    <RefreshCw className="mr-2 size-4" /> Refresh order
                   </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </nav>
+                  <DropdownMenuItem asChild className={styles.menuItem}>
+                    <Link href={{ pathname: router.pathname, query: { ...router.query, print: "1" } }} target="_blank">
+                      <Printer className="mr-2 size-4" /> Print order
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
+          <OrderOverview order={order} />
+          {!isClient && <OrderQuickActions order={order} onJumpToService={() => scrollToSection("section-waiter")} />}
+
+          <nav ref={sectionNavRef} aria-label="Order sections" className={`${styles.sectionNav} mb-4 mt-4 border-y border-slate-200 bg-slate-50 py-2 print:hidden`}>
+            <div className={`${styles.sectionNavBody} flex min-w-0 items-center gap-2`}>
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline" className={`${styles.control} w-full min-w-0 justify-start gap-2 sm:w-auto sm:max-w-full`}>
+                    <List className="size-4 shrink-0 text-slate-600" />
+                    <span className="shrink-0 font-semibold">Sections</span>
+                    {activeNavLabel && <span className="min-w-0 truncate border-l border-slate-200 pl-2 text-slate-600">{activeNavLabel}</span>}
+                    <ChevronDown className="ml-auto size-4 shrink-0 text-slate-600" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="max-h-[min(62dvh,32rem,var(--radix-dropdown-menu-content-available-height))] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto p-1.5">
+                  {ORDER_SECTION_GROUPS.map((group) => {
+                    const items = navItems.filter((item) => item.group === group);
+                    if (!items.length) return null;
+                    return (
+                      <DropdownMenuGroup key={group} className="mb-1 last:mb-0">
+                        <DropdownMenuLabel className="text-xs text-slate-600">{group}</DropdownMenuLabel>
+                        {items.map(({ id, label, icon: Icon }) => (
+                          <DropdownMenuItem
+                            key={id}
+                            onSelect={() => scrollToSection(id)}
+                            aria-current={activeSectionId === id ? "location" : undefined}
+                            className={`${styles.menuItem} ${activeSectionId === id ? "bg-slate-100 font-semibold text-slate-950" : ""}`}
+                          >
+                            <Icon className="mr-2 size-4 shrink-0 text-slate-600" /> {label}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuGroup>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <div className="ml-auto hidden min-w-0 items-center gap-2 md:flex">
+                <Button type="button" variant="ghost" onClick={() => scrollToSection("section-timeline")} className={styles.control}>Status</Button>
+                <Button type="button" variant="ghost" onClick={() => scrollToSection("section-header")} className={styles.control}>Event details</Button>
+                {lastLoadedAt && (
+                  <span className="hidden text-sm tabular-nums text-slate-600 xl:inline" title={lastLoadedAt.toLocaleString("en-ZA")}>
+                    Updated {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                )}
+              </div>
+            </div>
+          </nav>
+        </>
       )}
 
-      {/* Stage-strip overview: admin + client only. Staff roles have the
-          Status timeline card for the same information - showing both was
-          confusing on mobile, and the strip lagged behind the working
-          timeline (driver feedback 2026-07-04, Pic 80). */}
-      {!staffAllowed && (
-        <OrderTrackingOverview
-          order={order}
-          primary={primary}
-          isClient={isClient}
-          lastLoadedAt={lastLoadedAt}
-          scrollToSection={scrollToSection}
-        />
-      )}
+      {forceAll && <OrderPrintCover order={order} />}
 
-      {mode === "print" && <OrderPrintCover order={order} />}
-
-
-      {/* Two-column workspace on desktop: the work on the left, a
-          reference panel (actions, details, money, files) on the right
-          that stays in view while scrolling. On phones it stacks: actions
-          and details first, then the work, then money and files. */}
-      <div className={mode === "print" ? "space-y-3 sm:space-y-4" : "flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_25rem]"}>
-        <div className="order-2 min-w-0 space-y-3 sm:space-y-4 lg:order-none">
+      <div className={forceAll ? "space-y-4" : styles.workspace}>
+        <div className={styles.sectionStack} aria-label="Order progress and operations">
           {/* ODOC H.1: admin-tier 'edits live in the quote' notice.
               Tells admins explicitly that the order doc is read-only,
               edits route through the source quote. Staff don't see it. */}
@@ -1021,18 +798,20 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
               two-driver + amendment cutoff. */}
           <OrderAlertBanners order={order} />
 
-          {/* Who brings the equipment back (quote "Equipment return"
-              choice). Everyone sees it; admins can change it. */}
-          {(order.service_sittings?.length || 0) < 2 && (!canManageServicePlan || !!order.delivered_at || ["delivered", "completed"].includes(order.status)) && <EquipmentReturnCard order={order} canEdit={canSeeFinance} onChanged={load} />}
-          {!isClient && (canManageServicePlan || (order.service_sittings?.length || 0) > 1) && <ServiceSittingsOperations orderId={order.id} companyId={order.company_id} canEdit={canManageServicePlan} onSaved={load} />}
-
             <OrderTimelineSection
               order={order}
               forceOpen={forceAll}
-              defaultOpen={true /* timeline is universal context */}
-              hideNowBanner={!staffAllowed}
+              defaultOpen
               onChanged={load}
             />
+            {showSittings && (
+              <div id="section-sittings" className={styles.anchor}>
+                <ServiceSittingsOperations orderId={order.id} companyId={order.company_id} canEdit={canManageServicePlan} onSaved={load} />
+              </div>
+            )}
+            {(order.service_sittings?.length || 0) < 2 && (!canManageServicePlan || !!order.delivered_at || ["delivered", "completed"].includes(order.status)) && (
+              <EquipmentReturnCard order={order} canEdit={canSeeFinance} onChanged={load} />
+            )}
             {/* ODOC: client-facing delivery + driver card. The staff
                 DriverSection (dispatch run-sheet + POD + actions) stays hidden
                 from clients; this is the read-only customer slice - who's
@@ -1061,12 +840,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
                 highlight={primary === "client"}
               />
             )}
-            {/* ODOC: Kitchen section is the canonical menu + equipment +
-                prep view. Default open so the menu isn't hidden behind a
-                tap. Role-gated: drivers get their own load list on the run
-                sheet and cleaning works from their queue, so neither needs
-                the prep view. Kitchen role still gets the highlight ring.
-                Hidden from clients - they get ClientMenuSection above. */}
+            {/* Kitchen staff open directly to their prep view. */}
             {!isClient && showFor("kitchen") && (
               <KitchenSection
                 orderId={order.id}
@@ -1076,7 +850,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
                 eventDate={order.event_date}
                 eventTime={order.event_time}
                 forceOpen={forceAll}
-                defaultOpen={true}
+                defaultOpen={primary === "kitchen"}
                 highlight={primary === "kitchen"}
               />
             )}
@@ -1096,7 +870,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
                     onOutstandingChange={setShoppingOutstanding}
                   />
                 )}
-                {showFor("driver") && (order.service_sittings?.length || 0) < 2 && (
+                {showDriver && (
                   <DriverSection
                     order={order}
                     forceOpen={forceAll}
@@ -1106,6 +880,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
                 )}
                 {showFor("waiter") && (
                   <WaiterSection
+                    key={order.id}
                     orderId={order.id}
                     companyId={order.company_id}
                     serviceRequired={!!(order.requires_waiter || order.waiter_service_required)}
@@ -1126,18 +901,18 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
               </>
             )}
             {canSeeFinance && (
-              <section id="section-staffing" className="mt-4">
+              <section id="section-staffing" className={styles.anchor}>
                 <OrderStaffingPanel orderId={order.id} companyId={order.company_id} order={order} />
               </section>
             )}
             {/* ODOC Wave E: customer feedback - only mounts post-delivery.
                 Section returns null when not delivered so the doc stays
                 tight for pre-event orders. */}
-            {showFor("feedback") && (
+            {showFeedback && (
               <FeedbackSection
                 orderId={order.id}
                 companyId={order.company_id}
-                delivered={order.status === "delivered" || order.status === "completed" || !!order.delivered_at}
+                delivered
                 canSendReviewRequest={canSeeFinance && !isClient}
                 forceOpen={forceAll}
                 defaultOpen={false}
@@ -1176,33 +951,14 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
             )}
         </div>
 
-        <aside className={mode === "print" ? "min-w-0 space-y-3 sm:space-y-4" : "order-1 min-w-0 space-y-3 sm:space-y-4 lg:order-none lg:sticky lg:top-16"} aria-label="Order details and actions">
-          <div className="min-w-0 space-y-3 sm:space-y-4">
-              {/* ODOC H.4: admin quick-action chip strip. Mirrors what the
-                  old OrderDetailsModal toolbar carried so the row-click
-                  migration from modal to doc keeps the same affordances:
-                  Quote / Client view / Copy link / Invoice / Call / WhatsApp
-                  / Email. Hidden in print + for non-admin viewers. */}
-              <OrderQuickActions
-                order={{
-                  id: order.id,
-                  order_number: order.order_number,
-                  client_name: order.client_name,
-                  client_phone: order.client_phone,
-                  client_email: order.client_email,
-                  quote_id: order.quote_id,
-                  assigned_driver_id: order.assigned_driver_id,
-                  assigned_chef_id: order.assigned_chef_id,
-                }}
-              />
-            <OrderHeaderSection
-              order={order}
-              forceOpen={forceAll}
-              defaultOpen={true /* header is always open - it's the title block */}
-              underDocumentHeader={!staffAllowed}
-              inSidePanel={mode !== "print"}
-            />
-          </div>
+        <aside className={styles.sectionStack} aria-label="Order reference">
+          <OrderHeaderSection
+            order={order}
+            forceOpen={forceAll}
+            defaultOpen={false}
+            underDocumentHeader
+            inSidePanel={mode !== "print"}
+          />
           {(isClient || mode === "print") && (
             <BankTransferDetailsCard
               details={order.bank_transfer_details}
@@ -1213,8 +969,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
               paidInFull={Boolean(order.balance_paid) || String(order.payment_status || "").toLowerCase() === "paid"}
             />
           )}
-          <div className="min-w-0 space-y-3 sm:space-y-4">
-            {/* ODOC: Finance section is permission-gated at render time.
+          {/* ODOC: Finance section is permission-gated at render time.
                 Staff roles + magic-link client mode never see it - data
                 never fetched, component never mounted. */}
             {canSeeFinance && (
@@ -1247,7 +1002,6 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
                 defaultOpen={false}
               />
             )}
-          </div>
         </aside>
       </div>
 

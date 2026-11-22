@@ -1,0 +1,19 @@
+1
+00:00:00,130 --> 00:00:04,970
+Cedar and Sage is setting up CateringMS for its first corporate lunch quote.
+
+2
+00:00:05,300 --> 00:00:08,160
+Enter the trading name your customers recognise.
+
+3
+00:00:08,440 --> 00:00:10,770
+Check the email your team monitors.
+
+4
+00:00:11,150 --> 00:00:13,330
+Then select Save and continue.
+
+5
+00:00:13,950 --> 00:00:19,740
+Set these details once. They carry through to your quotes, invoices, and customer emails.

@@ -113,11 +113,11 @@ export function KitchenServiceModeBadge() {
           <Icon className="h-4 w-4" />
         </span>
         <span className="min-w-0 text-left">
-          <span className="block text-[11px] font-bold uppercase tracking-[0.08em] leading-none">
+          <span className="block text-[13px] font-bold uppercase tracking-[0.08em] leading-tight lg:text-[11px] lg:leading-none">
             {meta.label}
           </span>
           {subline && (
-            <span className="block text-[11px] mt-0.5 leading-none opacity-90 truncate">
+            <span className="block text-[13px] mt-0.5 leading-tight opacity-90 truncate lg:text-[11px] lg:leading-none">
               {subline}
             </span>
           )}
@@ -133,8 +133,8 @@ export function KitchenServiceModeBadge() {
       <PopoverContent className="w-64 p-3" side="bottom" align="start">
         <div className="space-y-2">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Mode</p>
-            <p className="text-xs text-slate-600">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Mode</p>
+            <p className="text-[13px] text-slate-600">
               Auto-detected: <span className="font-semibold capitalize">{state.autoMode}</span>
               {state.override && (
                 <> &middot; <span className="text-brand-primary">overridden</span></>
@@ -155,7 +155,7 @@ export function KitchenServiceModeBadge() {
                     setOpen(false);
                   }}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-[11px] font-medium transition-all",
+                    "flex min-h-11 items-center gap-1.5 rounded-md border px-2 py-1.5 text-[13px] font-medium transition-all",
                     active
                       ? "border-brand-primary/40 bg-brand-primary/10 text-brand-primary"
                       : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
@@ -171,13 +171,13 @@ export function KitchenServiceModeBadge() {
             <button
               type="button"
               onClick={() => { state.setOverride(null); setOpen(false); }}
-              className="w-full flex items-center justify-center gap-1.5 text-[11px] text-slate-600 hover:text-slate-900 mt-1 py-1"
+              className="w-full min-h-11 flex items-center justify-center gap-1.5 text-[13px] text-slate-600 hover:text-slate-900 mt-1 py-1"
             >
               <RotateCcw className="h-3 w-3" />
               Clear override
             </button>
           )}
-          <p className="text-[10px] text-slate-500 leading-snug pt-1 border-t border-slate-100">
+          <p className="text-xs text-slate-500 leading-snug pt-1 border-t border-slate-100">
             Auto mode is based on today's first + last event. Override sticks for this browser session only.
           </p>
         </div>

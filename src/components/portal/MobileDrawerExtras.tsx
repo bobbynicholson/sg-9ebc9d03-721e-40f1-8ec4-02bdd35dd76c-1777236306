@@ -26,7 +26,7 @@ export function MobileSearchTrigger({
     <button
       type="button"
       onClick={fire}
-      className={`w-full min-h-11 flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm ${accent} transition-[color,background-color,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current active:scale-[0.99] motion-reduce:transform-none`}
+      className={`w-full min-h-11 flex items-center gap-2 rounded-lg px-3 py-2.5 text-[15px] lg:text-sm ${accent} transition-[color,background-color,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current active:scale-[0.99] motion-reduce:transform-none`}
     >
       <Search className="w-4 h-4 flex-shrink-0" />
       <span className="flex-1 text-left">{hint}</span>
@@ -58,7 +58,7 @@ export function MobileQuickActions({
   if (!actions.length) return null;
   return (
     <div>
-      <p className="px-1 mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/70 flex items-center gap-1">
+      <p className="px-1 mb-2 text-[13px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/70 flex items-center gap-1">
         <Sparkles className="w-3 h-3" />
         Quick actions
       </p>
@@ -76,9 +76,9 @@ export function MobileQuickActions({
                 <Icon className="w-4 h-4 text-white" />
               </div>
               <div className="min-w-0 w-full">
-                <div className="line-clamp-2 break-words text-xs font-semibold leading-tight text-slate-900 dark:text-slate-100">{a.label}</div>
+                <div className="line-clamp-2 break-words text-[14px] font-semibold leading-tight text-slate-900 dark:text-slate-100">{a.label}</div>
                 {a.sub && (
-                  <div className="mt-0.5 line-clamp-2 text-xs leading-tight text-slate-500 dark:text-white/70">{a.sub}</div>
+                  <div className="mt-0.5 line-clamp-2 text-[13px] leading-tight text-slate-500 dark:text-white/70">{a.sub}</div>
                 )}
               </div>
             </Link>

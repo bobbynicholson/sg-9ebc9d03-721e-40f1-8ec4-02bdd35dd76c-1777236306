@@ -281,9 +281,9 @@ export function OrderHeaderSection({ order, defaultOpen, forceOpen, underDocumen
       <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${inSidePanel ? "lg:grid-cols-1" : ""}`}>
         <div className="space-y-2">
           <p className="text-xs text-slate-500 uppercase tracking-wider">Event</p>
-          <div className="flex items-center gap-2 text-sm text-slate-700">
+          <div className="flex min-w-0 items-start gap-2 text-sm text-slate-700">
             <CalendarIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
-            <span>
+            <span className="min-w-0 break-words">
               {eventDateLong}
               {isMultiDay && (
                 <span className="text-slate-500"> - {new Date(order.event_end_date!).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "long" })}</span>
@@ -303,29 +303,29 @@ export function OrderHeaderSection({ order, defaultOpen, forceOpen, underDocumen
             </div>
           )}
           {(order.venue_name || order.venue_address) && (
-            <div className="flex items-start gap-2 text-sm text-slate-700">
+            <div className="flex min-w-0 items-start gap-2 text-sm text-slate-700">
               <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
-              <div className="min-w-0">
-                {order.venue_name && <p className="font-medium">{order.venue_name}</p>}
-                {order.venue_address && <p className="text-xs text-slate-500">{order.venue_address}</p>}
+              <div className="min-w-0 break-words">
+                {order.venue_name && <p className="break-words font-medium">{order.venue_name}</p>}
+                {order.venue_address && <p className="break-words text-xs text-slate-500">{order.venue_address}</p>}
               </div>
             </div>
           )}
         </div>
         <div className="space-y-2">
           <p className="text-xs text-slate-500 uppercase tracking-wider">Client</p>
-          <div className="flex items-center gap-2 text-sm text-slate-700">
+          <div className="flex min-w-0 items-start gap-2 text-sm text-slate-700">
             <User className="w-4 h-4 text-slate-400 flex-shrink-0" />
-            <span>{order.client_name || "-"}</span>
+            <span className="min-w-0 break-words">{order.client_name || "-"}</span>
           </div>
           {order.client_email && (
-            <div className="flex items-center gap-2 text-sm text-slate-700">
+            <div className="flex min-w-0 items-start gap-2 text-sm text-slate-700">
               <Mail className="w-4 h-4 text-slate-400 flex-shrink-0" />
-              <a href={`mailto:${order.client_email}`} className="hover:underline truncate">{order.client_email}</a>
+              <a href={`mailto:${order.client_email}`} className="min-w-0 break-all hover:underline">{order.client_email}</a>
             </div>
           )}
           {order.client_phone && (
-            <div className="flex items-center gap-2 text-sm text-slate-700">
+            <div className="flex min-w-0 items-start gap-2 text-sm text-slate-700">
               <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
               <a href={`tel:${order.client_phone}`} className="hover:underline">{order.client_phone}</a>
             </div>

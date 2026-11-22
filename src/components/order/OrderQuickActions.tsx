@@ -49,9 +49,10 @@ interface Props {
     assigned_driver_id?: string | null;
     assigned_chef_id?: string | null;
   };
+  onJumpToService?: () => void;
 }
 
-export function OrderQuickActions({ order }: Props) {
+export function OrderQuickActions({ order, onJumpToService }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
@@ -140,11 +141,17 @@ export function OrderQuickActions({ order }: Props) {
               <ChefHat className={menuIconClass} />Open kitchen
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href={withSlug(`${staffOrderHref(order.id, "admin")}#section-waiter`)}>
+          {onJumpToService ? (
+            <DropdownMenuItem onSelect={onJumpToService}>
               <UserPlus className={menuIconClass} />Assign waiter
-            </Link>
-          </DropdownMenuItem>
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem asChild>
+              <Link href={withSlug(`${staffOrderHref(order.id, "admin")}#section-waiter`)}>
+                <UserPlus className={menuIconClass} />Assign waiter
+              </Link>
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

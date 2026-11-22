@@ -170,7 +170,13 @@ export function ProtectedRoute({
                 Go to Dashboard
               </Button>
               <Button
-                onClick={() => router.back()}
+                onClick={() => {
+                  if (typeof window !== "undefined" && window.history.length > 1) {
+                    router.back();
+                  } else {
+                    redirectToHome();
+                  }
+                }}
                 variant="outline"
                 size="lg"
                 className="w-full"
