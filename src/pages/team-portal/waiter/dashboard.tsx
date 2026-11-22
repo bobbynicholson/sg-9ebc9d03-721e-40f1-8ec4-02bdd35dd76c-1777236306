@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import Link from "next/link";
 import { Clock, Sparkles, CheckCircle2, CalendarDays, Users } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
@@ -8,9 +9,12 @@ import { WaiterServicePanel, type WaiterServiceSummary } from "@/components/wait
 import { WaiterClockButton } from "@/components/waiter/WaiterClockButton";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { StatTile } from "@/components/portal/ui";
+import { Button } from "@/components/ui/button";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 function WaiterDashboardInner() {
   const { user } = useAuth();
+  const { withSlug } = useTenantHref();
   // Real counts from the service panel (it owns the data + realtime).
   const [summary, setSummary] = useState<WaiterServiceSummary | null>(null);
   const onSummary = useCallback((next: WaiterServiceSummary) => setSummary(next), []);
@@ -63,6 +67,12 @@ function WaiterDashboardInner() {
           <StatTile icon={CheckCircle2} label="Completed" value={value(summary?.completed ?? 0)} hint="Service marked complete" />
         </div>
       )}
+
+      <div className="mb-3 flex justify-end">
+        <Button asChild variant="outline" size="sm">
+          <Link href={withSlug("/team-portal/waiter/history")}>View completed service</Link>
+        </Button>
+      </div>
 
       <div id="service" className="mb-4 sm:mb-6 scroll-mt-24">
         <WidgetErrorBoundary label="Service today">

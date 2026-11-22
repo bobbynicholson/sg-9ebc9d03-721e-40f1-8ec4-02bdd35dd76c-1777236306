@@ -21,6 +21,7 @@ export function DriverPageShell({ children, gpsEnabled = true, ...props }: Drive
   const { user } = useAuth();
   const { activeTrip, isTracking, lastError, lastPingAt } = useDriverGPSPing(gpsEnabled ? user?.id ?? null : null);
   const showSittingTrips = /\/(dashboard|deliveries|routes|schedule|calendar)$/.test(router.pathname);
+  const tripSchemaPending = Boolean(lastError?.includes("database migration 20261114180000"));
 
   return (
     <OperationalPortalPageShell
@@ -38,7 +39,7 @@ export function DriverPageShell({ children, gpsEnabled = true, ...props }: Drive
               <MapPin className="mr-1 h-3 w-3" />
               {activeTrip
                 ? isTracking && !lastError ? "GPS saved to this trip" : "Trip timer running · GPS needs attention"
-                : "Could not check the active trip timer"}
+                : tripSchemaPending ? "Trip tracking setup needs an update" : "Could not check the active trip timer"}
               {lastPingAt ? ` · last ping ${new Date(lastPingAt).toLocaleTimeString()}` : ""}
             </Badge>
             {lastError && <span className="text-xs text-amber-800">{lastError}</span>}

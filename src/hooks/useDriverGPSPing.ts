@@ -2,6 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { updateDriverLocation, type ActiveDriverTrip } from "@/services/driver/gpsTracking";
 
+function driverTripErrorMessage(message?: string | null) {
+  const text = String(message || "");
+  if (
+    /column .* does not exist/i.test(text)
+    && /driver_assignment_id|service_sitting_id|assignment_type|gps_trip_duration_minutes|driver_shift_id/.test(text)
+  ) {
+    return "Driver GPS attribution needs database migration 20261114180000_driver_gps_trip_attribution.sql. Apply the pending Supabase migrations to enable trip tracking.";
+  }
+  return text || "The active driver timer could not be read.";
+}
+
 async function requestWakeLock(): Promise<any | null> {
   try {
     if (typeof navigator === "undefined" || !("wakeLock" in navigator)) return null;
@@ -48,7 +59,7 @@ export function useDriverGPSPing(
         .maybeSingle();
       if (cancelled) return;
       if (error) {
-        setLastError(error.message || "The active driver timer could not be read.");
+        setLastError(driverTripErrorMessage(error.message));
         setActiveTrip(null);
         return;
       }
@@ -132,7 +143,7 @@ export function useDriverGPSPing(
           speed: position.coords.speed ?? undefined,
         }, trip);
         if (stopped) return;
-        if (!result.success) setLastError(result.error || "The GPS trip point could not be saved.");
+        if (!result.success) setLastError(driverTripErrorMessage(result.error || "The GPS trip point could not be saved."));
         else {
           setLastError(null);
           setLastPingAt(now);

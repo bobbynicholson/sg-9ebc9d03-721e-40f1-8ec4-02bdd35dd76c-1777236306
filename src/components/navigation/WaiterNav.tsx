@@ -4,6 +4,7 @@ import {
   Clock,
   Bell,
   User,
+  History,
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
 import { WAITER_PORTAL_PALETTE as BRAND_PORTAL_PALETTE, WAITER_ACCENT as BRAND_ACCENT } from "@/lib/branding/portalPalette";
@@ -35,6 +36,14 @@ const config: PortalSidebarConfig = {
         { title: "Clock", href: "/team-portal/waiter/dashboard#clock", icon: Clock, description: "Clock in / out for your shift" },
       ],
     },
+      {
+        id: "service-history",
+        title: "Service history",
+        defaultOpen: false,
+        items: [
+          { title: "Completed service", href: "/team-portal/waiter/history", icon: History, description: "Orders you served and closed" },
+        ],
+      },
     {
       id: "footer",
       title: "",
