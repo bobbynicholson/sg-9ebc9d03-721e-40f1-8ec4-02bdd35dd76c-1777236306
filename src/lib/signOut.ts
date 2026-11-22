@@ -66,6 +66,12 @@ export async function signOutAndRedirect(profile?: any | null) {
   // Resolve target BEFORE clearing storage - once we wipe localStorage
   // we lose any role hints we might have read from there.
   const target = pickLoginPath(profile, slug);
+  // Keep the global product shell covered while auth state clears and the
+  // browser leaves the protected page. Otherwise its global footer can flash
+  // beneath the now-empty ProtectedRoute for a moment.
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("cateringms:signout-start"));
+  }
   try {
     const supabase = createClient();
     await supabase.auth.signOut();

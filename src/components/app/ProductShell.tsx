@@ -1,6 +1,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/router";
+import { Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { TenantBrandingApplier } from "@/components/TenantBrandingApplier";
 import { PortalTimeSync } from "@/components/PortalTimeSync";
@@ -166,6 +167,32 @@ function PwaStartupGate() {
   return null;
 }
 
+/** Covers the still-mounted app shell during the sign-out redirect. */
+function SignOutTransition() {
+  const [signingOut, setSigningOut] = useState(false);
+
+  useEffect(() => {
+    const onSignOutStart = () => setSigningOut(true);
+    window.addEventListener("cateringms:signout-start", onSignOutStart);
+    return () => window.removeEventListener("cateringms:signout-start", onSignOutStart);
+  }, []);
+
+  if (!signingOut) return null;
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex min-h-screen items-center justify-center bg-white/95 px-4 text-slate-700 backdrop-blur-sm dark:bg-slate-950/95 dark:text-slate-200"
+      role="status"
+      aria-live="assertive"
+      aria-label="Signing out"
+    >
+      <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+        <Loader2 className="h-5 w-5 animate-spin text-brand-primary" />
+        <span className="text-sm font-medium">Signing out securely…</span>
+      </div>
+    </div>
+  );
+}
+
 /**
  * The full app shell for every page that is not a public marketing page:
  * the real auth provider, tenant branding, company time zone, region filter,
@@ -176,6 +203,7 @@ export default function ProductShell({ children, initialBranding }: { children: 
   return (
       <AuthProvider>
         <PwaStartupGate />
+        <SignOutTransition />
         <TenantBrandingApplier initialBranding={initialBranding} />
         {/* Company time zone + 12/24-hour format for every page. */}
         <PortalTimeSync />
