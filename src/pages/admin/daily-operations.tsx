@@ -203,7 +203,7 @@ function ScheduleCard({
       ? "Run on the selected weekdays every week, whether or not a staff shift is entered."
       : "Run every day, including days with no staff shift.";
   return (
-    <PortalCard className="min-w-0">
+    <PortalCard id={`${kind}-cleaning-schedule`} className="min-w-0 scroll-mt-24">
       <div className="mb-5 flex items-start justify-between gap-3 sm:gap-4">
         <div className="flex min-w-0 items-start gap-3">
           <div className="shrink-0 rounded-xl bg-brand-primary/10 p-2.5 text-brand-primary">{kitchen ? <CookingPot className="h-5 w-5" /> : <Droplets className="h-5 w-5" />}</div>

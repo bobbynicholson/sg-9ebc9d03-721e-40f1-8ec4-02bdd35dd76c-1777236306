@@ -379,28 +379,29 @@ export function AdminNav(_: AdminNavProps = {}) {
       title: "Settings",
       defaultOpen: false,
       items: [
-        { title: "Company",               href: "/admin/company-profile",       icon: Building2,     description: "Address and routing" },
-        { title: "Branding",              href: "/admin/white-label",           icon: Palette,       description: "Logo, colours, fonts" },
-        { title: "Kitchen",               href: "/admin/kitchen-settings",      icon: CookingPot,    description: "Prep and dietary rules" },
-        { title: "Email",                 href: "/admin/email-settings",        icon: Mail,          description: "SMTP and providers" },
-        { title: "Integrations",          href: "/admin/integrations",          icon: Zap,           description: "Apps and webhooks" },
-        { title: "Lead forms",            href: "/admin/integrations/embed",    icon: Code2,         description: "Public forms" },
-        { title: "Messages",              href: "/admin/email-templates",       icon: MessageSquare, description: "Email and WhatsApp templates" },
-        { title: "Audit log",             href: "/admin/audit-logs",            icon: Shield,        description: "Compliance trail - who did what" },
+        { title: "Company profile",       href: "/admin/company-profile",       icon: Building2,     description: "Company details, tax and documents", groupHeading: "Company" },
+        { title: "Branding",              href: "/admin/white-label",           icon: Palette,       description: "Logo, colours and fonts" },
+        { title: "Kitchen rules",         href: "/admin/kitchen-settings",      icon: CookingPot,    description: "Prep and dietary rules", groupHeading: "Business rules" },
+        { title: "Cleaning schedules",    href: "/admin/daily-operations",      icon: Sparkles,      description: "Recurring kitchen and equipment cleaning" },
+        { title: "Business defaults",     href: "/admin/settings",              icon: Settings,      description: "Finance, pricing, dispatch and policies" },
+        { title: "Email delivery",        href: "/admin/email-settings",        icon: Mail,          description: "Sender details and delivery provider", groupHeading: "Customer messages" },
+        { title: "Message templates",     href: "/admin/email-templates",       icon: MessageSquare, description: "Email and WhatsApp wording" },
+        { title: "Integrations",          href: "/admin/integrations",          icon: Zap,           description: "Accounting apps, webhooks and API access", groupHeading: "Connections" },
+        { title: "Lead forms",            href: "/admin/integrations/embed",    icon: Code2,         description: "Public enquiry forms" },
+        { title: "Audit log",             href: "/admin/audit-logs",            icon: Shield,        description: "Who changed what and when", groupHeading: "Access & records" },
         ...((profile && [UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN].includes(effectiveRole)) ? [
-          { title: "AI brain", href: "/admin/ai-brain", icon: Brain, description: "Manage approved assistant knowledge" },
+          { title: "AI brain", href: "/admin/ai-brain", icon: Brain, description: "Manage approved assistant knowledge", groupHeading: "Assistant" },
           { title: "AI access", href: "/admin/ai-brain/access", icon: Shield, description: "Manage role live-data tools" },
         ] : []),
         ...(profile && canAccessFinance(effectiveRole)
           ? [
-              { title: "Subscription", href: "/admin/subscription", icon: CreditCard, description: "Your CateringMS plan and billing" },
+              { title: "Subscription", href: "/admin/subscription", icon: CreditCard, description: "Your CateringMS plan and billing", groupHeading: "Plan & payments" },
               // Payment gateways had NO tenant nav entry - the page
               // worked but only if the operator typed the URL, and the
               // Yoco webhook error message even pointed here.
-              { title: "Payment gateways", href: "/admin/payment-gateways", icon: CreditCard, description: "PayFast, Yoco, Stripe credentials" },
+              { title: "Payment gateways", href: "/admin/payment-gateways", icon: CreditCard, description: "PayFast, Yoco and Stripe credentials" },
             ]
           : []),
-        { title: "System",                href: "/admin/settings",              icon: Settings,      description: "General settings" },
       ],
     } as PortalSidebarSection] : []),
     // PLATFORM - super_admin only. /admin/platform/* are global prefixes.

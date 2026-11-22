@@ -1,24 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
-import Link from "next/link";
 import {
-  ArrowRight,
   Building2,
   CheckCircle,
-  Code2,
-  CookingPot,
   Loader2,
-  Mail,
-  MessageSquare,
-  Palette,
   Save,
   Settings,
-  Shield,
-  Sparkles,
   SlidersHorizontal,
-  Zap,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 
 import { AdminNav } from "@/components/admin/AdminNav";
 import { DispatchSettingsTab } from "@/components/admin/dispatch/DispatchSettingsTab";
@@ -40,7 +29,6 @@ import { PortalHeader, PageWorkbench, PortalShell } from "@/components/portal/ui
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useTenantHref } from "@/lib/tenantUrl";
 import { UserRole } from "@/types/app";
 import { DEFAULT_PAYMENT_TERMS } from "@/lib/paymentTerms";
 import { DEFAULT_PAYMENT_REMINDERS, readPaymentDueSettings, readPaymentReminderSettings } from "@/lib/paymentReminderSchedule";
@@ -94,87 +82,6 @@ const DEFAULT_SETTINGS: AdminSettings = {
   },
 };
 
-interface SettingsShortcut {
-  title: string;
-  description: string;
-  href: string;
-  icon: LucideIcon;
-  source: string;
-}
-
-const SETTINGS_SHORTCUTS: SettingsShortcut[] = [
-  {
-    title: "Company profile",
-    description: "Company details, VAT, banking, address and document numbers.",
-    href: "/admin/company-profile",
-    icon: Building2,
-    source: "companies",
-  },
-  {
-    title: "Branding",
-    description: "Logo, colours and fonts used across every portal.",
-    href: "/admin/white-label",
-    icon: Palette,
-    source: "companies",
-  },
-  {
-    title: "Kitchen rules",
-    description: "Prep timing, dietary flags and stock rules for the kitchen.",
-    href: "/admin/kitchen-settings",
-    icon: CookingPot,
-    source: "companies.kitchen_settings",
-  },
-  {
-    title: "Cleaning schedules",
-    description: "Choose cleaning days, times and who receives reminders.",
-    href: "/admin/daily-operations",
-    icon: Sparkles,
-    source: "company_daily_operations_settings",
-  },
-  {
-    title: "Email delivery",
-    description: "Sender name, your own domain and automatic client emails.",
-    href: "/admin/email-settings",
-    icon: Mail,
-    source: "email_provider_settings",
-  },
-  {
-    title: "Integrations",
-    description: "Accounting apps, Zapier, webhooks and API keys.",
-    href: "/admin/integrations",
-    icon: Zap,
-    source: "api_keys + webhooks",
-  },
-  {
-    title: "Lead forms",
-    description: "Enquiry forms for your website and how well they convert.",
-    href: "/admin/integrations/embed",
-    icon: Code2,
-    source: "embed_form_configs",
-  },
-  {
-    title: "WhatsApp",
-    description: "Connect your WhatsApp Business account and choose automatic messages.",
-    href: "/admin/whatsapp",
-    icon: MessageSquare,
-    source: "integrations",
-  },
-  {
-    title: "Messages",
-    description: "Email and WhatsApp wording, sent log and automation.",
-    href: "/admin/email-templates",
-    icon: MessageSquare,
-    source: "email_templates",
-  },
-  {
-    title: "Audit logs",
-    description: "A record of who changed what, with filters and CSV export.",
-    href: "/admin/audit-logs",
-    icon: Shield,
-    source: "audit_logs",
-  },
-];
-
 export default function ProtectedSettingsPage() {
   return (
     <ProtectedRoute
@@ -193,7 +100,6 @@ export default function ProtectedSettingsPage() {
 function SettingsPage() {
   const { profile, user, company } = useAuth() as any;
   const companyId = company?.id || profile?.company_id || user?.company_id || null;
-  const { withSlug } = useTenantHref();
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -205,6 +111,21 @@ function SettingsPage() {
   // Set when the DB read fails and we fell back to the local cache.
   const [loadFailed, setLoadFailed] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
+  const [defaultsTab, setDefaultsTab] = useState("financial");
+
+  useEffect(() => {
+    const tabForHash = (hash: string) => {
+      const match = hash.match(/^#settings-(financial|pricing|operations|roles|automation|inventory|dispatch|cancellation)$/);
+      return match?.[1] || (["#payment-reminders", "#payment-due"].includes(hash) ? "financial" : null);
+    };
+    const syncTabToHash = () => {
+      const tab = tabForHash(window.location.hash);
+      if (tab) setDefaultsTab(tab);
+    };
+    syncTabToHash();
+    window.addEventListener("hashchange", syncTabToHash);
+    return () => window.removeEventListener("hashchange", syncTabToHash);
+  }, []);
 
   useEffect(() => {
     if (!companyId) {
@@ -413,8 +334,8 @@ function SettingsPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
       toast({
-        title: invoiceDateRefreshError ? "Settings saved; invoice dates need a retry" : "Settings saved",
-        description: invoiceDateRefreshError || "Operational defaults and open invoice due dates are now saved for this company.",
+        title: invoiceDateRefreshError ? "Business defaults saved; invoice dates need a retry" : "Business defaults saved",
+        description: invoiceDateRefreshError || "Company-wide rules and open invoice due dates are now saved.",
         variant: invoiceDateRefreshError ? "destructive" : "default",
       });
     } catch (error: any) {
@@ -433,7 +354,7 @@ function SettingsPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Settings - CateringMS</title>
+        <title>Business defaults - CateringMS</title>
       </Head>
 
       <AdminNav />
@@ -444,16 +365,16 @@ function SettingsPage() {
             variant="hero"
             title={
               <span className="flex items-center gap-2">
-                Settings
+                Business defaults
                 <InfoTooltip
                   content={
-                    "Use the setup cards for specialist areas such as company profile, branding, email, integrations, forms, templates, notifications, and audit logs.\n\nUse Operational defaults for pricing, finance, kitchen capacity, dispatch, inventory, and cancellation policy values that drive the system."
+                    "These are company-wide rules for financial terms, pricing, operations, team-role compatibility, automation, inventory, dispatch and order policies. Specialist pages such as company profile, branding, email, integrations and templates are in the Settings sidebar. Some specialist pages save their own changes."
                   }
                 />
               </span>
             }
             icon={Settings}
-            subtitle="Open a setup area or update the operational defaults used by your company."
+            subtitle="Manage the company-wide rules used for pricing, finance, operations and order handling."
             meta={
               !isLoadingCurrentCompany && company ? (
                 <>
@@ -527,36 +448,20 @@ function SettingsPage() {
             <Card className="mb-6 border-0 bg-brand-primary/10 shadow">
               <CardContent className="flex items-center gap-2 px-4 py-3 text-sm font-medium text-brand-primary">
                 <CheckCircle className="h-4 w-4" />
-                Settings saved successfully.
+                Business defaults saved successfully.
               </CardContent>
             </Card>
           )}
-
-          {companyId && <section className="mb-8">
-            <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-slate-900">Setup areas</h2>
-                <p className="text-sm text-slate-600">
-                  Open the area you want to configure.
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {SETTINGS_SHORTCUTS.map((item) => (
-                <SettingsShortcutCard key={item.href} item={item} href={withSlug(item.href)} />
-              ))}
-            </div>
-          </section>}
 
           <section>
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
                   <SlidersHorizontal className="h-4 w-4 text-slate-500" />
-                  Operational defaults
+                  Company-wide rules
                 </h2>
                 <p className="text-sm text-slate-600">
-                  Choose an area, update its defaults and save your changes.
+                  Choose a category. Some tabs save here; inventory, dispatch and policies have their own save controls.
                 </p>
               </div>
               {hasUnsavedChanges && (
@@ -581,8 +486,24 @@ function SettingsPage() {
                 </CardContent>
               </Card>
             ) : (
-              <Tabs key={companyId} defaultValue="financial" className="space-y-4 md:space-y-6">
-                <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
+              <Tabs key={companyId} value={defaultsTab} onValueChange={setDefaultsTab} className="space-y-4 md:space-y-6">
+                <label htmlFor="business-defaults-category" className="sr-only">Business defaults category</label>
+                <select
+                  id="business-defaults-category"
+                  value={defaultsTab}
+                  onChange={(event) => setDefaultsTab(event.target.value)}
+                  className="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 shadow-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/30 sm:hidden"
+                >
+                  <option value="financial">Financial</option>
+                  <option value="pricing">Pricing</option>
+                  <option value="operations">Operations</option>
+                  <option value="roles">Team roles</option>
+                  <option value="automation">Automation</option>
+                  <option value="inventory">Inventory</option>
+                  <option value="dispatch">Dispatch</option>
+                  <option value="cancellation">Terms &amp; Policies</option>
+                </select>
+                <TabsList className="hidden h-auto w-full flex-wrap justify-start gap-1 sm:flex">
                   <TabsTrigger value="financial" className="whitespace-nowrap text-xs md:text-sm">Financial</TabsTrigger>
                   <TabsTrigger value="pricing" className="whitespace-nowrap text-xs md:text-sm">Pricing</TabsTrigger>
                   <TabsTrigger value="operations" className="whitespace-nowrap text-xs md:text-sm">Operations</TabsTrigger>
@@ -647,33 +568,6 @@ function SettingsPage() {
 
 
     </>
-  );
-}
-
-function SettingsShortcutCard({ item, href }: { item: SettingsShortcut; href: string }) {
-  const Icon = item.icon;
-  return (
-    <Card className="transition-shadow hover:shadow-lg">
-      <CardContent className="flex h-full flex-col gap-4 p-4">
-        <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
-            <Icon className="h-5 w-5" />
-          </span>
-          <div className="min-w-0">
-            <h3 className="font-semibold text-slate-900">{item.title}</h3>
-            <p className="mt-1 text-sm leading-relaxed text-slate-600">{item.description}</p>
-          </div>
-        </div>
-        <div className="mt-auto flex items-center justify-end gap-3 border-t border-slate-100 pt-3">
-          <Button asChild variant="ghost" size="sm" className="gap-1.5">
-            <Link href={href}>
-              Open
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 

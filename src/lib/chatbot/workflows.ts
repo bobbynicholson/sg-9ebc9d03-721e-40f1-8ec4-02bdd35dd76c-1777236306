@@ -177,7 +177,7 @@ export const WORKFLOW_DEFINITIONS: WorkflowDefinition[] = [
     keywords: ["payment reminder", "payment reminders", "stop payment reminders", "turn off payment reminders", "turn off reminders", "reminder days", "remind clients to pay", "set up reminders", "payment terms", "pay after event", "too many reminders"],
     roles: ADMIN,
     steps: [
-      { id: "payment-due", title: "Set when payment is due", description: "In Settings, Financial, set Payment is due to a number of days before the event (clients who pay upfront) or after it (clients on terms, for example 30 days). Invoice due dates follow this.", ref: "admin.settings.payment-due" },
+      { id: "payment-due", title: "Set when payment is due", description: "In Business defaults → Financial, set Payment is due to a number of days before the event (clients who pay upfront) or after it (clients on terms, for example 30 days). Invoice due dates follow this.", ref: "admin.settings.payment-due" },
       { id: "payment-reminder", title: "Choose the payment reminder", description: "Under Payment reminders pick Don't send payment reminders, or Send one reminder before payment is due and enter the number of days. Then press Save defaults at the top of the page.", ref: "admin.settings.payment-reminders" },
       { id: "client-override", title: "Optional: a different rule for one client", description: "In Contacts, open the client, choose Edit, then More details. Under Payment due date and reminder set this client's own rule; anything left on Same as company setting follows Settings.", ref: "admin.contacts.page" },
     ],
