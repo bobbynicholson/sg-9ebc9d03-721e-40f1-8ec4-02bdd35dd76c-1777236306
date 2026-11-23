@@ -8,7 +8,7 @@
  * one item each, wasting hierarchy on quiet items.
  *
  * Now:
- *   LIVE NOW    - Today, Clock, Routes, Current Stop, All Deliveries, Calendar
+ *   LIVE NOW    - Today, Clock, Routes, All Deliveries, Calendar
  *   HISTORY     - Earnings
  *   Footer      - Notifications, Profile
  *
@@ -17,12 +17,11 @@
 import {
   LayoutDashboard,
   Truck,
-  MapPin,
   Banknote,
   Calendar,
   User,
   Bell,
-  Navigation,
+  Route,
   Clock,
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
@@ -45,8 +44,6 @@ const config: PortalSidebarConfig = {
   searchHint: "Search routes, deliveries...",
   dashboardHref: "/team-portal/driver/dashboard",
   mobileQuickActions: [
-    { href: "/team-portal/driver/routes",         label: "Today's routes", sub: "What you're driving", icon: Navigation, accent: BRAND_ACCENT },
-    { href: "/team-portal/driver/routes#current", label: "Current stop",   sub: "Brief + status",      icon: MapPin,     accent: BRAND_ACCENT },
     { href: "/team-portal/driver/earnings",       label: "My earnings",    sub: "Hours + pay",         icon: Banknote,   accent: BRAND_ACCENT },
   ],
   sections: [
@@ -60,13 +57,7 @@ const config: PortalSidebarConfig = {
         // Surfaced as its own labelled item so a driver looking for
         // "the clock" finds it instantly at shift start / end.
         { title: "Clock",        href: "/team-portal/driver/dashboard#clock", icon: Clock,           description: "Clock in / out for your shift" },
-        { title: "Routes",       href: "/team-portal/driver/routes",    icon: Navigation,      description: "What you're driving", groupHeading: "Deliveries" },
-        // Command-centre consolidation: the old /tracking page was a strict
-        // subset of the routes board's current-stop panel (same order, same
-        // actions, minus the map). Its manifest now lives on the routes page
-        // and /tracking redirects there, so "Current Stop" deep-links to the
-        // in-progress card instead of a duplicate page.
-        { title: "Current Stop", href: "/team-portal/driver/routes#current", icon: MapPin,   description: "Brief, manifest and status" },
+        { title: "Routes",       href: "/team-portal/driver/routes", icon: Route, description: "Current stop and delivery sequence", groupHeading: "Deliveries" },
         // "All Deliveries" is a primary destination (every job assigned to the
         // driver, plus the per-leg confirmation panel) - it was buried in a
         // collapsed History section, so it now sits in Live now for one-tap

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Truck, CheckCircle2, Clock, Package, Loader2, Search, Navigation, ExternalLink,
-  Phone, MessageCircle, Mail, RefreshCw, ChevronDown, ChevronUp, ClipboardCheck,
+  Phone, MessageCircle, Mail, RefreshCw, ChevronDown, ChevronUp, ClipboardCheck, Route, MapPin,
 } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
@@ -339,21 +339,21 @@ function DriverDeliveriesInner() {
           splitCards
           actions={
             <>
-              {/* Consolidation repoints: /schedule folded into the calendar
-                  agenda and /tracking into the routes board's current-stop
-                  card, so link straight there instead of via the redirects. */}
-              <Link
-                href={withSlug("/team-portal/driver/calendar")}
-                className="inline-flex min-h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                Schedule
-              </Link>
-              <Link
-                href={withSlug("/team-portal/driver/routes#current")}
-                className="inline-flex min-h-9 items-center rounded-md bg-brand-primary px-3 text-sm font-semibold text-white hover:opacity-90"
-              >
-                Current stop
-              </Link>
+              <Button asChild variant="outline" className="min-h-[44px] px-3 sm:min-h-0">
+                <Link href={withSlug("/team-portal/driver/routes")}>
+                  <Route aria-hidden="true" />
+                  Routes
+                </Link>
+              </Button>
+              <Button asChild className="min-h-[44px] px-3 sm:min-h-0">
+                <Link href={withSlug("/team-portal/driver/routes#current")}>
+                  <MapPin aria-hidden="true" />
+                  Current stop
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="min-h-[44px] px-3 sm:min-h-0">
+                <Link href={withSlug("/team-portal/driver/calendar")}>Schedule</Link>
+              </Button>
             </>
           }
         />
@@ -398,12 +398,6 @@ function DriverDeliveriesInner() {
                     className="inline-flex min-h-10 items-center rounded-md bg-brand-primary px-4 text-sm font-semibold text-white hover:opacity-90"
                   >
                     View calendar
-                  </Link>
-                  <Link
-                    href={withSlug("/team-portal/driver/routes")}
-                    className="inline-flex min-h-10 items-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                  >
-                    Open routes
                   </Link>
                 </div>
               </div>
@@ -493,12 +487,6 @@ function DeliveryList({
             className="inline-flex min-h-9 items-center rounded-md bg-brand-primary px-3 text-sm font-semibold text-white hover:opacity-90"
           >
             View calendar
-          </Link>
-          <Link
-            href={withSlug("/team-portal/driver/routes")}
-            className="inline-flex min-h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-          >
-            Open routes
           </Link>
         </div>
       </div>

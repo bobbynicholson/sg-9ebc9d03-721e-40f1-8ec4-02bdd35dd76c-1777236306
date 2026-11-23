@@ -56,6 +56,7 @@ import { OrderAmendmentBanner } from "./OrderAmendmentBanner";
 import { OrderCODBanner } from "./OrderCODBanner";
 import { OrderEditNotice } from "./OrderEditNotice";
 import { OrderQuickActions } from "./OrderQuickActions";
+import { CollapsibleSection } from "./sections/CollapsibleSection";
 import { OrderTimelineSection } from "./sections/OrderTimelineSection";
 import { KitchenSection } from "./sections/KitchenSection";
 import { ShoppingSection } from "./sections/ShoppingSection";
@@ -805,9 +806,16 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
               onChanged={load}
             />
             {showSittings && (
-              <div id="section-sittings" className={styles.anchor}>
-                <ServiceSittingsOperations orderId={order.id} companyId={order.company_id} canEdit={canManageServicePlan} onSaved={load} />
-              </div>
+              <CollapsibleSection
+                id="section-sittings"
+                title="Service sittings & trips"
+                summary="Service times, drivers and equipment returns"
+                icon={CalendarDays}
+                forceOpen={forceAll}
+                keepMounted
+              >
+                <ServiceSittingsOperations orderId={order.id} companyId={order.company_id} canEdit={canManageServicePlan} onSaved={load} embedded />
+              </CollapsibleSection>
             )}
             {(order.service_sittings?.length || 0) < 2 && (!canManageServicePlan || !!order.delivered_at || ["delivered", "completed"].includes(order.status)) && (
               <EquipmentReturnCard order={order} canEdit={canSeeFinance} onChanged={load} />
@@ -901,9 +909,16 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
               </>
             )}
             {canSeeFinance && (
-              <section id="section-staffing" className={styles.anchor}>
-                <OrderStaffingPanel orderId={order.id} companyId={order.company_id} order={order} />
-              </section>
+              <CollapsibleSection
+                id="section-staffing"
+                title="Order staffing & time"
+                summary="Team assignments and tracked time"
+                icon={Users}
+                forceOpen={forceAll}
+                keepMounted
+              >
+                <OrderStaffingPanel orderId={order.id} companyId={order.company_id} order={order} embedded />
+              </CollapsibleSection>
             )}
             {/* ODOC Wave E: customer feedback - only mounts post-delivery.
                 Section returns null when not delivered so the doc stays

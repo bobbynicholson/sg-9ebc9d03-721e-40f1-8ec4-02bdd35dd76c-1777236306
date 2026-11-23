@@ -126,7 +126,19 @@ function DriverMultiSelect({
   );
 }
 
-export function ServiceSittingsOperations({ orderId, companyId, canEdit = false, onSaved }: { orderId: string; companyId: string; canEdit?: boolean; onSaved?: () => void }) {
+export function ServiceSittingsOperations({
+  orderId,
+  companyId,
+  canEdit = false,
+  onSaved,
+  embedded = false,
+}: {
+  orderId: string;
+  companyId: string;
+  canEdit?: boolean;
+  onSaved?: () => void;
+  embedded?: boolean;
+}) {
   const uid = useId();
   const [rows, setRows] = useState<SittingOperations[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -285,9 +297,10 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
   }
   if (loading && !rows.length) return <p className="text-sm text-slate-600" role="status">Loading service sittings…</p>;
   if (!canEdit && rows.length < 2 && !error) return null;
-  return <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5" aria-labelledby={`${uid}-title`}>
-    <h2 id={`${uid}-title`} className="text-base font-semibold text-slate-950 sm:text-lg">Service sittings &amp; trips</h2>
-    <p className="mt-1 text-xs leading-relaxed text-slate-600 sm:text-sm">{mayEdit ? "Manage guest splits, service times, drivers and equipment returns under one booking." : "Review sitting details, drivers and equipment returns for this booking."}</p>
+  const Panel = embedded ? "div" : "section";
+  return <Panel className={embedded ? "min-w-0" : "min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5"} aria-labelledby={embedded ? undefined : `${uid}-title`}>
+    {!embedded && <h2 id={`${uid}-title`} className="text-base font-semibold text-slate-950 sm:text-lg">Service sittings &amp; trips</h2>}
+    <p className={`${embedded ? "" : "mt-1 "}text-xs leading-relaxed text-slate-600 sm:text-sm`}>{mayEdit ? "Manage guest splits, service times, drivers and equipment returns under one booking." : "Review sitting details, drivers and equipment returns for this booking."}</p>
     {mayEdit && <div className="mt-4 flex flex-wrap items-center gap-3">
       {rows.length < 12 && totalGuests > 1 && <Button type="button" variant="outline" disabled={saving || loading} onClick={addSitting}>{rows.length === 1 ? "Split into two sittings" : "Add sitting"}</Button>}
       <p role="status" className={`text-sm ${allocated === totalGuests ? "text-slate-600" : "font-medium text-red-800"}`}>{allocated} of {totalGuests} guests allocated</p>
@@ -456,5 +469,5 @@ export function ServiceSittingsOperations({ orderId, companyId, canEdit = false,
       })}</div>
       {mayEdit && <div className="flex flex-wrap items-center gap-3"><Button type="button" disabled={saving || loading || allocated !== totalGuests} onClick={() => void save()}>{saving ? "Saving schedule…" : "Save sitting schedule"}</Button>{saved && <p className="text-sm text-green-800" role="status">{saveNotice}</p>}{error && <p className="text-sm font-medium text-red-800">Not saved: {error}</p>}</div>}
     </>}
-  </section>;
+  </Panel>;
 }

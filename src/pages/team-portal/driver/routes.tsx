@@ -66,6 +66,12 @@ const RouteMap = dynamic(
   { ssr: false }
 );
 
+const ACTIVE_STOP_STATUSES = new Set(["in_transit", "in_progress", "at_venue", "picked_up", "en_route"]);
+
+function isStopInProgress(status?: string) {
+  return ACTIVE_STOP_STATUSES.has(status?.toLowerCase() ?? "");
+}
+
 /** One food line the driver loads off the kitchen bench. Merged in
  *  from the old /tracking page (single "driving" page restructure). */
 interface MenuLine {
@@ -197,6 +203,18 @@ function DriverRoutesInner() {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (loading || window.location.hash !== "#current") return;
+
+    // Next.js can try the fragment before the route card has loaded.
+    const frame = window.requestAnimationFrame(() => {
+      if (window.location.hash === "#current") {
+        document.getElementById("current")?.scrollIntoView({ block: "start" });
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [loading]);
+
   const loadOptimizedRoute = async () => {
     if (!user?.id || !user?.company_id) return;
 
@@ -209,11 +227,17 @@ function DriverRoutesInner() {
       setRoute(optimizedRoute);
       
       if (optimizedRoute) {
-        // Find first incomplete stop
-        const firstPending = optimizedRoute.stops.findIndex(
+        // An in-progress delivery takes precedence over the planned sequence.
+        const activeStopIndex = optimizedRoute.stops.findIndex((stop) => isStopInProgress(stop.status));
+        const firstIncomplete = optimizedRoute.stops.findIndex(
           stop => stop.status !== "completed" && stop.status !== "delivered"
         );
-        setCurrentStopIndex(firstPending >= 0 ? firstPending : 0);
+        const nextStopIndex = activeStopIndex >= 0 ? activeStopIndex : Math.max(firstIncomplete, 0);
+        if (optimizedRoute.stops[nextStopIndex]?.order_id !== currentOrderId) {
+          setManifest(null);
+          setAssignment(null);
+        }
+        setCurrentStopIndex(nextStopIndex);
         
         // Check if trip was already started
         const hasStartedStop = optimizedRoute.stops.some(
@@ -427,10 +451,8 @@ function DriverRoutesInner() {
       // Walk every in-flight stop back to ready. Stops already
       // delivered are left alone - cancelling shouldn't un-deliver
       // history.
-      const REVERTABLE = new Set(["in_transit", "in_progress", "at_venue", "picked_up", "en_route"]);
       for (const stop of route.stops) {
-        const stat = String((stop as any).status || "").toLowerCase();
-        if (REVERTABLE.has(stat)) {
+        if (isStopInProgress(stop.status)) {
           try {
             await updateDeliveryStatusRaw(stop.order_id, "ready" as any, userId);
           } catch (revertErr) {
@@ -570,7 +592,7 @@ function DriverRoutesInner() {
         width="full"
         hideFooter
       >
-        <PortalCard className="border-rose-200 dark:border-rose-900">
+        <PortalCard id="current" className="scroll-mt-24 border-rose-200 dark:border-rose-900">
           <h2 className="text-base font-bold text-rose-900 dark:text-rose-200 mb-1">Couldn&apos;t load your route</h2>
           <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{loadError}</p>
           <Button
@@ -609,7 +631,7 @@ function DriverRoutesInner() {
           </Button>
         </div>
         <DriverRouteSummary assigned={0} today={0} leftToDo={0} alerts={unreadCount} />
-        <PortalCard padded={false}>
+        <PortalCard id="current" className="scroll-mt-24" padded={false}>
           <div className="py-16 px-6 text-center">
             <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
               <RouteIcon className="w-6 h-6 text-slate-400 dark:text-slate-500" />
@@ -642,6 +664,8 @@ function DriverRoutesInner() {
   const completedStops = route.stops.filter(s => s.status === "completed" || s.status === "delivered").length;
   const remainingStops = route.stops.length - completedStops;
   const currentStop = route.stops[currentStopIndex];
+  const stopIsRolling = isStopInProgress(currentStop?.status);
+  const hasCurrentStop = tripStarted || stopIsRolling;
   // Estimated earnings = callout per stop + per-km on the optimised
   // route's total_distance (the actual driven path including legs
   // between stops). Shows 0 until rates load so we don't flash R250.
@@ -817,17 +841,15 @@ function DriverRoutesInner() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Current Stop Highlight. id="current" is the anchor the
-                DriverNav "Current Stop" deep-link and the old /tracking
-                redirect land on; scroll-mt keeps it clear of the fixed
-                mobile header. */}
+            {/* The current-stop shortcut and the old /tracking redirect
+                land here, clear of the fixed mobile header. */}
             <div className="lg:col-span-1 space-y-4">
               <PortalCard id="current" className="scroll-mt-24">
                 <PortalCardHeader
                   title={
                     <span className="flex items-center gap-2">
                       <Navigation className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-                      {tripCompleted ? "Trip complete" : tripStarted ? "Current stop" : "Next stop"}
+                      {tripCompleted ? "Trip complete" : hasCurrentStop ? "Current stop" : "Next stop"}
                     </span>
                   }
                 />
@@ -962,8 +984,6 @@ function DriverRoutesInner() {
                         // in_transit. So Navigate + Mark Complete here
                         // gate on the stop's own status, not on the
                         // generic shift flag.
-                        const stopStatus = String((currentStop as any).status || "").toLowerCase();
-                        const stopIsRolling = ["in_transit", "picked_up", "at_venue", "en_route"].includes(stopStatus);
                         return (
                           <>
                             {!stopIsRolling && (
@@ -1127,8 +1147,8 @@ function DriverRoutesInner() {
               <div className="space-y-3">
                 {route.stops.map((stop, index) => {
                   const isCompleted = stop.status === "completed" || stop.status === "delivered";
-                  const isCurrent = index === currentStopIndex && tripStarted && !tripCompleted;
-                  const isPending = index > currentStopIndex || !tripStarted;
+                  const isCurrent = index === currentStopIndex && hasCurrentStop && !tripCompleted;
+                  const isPending = !isCurrent && (index > currentStopIndex || !tripStarted);
                   
                   return (
                     <div
@@ -1237,8 +1257,7 @@ function DriverRoutesInner() {
                           </div>
 
                           {!isCompleted && isCurrent && (() => {
-                            const stopStat = String((stop as any).status || "").toLowerCase();
-                            const rolling = ["in_transit", "picked_up", "at_venue", "en_route"].includes(stopStat);
+                            const rolling = isStopInProgress(stop.status);
                             return (
                               <div className="flex gap-2 mt-3">
                                 {!rolling && (

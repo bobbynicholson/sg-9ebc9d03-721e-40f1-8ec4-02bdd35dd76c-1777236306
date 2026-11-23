@@ -43,6 +43,7 @@ export function CollapsibleSection({
   accent = "slate",
   defaultOpen = false,
   forceOpen = false,
+  keepMounted = false,
   highlight = false,
   children,
 }: {
@@ -53,6 +54,8 @@ export function CollapsibleSection({
   accent?: SectionAccent;
   defaultOpen?: boolean;
   forceOpen?: boolean;
+  /** Preserve the state of editors and actions when the section closes. */
+  keepMounted?: boolean;
   highlight?: boolean;
   children: ReactNode;
 }) {
@@ -108,8 +111,8 @@ export function CollapsibleSection({
           />
         )}
       </button>
-      {isOpen && (
-        <div id={`${id}-body`} className={`min-w-0 px-3 pb-4 pl-6 [overflow-wrap:anywhere] min-[400px]:px-4 min-[400px]:pl-7 sm:px-5 sm:pb-5 sm:pl-8 ${a.bg}`}>{children}</div>
+      {(isOpen || keepMounted) && (
+        <div id={`${id}-body`} hidden={!isOpen} className={`min-w-0 px-3 pb-4 pl-6 [overflow-wrap:anywhere] min-[400px]:px-4 min-[400px]:pl-7 sm:px-5 sm:pb-5 sm:pl-8 ${a.bg}`}>{children}</div>
       )}
     </section>
   );

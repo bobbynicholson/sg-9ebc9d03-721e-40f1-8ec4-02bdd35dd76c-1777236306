@@ -17,6 +17,7 @@ import { Clock3, Users, AlertCircle, CalendarClock } from "lucide-react";
 type OrderStaffingPanelProps = {
   orderId: string;
   companyId: string;
+  embedded?: boolean;
   order?: {
     assigned_chef_id?: string | null;
     assigned_driver_id?: string | null;
@@ -125,7 +126,7 @@ function shiftRole(shiftType: string | null): string {
   return "kitchen";
 }
 
-export function OrderStaffingPanel({ orderId, companyId, order }: OrderStaffingPanelProps) {
+export function OrderStaffingPanel({ orderId, companyId, order, embedded = false }: OrderStaffingPanelProps) {
   const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map());
   const [rolesByUser, setRolesByUser] = useState<Map<string, string[]>>(new Map());
   const [rows, setRows] = useState<StaffingRow[]>([]);
@@ -280,13 +281,15 @@ export function OrderStaffingPanel({ orderId, companyId, order }: OrderStaffingP
   }, 0), [rows]);
   const peopleCount = new Set(rows.map((row) => row.personId)).size;
 
-  return (
-    <Card className="min-w-0 rounded-xl border-slate-200 bg-white shadow-none">
-      <CardHeader className="min-w-0 gap-3 px-4 pb-4 pt-5 sm:px-6">
+  const content = (
+    <>
+      <CardHeader className={embedded ? "min-w-0 gap-3 p-0 pb-4" : "min-w-0 gap-3 px-4 pb-4 pt-5 sm:px-6"}>
         <div>
-          <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-950">
-            <Users aria-hidden="true" className="h-5 w-5 shrink-0 text-slate-600" /> Order staffing &amp; time
-          </CardTitle>
+          {!embedded && (
+            <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-950">
+              <Users aria-hidden="true" className="h-5 w-5 shrink-0 text-slate-600" /> Order staffing &amp; time
+            </CardTitle>
+          )}
           {!loading && !error && (
             <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
               <span>{peopleCount} {peopleCount === 1 ? "person" : "people"}</span>
@@ -316,7 +319,7 @@ export function OrderStaffingPanel({ orderId, companyId, order }: OrderStaffingP
         )}
       </CardHeader>
 
-      <CardContent className="min-w-0 px-4 pb-5 pt-0 sm:px-6">
+      <CardContent className={embedded ? "min-w-0 p-0" : "min-w-0 px-4 pb-5 pt-0 sm:px-6"}>
         {loading ? (
           <p role="status" className="border-t border-slate-200 py-4 text-sm text-slate-600">Loading order staffing…</p>
         ) : error ? (
@@ -394,7 +397,10 @@ export function OrderStaffingPanel({ orderId, companyId, order }: OrderStaffingP
           </p>
         )}
       </CardContent>
-    </Card>
+    </>
+  );
+  return embedded ? content : (
+    <Card className="min-w-0 rounded-xl border-slate-200 bg-white shadow-none">{content}</Card>
   );
 }
 

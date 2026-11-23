@@ -39,11 +39,6 @@
   min-width: 0;
 }
 
-.anchor {
-  min-width: 0;
-  scroll-margin-top: 1.5rem;
-}
-
 .control {
   min-height: 44px;
   max-width: 100%;
