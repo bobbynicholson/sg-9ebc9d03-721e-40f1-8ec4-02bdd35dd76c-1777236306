@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Mail, ArrowRight, Loader2, Building2, Lock, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { navigateToRoleSelection } from "@/lib/authNavigation";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -138,10 +139,7 @@ export default function CompanyStaffLoginPage({
         const requestedRedirect =
           typeof redirectTo === "string" ? redirectTo :
           typeof redirect === "string" ? redirect : undefined;
-        const pickerUrl = requestedRedirect
-          ? `/auth/select-role?redirectTo=${encodeURIComponent(requestedRedirect)}`
-          : "/auth/select-role";
-        await router.replace(pickerUrl);
+        await navigateToRoleSelection(router, requestedRedirect);
       } catch {
         // Keep the sign-in form available if storage is unavailable or the
         // device is offline during a cold launch.
@@ -283,7 +281,7 @@ export default function CompanyStaffLoginPage({
     // Let the authenticated user choose between every role assigned to this
     // email before opening a portal. This prevents a driver/waiter or
     // kitchen/cleaning user from being forced into active_role only.
-    await router.replace("/auth/select-role");
+    await navigateToRoleSelection(router);
   };
 
   const brandGradient = companyBrand

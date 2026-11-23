@@ -164,7 +164,7 @@ export default function App({ Component, pageProps }: AppProps) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const appPath = normalizeProductPath(router.asPath || router.pathname || "");
-    if (!isProductPath(appPath) && !appPath.startsWith("/c/")) return;
+    if (!isProductPath(appPath) && !appPath.startsWith("/c/") && !pwaRouteInfo(appPath).enabled) return;
     const buildId = (window as unknown as { __NEXT_DATA__?: { buildId?: string } }).__NEXT_DATA__?.buildId;
     if (!buildId || buildId === "development") return;
     const STALE_RELOAD_KEY = "__stale_build_reload_at";

@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { isValidEmail } from "@/lib/validation/authValidation";
 import { LOCAL_DEV_LOGIN_USERS } from "@/lib/devLoginUsers";
+import { navigateToRoleSelection } from "@/lib/authNavigation";
 
 const DEV_USER_PRESENTATION: Record<string, { label: string; description: string; icon: typeof Crown; gradient: string }> = {
   super_admin: {
@@ -76,10 +77,7 @@ const routeAfterLogin = async (
   router: ReturnType<typeof useRouter>,
   redirectTo?: string,
 ) => {
-  const pickerUrl = redirectTo
-    ? `/auth/select-role?redirectTo=${encodeURIComponent(redirectTo)}`
-    : "/auth/select-role";
-  await router.replace(pickerUrl);
+  await navigateToRoleSelection(router, redirectTo);
 };
 
 export default function LoginPage() {

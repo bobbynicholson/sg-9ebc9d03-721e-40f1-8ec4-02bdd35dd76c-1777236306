@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { navigateToRoleSelection } from "@/lib/authNavigation";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -96,7 +97,7 @@ export default function AuthCallbackPage() {
 
           // Regular staff login callback - let the authenticated user choose
           // among every portal assigned to this email.
-          await router.replace("/auth/select-role");
+          await navigateToRoleSelection(router);
         } else {
           router.push("/auth/login");
         }
