@@ -48,6 +48,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
+import { BulkDeleteConfirmDialog, BulkDeleteToolbar, useVisibleBulkSelection } from "@/components/admin/BulkDeleteControls";
 import { CashflowContextBanner } from "@/components/admin/financial/CashflowContextBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
@@ -300,6 +301,8 @@ function FixedCostsPage() {
   const [draft, setDraft] = useState<DraftState>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [pausedExpanded, setPausedExpanded] = useState(false);
   // FXC-B: group-by-category view (off by default - flat list is
   // the long-standing shape; toggle on when the cost set is large
@@ -513,6 +516,34 @@ function FixedCostsPage() {
   // owns the headline; paused collapses into a footer reveal.
   const activeRows = useMemo(() => rows.filter((r) => r.active), [rows]);
   const pausedRows = useMemo(() => rows.filter((r) => !r.active), [rows]);
+  const visibleCostRows = pausedExpanded ? [...activeRows, ...pausedRows] : activeRows;
+  const costSelection = useVisibleBulkSelection(visibleCostRows.map((row) => row.id));
+
+  const handleBulkDeleteCosts = async () => {
+    const targets = visibleCostRows.filter((row) => costSelection.selectedIds.has(row.id));
+    if (targets.length === 0) return;
+    setBulkDeleting(true);
+    const results = await Promise.all(targets.map(async (row) => {
+      try {
+        return { ok: await fixedCostsService.softDelete(row.id), error: undefined as string | undefined };
+      } catch (error: unknown) {
+        return { ok: false, error: error instanceof Error ? error.message : undefined };
+      }
+    }));
+    const removed = results.filter((result) => result.ok).length;
+    const failed = results.filter((result) => !result.ok);
+    costSelection.clear();
+    setBulkDeleteOpen(false);
+    setBulkDeleting(false);
+    await load();
+    toast({
+      title: failed.length === 0 ? "Fixed costs removed" : removed > 0 ? "Some fixed costs removed" : "Delete failed",
+      description: failed.length === 0
+        ? `${removed} fixed cost${removed === 1 ? " was" : "s were"} soft-deleted from the forecast.`
+        : `${removed} removed; ${failed.length} failed${failed[0]?.error ? `: ${failed[0].error}` : "."}`,
+      variant: failed.length > 0 ? "destructive" : "default",
+    });
+  };
 
   const monthlyEquivalentCents = useMemo(() => {
     return activeRows.reduce((sum, r) => sum + toMonthlyCents(r.amount_cents, r.cadence), 0);
@@ -667,6 +698,15 @@ function FixedCostsPage() {
             </Card>
           </div>
 
+          <BulkDeleteToolbar
+            selectedCount={costSelection.selectedCount}
+            itemLabel="fixed cost"
+            busy={bulkDeleting}
+            onSelectAllVisible={costSelection.selectAllVisible}
+            onClear={costSelection.clear}
+            onDelete={() => setBulkDeleteOpen(true)}
+          />
+
           {/* FXC-B: group-by-category toggle. Off by default - flat
               list is the long-standing shape. Toggle on when the
               cost set has enough variety to want grouping. */}
@@ -721,6 +761,8 @@ function FixedCostsPage() {
                             onEdit={() => openEdit(r)}
                             onToggle={(v) => handleToggleActive(r.id, v)}
                             onDelete={() => setDeleteId(r.id)}
+                            selected={costSelection.selectedIds.has(r.id)}
+                            onToggleSelect={() => costSelection.toggle(r.id)}
                           />
                         ))}
                       </div>
@@ -740,6 +782,8 @@ function FixedCostsPage() {
                       onEdit={() => openEdit(r)}
                       onToggle={(v) => handleToggleActive(r.id, v)}
                       onDelete={() => setDeleteId(r.id)}
+                      selected={costSelection.selectedIds.has(r.id)}
+                      onToggleSelect={() => costSelection.toggle(r.id)}
                     />
                   ))}
                   {activeRows.length === 0 && (
@@ -780,6 +824,8 @@ function FixedCostsPage() {
                           onEdit={() => openEdit(r)}
                           onToggle={(v) => handleToggleActive(r.id, v)}
                           onDelete={() => setDeleteId(r.id)}
+                          selected={costSelection.selectedIds.has(r.id)}
+                          onToggleSelect={() => costSelection.toggle(r.id)}
                         />
                       ))}
                     </div>
@@ -898,6 +944,16 @@ function FixedCostsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <BulkDeleteConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        selectedCount={costSelection.selectedCount}
+        itemLabel="fixed cost"
+        details="Selected recurring costs will be soft-deleted and removed from the cashflow forecast. Their audit records remain on file."
+        busy={bulkDeleting}
+        onConfirm={handleBulkDeleteCosts}
+      />
+
       {/* FXC-B: bulk CSV import dialog. Same paste-CSV +
           preview + import pattern Payables uses. CSV columns:
           label, amount, cadence, next_due_date, category, notes.
@@ -1010,9 +1066,11 @@ interface CostRowProps {
   onEdit: () => void;
   onToggle: (v: boolean) => void;
   onDelete: () => void;
+  selected: boolean;
+  onToggleSelect: () => void;
 }
 
-function CostRow({ row, currency, fmt, today, isLargest, onEdit, onToggle, onDelete }: CostRowProps) {
+function CostRow({ row, currency, fmt, today, isLargest, onEdit, onToggle, onDelete, selected, onToggleSelect }: CostRowProps) {
   const nextOcc = nextFutureOccurrence(row, today);
   const daysToNext = nextOcc ? daysBetween(today, nextOcc) : null;
   // Audit fix (2026-07-02): local-midnight parse, same class as
@@ -1048,6 +1106,7 @@ function CostRow({ row, currency, fmt, today, isLargest, onEdit, onToggle, onDel
 
   return (
     <div className="flex flex-col gap-3 p-3 hover:bg-slate-50 sm:flex-row sm:items-center sm:gap-4 sm:p-4">
+      <input type="checkbox" checked={selected} onChange={onToggleSelect} aria-label={`Select fixed cost ${row.label}`} className="h-4 w-4 shrink-0 accent-brand-primary" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
           <button

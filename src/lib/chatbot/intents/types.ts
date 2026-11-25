@@ -3,7 +3,7 @@ export type ChatIntentDomain =
   | "shopping" | "cleaning" | "service" | "client" | "account" | "unknown";
 
 export type ChatIntentAction = "read" | "navigate" | "explain" | "action" | "unknown";
-export type ChatIntentSource = "openai" | "registry" | "fallback";
+export type ChatIntentSource = "openai" | "semantic" | "registry" | "fallback";
 export type ChatIntentTimeRange =
   | "today" | "yesterday" | "tomorrow" | "this_week" | "next_week"
   | "this_month" | "next_month" | "last_90_days" | "upcoming" | "all" | "unspecified";
@@ -38,6 +38,9 @@ export interface ChatIntentMatch {
   scope?: ChatIntentScope;
   entities?: Record<string, string>;
   needsClarification?: boolean;
+  retrievalQuery?: string;
+  needsKnowledge?: boolean;
+  clarificationQuestion?: string;
 }
 
 export interface IntentCatalogTool {

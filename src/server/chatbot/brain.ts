@@ -10,7 +10,7 @@ import type { ChatWorkflow } from "@/lib/chatbot/workflows";
 import type { ChatAccessPolicy } from "@/server/chatbot/accessPolicy";
 import { getLiveToolsForRole, runLiveTools } from "./liveTools";
 import type { ChatIntentMatch } from "@/lib/chatbot/intents/types";
-import { normalizeChatRole } from "@/lib/chatbot/roles";
+import { CHAT_CANONICAL_ROLES, CHAT_ROLE_ALIASES, normalizeChatRole } from "@/lib/chatbot/roles";
 import { normalizeChatMessage } from "@/lib/chatbot/intents/normalize";
 import { isPlatformOverviewQuestion, type ChatIntentRoute } from "./router";
 import { billedCostUsd, chatCompletion } from "@/lib/ai/textLlm";
@@ -33,6 +33,12 @@ export interface RetrievedKnowledge {
   source: string;
   content: string;
   score: number;
+  sourceName?: string;
+}
+
+export interface KnowledgeSearchResult {
+  items: RetrievedKnowledge[];
+  status: "matched" | "no_match" | "unavailable";
 }
 
 export interface ChatFrontendContext {
@@ -296,12 +302,6 @@ export async function buildLiveContext(db: Db, identity: ChatIdentity, accessPol
   return `LIVE AUTHORIZED CONTEXT:\n${compact(context, MAX_CONTEXT_CHARS)}`;
 }
 
-function tokens(text: string): Set<string> {
-  return new Set((text.toLowerCase().match(/[a-z0-9]{3,}/g) || []).filter((item) =>
-    !["the", "and", "for", "with", "what", "how", "are", "can", "you", "our", "this", "that", "from"].includes(item),
-  ));
-}
-
 type EmbeddingOptions = { strict?: boolean };
 
 function embeddingConfig(): { provider: string; key?: string; url: string; model: string } {
@@ -360,6 +360,7 @@ export async function createKnowledgeEmbeddings(texts: string[], options: Embedd
       try {
         const response = await fetch(config.url, {
           method: "POST",
+          signal: AbortSignal.timeout(10_000),
           headers: {
             Authorization: `Bearer ${config.key}`,
             "Content-Type": "application/json",
@@ -403,85 +404,65 @@ export async function createKnowledgeEmbeddings(texts: string[], options: Embedd
   return output;
 }
 
-async function createQueryEmbedding(text: string): Promise<number[]> {
-  try {
-    return (await createKnowledgeEmbeddings([text]))[0] || [];
-  } catch {
-    return [];
-  }
-}
-
 function sourceAllowsRole(metadata: any, role: string): boolean {
-  const roles = Array.isArray(metadata?.roles) ? metadata.roles.map(String) : [];
-  return !roles.length || roles.includes(role) || role === "super_admin";
-}
-
-async function sourceRoleMap(db: Db, sourceIds: string[], role: string): Promise<Map<string, boolean>> {
-  const allowed = new Map<string, boolean>();
-  if (!sourceIds.length) return allowed;
-  const sources = await rows(db, "ai_brain_sources", (q) => q.select("id, metadata").in("id", sourceIds));
-  for (const source of sources) allowed.set(String(source.id), sourceAllowsRole(source.metadata, role));
-  return allowed;
-}
-
-function documentAllowedByRole(sourceId: unknown, roleMap: Map<string, boolean>, role: string): boolean {
-  return role === "super_admin" || roleMap.get(String(sourceId || "")) === true;
+  if (role === "super_admin" || metadata?.roles == null) return true;
+  if (!Array.isArray(metadata.roles)) return false;
+  return !metadata.roles.length || metadata.roles.some((allowedRole: unknown) => {
+    if (typeof allowedRole !== "string") return false;
+    const value = allowedRole.trim().toLowerCase();
+    return ((CHAT_CANONICAL_ROLES as readonly string[]).includes(value) || Object.hasOwn(CHAT_ROLE_ALIASES, value)) && normalizeChatRole(value) === role;
+  });
 }
 
 export async function retrieveKnowledge(db: Db, companyId: string | null, role: string, query: string): Promise<RetrievedKnowledge[]> {
-  if (!query.trim()) return [];
-  const queryEmbedding = await createQueryEmbedding(query);
-  if (queryEmbedding.length) {
-    try {
-      const result = await db.rpc("match_ai_brain_documents", {
-        query_embedding: `[${queryEmbedding.join(",")}]`,
-        match_company_id: companyId,
-        match_threshold: 0.2,
-        match_count: 20,
-      });
-      if (!result.error && Array.isArray(result.data) && result.data.length) {
-        const roleMap = await sourceRoleMap(db, result.data.map((item: any) => String(item.source_id || "")).filter(Boolean), role);
-        return result.data.filter((item: any) => documentAllowedByRole(item.source_id, roleMap, role)).slice(0, 5).map((item: any) => ({
-          id: String(item.id),
-          source: String(item.source_id || "Business knowledge"),
-          content: String(item.content || ""),
-          score: Number(item.score || 0),
-        }));
-      }
-    } catch {
-      // The vector extension/index is optional; use lexical fallback below.
+  return (await retrieveKnowledgeResult(db, companyId, role, query)).items;
+}
+
+export async function retrieveKnowledgeResult(db: Db, companyId: string | null, role: string, query: string): Promise<KnowledgeSearchResult> {
+  if (!query.trim()) return { items: [], status: "no_match" };
+  role = normalizeChatRole(role);
+  try {
+    let sourceQuery = db.from("ai_brain_sources").select("id, company_id, name, status, metadata").eq("status", "ready");
+    sourceQuery = companyId ? sourceQuery.or(`company_id.is.null,company_id.eq.${companyId}`) : sourceQuery.is("company_id", null);
+    const sources = await sourceQuery;
+    if (sources.error || !Array.isArray(sources.data)) return { items: [], status: "unavailable" };
+    const allowedSources = new Map<string, any>(sources.data
+      .filter((source: any) => source.status === "ready" && (source.company_id === null || Boolean(companyId && source.company_id === companyId)) && sourceAllowsRole(source.metadata, role))
+      .map((source: any) => [String(source.id), source]));
+    if (!allowedSources.size) return { items: [], status: "no_match" };
+    const roleDefinition = getChatRoleDefinition(role);
+    const queryText = `Question: ${query}\nUser workspace: ${roleDefinition.label}. ${roleDefinition.purpose}`;
+    const queryEmbedding = (await createKnowledgeEmbeddings([queryText], { strict: true }))[0];
+    const result = await db.rpc("match_ai_brain_documents_for_sources", {
+      query_embedding: `[${queryEmbedding.join(",")}]`,
+      match_company_id: companyId,
+      match_source_ids: [...allowedSources.keys()],
+      match_threshold: 0.25,
+      match_count: 12,
+    });
+    if (result.error || !Array.isArray(result.data)) return { items: [], status: "unavailable" };
+    const seen = new Set<string>();
+    const items: RetrievedKnowledge[] = [];
+    for (const document of [...result.data].sort((left, right) => Number(right.score) - Number(left.score))) {
+      const source = allowedSources.get(String(document.source_id));
+      const content = String(document.content || "").trim();
+      const score = Number(document.score);
+      if (!source || document.company_id !== source.company_id || !content || !Number.isFinite(score) || score < 0.25 || seen.has(content)) continue;
+      seen.add(content);
+      items.push({ id: String(document.id), source: String(document.source_id), sourceName: String(source.name || "Business guidance"), content, score });
+      if (items.length === 5) break;
     }
+    return { items, status: items.length ? "matched" : "no_match" };
+  } catch {
+    console.warn("[chatbot] Semantic knowledge search unavailable; no keyword fallback was used");
+    return { items: [], status: "unavailable" };
   }
-  const documents = await rows(db, "ai_brain_documents", (q) => {
-    const scoped = companyId
-      ? q.or(`company_id.is.null,company_id.eq.${companyId}`)
-      : q.is("company_id", null);
-    return scoped.select("id, company_id, content, chunk_index, source_id").limit(500);
-  });
-  const roleMap = await sourceRoleMap(db, [...new Set(documents.map((item) => String(item.source_id || "")).filter(Boolean))], role);
-  const queryTokens = tokens(query);
-  if (!queryTokens.size) return [];
-  return documents
-    .filter((item) => documentAllowedByRole(item.source_id, roleMap, role))
-    .map((item) => {
-      const content = String(item.content || "");
-      const score = [...queryTokens].filter((token) => content.toLowerCase().includes(token)).length / queryTokens.size;
-      return {
-        id: String(item.id),
-        source: String(item.source_id || "Business knowledge"),
-        content,
-        score,
-      };
-    })
-    .filter((item) => item.score >= 0.2)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
 }
 
 function systemPrompt(identity: ChatIdentity, liveContext: string, knowledge: RetrievedKnowledge[], navigation: ChatNavigationRef[], route?: ChatIntentRoute, workflow?: ChatWorkflow, frontend?: ChatFrontendContext): string {
   const role = getChatRoleDefinition(identity.role);
   const knowledgeText = knowledge.length
-    ? knowledge.map((item) => `[${item.source}] ${item.content}`).join("\n")
+    ? knowledge.map((item) => `[${item.sourceName || item.source}] ${item.content}`).join("\n")
     : "No indexed business knowledge matched this question.";
   return [
     "You are the shared CateringMS AI operations brain.",
@@ -508,6 +489,7 @@ function systemPrompt(identity: ChatIdentity, liveContext: string, knowledge: Re
     "9. Keep the message concise but complete. For live or hybrid answers, put each important authorized fact in a clear labelled detail (with exact counts, names, dates, or statuses where available); never hide useful results in vague prose or dump raw records. Use actions only when a human-readable next step is genuinely useful; navigation links are supplied separately by the application.",
     "10. Speak in plain business language for everyday users. Do not mention database, schema, query, API, provider, embedding, token, metadata, tenant, RAG, live workspace data, or other internal implementation terms. Say company records, companies, current information, or information for your role instead. Use natural headings such as Registered companies, not technical headings such as Company Count.",
     "11. Page controls, sections, filters, and tags are factual UI context. Use only the exact labels supplied in CURRENT FRONTEND CONTEXT; never invent a button, tab, section, filter, or tag. Include an action only when it matches one of the safe navigation options supplied by the application.",
+    "12. For an answer grounded in indexed knowledge, name the relevant supplied source naturally. Never fabricate a citation, source, or unsupported procedure. If semantic search is unavailable, distinguish that from finding no relevant guidance, and do not substitute general guesses for company policy.",
   ].join("\n\n");
 }
 
@@ -2405,18 +2387,18 @@ function directIntentClarificationAnswer(args: {
   if (!intent?.needsClarification || intent.confidence < 0.55) return null;
 
   const entity = intent.entity.replace(/[_-]+/g, " ").trim();
-  const details: string[] = [];
-  if (intent.scope === "unknown") details.push("Should I check your own assigned records or the wider company records?");
-  if (intent.timeRange === "unspecified") details.push("Which period should I use: today, this week, this month, or all time?");
-  if (intent.scope === "order" || /order|booking|delivery|work|hours/.test(entity)) details.push("If this is for one order, send the order number or select the order first.");
-  if (!details.length) details.push("Please tell me the specific record, person, order, or period you want me to use.");
+  const question = intent.clarificationQuestion || (intent.scope === "order" || /order|booking|delivery|work|hours/.test(entity)
+    ? "Which order, event, or assigned task do you mean?"
+    : intent.timeRange === "unspecified"
+      ? "Which period should I use: today, this week, this month, or all time?"
+      : "What would you like help with in your workspace?");
 
   const firstDestination = args.navigation?.[0];
   const rendered = renderChatResponse(JSON.stringify({
     title: "One detail needed",
     message: "I can check this, but I need one more detail before I query live data so I do not guess.",
     details: [
-      ...details,
+      question,
       ...(firstDestination ? [`You can also open ${firstDestination.label} and choose the exact tab or record.`] : []),
     ],
     actions: [],
@@ -2672,7 +2654,7 @@ async function callChatProvider(provider: Exclude<ChatProvider, "openrouter">, m
   return result.content;
 }
 
-export async function generateChatReply(args: {
+type ChatReplyArguments = {
   identity: ChatIdentity;
   message: string;
   history: Array<{ role: "user" | "assistant"; content: string }>;
@@ -2682,11 +2664,20 @@ export async function generateChatReply(args: {
   route?: ChatIntentRoute;
   workflow?: ChatWorkflow;
   frontend?: ChatFrontendContext;
-}): Promise<{ text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload }> {
+};
+
+export async function generateChatReply(args: ChatReplyArguments): Promise<{ text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload }> {
   const greetingAnswer = directGreetingAnswer(args.message);
   if (greetingAnswer) return greetingAnswer;
   const clarificationAnswer = directIntentClarificationAnswer(args);
   if (clarificationAnswer) return clarificationAnswer;
+  if (args.route?.semantic || (args.route?.intent && ["openai", "semantic"].includes(args.route.intent.matchedBy))) {
+    const securityAnswer = directSecurityAnswer(args);
+    if (securityAnswer) return securityAnswer;
+    const roleBoundaryAnswer = directRoleBoundaryAnswer(args);
+    if (roleBoundaryAnswer) return roleBoundaryAnswer;
+    return generateGroundedModelReply(args);
+  }
   const roleCapabilityAnswer = directRoleCapabilityAnswer(args);
   if (roleCapabilityAnswer) return roleCapabilityAnswer;
   const cleaningWorkflowAnswer = directCleaningWorkflowAnswer(args);
@@ -2789,6 +2780,10 @@ export async function generateChatReply(args: {
   if (directShoppingBuyList) return directShoppingBuyList;
   const directKitchenToday = directKitchenTodayAnswer({ ...args, route: args.route });
   if (directKitchenToday) return directKitchenToday;
+  return generateGroundedModelReply(args);
+}
+
+async function generateGroundedModelReply(args: ChatReplyArguments): Promise<{ text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload }> {
   const system = systemPrompt(args.identity, args.liveContext, args.knowledge, args.navigation || [], args.route, args.workflow, args.frontend);
   const history = args.history.filter((item) => item.content.trim()).slice(-MAX_HISTORY);
   const chatMessages = [...history, { role: "user" as const, content: args.message }];

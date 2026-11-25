@@ -113,6 +113,8 @@ export interface PublicQuoteView {
     legal_name?: string | null;
     /** Company time format ("24h" / "12h"). */
     time_format?: string | null;
+    timezone?: string | null;
+    quote_expiry_mode?: "valid_until" | "event_date";
     logo_url: string | null;
     email: string | null;
     phone: string | null;

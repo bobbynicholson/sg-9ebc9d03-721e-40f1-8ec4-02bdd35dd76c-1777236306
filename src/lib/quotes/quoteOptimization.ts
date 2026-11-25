@@ -4,6 +4,7 @@ import { toLocalDateKey, toLocalISO } from "@/lib/localDate";
 import type { EventCapacitySettings } from "@/lib/eventCapacity";
 import { OPEN_QUOTE_STATUSES } from "@/lib/eventCapacity";
 import { isAutomatedTestQuote } from "@/lib/testDataDetection";
+import { quoteExpiryDate, type QuoteExpiryMode } from "@/lib/quoteExpiryPolicy";
 
 export type PlanningMode = "profit" | "balanced" | "space";
 export const PLANNING_MODES = {
@@ -110,7 +111,7 @@ export function opportunityGroup(quote: Quote, date: string): string {
 
 export function buildOpportunities(
   quotes: Quote[], catalogueCosts: ReadonlyMap<string, number>, assumptions: PlanningAssumptions,
-  currency: string, today: string,
+  currency: string, today: string, expiryMode: QuoteExpiryMode = "valid_until",
 ): { opportunities: Opportunity[]; omitted: number } {
   const opportunities: Opportunity[] = [];
   let omitted = 0;
@@ -118,7 +119,7 @@ export function buildOpportunities(
     if (!OPEN_QUOTE_STATUSES.includes(quote.status as typeof OPEN_QUOTE_STATUSES[number])
       || quote.deleted_at || quote.converted_to_order_id || isAutomatedTestQuote(quote)) continue;
     const date = toLocalDateKey(quote.event_date);
-    const expiry = toLocalDateKey(quote.valid_until);
+    const expiry = toLocalDateKey(quoteExpiryDate(quote, expiryMode));
     const guests = positive(quote.guest_count);
     const revenue = positive(quote.subtotal ?? (Number(quote.total_amount ?? quote.total) - positive(quote.tax_amount ?? quote.tax)));
     if (!date || date < today || (expiry && expiry < today) || !guests || !revenue

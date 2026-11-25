@@ -32,6 +32,7 @@ import { getPublicPaymentAvailability } from "@/lib/paymentService";
 import { isManualEftAvailable } from "@/lib/publicPaymentOptions";
 import { configuredPaymentTerms } from "@/lib/paymentTerms";
 import { invoicePaymentTerms } from "@/lib/invoicePaymentTerms";
+import { readQuoteExpiryMode } from "@/lib/quoteExpiryPolicy";
 
 
 export const config = {
@@ -85,7 +86,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       converted_to_order_id,
       service_sittings(sequence_number, guest_count, service_time, venue_name, venue_address, delivery_fee, collection_fee),
       company:company_id (
-        id, slug, company_name, legal_name, time_format, logo_url, email, phone, website,
+        id, slug, company_name, legal_name, time_format, timezone, logo_url, email, phone, website,
         address_line1, address_line2, city,
         bank_name, bank_account_holder, bank_account_number, bank_branch_code,
         bank_account_type, eft_instructions,
@@ -202,7 +203,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   (data as any).deposit_percentage = effectivePct;
 
   const company = (data as any)?.company;
-  if (company) delete company.dispatch_settings;
+  if (company) {
+    company.quote_expiry_mode = readQuoteExpiryMode(company.dispatch_settings);
+    delete company.dispatch_settings;
+  }
   const quoteCurrency = String((data as any)?.currency || company?.currency || "ZAR").toUpperCase();
   const paymentAvailability = company?.id
     ? await getPublicPaymentAvailability(company.id, quoteCurrency)

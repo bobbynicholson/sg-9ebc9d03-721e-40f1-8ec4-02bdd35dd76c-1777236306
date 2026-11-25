@@ -11,6 +11,8 @@ import {
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { isPastCalendarDate } from "@/lib/quotes/revisionLifecycle";
+import { isQuotePastExpiry, readQuoteExpiryMode } from "@/lib/quoteExpiryPolicy";
+import { toZonedISO, DEFAULT_TENANT_TIMEZONE } from "@/lib/localDate";
 import { getEventCapacityForDate, publicCapacityMessage } from "@/lib/eventCapacity";
 
 
@@ -133,26 +135,25 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (existing.status === "expired") {
     return res.status(409).json({ ok: false, error: "This quote has expired. Please request a new one." });
   }
-  if (
-    existing.event_date
-    && isPastCalendarDate(existing.event_date, new Date().toISOString().slice(0, 10))
-  ) {
-    return res.status(409).json({
-      ok: false,
-      error: "This event date has already passed. Please request a new date before accepting.",
-    });
+  const { data: expiryCompany, error: expiryCompanyError } = await (supabase as any)
+    .from("companies")
+    .select("dispatch_settings, timezone")
+    .eq("id", existing.company_id)
+    .maybeSingle();
+  if (expiryCompanyError || !expiryCompany) {
+    return res.status(503).json({ ok: false, error: "Quote expiry settings are temporarily unavailable. Please try again." });
   }
-  if (existing.valid_until) {
-    const validUntil = new Date(existing.valid_until);
-    if (!Number.isNaN(validUntil.getTime()) && validUntil < new Date()) {
-      // Defensive flip: stamp the quote as expired so the next call
-      // returns the same answer without re-checking the date.
-      await (supabase as any)
-        .from("quotes")
-        .update({ status: "expired", expired_at: new Date().toISOString(), expiry_client_eligible: true })
-        .eq("id", existing.id);
-      return res.status(409).json({ ok: false, error: "This quote has expired. Please request a new one." });
-    }
+  const todayIso = toZonedISO(new Date(), expiryCompany.timezone || DEFAULT_TENANT_TIMEZONE);
+  if (existing.event_date && isPastCalendarDate(existing.event_date, todayIso)) {
+    return res.status(409).json({ ok: false, error: "This event date has already passed. Please request a new date before accepting." });
+  }
+  if (isQuotePastExpiry(existing, readQuoteExpiryMode(expiryCompany.dispatch_settings), todayIso)) {
+    // Persist the transition so retries and the quote page agree.
+    await (supabase as any)
+      .from("quotes")
+      .update({ status: "expired", expired_at: new Date().toISOString(), expiry_client_eligible: true })
+      .eq("id", existing.id);
+    return res.status(409).json({ ok: false, error: "This quote has expired. Please request a new one." });
   }
 
   // Conversion to an order needs these; without them the quote used to

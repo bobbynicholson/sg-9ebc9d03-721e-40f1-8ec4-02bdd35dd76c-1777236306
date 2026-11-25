@@ -102,6 +102,7 @@ import { Footer } from "@/components/Footer";
 import { LazyChatBot as ChatBot } from "@/components/chatbot/LazyChatBot";
 import { orderService } from "@/services/orderService";
 import type { OrderPageCursor } from "@/services/order/orderCRUD";
+import { deleteOrder } from "@/services/order/orderCRUD";
 import { supabase } from "@/integrations/supabase/client";
 import {
   deriveOrderIntelligence,
@@ -122,6 +123,7 @@ import { DuplicateOrderDialog } from "@/components/admin/orders/DuplicateOrderDi
 import { OrderKpiPills } from "@/components/admin/orders/OrderKpiPills";
 import { OrderFiltersBar } from "@/components/admin/orders/OrderFiltersBar";
 import { OrdersBulkActionsBar } from "@/components/admin/orders/OrdersBulkActionsBar";
+import { BulkDeleteConfirmDialog } from "@/components/admin/BulkDeleteControls";
 import { OrdersListEmptyState } from "@/components/admin/orders/OrdersListEmptyState";
 import { OrderHistoryTimeline } from "@/components/admin/orders/OrderHistoryTimeline";
 import { OrderDetailsModal } from "@/components/admin/orders/OrderDetailsModal";
@@ -566,6 +568,7 @@ function OrderProcessDashboard() {
   // ignores it (the cards are too dense to make checkboxes readable).
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<AppOrder | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   // Phase 17 #8: record opened order in the recently-viewed list so
@@ -2184,6 +2187,38 @@ function OrderProcessDashboard() {
     }
   };
 
+  const bulkDeleteOrders = async () => {
+    const targets = getFilteredOrders().filter((order: any) => selectedIds.has(order.id));
+    if (targets.length === 0) return;
+    setBulkBusy(true);
+    const results = await Promise.all(targets.map(async (order: any) => {
+      try {
+        const result = await deleteOrder(order.id);
+        return { id: order.id, ok: result.success, requiresCancel: result.requiresCancel, error: result.error };
+      } catch (error: any) {
+        return { id: order.id, ok: false, requiresCancel: false, error: error?.message as string | undefined };
+      }
+    }));
+    const deletedIds = results.filter((result) => result.ok).map((result) => result.id);
+    const failed = results.filter((result) => !result.ok);
+    if (deletedIds.length > 0) {
+      setOrders((current) => current.filter((order) => !deletedIds.includes((order as any).id)));
+      for (const id of deletedIds) emitOrderUpdated(id, "admin/orders:bulk-delete", ["status"]);
+      loadOrders();
+    }
+    setSelectedIds(new Set(failed.map((result) => result.id)));
+    setBulkDeleteOpen(false);
+    setBulkBusy(false);
+    const blockedByConfirmation = failed.filter((result) => result.requiresCancel).length;
+    toast({
+      title: failed.length === 0 ? "Orders deleted" : deletedIds.length > 0 ? "Some orders deleted" : "Orders not deleted",
+      description: failed.length === 0
+        ? `${deletedIds.length} unconfirmed order${deletedIds.length === 1 ? " was" : "s were"} removed from the list.`
+        : `${deletedIds.length} deleted; ${blockedByConfirmation} confirmed order${blockedByConfirmation === 1 ? " needs" : "s need"} the cancellation flow; ${failed.length - blockedByConfirmation} failed.`,
+      variant: failed.length > 0 ? "destructive" : "default",
+    });
+  };
+
   // CSV export of the currently-filtered list. Shared by the overflow
   // menu item and the filters-bar Export button (the latter was a dead
   // button with no handler).
@@ -2812,8 +2847,18 @@ function OrderProcessDashboard() {
                   selectedCount={selectedIds.size}
                   busy={bulkBusy}
                   onBulkUpdateStatus={bulkUpdateStatus}
+                  onBulkDelete={() => setBulkDeleteOpen(true)}
                   onSelectAllVisible={selectAllVisible}
                   onClearSelection={clearSelection}
+                />
+                <BulkDeleteConfirmDialog
+                  open={bulkDeleteOpen}
+                  onOpenChange={setBulkDeleteOpen}
+                  selectedCount={selectedIds.size}
+                  itemLabel="order"
+                  details="Unconfirmed orders will be soft-deleted. Confirmed or deposit-paid orders are protected and must go through the cancellation flow so payment and audit history stay intact."
+                  busy={bulkBusy}
+                  onConfirm={bulkDeleteOrders}
                 />
                 {getFilteredOrders().length === 0 ? (
                   <OrdersListEmptyState

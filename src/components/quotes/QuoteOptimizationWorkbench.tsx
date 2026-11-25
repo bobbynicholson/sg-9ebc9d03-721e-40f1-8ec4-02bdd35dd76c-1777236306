@@ -13,6 +13,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import type { TenantCurrency } from "@/hooks/useTenantCurrency";
 import { toLocalISO } from "@/lib/localDate";
 import { cn } from "@/lib/utils";
+import type { QuoteExpiryMode } from "@/lib/quoteExpiryPolicy";
 import { ORDER_UPDATED_EVENT } from "@/lib/events/orderEvents";
 import { loadQuoteOptimizationData, type QuoteOptimizationData } from "@/services/quoteOptimizationService";
 import {
@@ -26,6 +27,7 @@ import QuotePipelineBoard from "@/components/quotes/QuotePipelineBoard";
 
 interface Props {
   companyId: string;
+  expiryMode?: QuoteExpiryMode;
   currency: TenantCurrency;
   regionId?: string | null;
   /** Parent realtime refreshes invalidate this separate, fully paginated read. */
@@ -55,7 +57,7 @@ function NumberField({ label, value, onChange, min, max, step = 1, hint }: {
   </label>;
 }
 
-export default function QuoteOptimizationWorkbench({ companyId, currency, regionId, quotes }: Props) {
+export default function QuoteOptimizationWorkbench({ companyId, currency, regionId, quotes, expiryMode = "valid_until" }: Props) {
   const { withSlug } = useTenantHref();
   const money = (value: number, code?: string | null) => {
     const resolved = code?.trim().toUpperCase();
@@ -164,7 +166,7 @@ export default function QuoteOptimizationWorkbench({ companyId, currency, region
   const prepared = useMemo(() => {
     if (!ready) return { opportunities: [] as Opportunity[], omitted: 0 };
     const scoped = data.quotes.filter((quote) => !regionId || quote.region_id === regionId);
-    const result = buildOpportunities(scoped, data.catalogueCosts, deferredAssumptions, currency.code, today);
+    const result = buildOpportunities(scoped, data.catalogueCosts, deferredAssumptions, currency.code, today, expiryMode);
     result.opportunities = result.opportunities.map((opportunity) => {
       const override = costOverrides[opportunity.id];
       if (!validCost(override)) return opportunity;
@@ -173,12 +175,12 @@ export default function QuoteOptimizationWorkbench({ companyId, currency, region
       return { ...opportunity, cost, profit, margin: profit / opportunity.revenue * 100, warnings: ["Uses your total cost override."] };
     });
     return result;
-  }, [ready, data, regionId, deferredAssumptions, currency.code, today, costOverrides]);
+  }, [ready, data, regionId, deferredAssumptions, currency.code, today, costOverrides, expiryMode]);
   const pipeline = useMemo(() => ready ? buildQuotePipeline({
     leads: data.leads || [], quotes: data.relatedQuotes || data.quotes, orders: data.orders || [],
     commitments: data.commitments, opportunities: prepared.opportunities, start: today, end,
-    regionId, currency: currency.code,
-  }) : [], [ready, data, prepared, today, end, regionId, currency.code]);
+    regionId, currency: currency.code, expiryMode,
+  }) : [], [ready, data, prepared, today, end, regionId, currency.code, expiryMode]);
   const undated = pipeline.filter((entry) => !entry.date);
   const pinned = useMemo(() => new Set(pinnedIds), [pinnedIds]);
   const excluded = useMemo(() => new Set(excludedIds), [excludedIds]);

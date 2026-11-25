@@ -49,6 +49,7 @@ import {
 } from "@/services/equipmentAvailabilityService";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { AdminControlGroup } from "@/components/admin/AdminControlSurface";
+import { BulkDeleteConfirmDialog, BulkDeleteToolbar, useVisibleBulkSelection } from "@/components/admin/BulkDeleteControls";
 import { CatalogueOperationsStrip } from "@/components/admin/CatalogueOperationsStrip";
 import { PwaLoadingScreen } from "@/components/pwa/PwaLoadingScreen";
 import { PortalShell, PortalHeader,
@@ -416,6 +417,8 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
 
   const [editing, setEditing] = useState<EquipmentRow | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Command-centre hero action: the page-level "Add equipment"
@@ -555,6 +558,7 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
   ], []);
   const equipmentSort = useSortable<EquipmentRow>(filteredRaw, equipmentSortColumns, { defaultKey: "name", defaultDir: "asc" });
   const filtered = equipmentSort.rows;
+  const equipmentSelection = useVisibleBulkSelection(filtered.map((item) => item.id));
 
   const grouped = useMemo(() => {
     const m = new Map<string, EquipmentRow[]>();
@@ -640,6 +644,33 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
     } catch (e: any) {
       toast({ title: "Delete failed", description: e?.message ?? "", variant: "destructive" });
     }
+  };
+
+  const handleBulkDeleteEquipment = async () => {
+    const targets = filtered.filter((item) => equipmentSelection.selectedIds.has(item.id));
+    if (targets.length === 0) return;
+    setBulkDeleting(true);
+    const results = await Promise.all(targets.map(async (item) => {
+      try {
+        await equipmentManagementService.deleteEquipment(item.id);
+        return { ok: true, error: undefined as string | undefined };
+      } catch (error: any) {
+        return { ok: false, error: error?.message as string | undefined };
+      }
+    }));
+    const deleted = results.filter((result) => result.ok).length;
+    const failed = results.filter((result) => !result.ok);
+    equipmentSelection.clear();
+    setBulkDeleteOpen(false);
+    setBulkDeleting(false);
+    await loadRows();
+    toast({
+      title: failed.length === 0 ? "Equipment removed" : deleted > 0 ? "Some equipment removed" : "Delete failed",
+      description: failed.length === 0
+        ? `${deleted} item${deleted === 1 ? " was" : "s were"} removed from the catalog.`
+        : `${deleted} removed; ${failed.length} failed${failed[0]?.error ? `: ${failed[0].error}` : "."}`,
+      variant: failed.length > 0 ? "destructive" : "default",
+    });
   };
 
   const toggleAvailable = async (r: EquipmentRow) => {
@@ -937,6 +968,15 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
         </AdminControlGroup>
       </PortalCard>
 
+      <BulkDeleteToolbar
+        selectedCount={equipmentSelection.selectedCount}
+        itemLabel="equipment item"
+        busy={bulkDeleting}
+        onSelectAllVisible={equipmentSelection.selectAllVisible}
+        onClear={equipmentSelection.clear}
+        onDelete={() => setBulkDeleteOpen(true)}
+      />
+
       {loading ? (
         <PwaLoadingScreen message="Loading equipment catalogue" variant="inline" />
       ) : rows.length === 0 ? (
@@ -999,6 +1039,13 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                   return (
                     <Card key={r.id} className={`${offline ? "opacity-60" : ""}`}>
                       <CardContent className="flex flex-wrap items-center gap-3 p-3 sm:p-4">
+                        <input
+                          type="checkbox"
+                          checked={equipmentSelection.selectedIds.has(r.id)}
+                          onChange={() => equipmentSelection.toggle(r.id)}
+                          aria-label={`Select equipment ${r.name || "item"}`}
+                          className="h-4 w-4 shrink-0 accent-brand-primary"
+                        />
                         <div className="flex-1 min-w-[200px]">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-slate-900">{r.name || "(unnamed)"}</span>
@@ -1658,6 +1705,16 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BulkDeleteConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        selectedCount={equipmentSelection.selectedCount}
+        itemLabel="equipment item"
+        details="Selected equipment will be removed from the catalog. Existing quotes that reference these items remain unchanged; items that cannot be removed because of linked records will be skipped and reported."
+        busy={bulkDeleting}
+        onConfirm={handleBulkDeleteEquipment}
+      />
 
       <ComposeDrawerHost
         open={!!reservationsFor}

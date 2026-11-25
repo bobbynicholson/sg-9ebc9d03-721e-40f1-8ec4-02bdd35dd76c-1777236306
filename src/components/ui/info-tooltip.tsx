@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { HelpCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   Tooltip,
   TooltipContent,
@@ -39,7 +40,7 @@ export function InfoTooltip({ content, side = "top", className = "", ariaLabel =
           <button
             type="button"
             aria-label={ariaLabel}
-            className={`inline-flex items-center justify-center text-slate-400 hover:text-slate-600 focus-visible:text-slate-700 focus-visible:outline-none transition-colors ${className}`}
+            className={cn("inline-flex items-center justify-center text-slate-400 hover:text-slate-600 focus-visible:text-slate-700 focus-visible:outline-none transition-colors", className)}
             onClick={(e) => {
               // Toggle on click so the tooltip works on touch devices where
               // hover doesn't exist. Stop propagation so the click never

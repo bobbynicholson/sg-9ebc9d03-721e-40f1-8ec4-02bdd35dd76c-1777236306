@@ -70,6 +70,7 @@ export interface RoleCompatibilitySettings {
 }
 
 import type { PaymentDueDirection, PaymentReminderMode } from "@/lib/paymentReminderSchedule";
+import type { QuoteExpiryMode } from "@/lib/quoteExpiryPolicy";
 
 export interface CompanySettings {
   name: string;
@@ -109,6 +110,7 @@ export interface AdminSettings {
   operations: OperationsSettings;
   roleCompatibility: RoleCompatibilitySettings;
   financial: FinancialSettings;
+  quoteExpiryMode: QuoteExpiryMode;
 }
 
 /**

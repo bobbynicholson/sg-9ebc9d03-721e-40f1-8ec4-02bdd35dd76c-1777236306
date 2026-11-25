@@ -5,6 +5,7 @@ import type { DiaryEntry } from "@/lib/quoteDiarySignal";
 import { toLocalDateKey } from "@/lib/localDate";
 import { hasAutomatedTestMarker, isAutomatedTestOrder, isAutomatedTestQuote } from "@/lib/testDataDetection";
 import { opportunityGroup, type Opportunity } from "@/lib/quotes/quoteOptimization";
+import { quoteExpiryDate, type QuoteExpiryMode } from "@/lib/quoteExpiryPolicy";
 
 export type PlanningLead = Database["public"]["Tables"]["leads"]["Row"];
 export type PlanningOrder = Pick<Database["public"]["Tables"]["orders"]["Row"],
@@ -50,9 +51,9 @@ export function summarizePipelineDay(entries: PipelineEntry[], date: string | nu
 
 /** Count commercial enquiries once, even when intake produced a lead, quote
  * and order. Orders own the date and lifecycle after conversion. */
-export function buildQuotePipeline({ leads, quotes, orders, commitments, opportunities, start, end, regionId, currency }: {
+export function buildQuotePipeline({ leads, quotes, orders, commitments, opportunities, start, end, regionId, currency, expiryMode = "valid_until" }: {
   leads: PlanningLead[]; quotes: Quote[]; orders: PlanningOrder[]; commitments: DiaryEntry[];
-  opportunities: Opportunity[]; start: string; end: string; regionId?: string | null; currency: string;
+  opportunities: Opportunity[]; start: string; end: string; regionId?: string | null; currency: string; expiryMode?: QuoteExpiryMode;
 }): PipelineEntry[] {
   const usableLeads = leads.filter((lead) => !lead.deleted_at && !hasAutomatedTestMarker(lead.client_name, lead.contact_name, lead.client_email, lead.notes));
   const usableQuotes = quotes.filter((quote) => !quote.deleted_at && !isAutomatedTestQuote(quote));
@@ -135,7 +136,7 @@ export function buildQuotePipeline({ leads, quotes, orders, commitments, opportu
     if (open.length && !eligible.length) {
       if (open.some((quote) => !amount(quote.subtotal))) row.reasons.push("Quote pricing needs to be completed.");
       if (open.some((quote) => quote.currency && quote.currency.toUpperCase() !== currency.toUpperCase())) row.reasons.push("Quote currency differs from the planning currency.");
-      if (open.some((quote) => quote.valid_until && quote.valid_until.slice(0, 10) < start)) row.reasons.push("Quote validity has lapsed; review or revise it.");
+      if (open.some((quote) => { const expiry = quoteExpiryDate(quote, expiryMode); return expiry && expiry.slice(0, 10) < start; })) row.reasons.push("Quote expiry date has passed; review or revise it.");
       if (open.some((quote) => quote.converted_to_order_id)) row.reasons.push("Linked order could not be verified; review the booking.");
       if (!row.reasons.length) row.reasons.push("Quote needs verification before it can be optimized.");
     }

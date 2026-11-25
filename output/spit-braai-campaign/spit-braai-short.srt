@@ -1,0 +1,99 @@
+1
+00:00:00,350 --> 00:00:04,433
+A garden ready for lunch. One hundred and twenty
+
+2
+00:00:04,433 --> 00:00:08,062
+guests. Before the first plate lands, the whole
+
+3
+00:00:08,062 --> 00:00:10,330
+team needs the same plan.
+
+4
+00:00:11,583 --> 00:00:14,642
+Then the host adds twelve vegetarian plates and
+
+5
+00:00:14,642 --> 00:00:18,083
+moves service to one. The update stays with the
+
+6
+00:00:18,083 --> 00:00:21,523
+booking, right where the team can act on it.
+
+7
+00:00:22,783 --> 00:00:25,598
+The menu is shaped around the occasion.
+
+8
+00:00:25,598 --> 00:00:28,815
+When Lindiwe accepts, the quote becomes an order
+
+9
+00:00:28,815 --> 00:00:32,033
+with the date, headcount, menu and service time
+
+10
+00:00:32,033 --> 00:00:34,043
+ready for the next step.
+
+11
+00:00:35,317 --> 00:00:38,954
+Lindiwe can check the booking and invoice in her
+
+12
+00:00:38,954 --> 00:00:41,783
+portal. When a payment provider is connected,
+
+13
+00:00:41,783 --> 00:00:45,017
+online payment can join the same invoice record.
+
+14
+00:00:46,283 --> 00:00:49,038
+On a phone, the kitchen sees prep,
+
+15
+00:00:49,038 --> 00:00:52,580
+the driver sees the route, and cleaning sees what
+
+16
+00:00:52,580 --> 00:00:56,123
+must come back. Everyone has a useful view of
+
+17
+00:00:56,123 --> 00:00:57,303
+the same event.
+
+18
+00:00:58,583 --> 00:01:01,499
+Dispatch connects the drop-off to a driver,
+
+19
+00:01:01,499 --> 00:01:04,830
+then the cleaning team closes the equipment loop
+
+20
+00:01:04,830 --> 00:01:05,663
+after service.
+
+21
+00:01:06,917 --> 00:01:09,873
+The chef can carve, the crew can serve,
+
+22
+00:01:09,873 --> 00:01:13,198
+and Lindiwe can be with her guests instead of
+
+23
+00:01:13,198 --> 00:01:14,307
+chasing the details.
+
+24
+00:01:15,583 --> 00:01:20,852
+Catering M S. One booking, carried all the way
+
+25
+00:01:20,852 --> 00:01:23,193
+through. Spit Braai Delivery.

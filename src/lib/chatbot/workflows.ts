@@ -301,6 +301,7 @@ export function getRelevantWorkflows(query: string, role: string, limit = 1, res
     ? classifyChatIntent(query, role, WORKFLOW_INTENT_REGISTRY)
     : resolvedIntent;
   if (!intent) return [];
+  if (intent.needsClarification || intent.confidence < 0.55) return [];
 
   return WORKFLOW_DEFINITIONS
     .filter((definition) => isAllowed(definition, role) && matchesIntent(definition, intent))

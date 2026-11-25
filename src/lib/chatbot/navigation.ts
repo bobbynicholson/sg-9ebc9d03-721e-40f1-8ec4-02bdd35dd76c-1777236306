@@ -547,6 +547,14 @@ function preserveCurrentRecordContext(item: ChatNavigationRef, currentPath: stri
 }
 
 export function getRelevantNavigation(query: string, role: string, limit = 3, currentPage?: CurrentPageNavigationContext, resolvedIntent?: ChatIntentMatch | null): ChatNavigationRef[] {
+  if (resolvedIntent === null || resolvedIntent?.needsClarification || (resolvedIntent && resolvedIntent.confidence < 0.55)) return [];
+  if (resolvedIntent && ["openai", "semantic"].includes(resolvedIntent.matchedBy)) {
+    const normalizedRole = normalizeChatRole(role);
+    return resolvedIntent.navigationRefs
+      .map((ref) => NAVIGATION_REFS.find((item) => item.ref === ref))
+      .filter((item): item is ChatNavigationRef => Boolean(item) && isAllowed(item, normalizedRole))
+      .slice(0, limit);
+  }
   role = normalizeChatRole(role);
   const normalized = query.toLowerCase().trim();
   if (!normalized) return [];

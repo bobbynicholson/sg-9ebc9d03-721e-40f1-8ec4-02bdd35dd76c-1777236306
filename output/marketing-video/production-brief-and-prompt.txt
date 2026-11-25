@@ -1,0 +1,82 @@
+CATERINGMS — LESS ADMIN. MORE CATERING.
+Production brief and generation prompt
+
+Audience: Catering business owners, sales teams and operations managers.
+Goal: Turn recognition of everyday admin problems into interest in a product demo.
+Format: 1920 × 1080, widescreen, 30 fps; approximately 2 minutes 43 seconds.
+Core promise: Keep the commercial booking connected from enquiry to invoice, with communication and operational context close at hand.
+
+MASTER CREATIVE PROMPT
+Create a polished marketing film for CateringMS with a natural two-person conversation: a busy catering owner asks practical questions, and a knowledgeable teammate explains how the platform helps. Begin with the pressure of scattered enquiries, repeated quote entry and payment follow-ups. Introduce the supplied CateringMS logo and the sequence Leads > Quotes > Orders > Invoices. Demonstrate the real application using illustrative customer data and Spit Braai Delivery branding. Give readable screen time to leads, quotes, order progress, invoice balances, Opportunity Lab, lifecycle emails, WhatsApp replies and the dashboard. Use close, purposeful screen movement and calm transitions. Explain benefits in everyday language. Describe Opportunity Lab as a planning aid using estimated contribution and configured capacity, with human review before committing. Describe emails and WhatsApp automation as configured workflows; preserve operator control. Use warm, professional ElevenLabs voices for the owner and teammate. Add understated original instrumental music and synchronised captions. Use Google Veo 3.1 for realistic South African catering footage. Composite exact logo and typography in the edit. Finish with the logo, Less admin. More catering., and a demo call to action at cateringms.com. Do not invent quantified time savings, revenue improvements or guaranteed results.
+
+VERIFIED PRODUCT COVERAGE
+- Lead records with contact, event and follow-up information.
+- Menu and event-based quotes, client response tracking, quote-to-order conversion.
+- Orders connected to operational progress.
+- Invoices, deposits and outstanding balances.
+- Opportunity Lab: calendar, bookings and quote opportunities, estimated contribution, prep and capacity planning.
+- Configured lifecycle email follow-ups and reminders.
+- WhatsApp conversation history, replies, automatic/manual message controls.
+- Connected information for kitchen, shopping and delivery teams.
+
+VISUAL IDENTITY
+Supplied CateringMS logo appears on the introduction, screen titles and closing card.
+Film titles use the dark teal, green, yellow and orange identity from the supplied logo.
+Product capture uses the existing Spit Braai Delivery palette: #f21f07, #2f05ff, #df3456.
+All featured customer identities and event records are illustrative demonstration data.
+
+PRODUCTION MODELS
+Video insert: google/veo-3.1, 6-second source clip at 720p; composed into the 1080p edit.
+Voices: elevenlabs/eleven-v4 through OpenRouter, Lily and George.
+Music: original locally composed instrumental bed.
+
+TIMELINE AND NARRATION
+00:00 – 00:08 | Great catering. Endless admin?
+Lily: Another enquiry. Another quote to rewrite. And somehow, the event still needs your attention.
+
+00:08 – 00:16 | Keep your whole business in the loop.
+George: Meet Catering M S. One connected workspace, from the first enquiry to the final invoice.
+
+00:16 – 00:31 | Give every enquiry a clear next step.
+Lily: So, where do we start?
+George: With Leads. Keep contact details, event dates, guest counts and follow-ups together. Your team sees what needs attention, without searching through scattered messages.
+
+00:31 – 00:44 | Turn enquiries into clear, professional quotes.
+George: Build quotes around your menu, quantities and event requirements. Keep pricing organised, review the details, and send a professional quote your customer can respond to.
+
+00:44 – 00:56 | Carry the details forward.
+Lily: And when the client says yes?
+George: Convert the quote into an order. Keep the booking connected, so your team spends less time re-entering the same event details.
+
+00:56 – 01:08 | Know what’s paid. Know what needs attention.
+Lily: What about payments?
+George: Bring invoices, deposits and outstanding balances into view. See what has been paid and what needs a follow-up, with the booking close at hand.
+
+01:08 – 01:28 | Choose your next booking with more context.
+Lily: How do we know which opportunities fit?
+George: Opportunity Lab brings bookings and quote opportunities onto one calendar. Compare estimated contribution, preparation workload and configured capacity. Explore a plan before committing, with your team making the final call.
+
+01:28 – 01:43 | Keep follow-ups moving.
+Lily: And all those emails we keep forgetting?
+George: Set up automated follow-ups and reminders. Choose the wording and timing, then let configured email workflows keep clients informed while you focus on the event.
+
+01:43 – 02:00 | Make the conversation easier to follow.
+Lily: Our clients live on WhatsApp.
+George: Bring those conversations into the workspace. Read replies, keep the history together, and respond with context. Configure supported messages as automatic or manual, so your team stays in control.
+
+02:00 – 02:14 | One booking. A team that stays in step.
+George: Then keep the work moving beyond the office. Connected event information helps kitchen, shopping and delivery teams understand what needs doing, while role-based portals keep each team focused.
+
+02:14 – 02:23 | More time for the work you love.
+Lily: Less chasing. Less copying. More time for our clients, our food, and the people who make it happen.
+
+02:23 – 02:33 | See the day. Decide what comes next.
+George: From the dashboard to the next delivery, Catering M S helps bring the moving parts together, so you can run your business with a clearer view.
+
+02:33 – 02:43 | Less admin. More catering.
+George: Catering M S. Always in the loop. See how it fits your business. Book a demo at catering M S dot com.
+
+VEO GENERATION PROMPT
+Create one continuous 8-second premium catering brand commercial shot, photorealistic 16:9. A confident South African catering crew prepares an elegant outdoor spit braai event: foreground chef in a clean charcoal apron calmly plates roasted meat, golden potatoes and a fresh salad onto white serving platters while a colleague checks sealed catering trays behind him. Clean professional event kitchen, subtle warm red detail on the apron, green herbs, beautiful golden-hour light. Close-up starts at the finished platter then a gentle lateral camera move reveals an organised preparation line, food steam and tactile realistic detail. Premium food advertising cinematography, purposeful teamwork and unhurried service, real documentary feeling. No dialogue, no speech, no music, no logos, no text, no captions, no computer screen. Anatomically correct hands, no duplicated utensils, no flames obscuring food.
+
+Reference inspiration: https://www.youtube.com/watch?v=0ZEgN3-98AQ — TotalPartyPlanner, What is a CATERING SOFTWARE?!; source video reviewed for the short, benefit-led catering-software presentation. Its footage, music and script are not included in this original film.

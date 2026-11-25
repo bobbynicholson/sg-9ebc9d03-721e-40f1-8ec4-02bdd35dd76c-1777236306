@@ -60,6 +60,7 @@ export function AdminControlGroup({
   onCompactValueChange,
   compactLabel,
   helpText,
+  helpClassName,
   ...rest
 }: {
   label?: React.ReactNode;
@@ -81,6 +82,8 @@ export function AdminControlGroup({
   compactLabel?: string;
   /** Short explanation of what the filter changes; available by hover or tap. */
   helpText?: string;
+  /** Optional tenant-aware treatment for the help button. */
+  helpClassName?: string;
 } & React.HTMLAttributes<HTMLElement>) {
   const [open, setOpen] = React.useState(defaultOpen);
   const bodyId = React.useId();
@@ -101,13 +104,13 @@ export function AdminControlGroup({
             {!open && summary ? <span className="ml-1 truncate font-medium normal-case tracking-normal text-slate-400">{summary}</span> : null}
             <ChevronDown aria-hidden="true" className={cn("ml-auto h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none", open && "rotate-180")} />
           </button>
-          {helpText ? <InfoTooltip content={helpText} ariaLabel={`About ${typeof label === "string" ? label : "these filters"}`} className="h-8 w-8 shrink-0 rounded-full border border-slate-200 bg-white" /> : null}
+          {helpText ? <InfoTooltip content={helpText} ariaLabel={`About ${typeof label === "string" ? label : "these filters"}`} className={cn("h-8 w-8 shrink-0 rounded-full border border-slate-200 bg-white", helpClassName)} /> : null}
         </div>
       ) : (
         <div className="mb-2 flex min-w-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
           <Icon className="h-3.5 w-3.5 shrink-0" />
           <span>{label}</span>
-          {helpText ? <InfoTooltip content={helpText} ariaLabel={`About ${typeof label === "string" ? label : "these filters"}`} className="h-8 w-8 shrink-0 rounded-full border border-slate-200 bg-white" /> : null}
+          {helpText ? <InfoTooltip content={helpText} ariaLabel={`About ${typeof label === "string" ? label : "these filters"}`} className={cn("h-8 w-8 shrink-0 rounded-full border border-slate-200 bg-white", helpClassName)} /> : null}
         </div>
       ))}
       {compactOptions && onCompactValueChange && compactValue !== undefined ? (

@@ -8,6 +8,7 @@ import { buildOpportunities, optimizeQuotes, shiftPlanningDate } from "@/lib/quo
 import { quoteReviewContext, quoteReviewRequestSchema, QUOTE_REVIEW_SYSTEM, reviewOpportunities, validateQuoteModelReview } from "@/lib/quotes/quoteOptimizationReview";
 import { toLocalDateKey } from "@/lib/localDate";
 import { buildQuotePipeline, pipelineDaySignature, summarizePipelineDay } from "@/lib/quotes/quotePipeline";
+import { readQuoteExpiryMode } from "@/lib/quoteExpiryPolicy";
 
 const ALLOWED_ROLES = new Set(["super_admin", "owner", "company_admin", "admin", "sales_admin", "region_admin"]);
 // Small per-process burst guard; authentication and tenant-scoped RLS also apply.
@@ -49,12 +50,12 @@ export async function handler(req: NextApiRequest, res: NextApiResponse) {
     // are never passed to the model. The session client enforces tenant RLS.
     const source = await loadQuoteOptimizationData(db, profile.company_id, request.start, requestedEnd);
     if (request.date > source.end) return res.status(400).json({ error: "Choose a date within the current planning window." });
-    const { data: company, error: companyError } = await db.from("companies").select("currency")
+    const { data: company, error: companyError } = await db.from("companies").select("currency, dispatch_settings")
       .eq("id", profile.company_id).maybeSingle();
     if (companyError || !company) return res.status(503).json({ error: "Company currency could not be verified. Refresh the plan." });
     const currency = String(company.currency || "ZAR").toUpperCase();
     const { opportunities: calculated } = buildOpportunities(source.quotes.filter((quote) => !request.regionId || quote.region_id === request.regionId),
-      source.catalogueCosts, request.assumptions, currency, request.start);
+      source.catalogueCosts, request.assumptions, currency, request.start, readQuoteExpiryMode(company.dispatch_settings));
     const opportunities = calculated.map((opportunity) => {
       const override = request.costOverrides[opportunity.id];
       if (override == null) return opportunity;
@@ -67,7 +68,7 @@ export async function handler(req: NextApiRequest, res: NextApiResponse) {
     const plan = optimizeQuotes(input);
     const pipeline = buildQuotePipeline({ leads: source.leads || [], quotes: source.relatedQuotes || source.quotes,
       orders: source.orders || [], commitments: source.commitments, opportunities, start: request.start, end: source.end,
-      regionId: request.regionId, currency });
+      regionId: request.regionId, currency, expiryMode: readQuoteExpiryMode(company.dispatch_settings) });
     const day = summarizePipelineDay(pipeline, request.date);
     const options = reviewOpportunities(input, plan, request.date);
     if (!day.entries.length) return res.status(400).json({ error: "There are no enquiries or bookings to explain on this date." });

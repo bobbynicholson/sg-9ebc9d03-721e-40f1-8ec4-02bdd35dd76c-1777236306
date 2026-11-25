@@ -12,6 +12,7 @@
  * lives outside the page file.
  */
 import type { Quote } from "@/types";
+import { isQuotePastExpiry, quoteExpiryDate, type QuoteExpiryMode } from "@/lib/quoteExpiryPolicy";
 
 // Buckets we surface as filter pills at the top of the page. They
 // collapse the raw quote_status enum into actionable groupings the
@@ -45,7 +46,7 @@ export interface QuoteIntelligence {
   lastTouchAt: string | null;
   /** Whether this quote came from a client-portal submission. */
   isClientRequest: boolean;
-  /** Days until valid_until if set and future, else null. */
+  /** Days until the company-configured expiry date, if present. */
   daysUntilExpiry: number | null;
   /** Days since the quote was created. */
   ageDays: number;
@@ -79,13 +80,6 @@ function daysBetween(from: Date | string | null | undefined, to = new Date()): n
   return Math.floor((to.getTime() - d.getTime()) / DAY_MS);
 }
 
-function daysUntil(target: Date | string | null | undefined, from = new Date()): number | null {
-  if (!target) return null;
-  const d = typeof target === "string" ? new Date(target) : target;
-  if (isNaN(d.getTime())) return null;
-  return Math.floor((d.getTime() - from.getTime()) / DAY_MS);
-}
-
 // ── Derivation ──────────────────────────────────────────────────────────
 
 /**
@@ -95,20 +89,22 @@ function daysUntil(target: Date | string | null | undefined, from = new Date()):
  * checked before plain draft so the team sees that the client is
  * actively waiting. "Expiring" trumps "in play" so urgency surfaces.
  */
-export function deriveQuoteIntelligence(q: any): QuoteIntelligence {
+export function deriveQuoteIntelligence(q: any, expiryMode: QuoteExpiryMode = "valid_until", todayIso = new Date().toISOString().slice(0, 10)): QuoteIntelligence {
   const isClientRequest = q.external_source === "client_portal_rebook";
   const status = (q.status || "draft") as string;
   const created = q.created_at as string | null;
   const sent = q.sent_at as string | null;
   const viewed = q.viewed_at as string | null;
   const accepted = q.accepted_at as string | null;
-  const validUntil = q.valid_until as string | null;
+  const validUntil = quoteExpiryDate(q, expiryMode);
   const convertedOrderId = q.converted_to_order_id as string | null;
 
   const ageDays = daysBetween(created) ?? 0;
   const daysSinceSent = daysBetween(sent);
   const daysSinceViewed = daysBetween(viewed);
-  const daysUntilExpiry = daysUntil(validUntil);
+  const daysUntilExpiry = validUntil
+    ? Math.round((Date.parse(`${validUntil.slice(0, 10)}T12:00:00Z`) - Date.parse(`${todayIso}T12:00:00Z`)) / DAY_MS)
+    : null;
 
   // Most meaningful timestamp - viewed > sent > created.
   const lastTouchAt = viewed || sent || created;
@@ -172,7 +168,7 @@ export function deriveQuoteIntelligence(q: any): QuoteIntelligence {
   }
 
   // ── EXPIRED ─────────────────────────────────────────────────────────
-  if (status === "expired" || (validUntil && (daysUntilExpiry ?? 0) < 0 && status !== "accepted" && status !== "rejected")) {
+  if (status === "expired" || (isQuotePastExpiry(q, expiryMode, todayIso) && status !== "accepted" && status !== "rejected")) {
     return {
       bucket: "expired",
       tone: "warm",
@@ -261,7 +257,7 @@ export function deriveQuoteIntelligence(q: any): QuoteIntelligence {
     };
   }
 
-  // ── EXPIRING SOON (sent + valid_until close) ───────────────────────
+  // ── EXPIRING SOON (sent + configured deadline close) ──────────────
   // TIGHTEN I.75: 'viewed' / 'revised' statuses don't exist; viewed is
   // tracked via viewed_at timestamp, revised was dropped from the enum.
   if (status === "sent" && daysUntilExpiry !== null) {

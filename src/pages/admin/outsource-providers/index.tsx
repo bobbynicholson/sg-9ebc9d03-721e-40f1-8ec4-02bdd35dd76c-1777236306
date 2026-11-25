@@ -28,6 +28,8 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { BulkDeleteConfirmDialog, BulkDeleteToolbar, useVisibleBulkSelection } from "@/components/admin/BulkDeleteControls";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -198,6 +200,8 @@ function ProvidersList() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<OutsourceProvider | null>(null);
   const [deleteOpenAssignments, setDeleteOpenAssignments] = useState<number | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   // OUT-C: regions + suppliers for the form dropdowns.
   const [regions, setRegions] = useState<Array<{ id: string; name: string }>>([]);
   const [supplierOptions, setSupplierOptions] = useState<Array<{ id: string; name: string }>>([]);
@@ -328,6 +332,42 @@ function ProvidersList() {
       );
     });
   }, [providers, search, activeOnly, roleFilter, regionFilter]);
+
+  const providerSelection = useVisibleBulkSelection(filtered.map((provider) => provider.id));
+  const selectedProviders = filtered.filter((provider) => providerSelection.selectedIds.has(provider.id));
+
+  const handleBulkDelete = async () => {
+    if (selectedProviders.length === 0) return;
+    setBulkDeleting(true);
+    const removed: string[] = [];
+    const blocked: string[] = [];
+    const failures: string[] = [];
+    for (const provider of selectedProviders) {
+      try {
+        const openAssignments = await outsourceProviderService.countOpenAssignments(provider.id);
+        if (openAssignments > 0) {
+          blocked.push(`${provider.provider_name} (${openAssignments} open)`);
+          continue;
+        }
+        await outsourceProviderService.softDelete(provider.id);
+        removed.push(provider.id);
+      } catch (error) {
+        failures.push(`${provider.provider_name}: ${error instanceof Error ? error.message : "delete failed"}`);
+      }
+    }
+    setBulkDeleting(false);
+    setBulkDeleteOpen(false);
+    providerSelection.clear();
+    void load();
+    const issues = [...blocked.map((name) => `${name} assignment(s)`), ...failures];
+    toast({
+      title: issues.length === 0 ? "Providers removed" : removed.length > 0 ? "Some providers removed" : "No providers removed",
+      description: issues.length === 0
+        ? `${removed.length} provider${removed.length === 1 ? " was" : "s were"} removed.`
+        : `${removed.length} removed; ${issues.length} skipped. ${issues[0]}. Open assignments must be canceled or reassigned first.`,
+      variant: issues.length > 0 ? "destructive" : "default",
+    });
+  };
 
   const openAdd = () => {
     setForm(emptyForm());
@@ -745,6 +785,14 @@ function ProvidersList() {
             </CardContent></Card>
           ) : (
             <div className="space-y-2">
+              <BulkDeleteToolbar
+                selectedCount={selectedProviders.length}
+                itemLabel="provider"
+                busy={bulkDeleting}
+                onSelectAllVisible={providerSelection.selectAllVisible}
+                onClear={providerSelection.clear}
+                onDelete={() => setBulkDeleteOpen(true)}
+              />
               {filtered.map((p) => {
                 const rateLabel = RATE_TYPE_OPTIONS.find((r) => r.value === p.default_rate_type)?.label || p.default_rate_type;
                 const rateDisplay = p.default_rate != null
@@ -755,6 +803,12 @@ function ProvidersList() {
                   <Card key={p.id} className={`${p.is_active ? "" : "opacity-60"} hover:shadow-sm transition`}>
                     <CardContent className="p-2.5 sm:p-3">
                       <div className="flex min-w-0 items-center gap-2">
+                        <Checkbox
+                          checked={providerSelection.selectedIds.has(p.id)}
+                          onCheckedChange={() => providerSelection.toggle(p.id)}
+                          aria-label={`Select ${p.provider_name}`}
+                          className="shrink-0"
+                        />
                         <div className="min-w-0 flex-1">
                           <div className="flex min-w-0 items-center gap-1.5">
                             <Link
@@ -1246,6 +1300,16 @@ function ProvidersList() {
         companyId={companyId || ""}
         onClose={() => setImportOpen(false)}
         onImported={() => { setImportOpen(false); void load(); }}
+      />
+
+      <BulkDeleteConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        selectedCount={selectedProviders.length}
+        itemLabel="provider"
+        details="Selected providers will be removed one by one. A provider with requested, accepted, or on-site assignments will be skipped and must be canceled or reassigned first. Past assignments remain for the audit trail. No messages are sent."
+        busy={bulkDeleting}
+        onConfirm={handleBulkDelete}
       />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>

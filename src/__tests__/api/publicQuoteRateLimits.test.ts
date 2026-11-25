@@ -11,11 +11,11 @@ jest.mock("@/lib/eventCapacity", () => ({ getEventCapacityForDate: jest.fn(async
 jest.mock("@/lib/paymentService", () => ({ getPublicPaymentAvailability: jest.fn(async () => ({ provider: null, online_available: false })) }));
 
 const token = "00000000-0000-0000-0000-000000000001";
-function setup() {
+function setup(dispatchSettings: Record<string, unknown> = {}) {
   const counters = new Map<string, number>();
   const requests: any[] = [];
   const quote = { id: "quote1", company_id: "company1", status: "sent", guest_count: 100, event_date: "2099-12-31", menu_items: [],
-    company: { id: "company1", company_name: "Fixture caterer", currency: "ZAR" } };
+    company: { id: "company1", company_name: "Fixture caterer", currency: "ZAR", dispatch_settings: dispatchSettings } };
   const db: any = {
     // Model the actual database's UNIQUE(token, ip_hash, window_start).
     // The real limiter derives each key and every handler uses that limiter.
@@ -52,6 +52,13 @@ it("viewing a quote repeatedly does not spend its change-request allowance", asy
   for (let n = 0; n < 28; n++) expect((await state.read()).statusCode).toBe(200);
   expect((await state.change()).statusCode).toBe(200);
   expect(state.requests).toHaveLength(1);
+});
+
+it("returns the quote expiry mode without exposing company dispatch settings", async () => {
+  const state = setup({ quoteExpiryMode: "event_date", internalCostSettings: { margin: 0.2 } });
+  const response = await state.read();
+  expect(response.body.quote.company.quote_expiry_mode).toBe("event_date");
+  expect(response.body.quote.company).not.toHaveProperty("dispatch_settings");
 });
 
 it("the normal 15-second refresh interval works for a full hour", async () => {

@@ -7,6 +7,7 @@ import { toZonedISO, DEFAULT_TENANT_TIMEZONE } from "@/lib/localDate";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { isClientEligibleForExpiry } from "@/lib/quoteExpiryEligibility";
+import { isQuotePastExpiry, quoteExpiryDate, readQuoteExpiryMode } from "@/lib/quoteExpiryPolicy";
 
 const CRON_NAME = "expire-stale-quotes";
 
@@ -20,7 +21,7 @@ const QUOTE_SELECT = [
   "expiry_client_notified_at", "expiry_client_emailed_at",
   "expiry_admin_notification_error", "expiry_admin_email_error",
   "expiry_client_notification_error", "expiry_client_email_error",
-  "company:companies(email, company_name, slug, timezone)",
+  "company:companies(email, company_name, slug, timezone, dispatch_settings)",
 ].join(", ");
 
 type QuoteExpiryRow = Record<string, any> & {
@@ -77,12 +78,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const utcTomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
       .toISOString().slice(0, 10);
 
-    // First find only non-terminal quotes that are past their validity date.
-    // The exact comparison is made in each tenant's local timezone.
+    // Check both possible deadline columns; the company setting decides
+    // which one actually applies to each row.
     const { data: stale, error: selErr } = await sb
       .from("quotes")
       .select(QUOTE_SELECT)
-      .lte("valid_until", utcTomorrow)
+      .or(`valid_until.lte.${utcTomorrow},event_date.lte.${utcTomorrow}`)
       .in("status", ["draft", "sent"])
       .is("deleted_at", null)
       .limit(2000);
@@ -92,9 +93,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const staleRows = ((stale || []) as QuoteExpiryRow[]).filter((row) => {
-      if (!row.valid_until) return false;
-      const tz = companyFor(row).timezone || DEFAULT_TENANT_TIMEZONE;
-      return row.valid_until < toZonedISO(now, tz);
+      const company = companyFor(row);
+      const tz = company.timezone || DEFAULT_TENANT_TIMEZONE;
+      return isQuotePastExpiry(row, readQuoteExpiryMode(company.dispatch_settings), toZonedISO(now, tz));
     });
 
     let newlyExpired: QuoteExpiryRow[] = [];
@@ -185,7 +186,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           companyId,
           targetRoles: ["company_admin" as any, "admin" as any, "owner" as any],
           title: `📄 ${rows.length} quote${rows.length === 1 ? "" : "s"} expired`,
-          message: `${rows.length} quote${rows.length === 1 ? "" : "s"} passed ${rows.length === 1 ? "its" : "their"} valid-until date and was automatically marked expired. Review and resend any quote that is still needed.`,
+          message: `${rows.length} quote${rows.length === 1 ? "" : "s"} passed ${rows.length === 1 ? "its" : "their"} configured expiry date and was automatically marked expired. Review and resend any quote that is still needed.`,
           type: "quotes_expired_digest",
           priority: "normal",
           link: "/admin/quotes",
@@ -231,9 +232,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       const subject = `${rows.length} quote${rows.length === 1 ? "" : "s"} expired in ${companyName}`;
       const body = [
         "Hello,", "",
-        `${rows.length} quote${rows.length === 1 ? " has" : "s have"} passed its valid-until date and was automatically marked expired:`,
+        `${rows.length} quote${rows.length === 1 ? " has" : "s have"} passed its configured expiry date and was automatically marked expired:`,
         "",
-        ...rows.map((row) => `- ${quoteLabel(row)}${row.client_name ? ` · ${row.client_name}` : ""}${row.valid_until ? ` · valid until ${row.valid_until}` : ""}`),
+        ...rows.map((row) => `- ${quoteLabel(row)}${row.client_name ? ` · ${row.client_name}` : ""}${quoteExpiryDate(row, readQuoteExpiryMode(companyFor(row).dispatch_settings)) ? ` · expiry ${quoteExpiryDate(row, readQuoteExpiryMode(companyFor(row).dispatch_settings))}` : ""}`),
         "",
         "Review the expired quotes in CateringMS and resend any quote that is still relevant.",
         "", "CateringMS",
@@ -297,7 +298,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
               user_id: clientUserId,
               notification_type: "quote_expired_client",
               title: "Your quote has expired",
-              message: `Quote ${quoteLabel(row)} passed its valid-until date (${row.valid_until || "the validity date"}) and was automatically marked expired. Contact the catering team if you would like an updated quote.`,
+              message: `Quote ${quoteLabel(row)} passed its expiry date (${quoteExpiryDate(row, readQuoteExpiryMode(companyFor(row).dispatch_settings)) || "the deadline"}) and was automatically marked expired. Contact the catering team if you would like an updated quote.`,
               priority: "normal",
               link: "/client-portal/quotes",
               related_entity_type: "quote",
@@ -333,7 +334,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         const subject = `Your quote ${quoteLabel(row)} has expired`;
         const body = [
           `Hello ${row.client_name || "there"},`, "",
-          `Your quote ${quoteLabel(row)} for ${row.quote_name || "your event"} expired because it was not accepted before ${row.valid_until || "the validity date"}.`,
+          `Your quote ${quoteLabel(row)} for ${row.quote_name || "your event"} expired because it was not accepted before ${quoteExpiryDate(row, readQuoteExpiryMode(companyFor(row).dispatch_settings)) || "the deadline"}.`,
           "",
           `If you still need this event, please contact ${companyName} and ask for an updated quote.`,
           ...(quoteUrl ? ["", `You can still review the quote details here: ${quoteUrl}`] : []),

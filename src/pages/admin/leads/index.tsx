@@ -51,6 +51,7 @@ import { buildPublicQuoteUrl } from "@/lib/customerLinks";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { PageWorkbench, PortalCard, PortalCardHeader, PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
 import { AdminControlGroup, AdminFilterChip, AdminSearchField } from "@/components/admin/AdminControlSurface";
+import { BulkDeleteConfirmDialog, BulkDeleteToolbar, useVisibleBulkSelection } from "@/components/admin/BulkDeleteControls";
 
 // Per-lead provenance summary - which quotes/orders/clients have
 // been spawned from this lead. Surfaced on the row so the catering
@@ -502,6 +503,8 @@ function AdminLeadsInner() {
   const [expandedLeadId, setExpandedLeadId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   // Bulk-import modal state. Same engine as Contacts and the
   // onboarding wizard, scoped to the leads target.
   // Import + add surface moved to /admin/contacts - see comment on
@@ -674,6 +677,33 @@ function AdminLeadsInner() {
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleBulkDeleteLeads = async () => {
+    const targets = filteredLeads.filter((lead: any) => leadSelection.selectedIds.has(lead.id));
+    if (targets.length === 0) return;
+    setBulkDeleting(true);
+    const results = await Promise.all(targets.map(async (lead: any) => {
+      try {
+        await leadService.deleteLead(lead.id);
+        return { id: lead.id, ok: true, error: undefined as string | undefined };
+      } catch (error: any) {
+        return { id: lead.id, ok: false, error: error?.message as string | undefined };
+      }
+    }));
+    const deletedIds = results.filter((result) => result.ok).map((result) => result.id);
+    const failed = results.filter((result) => !result.ok);
+    if (deletedIds.length > 0) setLeads((current) => current.filter((lead) => !deletedIds.includes(lead.id)));
+    leadSelection.clear();
+    setBulkDeleteOpen(false);
+    setBulkDeleting(false);
+    toast({
+      title: failed.length === 0 ? "Leads deleted" : deletedIds.length > 0 ? "Some leads deleted" : "Delete failed",
+      description: failed.length === 0
+        ? `${deletedIds.length} lead${deletedIds.length === 1 ? " was" : "s were"} removed from the active list.`
+        : `${deletedIds.length} deleted; ${failed.length} failed${failed[0]?.error ? `: ${failed[0].error}` : "."}`,
+      variant: failed.length > 0 ? "destructive" : "default",
+    });
   };
 
   useEffect(() => {
@@ -1108,6 +1138,7 @@ function AdminLeadsInner() {
     ],
     { limit: 0 },
   );
+  const leadSelection = useVisibleBulkSelection(filteredLeads.map((lead: any) => lead.id));
 
   const getStatusColor = (status: string) => {
     // Semantic status colours: success = emerald, pending-ish = amber,
@@ -1383,6 +1414,14 @@ function AdminLeadsInner() {
             <PortalCardHeader
               title={loading ? "Leads" : `Leads (${filteredLeads.length})`}
             />
+              <BulkDeleteToolbar
+                selectedCount={leadSelection.selectedCount}
+                itemLabel="lead"
+                busy={bulkDeleting}
+                onSelectAllVisible={leadSelection.selectAllVisible}
+                onClear={leadSelection.clear}
+                onDelete={() => setBulkDeleteOpen(true)}
+              />
               {loading ? (
                 // Skeleton rows INSIDE the shell so the nav + rail never
                 // disappear while the pipeline loads.
@@ -1460,6 +1499,15 @@ function AdminLeadsInner() {
                         <div className="min-w-0">
                           <div className="mb-2 min-w-0 space-y-2">
                             <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <label className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-slate-300 bg-white" title="Select lead">
+                              <input
+                                type="checkbox"
+                                checked={leadSelection.selectedIds.has(lead.id)}
+                                onChange={() => leadSelection.toggle(lead.id)}
+                                aria-label={`Select lead ${lead.client_name || lead.client_email || lead.id}`}
+                                className="h-4 w-4 accent-brand-primary"
+                              />
+                            </label>
                             <h3 className="min-w-0 max-w-full font-semibold text-slate-900">
                               <button
                                 type="button"
@@ -2104,6 +2152,16 @@ function AdminLeadsInner() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BulkDeleteConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        selectedCount={leadSelection.selectedCount}
+        itemLabel="lead"
+        details="Selected leads will be soft-deleted from the active pipeline. Linked quotes and orders stay on file."
+        busy={bulkDeleting}
+        onConfirm={handleBulkDeleteLeads}
+      />
 
       {/* Audit fix (2026-07-02): user_metadata.company_id is only set
           for accounts whose auth metadata was stamped at signup; the

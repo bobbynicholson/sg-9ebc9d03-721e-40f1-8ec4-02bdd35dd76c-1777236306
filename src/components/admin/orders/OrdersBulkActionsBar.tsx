@@ -12,6 +12,7 @@ interface Props {
   selectedCount: number;
   busy: boolean;
   onBulkUpdateStatus: (status: string) => void;
+  onBulkDelete: () => void;
   onSelectAllVisible: () => void;
   onClearSelection: () => void;
 }
@@ -33,6 +34,7 @@ export function OrdersBulkActionsBar({
   selectedCount,
   busy,
   onBulkUpdateStatus,
+  onBulkDelete,
   onSelectAllVisible,
   onClearSelection,
 }: Props) {
@@ -59,6 +61,9 @@ export function OrdersBulkActionsBar({
         </Select>
         <Button variant="outline" size="sm" onClick={onSelectAllVisible} disabled={busy}>
           Select all visible
+        </Button>
+        <Button variant="destructive" size="sm" onClick={onBulkDelete} disabled={busy}>
+          Delete selected
         </Button>
         <Button variant="ghost" size="sm" onClick={onClearSelection} disabled={busy}>
           <X className="w-4 h-4 mr-1" />

@@ -7,7 +7,7 @@ import {
   buildLiveContext,
   generateChatReply,
   resolveChatIdentity,
-  retrieveKnowledge,
+  retrieveKnowledgeResult,
 } from "@/server/chatbot/brain";
 import type { ChatFrontendContext, ChatIdentity } from "@/server/chatbot/brain";
 import { getRelevantNavigation } from "@/lib/chatbot/navigation";
@@ -15,7 +15,7 @@ import { beautifyChatResponse, type ChatTraceStep } from "@/lib/chatbot/response
 import { getRelevantWorkflows } from "@/lib/chatbot/workflows";
 import { getChatAccessPolicy } from "@/server/chatbot/accessPolicy";
 import { routeChatQuestion } from "@/server/chatbot/router";
-import { loadDynamicTools, selectDynamicTools } from "@/server/chatbot/dynamicTools";
+import { loadDynamicTools } from "@/server/chatbot/dynamicTools";
 import { classifyChatIntentWithOpenAI } from "@/server/chatbot/intentClassifier";
 import { setAiUsageContext } from "@/lib/ai/usageLog";
 
@@ -284,22 +284,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       roles: tool.roles,
       keywords: tool.keywords,
       category: "custom",
-    })));
-    let route = routeChatQuestion(message, identity.role, resolvedIntent);
-    // Custom tool phrases are manager-defined, so the static intent router
-    // cannot know them in advance. Check those definitions before deciding a
-    // question is knowledge-only; an exact custom match is current data.
-    if (!route.useLiveData && route.useKnowledge) {
-      const matchingCustomTool = selectDynamicTools(dynamicTools, message, 1, resolvedIntent)[0];
-      if (matchingCustomTool) {
-        route = {
-          route: "live_data",
-          useKnowledge: false,
-          useLiveData: true,
-          explanation: `The question matches the approved ${matchingCustomTool.name} tool.`,
-        };
-      }
-    }
+    })), { history, currentPath: typeof req.body?.currentPath === "string" ? req.body.currentPath : "" });
+    const route = routeChatQuestion(message, identity.role, resolvedIntent);
     // Knowledge-only questions do not need a policy read because no live
     // tools are executed. Avoid two database round trips on greetings and
     // basic product questions; live-data and hybrid routes remain gated.
@@ -321,26 +307,28 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (workflow) {
       trace.push({ id: "workflow", type: "plan", title: `Mapped the ${workflow.label.toLowerCase()} process`, status: "completed", detail: `${workflow.steps.length} role-approved steps are available below.` });
     }
-    const [liveContext, initialKnowledge] = await Promise.all([
+    const retrievalQuery = resolvedIntent?.retrievalQuery || message;
+    const [liveContext, initialSearch] = await Promise.all([
       route.useLiveData
-        ? buildLiveContext(db, identity, accessPolicy || undefined, message, resolvedIntent)
+        ? buildLiveContext(db, identity, accessPolicy || undefined, retrievalQuery, resolvedIntent)
         : Promise.resolve("LIVE DATA ROUTE: This question was classified as knowledge-first. Do not invent current records; use indexed stable knowledge and navigation only."),
-      route.useKnowledge ? retrieveKnowledge(db, identity.companyId, identity.role, message) : Promise.resolve([]),
+      route.useKnowledge ? retrieveKnowledgeResult(db, identity.companyId, identity.role, retrievalQuery) : Promise.resolve({ items: [], status: "no_match" as const }),
     ]);
-    let knowledge = initialKnowledge;
+    let knowledge = initialSearch.items;
+    let knowledgeStatus = initialSearch.status;
     if (route.useLiveData) {
       trace.push({ id: "live-data", type: "database", title: "Checked approved live data", status: "completed", detail: "Used role-scoped application tools at question time." });
     } else {
       trace.push({ id: "live-data", type: "database", title: "Live data not needed", status: "skipped", detail: "This answer uses stable knowledge and navigation." });
     }
     if (route.useKnowledge) {
-      trace.push({ id: "knowledge-search", type: "search", title: "Searched approved knowledge", status: knowledge.length ? "completed" : "failed", detail: knowledge.length ? `${knowledge.length} relevant source${knowledge.length === 1 ? "" : "s"} found.` : "No exact source matched on the first pass." });
-      if (!knowledge.length && MAX_GROUNDING_PASSES > 1) {
-        const broaderQuery = `${message} CateringMS ${identity.role} operating guidance procedure`;
-        const retryKnowledge = await retrieveKnowledge(db, identity.companyId, identity.role, broaderQuery);
+      trace.push({ id: "knowledge-search", type: "search", title: "Searched approved knowledge", status: knowledge.length ? "completed" : "failed", detail: knowledge.length ? `${knowledge.length} relevant passage${knowledge.length === 1 ? "" : "s"} found.` : knowledgeStatus === "unavailable" ? "Approved knowledge search is temporarily unavailable." : "No relevant approved passage matched the question." });
+      if (!knowledge.length && knowledgeStatus === "no_match" && retrievalQuery !== message && MAX_GROUNDING_PASSES > 1) {
+        const retrySearch = await retrieveKnowledgeResult(db, identity.companyId, identity.role, message);
+        knowledgeStatus = retrySearch.status;
         const seen = new Set(knowledge.map((item) => `${item.source}\n${item.content}`));
-        knowledge = [...knowledge, ...retryKnowledge.filter((item) => !seen.has(`${item.source}\n${item.content}`))].slice(0, 5);
-        trace.push({ id: "knowledge-retry", type: "verification", title: "Checked broader approved guidance", status: knowledge.length ? "completed" : "failed", detail: knowledge.length ? `${knowledge.length} source${knowledge.length === 1 ? "" : "s"} available after the second pass.` : "No approved source supports a specific answer." });
+        knowledge = [...knowledge, ...retrySearch.items.filter((item) => !seen.has(`${item.source}\n${item.content}`))].slice(0, 5);
+        trace.push({ id: "knowledge-retry", type: "verification", title: "Checked the original question", status: knowledge.length ? "completed" : "failed", detail: knowledge.length ? `${knowledge.length} relevant passage${knowledge.length === 1 ? "" : "s"} available after the second pass.` : knowledgeStatus === "unavailable" ? "Approved knowledge search is temporarily unavailable." : "No approved source supports a specific answer." });
       }
     } else {
       trace.push({ id: "knowledge-search", type: "search", title: "Approved knowledge not needed", status: "skipped", detail: "The request is answered from current authorized data." });
@@ -376,7 +364,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       controls: currentControls,
       tags: currentTags,
     };
-    const answer = await generateChatReply({ identity, message, history, liveContext, knowledge, navigation, route, workflow, frontend });
+    const groundedContext = `${liveContext}\nKNOWLEDGE SEARCH STATUS: ${route.useKnowledge ? knowledgeStatus : "not needed"}. ${knowledgeStatus === "unavailable" && route.useKnowledge ? "Tell the user approved guidance could not be checked right now; do not claim that no guidance exists." : ""}`;
+    const answer = await generateChatReply({ identity, message, history, liveContext: groundedContext, knowledge, navigation, route, workflow, frontend });
     // Final response boundary: every provider, live tool, and direct handler
     // is beautified again before it is stored or sent to the browser.
     const rendered = { ...beautifyChatResponse(answer.rendered), ...(workflow ? { workflow } : {}), trace: [...trace, { id: "final", type: "final" as const, title: "Answer prepared", status: "completed" as const }] };
@@ -392,6 +381,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       metadata: {
         provider: answer.provider,
         retrieval_count: answer.retrievalCount,
+        knowledge_search_status: route.useKnowledge ? knowledgeStatus : "not_needed",
         response_payload: rendered,
         role: identity.role,
         live_data_enabled: accessPolicy?.liveDataEnabled ?? false,
@@ -437,7 +427,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .eq("id", sessionId).eq("user_id", user.id);
       if (touchError) console.warn("[api/chat] could not update session activity:", touchError.message);
     }
-    return res.status(200).json({ sessionId, sessionReset, message: assistantMessage, sources: knowledge.map((item) => item.source), navigation, response_payload: rendered, intent_route: route.route, temporary });
+    return res.status(200).json({ sessionId, sessionReset, message: assistantMessage, sources: [...new Set(knowledge.map((item) => item.sourceName || item.source))], navigation, response_payload: rendered, intent_route: route.route, temporary });
   } catch (error) {
     console.error("[api/chat] reply failed:", error);
     return chatError(res, 503, "CHAT_REPLY_UNAVAILABLE", "I could not prepare an answer right now. Please try again in a moment.", true, { sessionId });

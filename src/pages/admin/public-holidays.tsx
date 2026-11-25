@@ -49,6 +49,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
+import { BulkDeleteConfirmDialog, BulkDeleteToolbar, useVisibleBulkSelection } from "@/components/admin/BulkDeleteControls";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
@@ -131,6 +132,8 @@ function PublicHolidaysAdmin() {
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const [adding, setAdding] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<(Holiday | HolidayOccurrence) | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(tenantTodayISO());
 
   const reload = useCallback(async () => {
@@ -181,6 +184,45 @@ function PublicHolidaysAdmin() {
   }, [companyId, reload]);
 
   const filtered = useMemo(() => buildOccurrences(holidays, year), [holidays, year]);
+  const customVisible = filtered.filter((holiday) => holiday.company_id === companyId);
+  const holidaySelection = useVisibleBulkSelection(customVisible.map((holiday) => holiday.id));
+
+  const handleBulkDeleteHolidays = async () => {
+    if (!companyId) return;
+    const targets = customVisible.filter((holiday) => holidaySelection.selectedIds.has(holiday.id));
+    if (targets.length === 0) return;
+    setBulkDeleting(true);
+    const results = await Promise.all(targets.map(async (holiday) => {
+      const { error } = await supabase.from("public_holidays").delete().eq("id", holiday.id).eq("company_id", companyId);
+      if (!error) {
+        void (supabase as any).from("audit_logs").insert({
+          company_id: companyId,
+          user_id: actorId || null,
+          action: "delete",
+          entity_type: "public_holiday",
+          entity_id: holiday.id,
+          details: { name: holiday.name, date: holiday.date, is_recurring: holiday.is_recurring },
+        });
+      }
+      return { holiday, ok: !error, error: error?.message };
+    }));
+    const removed = results.filter((result) => result.ok);
+    const failed = results.filter((result) => !result.ok);
+    holidaySelection.clear();
+    setBulkDeleteOpen(false);
+    setBulkDeleting(false);
+    if (typeof window !== "undefined" && removed.length > 0) {
+      window.dispatchEvent(new CustomEvent("cateringms:holidays-updated", { detail: { action: "bulk-delete", ids: removed.map((result) => result.holiday.id) } }));
+    }
+    await reload();
+    toast({
+      title: failed.length === 0 ? "Holidays removed" : removed.length > 0 ? "Some holidays removed" : "Delete failed",
+      description: failed.length === 0
+        ? `${removed.length} company holiday${removed.length === 1 ? " was" : "s were"} removed.`
+        : `${removed.length} removed; ${failed.length} failed${failed[0]?.error ? `: ${failed[0].error}` : "."}`,
+      variant: failed.length > 0 ? "destructive" : "default",
+    });
+  };
 
   const holidaysByDate = useMemo(() => {
     const map = new Map<string, HolidayOccurrence[]>();
@@ -431,6 +473,14 @@ function PublicHolidaysAdmin() {
               <CardDescription className="text-xs leading-5 sm:text-sm">Source list used for payroll checks and CSV export.</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
+              <BulkDeleteToolbar
+                selectedCount={holidaySelection.selectedCount}
+                itemLabel="company holiday"
+                busy={bulkDeleting}
+                onSelectAllVisible={holidaySelection.selectAllVisible}
+                onClear={holidaySelection.clear}
+                onDelete={() => setBulkDeleteOpen(true)}
+              />
               {loading ? (
                 <div className="py-12 text-center text-slate-500">
                   <Loader2 className="w-6 h-6 mx-auto animate-spin mb-2" />Loading...
@@ -448,9 +498,12 @@ function PublicHolidaysAdmin() {
                     return (
                       <article key={`mobile-${h.id}-${h.display_date}`} className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
                         <div className="flex min-w-0 items-start justify-between gap-3">
-                          <div className="min-w-0">
+                          <div className="flex min-w-0 items-start gap-2">
+                            {isCustom && <input type="checkbox" checked={holidaySelection.selectedIds.has(h.id)} onChange={() => holidaySelection.toggle(h.id)} aria-label={`Select holiday ${h.name}`} className="mt-1 h-4 w-4 shrink-0 accent-brand-primary" />}
+                            <div className="min-w-0">
                             <p className="break-words text-sm font-semibold text-slate-900">{h.name}</p>
                             <p className="mt-0.5 text-xs tabular-nums text-slate-600">{dateLabel(h.display_date)}</p>
+                            </div>
                           </div>
                           {isCustom ? (
                             <Badge variant="outline" className="shrink-0 border-amber-200 bg-amber-50 text-xs text-amber-700">Company</Badge>
@@ -486,6 +539,7 @@ function PublicHolidaysAdmin() {
                   <table className="w-full min-w-[720px] text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-normal text-slate-600">
                       <tr>
+                        <th className="py-2 pl-3 pr-1"><input type="checkbox" aria-label="Select visible company holidays" checked={customVisible.length > 0 && holidaySelection.selectedCount === customVisible.length} onChange={() => holidaySelection.selectAllVisible()} className="h-4 w-4 accent-brand-primary" /></th>
                         <th className="text-left py-2 pl-4">Date</th>
                         <th className="text-left py-2 px-2">Holiday</th>
                         <th className="text-left py-2 px-2">Source</th>
@@ -498,6 +552,7 @@ function PublicHolidaysAdmin() {
                         const isCustom = h.company_id != null;
                         return (
                           <tr key={`${h.id}-${h.display_date}`} className="border-b border-slate-100 hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                            <td className="py-2 pl-3 pr-1">{isCustom && <input type="checkbox" checked={holidaySelection.selectedIds.has(h.id)} onChange={() => holidaySelection.toggle(h.id)} aria-label={`Select holiday ${h.name}`} className="h-4 w-4 accent-brand-primary" />}</td>
                             <td className="py-2 pl-4 text-slate-700 tabular-nums">
                               {dateLabel(h.display_date)}
                             </td>
@@ -622,6 +677,15 @@ function PublicHolidaysAdmin() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <BulkDeleteConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        selectedCount={holidaySelection.selectedCount}
+        itemLabel="company holiday"
+        details="Selected company holidays will be deleted. Recurring holidays apply to every year, and future shift pay calculations will no longer count these dates. Shared gazetted holidays cannot be selected."
+        busy={bulkDeleting}
+        onConfirm={handleBulkDeleteHolidays}
+      />
     </>
   );
 }

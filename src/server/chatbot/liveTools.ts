@@ -283,6 +283,11 @@ export function selectLiveTools(role: string, message: string, policy: LiveToolP
   const intentMatches = intentToolIds
     .map((toolId) => eligible.find((tool) => tool.id === toolId))
     .filter((tool): tool is LiveToolDefinition => Boolean(tool));
+  if (resolvedIntent && ["openai", "semantic"].includes(resolvedIntent.matchedBy)) {
+    if (resolvedIntent.needsClarification || resolvedIntent.confidence < 0.55 || !intentMatches.length) return [];
+    const baseline = eligible.filter((tool) => ["current_user_profile", "company_profile"].includes(tool.id));
+    return Array.from(new Map([...intentMatches, ...baseline].map((tool) => [tool.id, tool])).values()).slice(0, 8);
+  }
   const matching = Array.from(new Map([...intentMatches, ...keywordMatches].map((tool) => [tool.id, tool])).values());
   // Earnings must use the same pay calculation as the Driver earnings page.
   // Do not let the generic assigned-deliveries tool win merely because the
@@ -856,7 +861,7 @@ async function loadAssignedWork(db: any, identity: ChatIdentity, message: string
     result.tasks = await withItemsLeftToBuy(db, result.tasks);
   }
 
-  if (role === "cleaning_manager" || role === "cleaning_staff" || role === "kitchen_manager" || role === "kitchen_staff" || adminScope) {
+  if (role === "staff" || role === "cleaning_manager" || role === "cleaning_staff" || role === "kitchen_manager" || role === "kitchen_staff" || adminScope) {
     const shifts = await rows(db, "kitchen_shifts", (q) => {
       let scoped = q.select("id, staff_id, shift_date, shift_type, status, planned_start, planned_end, actual_start, actual_end, notes")
         .eq("company_id", companyId).is("deleted_at", null);

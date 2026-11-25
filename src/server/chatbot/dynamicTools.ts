@@ -39,7 +39,11 @@ function scoreDynamicTool(tool: DynamicToolDefinition, message: string): number 
 }
 
 export function selectDynamicTools(definitions: DynamicToolDefinition[], message: string, limit = 4, resolvedIntent?: ChatIntentMatch | null): DynamicToolDefinition[] {
+  if (resolvedIntent === null || resolvedIntent?.needsClarification || (resolvedIntent && resolvedIntent.confidence < 0.55)) return [];
   const preferredIds = new Set((resolvedIntent?.toolIds || []).filter((id) => id.startsWith("dynamic:")).map((id) => id.slice("dynamic:".length)));
+  if (resolvedIntent && ["openai", "semantic"].includes(resolvedIntent.matchedBy)) {
+    return definitions.filter((tool) => tool.enabled && preferredIds.has(tool.id)).slice(0, limit);
+  }
   if (preferredIds.size) return definitions.filter((tool) => preferredIds.has(tool.id)).slice(0, limit);
   return definitions
     .map((tool) => ({ tool, score: scoreDynamicTool(tool, message) }))

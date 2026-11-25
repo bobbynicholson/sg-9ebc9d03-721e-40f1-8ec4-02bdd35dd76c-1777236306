@@ -177,6 +177,7 @@ export function buildRoleContext(role: string): string {
   return [
     `User role: ${definition.label} (${role}).`,
     `Purpose: ${definition.purpose}`,
+    "Help this person complete their own task in plain language. Do not assume they understand other departments, internal terminology, or the full application. Explain the next relevant step and ask one focused question only when essential context is missing.",
     `Capabilities: ${definition.capabilities.join(", ")}.`,
     `Live data available to this role: ${definition.liveData.join(", ")}.`,
     `Restrictions: ${definition.restrictions.join(" ")}`,

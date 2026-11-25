@@ -1,0 +1,8 @@
+Video validation
+  Duration: 00:02:43.27, start: 0.000000, bitrate: 1063 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 1920x1080 [SAR 1:1 DAR 16:9], 857 kb/s, 29.97 fps, 30 tbr, 15360 tbn (default)
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, mono, fltp, 197 kb/s (default)
+Full decode exit code: 0
+Decoder errors: none
+[Parsed_volumedetect_0 @ 0000013fffcc0140] mean_volume: -19.9 dB
+[Parsed_volumedetect_0 @ 0000013fffcc0140] max_volume: -0.4 dB

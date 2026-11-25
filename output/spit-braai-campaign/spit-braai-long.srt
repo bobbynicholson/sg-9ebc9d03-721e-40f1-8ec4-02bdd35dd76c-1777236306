@@ -1,0 +1,235 @@
+1
+00:00:00,350 --> 00:00:04,191
+A message lands on a Monday. A family is planning
+
+2
+00:00:04,191 --> 00:00:07,263
+a summer celebration in Constantia: a spit braai
+
+3
+00:00:07,263 --> 00:00:10,719
+for one hundred and twenty, on a date everyone
+
+4
+00:00:10,719 --> 00:00:14,176
+will remember. One small change can travel a long
+
+5
+00:00:14,176 --> 00:00:14,560
+way.
+
+6
+00:00:15,817 --> 00:00:18,697
+Lindiwe asks for twelve vegetarian plates and
+
+7
+00:00:18,697 --> 00:00:21,989
+moves service to one. Spit Braai Delivery keeps
+
+8
+00:00:21,989 --> 00:00:24,869
+that update beside the conversation, where the
+
+9
+00:00:24,869 --> 00:00:26,927
+whole team can find it.
+
+10
+00:00:28,183 --> 00:00:31,735
+The enquiry becomes a lead, with guest count,
+
+11
+00:00:31,735 --> 00:00:35,286
+venue, date and dietary notes in one record.
+
+12
+00:00:35,286 --> 00:00:38,838
+Add the next follow-up, so nothing depends on
+
+13
+00:00:38,838 --> 00:00:40,613
+someone remembering the chat.
+
+14
+00:00:41,883 --> 00:00:44,932
+Now shape the menu for this event.
+
+15
+00:00:44,932 --> 00:00:47,980
+Check quantities, price and timing, then send
+
+16
+00:00:47,980 --> 00:00:51,463
+a quote Lindiwe can review on her phone.
+
+17
+00:00:52,717 --> 00:00:55,769
+Choose how email follow-ups work. Set the timing,
+
+18
+00:00:55,769 --> 00:00:58,820
+edit the message and switch automation on for
+
+19
+00:00:58,820 --> 00:01:02,635
+the bookings that need it, or off when they do
+
+20
+00:01:02,635 --> 00:01:03,017
+not.
+
+21
+00:01:04,283 --> 00:01:07,660
+Lindiwe reviews and accepts. Convert the quote
+
+22
+00:01:07,660 --> 00:01:11,518
+to an order, carrying the agreed details forward:
+
+23
+00:01:11,518 --> 00:01:15,377
+one hundred and twenty guests, the garden venue,
+
+24
+00:01:15,377 --> 00:01:18,753
+one o'clock service, and twelve separate plates.
+
+25
+00:01:20,017 --> 00:01:23,195
+From the client portal, she can check her booking,
+
+26
+00:01:23,195 --> 00:01:26,727
+see what is next, and return to the same event
+
+27
+00:01:26,727 --> 00:01:28,847
+details when she has a question.
+
+28
+00:01:30,117 --> 00:01:33,029
+The invoice belongs to that booking too.
+
+29
+00:01:33,029 --> 00:01:36,358
+Show the deposit, balance and due date clearly.
+
+30
+00:01:36,358 --> 00:01:39,687
+If a payment provider is connected, the client
+
+31
+00:01:39,687 --> 00:01:43,016
+can pay online; EFT and recorded payments can
+
+32
+00:01:43,016 --> 00:01:45,097
+stay in the same trail.
+
+33
+00:01:46,350 --> 00:01:49,013
+As a payment lands or is recorded,
+
+34
+00:01:49,013 --> 00:01:52,057
+the amount due stays clear, and follow-up stays
+
+35
+00:01:52,057 --> 00:01:53,960
+tied to the right event.
+
+36
+00:01:55,217 --> 00:01:58,775
+Install the app on a phone as a progressive web
+
+37
+00:01:58,775 --> 00:02:01,266
+app. The owner can check the event,
+
+38
+00:02:01,266 --> 00:02:04,469
+while each crew member opens a view shaped around
+
+39
+00:02:04,469 --> 00:02:05,537
+their own work.
+
+40
+00:02:06,817 --> 00:02:10,958
+In the kitchen view, the team sees the next event,
+
+41
+00:02:10,958 --> 00:02:14,272
+guest numbers and prep work. The vegetarian request
+
+42
+00:02:14,272 --> 00:02:16,757
+stays part of the same brief.
+
+43
+00:02:18,017 --> 00:02:20,934
+Shopping can compare upcoming order demand with
+
+44
+00:02:20,934 --> 00:02:24,686
+stock on hand before the supplier list is ready.
+
+45
+00:02:24,686 --> 00:02:27,187
+Less last-minute guessing in the storeroom.
+
+46
+00:02:28,450 --> 00:02:31,267
+Dispatch assigns the driver, checks route coverage,
+
+47
+00:02:31,267 --> 00:02:35,693
+then hands off to a route view with the stop details
+
+48
+00:02:35,693 --> 00:02:36,900
+and delivery checks.
+
+49
+00:02:38,150 --> 00:02:41,131
+After service, cleaning has a dedicated workspace
+
+50
+00:02:41,131 --> 00:02:44,112
+for returns and inspections, so equipment can
+
+51
+00:02:44,112 --> 00:02:47,944
+be washed, checked and made ready for the next
+
+52
+00:02:47,944 --> 00:02:48,370
+event.
+
+53
+00:02:49,650 --> 00:02:52,654
+Then the food arrives hot, the carving station
+
+54
+00:02:52,654 --> 00:02:56,409
+opens, and the hosts get to spend time with their
+
+55
+00:02:56,409 --> 00:02:59,788
+guests. The work stays with the team; the moment
+
+56
+00:02:59,788 --> 00:03:01,290
+stays with the people.
+
+57
+00:03:02,550 --> 00:03:06,154
+Catering M S connects the enquiry, the kitchen
+
+58
+00:03:06,154 --> 00:03:09,307
+and the last return. Spit Braai Delivery,
+
+59
+00:03:09,307 --> 00:03:12,460
+ready from first message to final plate.

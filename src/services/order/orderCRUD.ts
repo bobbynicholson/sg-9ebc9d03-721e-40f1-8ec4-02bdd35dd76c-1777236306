@@ -321,11 +321,7 @@ export async function getOrdersPage(
       return { orders: [], hasMore: false, nextCursor: null };
     }
     query = query.in("id", ids);
-  } else if (status === "all") {
-    // Keep the long-standing default behavior: cancelled orders are
-    // reachable from the explicit Cancelled filter, not All statuses.
-    query = query.neq("status", "cancelled");
-  } else {
+  } else if (status !== "all") {
     query = query.eq("status", status);
   }
 

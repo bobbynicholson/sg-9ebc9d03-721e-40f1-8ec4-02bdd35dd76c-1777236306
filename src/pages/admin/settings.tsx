@@ -32,8 +32,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { UserRole } from "@/types/app";
 import { DEFAULT_PAYMENT_TERMS } from "@/lib/paymentTerms";
 import { DEFAULT_PAYMENT_REMINDERS, readPaymentDueSettings, readPaymentReminderSettings } from "@/lib/paymentReminderSchedule";
+import { readQuoteExpiryMode } from "@/lib/quoteExpiryPolicy";
+import { toZonedISO, DEFAULT_TENANT_TIMEZONE } from "@/lib/localDate";
 
 const DEFAULT_SETTINGS: AdminSettings = {
+  quoteExpiryMode: "valid_until",
   automation: {
     autoFollowUpDays: 3,
     secondFollowUpDays: 7,
@@ -115,7 +118,7 @@ function SettingsPage() {
 
   useEffect(() => {
     const tabForHash = (hash: string) => {
-      const match = hash.match(/^#settings-(financial|pricing|operations|roles|automation|inventory|dispatch|cancellation)$/);
+      const match = hash.match(/^#settings-(financial|pricing|quotes|operations|roles|automation|inventory|dispatch|cancellation)$/);
       return match?.[1] || (["#payment-reminders", "#payment-due"].includes(hash) ? "financial" : null);
     };
     const syncTabToHash = () => {
@@ -214,7 +217,7 @@ function SettingsPage() {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  const updateSetting = <Category extends keyof AdminSettings>(
+  const updateSetting = <Category extends Exclude<keyof AdminSettings, "quoteExpiryMode">>(
     category: Category,
     key: keyof AdminSettings[Category],
     value: AdminSettings[Category][keyof AdminSettings[Category]],
@@ -243,7 +246,7 @@ function SettingsPage() {
     try {
       const { data: existing, error: existingError } = await (supabase as any)
         .from("companies")
-        .select("dispatch_settings, kitchen_settings, role_compatibility_settings")
+        .select("dispatch_settings, kitchen_settings, role_compatibility_settings, timezone")
         .eq("id", companyId)
         .maybeSingle();
       if (existingError) throw existingError;
@@ -271,6 +274,7 @@ function SettingsPage() {
           refund_process_days: numberOr(settings.financial.refundProcessDays, 7),
           dispatch_settings: {
             ...priorDispatch,
+            quoteExpiryMode: settings.quoteExpiryMode,
             paymentTermsText: settings.financial.paymentTermsText.trim() || DEFAULT_PAYMENT_TERMS,
             paymentDue: { direction: settings.financial.paymentDueDirection },
             paymentReminders: {
@@ -320,6 +324,43 @@ function SettingsPage() {
         .eq("id", companyId);
 
       if (updateError) throw updateError;
+      // Restore quotes expired by the old validity rule when their event is
+      // still ahead, preserving whether each quote had been sent.
+      let quoteRefreshError: string | null = null;
+      if (settings.quoteExpiryMode === "event_date" && readQuoteExpiryMode(priorDispatch) !== "event_date") {
+        const todayIso = toZonedISO(new Date(), (existing as any)?.timezone || DEFAULT_TENANT_TIMEZONE);
+        const refreshedAt = new Date().toISOString();
+        const resetExpiryState = {
+          expired_at: null,
+          updated_at: refreshedAt,
+          expiry_admin_notified_at: null,
+          expiry_admin_emailed_at: null,
+          expiry_client_notified_at: null,
+          expiry_client_emailed_at: null,
+        };
+        const { error: sentQuoteError } = await (supabase as any)
+          .from("quotes")
+          .update({ ...resetExpiryState, status: "sent" })
+          .eq("company_id", companyId)
+          .eq("status", "expired")
+          .is("converted_to_order_id", null)
+          .not("sent_at", "is", null)
+          .lt("valid_until", todayIso)
+          .gt("event_date", todayIso)
+          .is("deleted_at", null);
+        const { error: draftQuoteError } = await (supabase as any)
+          .from("quotes")
+          .update({ ...resetExpiryState, status: "draft" })
+          .eq("company_id", companyId)
+          .eq("status", "expired")
+          .is("converted_to_order_id", null)
+          .is("sent_at", null)
+          .lt("valid_until", todayIso)
+          .gt("event_date", todayIso)
+          .is("deleted_at", null);
+        const refreshErrors = [sentQuoteError, draftQuoteError].filter(Boolean);
+        if (refreshErrors.length > 0) quoteRefreshError = refreshErrors.map((error: any) => error.message).join("; ");
+      }
       // Existing unpaid event invoices must follow the saved schedule too.
       let invoiceDateRefreshError: string | null = null;
       try {
@@ -334,9 +375,9 @@ function SettingsPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
       toast({
-        title: invoiceDateRefreshError ? "Business defaults saved; invoice dates need a retry" : "Business defaults saved",
-        description: invoiceDateRefreshError || "Company-wide rules and open invoice due dates are now saved.",
-        variant: invoiceDateRefreshError ? "destructive" : "default",
+        title: invoiceDateRefreshError || quoteRefreshError ? "Settings saved; some records need review" : "Business defaults saved",
+        description: quoteRefreshError ? `Quote setting saved, but future quotes could not be reopened: ${quoteRefreshError}` : invoiceDateRefreshError || "Company-wide rules and open invoice due dates are now saved.",
+        variant: invoiceDateRefreshError || quoteRefreshError ? "destructive" : "default",
       });
     } catch (error: any) {
       toast({
@@ -496,6 +537,7 @@ function SettingsPage() {
                 >
                   <option value="financial">Financial</option>
                   <option value="pricing">Pricing</option>
+                  <option value="quotes">Quotes</option>
                   <option value="operations">Operations</option>
                   <option value="roles">Team roles</option>
                   <option value="automation">Automation</option>
@@ -506,6 +548,7 @@ function SettingsPage() {
                 <TabsList className="hidden h-auto w-full flex-wrap justify-start gap-1 sm:flex">
                   <TabsTrigger value="financial" className="whitespace-nowrap text-xs md:text-sm">Financial</TabsTrigger>
                   <TabsTrigger value="pricing" className="whitespace-nowrap text-xs md:text-sm">Pricing</TabsTrigger>
+                  <TabsTrigger value="quotes" className="whitespace-nowrap text-xs md:text-sm">Quotes</TabsTrigger>
                   <TabsTrigger value="operations" className="whitespace-nowrap text-xs md:text-sm">Operations</TabsTrigger>
                   <TabsTrigger value="roles" className="whitespace-nowrap text-xs md:text-sm">Team roles</TabsTrigger>
                   <TabsTrigger value="automation" className="whitespace-nowrap text-xs md:text-sm">Automation</TabsTrigger>
@@ -526,6 +569,28 @@ function SettingsPage() {
                     settings={settings.pricing}
                     onUpdate={(key, value) => updateSetting("pricing", key, value)}
                   />
+                </TabsContent>
+
+                <TabsContent id="settings-quotes" value="quotes">
+                  <Card className="border-0 shadow-lg">
+                    <CardContent className="space-y-4 px-4 py-6 md:px-6">
+                      <h2 className="text-lg font-semibold text-slate-900">Quote expiration</h2>
+                      <p className="text-sm text-slate-600">Choose when open quotes close automatically, using your company time zone.</p>
+                      <fieldset className="space-y-3">
+                        <legend className="text-sm font-medium text-slate-800">Expire quotes after</legend>
+                        {([
+                          { value: "valid_until", label: "Quote valid-until date", detail: "The quote remains open through the date set on it." },
+                          { value: "event_date", label: "Event date", detail: "The quote closes when the event date begins. Quotes without an event date use their valid-until date." },
+                        ] as const).map((option) => (
+                          <label key={option.value} className="flex cursor-pointer gap-3 rounded-lg border border-slate-200 p-3 text-sm hover:border-brand-primary/50">
+                            <input type="radio" name="quote-expiry-mode" value={option.value} checked={settings.quoteExpiryMode === option.value} onChange={() => setSettings((current) => ({ ...current, quoteExpiryMode: option.value }))} className="mt-1 accent-brand-primary" />
+                            <span><span className="block font-medium text-slate-900">{option.label}</span><span className="block text-slate-600">{option.detail}</span></span>
+                          </label>
+                        ))}
+                      </fieldset>
+                      <p className="text-xs text-slate-500">Saving Event date reopens sent quotes that expired under an earlier valid-until date when their event has not yet passed.</p>
+                    </CardContent>
+                  </Card>
                 </TabsContent>
 
                 <TabsContent id="settings-operations" data-chat-section="admin.settings.operations" data-chat-section-label="Operations settings" value="operations">
@@ -629,6 +694,7 @@ function companyToSettings(company: Record<string, any>, fallback: AdminSettings
       cancellationFeePercent: numberOr(company.cancellation_fee_percent, fallback.financial.cancellationFeePercent),
       refundProcessDays: numberOr(company.refund_process_days, fallback.financial.refundProcessDays),
     },
+    quoteExpiryMode: readQuoteExpiryMode(dispatch),
   };
 }
 
@@ -649,6 +715,7 @@ function readLocalSettings(companyId: string): AdminSettings {
 
 function mergeSettings(base: AdminSettings, patch: any): AdminSettings {
   return {
+    quoteExpiryMode: patch?.quoteExpiryMode === "event_date" ? "event_date" : base.quoteExpiryMode,
     automation: { ...base.automation, ...(patch?.automation || {}) },
     pricing: { ...base.pricing, ...(patch?.pricing || {}) },
     operations: { ...base.operations, ...(patch?.operations || {}) },

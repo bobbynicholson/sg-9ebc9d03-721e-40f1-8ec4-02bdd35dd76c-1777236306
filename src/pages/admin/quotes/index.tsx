@@ -51,6 +51,7 @@ import { PortalShell, PortalHeader,
   PageWorkbench, PortalCard, StatTile,
 } from "@/components/portal/ui";
 import { RowPrimaryAction } from "@/components/admin/RowPrimaryAction";
+import { BulkDeleteConfirmDialog, BulkDeleteToolbar, useVisibleBulkSelection } from "@/components/admin/BulkDeleteControls";
 import { AdminControlGroup, AdminFilterChip, AdminSavedViewChips, AdminSearchField, AdminSegmentedControl } from "@/components/admin/AdminControlSurface";
 import {
   computeFollowupState,
@@ -111,7 +112,8 @@ import { loadQuoteDiary, quoteDiaryRange } from "@/services/quoteDiaryService";
 import { supabase } from "@/integrations/supabase/client";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { cn } from "@/lib/utils";
-import { toLocalISO } from "@/lib/localDate";
+import { toLocalISO, toZonedISO, DEFAULT_TENANT_TIMEZONE } from "@/lib/localDate";
+import { isQuotePastExpiry, readQuoteExpiryMode, type QuoteExpiryMode } from "@/lib/quoteExpiryPolicy";
 import { getEventCapacityForDate, type EventCapacityCheck } from "@/lib/eventCapacity";
 import { notifyQuoteUpdated } from "@/services/quote/quoteNotifications";
 import { AmountChangeAction } from "@/components/admin/financial/AmountChangeAction";
@@ -175,16 +177,15 @@ function orderStatusBadge(status: string | null | undefined): { label: string; c
 
 /**
  * Maps a Quote row -> the QuoteStatus our compose templates know about.
- * Folds in an "expired" check based on valid_until so an old "sent" quote
+ * Folds in an "expired" check based on the company rule so an old "sent" quote
  * gets the urgency template instead of the default follow-up.
  */
-function deriveQuoteStatus(quote: Quote): QuoteStatus {
-  const validUntil = (quote as any).valid_until as string | null | undefined;
+function deriveQuoteStatus(quote: Quote, expiryMode: QuoteExpiryMode, timezone: string): QuoteStatus {
   const status = quote.status as QuoteStatus;
   // Enum cleanup (flow audit Leg B): 'revised' + 'viewed' dropped
   // from quote_status. Only 'sent' is active-and-action-needed now.
-  if (status === "sent" && validUntil) {
-    if (new Date(validUntil).getTime() < Date.now()) return "expired";
+  if (status === "sent") {
+    if (isQuotePastExpiry(quote, expiryMode, toZonedISO(new Date(), timezone))) return "expired";
   }
   return status;
 }
@@ -460,6 +461,8 @@ function AdminQuotesInner() {
   const [composeMode, setComposeMode] = useState<"status" | "sweetener">("status");
   const [deleteTarget, setDeleteTarget] = useState<Quote | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[] | null>(null);
   const [companyName, setCompanyName] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
@@ -490,6 +493,8 @@ function AdminQuotesInner() {
   // Show the complete quote list by default; users can narrow it with
   // the quote bucket chips when they want a focused follow-up queue.
   const [bucket, setBucket] = useState<QuoteBucket>("all");
+  const [quoteExpiryMode, setQuoteExpiryMode] = useState<QuoteExpiryMode>("valid_until");
+  const [quoteTimezone, setQuoteTimezone] = useState(DEFAULT_TENANT_TIMEZONE);
   // Phase 8 #8: list (default) vs pipeline kanban view. The kanban
   // groups by intelligence bucket (action_needed / in_play / stale /
   // won / lost / expired) so the sales lead can see where every
@@ -662,7 +667,7 @@ function AdminQuotesInner() {
     const autoMap = summariseAutoEmailsByQuote(autoEmailRows as any);
     return quotes
       .map((q) => {
-        const baseIntel = deriveQuoteIntelligence(q);
+        const baseIntel = deriveQuoteIntelligence(q, quoteExpiryMode, toZonedISO(new Date(), quoteTimezone));
         // Wave 70.42b - linked-order status override. deriveQuote
         // Intelligence only sees the quote row, so a quote whose
         // converted_to_order_id points at a CANCELLED order would
@@ -734,7 +739,7 @@ function AdminQuotesInner() {
         };
       })
       .sort((a, b) => a.sortKey - b.sortKey);
-  }, [quotes, autoEmailRows, resolvedByQuoteId]);
+  }, [quotes, autoEmailRows, resolvedByQuoteId, quoteExpiryMode, quoteTimezone]);
 
   // Apply the global branch filter before bucketing so the bucket
   // counts reflect only the branch the operator is scoped to.
@@ -865,6 +870,9 @@ function AdminQuotesInner() {
     ],
     { limit: 0 },
   );
+  const quoteSelection = useVisibleBulkSelection(
+    viewMode === "list" ? filteredRows.map((row) => row.quote.id) : [],
+  );
 
   const groupedRowsByRegion = useMemo(() => {
     const groups = new Map<string, typeof filteredRows>();
@@ -900,49 +908,14 @@ function AdminQuotesInner() {
     (async () => {
       setLoading(true);
       setLoadError(null);
-      // Wave 70.91: auto-expire mutation throttled. Pre-fix this
-      // .update() fired on every page load - every operator
-      // opening /admin/quotes wrote to every other tenant's
-      // expired-eligible rows, no audit, no throttle. Now we
-      // gate it behind a localStorage timestamp + only fire once
-      // per company per 30 minutes from any browser tab. The
-      // server-side cron (already exists for stale-quote
-      // cleanup) is still the canonical path; this client-side
-      // sweep is just a "make the page consistent on the rare
-      // tenant who hasn't run the cron lately" backstop.
-      //
-      // Original comment lied about the .in() list: comment said
-      // (sent, viewed, revised) but code only had sent. The DB
-      // enum is the legal set (draft, sent, accepted, rejected,
-      // expired) - viewed / revised don't exist - so the code was
-      // right; comment is now corrected.
-      const throttleKey = `quotes:autoExpire:${user.company_id}`;
-      const last = typeof window !== "undefined"
-        ? Number(window.localStorage.getItem(throttleKey) || 0)
-        : 0;
-      const HALF_HOUR_MS = 30 * 60 * 1000;
-      if (Date.now() - last > HALF_HOUR_MS) {
-        // Expiring stale quotes is a consistency backstop, not a
-        // prerequisite for showing the list. Run it alongside the list
-        // fetch so a slow update cannot hold the whole page behind it.
-        void (async () => {
-          try {
-            const todayIso = toLocalISO(new Date());
-            const { error } = await (supabase as any)
-              .from("quotes")
-              .update({ status: "expired" })
-              .eq("company_id", user.company_id)
-              .in("status", ["sent"])
-              .lt("valid_until", todayIso)
-              .is("deleted_at", null);
-            if (error) throw error;
-            if (typeof window !== "undefined") {
-              window.localStorage.setItem(throttleKey, String(Date.now()));
-            }
-          } catch {
-            /* non-blocking - the derive helper still tags the row */
-          }
-        })();
+      const { data: expiryCompany } = await (supabase as any)
+        .from("companies")
+        .select("dispatch_settings, timezone")
+        .eq("id", user.company_id)
+        .maybeSingle();
+      if (!cancelled) {
+        setQuoteExpiryMode(readQuoteExpiryMode(expiryCompany?.dispatch_settings));
+        setQuoteTimezone(expiryCompany?.timezone || DEFAULT_TENANT_TIMEZONE);
       }
       let fetched: Quote[];
       try {
@@ -1292,6 +1265,33 @@ function AdminQuotesInner() {
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleBulkDeleteQuotes = async () => {
+    const targets = quotes.filter((quote) => quoteSelection.selectedIds.has(quote.id));
+    if (targets.length === 0) return;
+    setBulkDeleting(true);
+    const results = await Promise.all(targets.map(async (quote) => {
+      try {
+        await quoteService.deleteQuote(quote.id);
+        return { id: quote.id, ok: true };
+      } catch (error: any) {
+        return { id: quote.id, ok: false, error: error?.message as string | undefined };
+      }
+    }));
+    const deletedIds = results.filter((result) => result.ok).map((result) => result.id);
+    const failed = results.filter((result) => !result.ok);
+    if (deletedIds.length > 0) setQuotes((current) => current.filter((quote) => !deletedIds.includes(quote.id)));
+    quoteSelection.clear();
+    setBulkDeleteOpen(false);
+    setBulkDeleting(false);
+    toast({
+      title: failed.length === 0 ? "Quotes deleted" : deletedIds.length > 0 ? "Some quotes deleted" : "Delete failed",
+      description: failed.length === 0
+        ? `${deletedIds.length} quote${deletedIds.length === 1 ? " was" : "s were"} removed from the active list.`
+        : `${deletedIds.length} deleted; ${failed.length} failed${failed[0]?.error ? `: ${failed[0].error}` : "."}`,
+      variant: deletedIds.length === 0 && failed.length > 0 ? "destructive" : failed.length > 0 ? "destructive" : "default",
+    });
   };
 
   /**
@@ -1871,7 +1871,7 @@ function AdminQuotesInner() {
           />
 
           {!showQuoteManagement && user?.company_id && (
-            <QuoteOptimizationWorkbench companyId={user.company_id} currency={tenantCurrency} regionId={null} quotes={quotes} />
+            <QuoteOptimizationWorkbench companyId={user.company_id} currency={tenantCurrency} regionId={null} quotes={quotes} expiryMode={quoteExpiryMode} />
           )}
 
           {showQuoteManagement && <>
@@ -2084,35 +2084,35 @@ function AdminQuotesInner() {
           */}
           <AdminControlGroup
             label="Quote buckets"
-            helpText="Group quotes by the next sales action: waiting to be sent, awaiting a client, stale, won, or closed. Counts are shown beside each filter."
+            helpText={[
+              "Open is the active queue, not every historical quote. It includes Action needed, In play, Stale and Awaiting deposit. Pipeline separates these groups.",
+              "Action needed: a draft to finish and send, a sent quote expiring in 3 days or less, or a quote the client viewed at least 2 days ago without replying.",
+              "In play: recently sent or viewed and still waiting for the client. Stale: sent 7 or more days ago without being opened; resend or follow up.",
+              "Awaiting deposit: accepted, but no deposit is recorded; convert to an order if needed and collect the deposit. Won: deposit received, or the order is paid, delivered or completed.",
+              "Expired: the validity period passed; prepare a fresh quote. Lost: the client declined. Won, order cancelled: the quote was accepted but its order was later cancelled.",
+            ].join("\n\n")}
+            helpClassName="border-brand-primary/25 bg-brand-primary/5 text-brand-primary hover:bg-brand-primary/10 hover:text-brand-primary focus-visible:text-brand-primary"
             compactLabel="Filter quotes by bucket"
             compactValue={bucket}
             onCompactValueChange={(value) => setBucket(value as QuoteBucket)}
             compactOptions={[
               { value: "all", label: "Open", count: openCount },
               { value: "action_needed", label: "Action needed", count: counts.action_needed },
-              { value: "in_play", label: "In play", count: counts.in_play },
-              { value: "stale", label: "Stale", count: counts.stale },
               { value: "accepted_awaiting_deposit", label: "Awaiting deposit", count: counts.accepted_awaiting_deposit },
               { value: "won", label: "Won", count: counts.won },
-              { value: "won_then_cancelled", label: "Won, order cancelled", count: counts.won_then_cancelled },
               { value: "expired", label: "Expired", count: counts.expired },
               { value: "lost", label: "Lost", count: counts.lost },
+              ...(["in_play", "stale", "won_then_cancelled"].includes(bucket)
+                ? [{ value: bucket, label: bucket === "in_play" ? "In play" : bucket === "stale" ? "Stale" : "Won, order cancelled", count: counts[bucket as "in_play" | "stale" | "won_then_cancelled"] }]
+                : []),
             ]}
           >
             {([
               { id: "all",            label: "Open",          icon: Inbox,          tone: "bg-slate-100 text-slate-700 border-slate-200" },
               { id: "action_needed",  label: "Action needed", icon: Flame,          tone: "bg-rose-100 text-rose-700 border-rose-200" },
-              { id: "in_play",        label: "In play",       icon: Sparkles,       tone: "bg-brand-primary/10 text-brand-primary border-brand-primary/20" },
-              { id: "stale",          label: "Stale",         icon: Clock,          tone: "bg-amber-100 text-amber-700 border-amber-200" },
               // Accepted / booked but no deposit received yet - chase for money (Raj, 2026-07-04).
               { id: "accepted_awaiting_deposit", label: "Awaiting deposit", icon: Clock, tone: "bg-rose-100 text-rose-700 border-rose-200" },
               { id: "won",                label: "Won",                  icon: Crown,         tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/20" },
-              // TIGHTEN I.62: dedicated pill for won-then-cancelled
-              // so operators can see at a glance how many deals
-              // converted-then-fell-through, separate from genuine
-              // declines (Lost) and currently-active wins (Won).
-              { id: "won_then_cancelled", label: "Won, order cancelled", icon: AlertTriangle, tone: "bg-amber-100 text-amber-700 border-amber-200" },
               { id: "expired",            label: "Expired",              icon: AlertTriangle, tone: "bg-orange-100 text-orange-700 border-orange-200" },
               { id: "lost",               label: "Lost",                 icon: Snowflake,     tone: "bg-slate-100 text-slate-600 border-slate-200" },
             ] as const).map((pill) => {
@@ -2138,8 +2138,8 @@ function AdminQuotesInner() {
                   helper={revenue && revenue > 0 ? `${C}${fmtCompact(revenue)}` : undefined}
                   tone={
                     pill.id === "action_needed" || pill.id === "accepted_awaiting_deposit" ? "rose"
-                    : pill.id === "stale" || pill.id === "expired" || pill.id === "won_then_cancelled" ? "amber"
-                    : pill.id === "in_play" || pill.id === "won" ? "brand"
+                    : pill.id === "expired" ? "amber"
+                    : pill.id === "won" || pill.id === "all" ? "brand"
                     : "slate"
                   }
                   onClick={() => setBucket(pill.id as QuoteBucket)}
@@ -2332,7 +2332,16 @@ function AdminQuotesInner() {
                 </CardContent>
               </Card>
             ) : (
-              groupedRowsByRegion.map(({ regionId, rows }) => {
+              <>
+              <BulkDeleteToolbar
+                selectedCount={quoteSelection.selectedCount}
+                itemLabel="quote"
+                busy={bulkDeleting}
+                onSelectAllVisible={quoteSelection.selectAllVisible}
+                onClear={quoteSelection.clear}
+                onDelete={() => setBulkDeleteOpen(true)}
+              />
+              {groupedRowsByRegion.map(({ regionId, rows }) => {
                 const regionMeta = options.find((o) => o.id === regionId) || null;
                 const regionLabel = regionMeta?.name || "Company-wide";
                 const regionCount = rows.length;
@@ -2413,6 +2422,15 @@ function AdminQuotesInner() {
                       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between xl:gap-0">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-3 mb-3 flex-wrap">
+                            <label className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-slate-300 bg-white" title="Select quote">
+                              <input
+                                type="checkbox"
+                                checked={quoteSelection.selectedIds.has(quote.id)}
+                                onChange={() => quoteSelection.toggle(quote.id)}
+                                aria-label={`Select quote ${quote.quote_number || quote.id}`}
+                                className="h-4 w-4 accent-brand-primary"
+                              />
+                            </label>
                             <h3 className="text-sm font-semibold text-slate-900 sm:text-lg">
                               <Link
                                 href={withSlug(`/admin/quotes/${quote.id}`)}
@@ -3026,7 +3044,8 @@ function AdminQuotesInner() {
             </div>
           </div>
                 );
-              })
+              })}
+              </>
             )}
           </div>
           </>}
@@ -3046,6 +3065,8 @@ function AdminQuotesInner() {
         {composeQuote && (
           <QuoteComposeDrawer
             quote={composeQuote}
+            expiryMode={quoteExpiryMode}
+            timezone={quoteTimezone}
             fromName={profile?.full_name || companyName}
             companyName={companyName}
             companyId={profile?.company_id ?? null}
@@ -3497,6 +3518,16 @@ function AdminQuotesInner() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <BulkDeleteConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        selectedCount={quoteSelection.selectedCount}
+        itemLabel="quote"
+        details="Selected quotes will be hidden from the active quote list. Any linked orders and invoices stay on file."
+        busy={bulkDeleting}
+        onConfirm={handleBulkDeleteQuotes}
+      />
+
       {/* Audit fix (2026-07-02): user.company_id is the canonical
           tenant id; auth user_metadata is not reliably stamped. */}
       <ChatBot userRole="admin" companyId={user?.company_id} />
@@ -3661,9 +3692,11 @@ export default function AdminQuotes() {
    quotes page stay in lockstep on UX. */
 
 function QuoteComposeDrawer({
-  quote, fromName, companyName, companyId, currencyCode, mode, diary, onSent, onSweetenerApplied, onClose,
+  quote, expiryMode, timezone, fromName, companyName, companyId, currencyCode, mode, diary, onSent, onSweetenerApplied, onClose,
 }: {
   quote: Quote;
+  expiryMode: QuoteExpiryMode;
+  timezone: string;
   fromName?: string;
   companyName?: string;
   companyId?: string | null;
@@ -3687,7 +3720,7 @@ function QuoteComposeDrawer({
   }) => Promise<void> | void;
   onClose: () => void;
 }) {
-  const derivedStatus = useMemo(() => deriveQuoteStatus(quote), [quote]);
+  const derivedStatus = useMemo(() => deriveQuoteStatus(quote, expiryMode, timezone), [quote, expiryMode, timezone]);
   const eventDateLabel = quote.event_date
     ? `${new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}${quote.event_time ? ` at ${formatClockWithAlt(quote.event_time)}` : ""}`
     : undefined;

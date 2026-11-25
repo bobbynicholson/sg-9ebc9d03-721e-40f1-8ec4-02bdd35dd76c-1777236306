@@ -49,7 +49,8 @@ import { buildCompanyTermsPath } from "@/lib/companyLegal";
 // each action. Quote mode skips the payout step (no money to move).
 import { CancellationWizard } from "@/components/cancellation/CancellationWizard";
 import { QuoteItemsEditor, type MenuLine, type EquipLine } from "@/components/quote/QuoteItemsEditor";
-import { toLocalISO } from "@/lib/localDate";
+import { toZonedISO, DEFAULT_TENANT_TIMEZONE } from "@/lib/localDate";
+import { isQuotePastExpiry, quoteExpiryDate, readQuoteExpiryMode } from "@/lib/quoteExpiryPolicy";
 import { isPastCalendarDate } from "@/lib/quotes/revisionLifecycle";
 import { QuoteProgress } from "@/components/quotes/QuoteProgress";
 import { EQUIPMENT_RETURN_OPTIONS, resolveEquipmentReturn } from "@/lib/equipmentReturn";
@@ -500,10 +501,15 @@ export default function PublicQuotePage() {
 
   const company = quote.company;
   const companyName = company?.company_name || "Your caterer";
+  const expiryMode = readQuoteExpiryMode({ quoteExpiryMode: company?.quote_expiry_mode });
+  const tenantToday = toZonedISO(new Date(), company?.timezone || DEFAULT_TENANT_TIMEZONE);
+  const policyExpired = isQuotePastExpiry(quote, expiryMode, tenantToday);
   const capacityBlocked = !!quote.event_capacity?.accepting_blocked;
-  const eventDatePast = isPastCalendarDate(quote.event_date, toLocalISO(new Date()));
-  const acceptanceBlocked = capacityBlocked || eventDatePast;
-  const capacityMessage = eventDatePast
+  const eventDatePast = isPastCalendarDate(quote.event_date, tenantToday);
+  const acceptanceBlocked = capacityBlocked || eventDatePast || policyExpired;
+  const capacityMessage = policyExpired
+    ? "This quote has expired. Please request a new one."
+    : eventDatePast
     ? "This event date has already passed. Please request a new date before accepting."
     : quote.event_capacity?.message ||
       `This date or event size is no longer available. Please request a new date, adjust the guest count, or contact ${companyName} before accepting.`;
@@ -612,19 +618,20 @@ export default function PublicQuotePage() {
   const setupTime = quoteTimeFormat
     ? (formatClockBoth((quote as any).setup_time, quoteTimeFormat) || null)
     : friendlyTime((quote as any).setup_time);
-  const validUntil = quote.valid_until
-    ? new Date(quote.valid_until).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
+  const effectiveExpiryDate = quoteExpiryDate(quote, expiryMode);
+  const validUntil = effectiveExpiryDate
+    ? new Date(`${effectiveExpiryDate.slice(0, 10)}T12:00:00`).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
     : null;
   // Days remaining until quote validity expires. Surfaces a chip at
   // the top of the page so the client sees the deadline before they
   // scroll. Negative when already expired.
-  const daysToExpiry = quote.valid_until
-    ? Math.ceil((new Date(quote.valid_until).getTime() - Date.now()) / 86_400_000)
+  const daysToExpiry = effectiveExpiryDate
+    ? Math.round((new Date(`${effectiveExpiryDate.slice(0, 10)}T12:00:00Z`).getTime() - new Date(`${tenantToday}T12:00:00Z`).getTime()) / 86_400_000)
     : null;
   const expiryChipTone =
     daysToExpiry === null
       ? null
-      : daysToExpiry < 0
+      : policyExpired
       ? "expired"
       : daysToExpiry <= 3
       ? "soon"
@@ -632,7 +639,7 @@ export default function PublicQuotePage() {
   const expiryChipLabel =
     daysToExpiry === null
       ? null
-      : daysToExpiry < 0
+      : policyExpired
       ? `Expired ${validUntil}`
       : daysToExpiry === 0
       ? "Expires today"

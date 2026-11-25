@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { AdminControlGroup } from "@/components/admin/AdminControlSurface";
+import { BulkDeleteConfirmDialog, BulkDeleteToolbar, useVisibleBulkSelection } from "@/components/admin/BulkDeleteControls";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -98,6 +99,8 @@ function SuppliersList() {
   const [editing, setEditing] = useState<SupplierWithStats | null>(null);
   const [adding, setAdding] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<SupplierWithStats | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [deleteRefCounts, setDeleteRefCounts] = useState<{
     equipment_owned: number; equipment_preferred_hire: number; open_hire_orders: number;
     open_payables: number; linked_items: number; preferred_items: number;
@@ -198,6 +201,34 @@ function SuppliersList() {
       return hay.includes(q);
     });
   }, [suppliers, search, activeOnly]);
+  const supplierSelection = useVisibleBulkSelection(visible.map((supplier) => supplier.id));
+
+  const handleBulkDeleteSuppliers = async () => {
+    const targets = visible.filter((supplier) => supplierSelection.selectedIds.has(supplier.id));
+    if (targets.length === 0) return;
+    setBulkDeleting(true);
+    const results = await Promise.all(targets.map(async (supplier) => {
+      try {
+        await supplierService.softDelete(supplier.id);
+        return { ok: true, error: undefined as string | undefined };
+      } catch (error: unknown) {
+        return { ok: false, error: error instanceof Error ? error.message : undefined };
+      }
+    }));
+    const deleted = results.filter((result) => result.ok).length;
+    const failed = results.filter((result) => !result.ok);
+    supplierSelection.clear();
+    setBulkDeleteOpen(false);
+    setBulkDeleting(false);
+    await reload();
+    toast({
+      title: failed.length === 0 ? "Suppliers deleted" : deleted > 0 ? "Some suppliers deleted" : "Delete failed",
+      description: failed.length === 0
+        ? `${deleted} supplier${deleted === 1 ? " was" : "s were"} hidden from the supplier list.`
+        : `${deleted} deleted; ${failed.length} failed${failed[0]?.error ? `: ${failed[0].error}` : "."}`,
+      variant: failed.length > 0 ? "destructive" : "default",
+    });
+  };
 
   const totals = useMemo(() => {
     const total30 = suppliers.reduce((s, x) => s + Number(x.spend_30d || 0), 0);
@@ -386,6 +417,14 @@ function SuppliersList() {
 
           {/* Suppliers table (desktop) + card list (mobile) */}
           <PortalCard className="mb-6" padded={false}>
+            <BulkDeleteToolbar
+              selectedCount={supplierSelection.selectedCount}
+              itemLabel="supplier"
+              busy={bulkDeleting}
+              onSelectAllVisible={supplierSelection.selectAllVisible}
+              onClear={supplierSelection.clear}
+              onDelete={() => setBulkDeleteOpen(true)}
+            />
             <div className="p-0">
               {loading ? (
                 <PwaLoadingScreen message="Loading suppliers" variant="inline" />
@@ -421,6 +460,7 @@ function SuppliersList() {
                     <table className="w-full text-sm">
                       <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60">
                         <tr>
+                          <th className="py-3 pl-3 pr-1"><input type="checkbox" aria-label="Select all visible suppliers" checked={visible.length > 0 && supplierSelection.selectedCount === visible.length} onChange={() => supplierSelection.selectAllVisible()} className="h-4 w-4 accent-brand-primary" /></th>
                           <th className="text-left py-3 pl-4 pr-2">Supplier</th>
                           <th className="text-left py-3 px-2">Contact</th>
                           <th className="text-right py-3 px-2">Products</th>
@@ -435,6 +475,7 @@ function SuppliersList() {
                           const wa = waLink(s.phone);
                           return (
                             <tr key={s.id} className={`border-b border-slate-100 hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-800/40 ${s.is_active === false ? "opacity-60" : ""}`}>
+                              <td className="py-3 pl-3 pr-1"><input type="checkbox" checked={supplierSelection.selectedIds.has(s.id)} onChange={() => supplierSelection.toggle(s.id)} aria-label={`Select supplier ${s.supplier_name}`} className="h-4 w-4 accent-brand-primary" /></td>
                               <td className="py-3 pl-4 pr-2">
                                 <Link href={withSlug(`/admin/suppliers/${s.id}`)} className="block group">
                                   <div className="font-semibold text-slate-900 group-hover:text-brand-primary inline-flex items-center gap-1.5 flex-wrap">
@@ -567,6 +608,7 @@ function SuppliersList() {
                       return (
                         <div key={s.id} className={`min-w-0 px-2.5 py-2 ${s.is_active === false ? "opacity-60" : ""}`}>
                           <div className="flex min-w-0 items-center gap-2">
+                            <input type="checkbox" checked={supplierSelection.selectedIds.has(s.id)} onChange={() => supplierSelection.toggle(s.id)} aria-label={`Select supplier ${s.supplier_name}`} className="h-4 w-4 shrink-0 accent-brand-primary" />
                             <div className="min-w-0 flex-1">
                               <Link href={withSlug(`/admin/suppliers/${s.id}`)} className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-slate-900 hover:text-brand-primary">
                                 <span className="min-w-0 truncate" title={s.supplier_name}>{s.supplier_name}</span>
@@ -743,6 +785,15 @@ function SuppliersList() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <BulkDeleteConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        selectedCount={supplierSelection.selectedCount}
+        itemLabel="supplier"
+        details="Selected suppliers will be hidden. Receipts, stock-in transactions, equipment, and other linked records remain on file."
+        busy={bulkDeleting}
+        onConfirm={handleBulkDeleteSuppliers}
+      />
     </>
   );
 }

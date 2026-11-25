@@ -12,6 +12,7 @@ export interface ChatIntentRoute {
   useLiveData: boolean;
   explanation: string;
   intent?: ChatIntentMatch | null;
+  semantic?: boolean;
 }
 
 const LIVE_SIGNALS = [
@@ -146,6 +147,25 @@ export function routeChatQuestion(input: string, role?: string, resolvedIntent?:
       useLiveData: false,
       explanation: "This is a greeting or basic product overview answered from the built-in CateringMS context.",
       intent,
+    };
+  }
+  if (resolvedIntent === null) {
+    return { route: "knowledge", useKnowledge: true, useLiveData: false, explanation: "Semantic intent classification is unavailable; search approved knowledge without guessing which operational tools to run.", intent, semantic: true };
+  }
+  if (intent && ["openai", "semantic"].includes(intent.matchedBy)) {
+    if (intent.confidence < 0.55) {
+      return { route: "knowledge", useKnowledge: false, useLiveData: false, explanation: "The request needs clarification before choosing data or guidance.", intent: { ...intent, needsClarification: true, confidence: 0.55 } };
+    }
+    const live = intentNeedsLiveData(intent);
+    const action = intent.action === "action";
+    const knowledge = action || intent.action === "explain" || intent.needsKnowledge === true;
+    return {
+      route: action ? "action_request" : live && knowledge ? "hybrid" : live ? "live_data" : "knowledge",
+      useKnowledge: knowledge,
+      useLiveData: live,
+      explanation: "The request was understood semantically and mapped to the authenticated role's approved capability.",
+      intent,
+      semantic: true,
     };
   }
   const policyPhrase = message.includes("cancellation policy") || message.includes("cancellation procedure");

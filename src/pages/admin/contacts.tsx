@@ -36,6 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import { MessageComposer } from "@/components/messaging/MessageComposer";
 import { RowPrimaryAction } from "@/components/admin/RowPrimaryAction";
+import { BulkDeleteToolbar, useVisibleBulkSelection } from "@/components/admin/BulkDeleteControls";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -422,6 +423,9 @@ function ClientsCRM() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Contact | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleteConfirmText, setBulkDeleteConfirmText] = useState("");
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const openContactDetails = (contact: Contact) => {
     setEditing(contact);
     setFormOpen(true);
@@ -1243,6 +1247,50 @@ function ClientsCRM() {
   }, [focusedContactKey, allVisible, pageSize]);
   const pageStart = page * pageSize;
   const visible = allVisible.slice(pageStart, pageStart + pageSize);
+  const contactSelection = useVisibleBulkSelection(visible.map((contact) => contact.key));
+  const selectedVisibleContacts = visible.filter((contact) => contactSelection.selectedIds.has(contact.key));
+  const bulkContactImpact = selectedVisibleContacts.reduce((totals, contact) => ({
+    clients: totals.clients + (contact.clientId ? 1 : 0),
+    leads: totals.leads + contact.leadIds.length,
+    quotes: totals.quotes + contact.quoteIds.length,
+    orders: totals.orders + contact.orderIds.length,
+    invoices: totals.invoices + contact.invoiceIds.length,
+  }), { clients: 0, leads: 0, quotes: 0, orders: 0, invoices: 0 });
+  const bulkDeletePhrase = `DELETE ${selectedVisibleContacts.length}`;
+
+  const handleBulkDeleteContacts = async () => {
+    if (!companyId || selectedVisibleContacts.length === 0 || bulkDeleteConfirmText.trim().toUpperCase() !== bulkDeletePhrase) return;
+    setBulkDeleting(true);
+    const deletedKeys: string[] = [];
+    const failures: string[] = [];
+    for (const contact of selectedVisibleContacts) {
+      const { error } = await (supabase as any).rpc("soft_delete_contact_cascade", {
+        p_company_id: companyId,
+        p_client_id: contact.clientId,
+        p_lead_ids: contact.leadIds,
+        p_quote_ids: contact.quoteIds,
+        p_order_ids: contact.orderIds,
+        p_invoice_ids: contact.invoiceIds,
+        p_block_email: null,
+        p_block_phone: null,
+        p_block_reason: null,
+      });
+      if (error) failures.push(`${contact.name}: ${error.message || "delete failed"}`);
+      else deletedKeys.push(contact.key);
+    }
+    setBulkDeleting(false);
+    setBulkDeleteOpen(false);
+    setBulkDeleteConfirmText("");
+    contactSelection.clear();
+    await loadContacts();
+    toast({
+      title: failures.length === 0 ? "Contacts deleted" : deletedKeys.length > 0 ? "Some contacts deleted" : "Delete failed",
+      description: failures.length === 0
+        ? `${deletedKeys.length} contact${deletedKeys.length === 1 ? " was" : "s were"} and their linked records were hidden.`
+        : `${deletedKeys.length} deleted; ${failures.length} failed. ${failures[0]}`,
+      variant: failures.length > 0 ? "destructive" : "default",
+    });
+  };
 
   const markContacted = (key: string) => {
     setContactedKeys((prev) => ({ ...prev, [key]: new Date().toISOString() }));
@@ -1617,6 +1665,14 @@ function ClientsCRM() {
                 />
               ) : (
                 <>
+                  <BulkDeleteToolbar
+                    selectedCount={contactSelection.selectedCount}
+                    itemLabel="contact"
+                    busy={bulkDeleting}
+                    onSelectAllVisible={contactSelection.selectAllVisible}
+                    onClear={contactSelection.clear}
+                    onDelete={() => setBulkDeleteOpen(true)}
+                  />
                   {/* Wave 70.78: mobile card fallback. The 7-column
                       table forced a horizontal scroll on phone; the
                       operator had to drag sideways to read more than
@@ -1629,12 +1685,22 @@ function ClientsCRM() {
                       const lastContacted = contactedKeys[c.key];
                       const ltv = c.totalSpent + (c.historicalLifetimeSpend ?? 0);
                       return (
-                        <button
+                        <div
                           key={`m-${c.key}`}
+                          className="flex items-stretch gap-2 border-b border-slate-100"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={contactSelection.selectedIds.has(c.key)}
+                            onChange={() => contactSelection.toggle(c.key)}
+                            aria-label={`Select contact ${c.name}`}
+                            className="ml-3 mt-4 h-4 w-4 shrink-0 accent-brand-primary"
+                          />
+                        <button
                           type="button"
                           id={`contact-row-mobile-${c.key}`}
                           aria-label={`Open contact details for ${c.name}`}
-                          className={`w-full text-left p-3 hover:bg-slate-50 transition-colors ${focusedContactKey === c.key ? "bg-amber-50/40 ring-2 ring-amber-300" : ""}`}
+                          className={`min-w-0 flex-1 text-left p-3 hover:bg-slate-50 transition-colors ${focusedContactKey === c.key ? "bg-amber-50/40 ring-2 ring-amber-300" : ""}`}
                           onClick={() => openContactDetails(c)}
                         >
                           <div className="flex items-start justify-between gap-2 mb-1.5">
@@ -1680,6 +1746,7 @@ function ClientsCRM() {
                             </div>
                           )}
                         </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -1688,6 +1755,7 @@ function ClientsCRM() {
                   <table className="w-full text-xs">
                     <thead className="text-[11px] uppercase tracking-wide text-slate-500 border-b border-slate-200">
                       <tr>
+                        <th className="py-3 pl-3 pr-1"><input type="checkbox" aria-label="Select visible contacts on this page" checked={visible.length > 0 && contactSelection.selectedCount === visible.length} onChange={() => contactSelection.selectAllVisible()} className="h-4 w-4 accent-brand-primary" /></th>
                         <th className="text-left py-3 pl-4 pr-2">
                           <span className="inline-flex items-center gap-1.5">
                             <SortHeader sortKey="name" activeKey={sortedView.sortKey} activeDir={sortedView.sortDir} onToggle={sortedView.toggle}>
@@ -1759,6 +1827,7 @@ function ClientsCRM() {
                                 : ""
                             }`}
                           >
+                            <td className="py-3 pl-3 pr-1"><input type="checkbox" checked={contactSelection.selectedIds.has(c.key)} onChange={() => contactSelection.toggle(c.key)} aria-label={`Select contact ${c.name}`} className="h-4 w-4 accent-brand-primary" /></td>
                             <td className="py-3 pl-4 pr-2">
                               <div className="min-w-0">
                                 <div className="mb-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
@@ -2281,6 +2350,53 @@ function ClientsCRM() {
               </>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={bulkDeleteOpen}
+        onOpenChange={(open) => {
+          setBulkDeleteOpen(open);
+          if (!open) setBulkDeleteConfirmText("");
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600">
+              <AlertTriangle className="h-5 w-5" />
+              Delete {selectedVisibleContacts.length} contact{selectedVisibleContacts.length === 1 ? "" : "s"} and linked records?
+            </DialogTitle>
+            <DialogDescription>
+              This hides each selected contact and its linked records in one transaction per contact. It does not send messages or block email addresses.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900">
+              Selected impact: {bulkContactImpact.clients} client records, {bulkContactImpact.leads} leads, {bulkContactImpact.quotes} quotes, {bulkContactImpact.orders} orders, and {bulkContactImpact.invoices} invoices.
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="bulk-contact-delete-confirm" className="text-xs font-medium text-slate-900">
+                Type <span className="font-mono text-rose-600">{bulkDeletePhrase}</span> to confirm.
+              </label>
+              <Input
+                id="bulk-contact-delete-confirm"
+                value={bulkDeleteConfirmText}
+                onChange={(event) => setBulkDeleteConfirmText(event.target.value)}
+                autoComplete="off"
+                placeholder={bulkDeletePhrase}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setBulkDeleteOpen(false)} disabled={bulkDeleting}>Cancel</Button>
+            <Button
+              className="bg-rose-600 text-white hover:bg-rose-700"
+              disabled={bulkDeleting || selectedVisibleContacts.length === 0 || bulkDeleteConfirmText.trim().toUpperCase() !== bulkDeletePhrase}
+              onClick={handleBulkDeleteContacts}
+            >
+              {bulkDeleting ? "Deleting..." : `Delete ${selectedVisibleContacts.length} contact${selectedVisibleContacts.length === 1 ? "" : "s"}`}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
