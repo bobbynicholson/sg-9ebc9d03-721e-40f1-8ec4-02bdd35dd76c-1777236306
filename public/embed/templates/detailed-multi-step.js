@@ -4,7 +4,7 @@
   window.__cmsTemplates = window.__cmsTemplates || {};
 
   var SPIT_BRAAI_COMPANY = 'spit braai delivery';
-  var SPIT_BRAAI_SITE_BLUE = '#0E52F2';
+  var SPIT_BRAAI_SITE_BLUE = '#084CAA';
 
   var CSS = [
     '.cms-form{padding:32px 32px 26px;max-width:var(--cms-form-max,760px);margin:0 auto;background:var(--brand-bg,#fff)}',
