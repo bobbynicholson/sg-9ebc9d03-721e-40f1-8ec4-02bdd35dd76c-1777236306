@@ -428,9 +428,10 @@ export async function endRoleClock(args: {
 }) {
   if (!args.sessionId) return;
   const client = args.client || defaultClient;
-  await (client as any).from("role_work_sessions")
+  const { error } = await (client as any).from("role_work_sessions")
     .update({ ended_at: args.endedAt || new Date().toISOString(), end_reason: args.reason || "manual", end_note: args.note || "No note supplied." })
     .eq("id", args.sessionId).eq("user_id", args.userId).eq("role", args.role).is("ended_at", null);
+  if (error) throw error;
 }
 
 export async function endCurrentRoleClock(args: {
@@ -443,10 +444,11 @@ export async function endCurrentRoleClock(args: {
   client?: Client;
 }) {
   const client = args.client || defaultClient;
-  const { data: current } = await (client as any).from("role_work_sessions")
+  const { data: current, error } = await (client as any).from("role_work_sessions")
     .select("id, role, order_id, started_at")
     .eq("company_id", args.companyId).eq("user_id", args.userId).eq("role", args.role)
     .is("ended_at", null).maybeSingle();
+  if (error) throw error;
   if (!current?.id) return null;
   await endRoleClock({ ...args, sessionId: current.id, client });
   return {

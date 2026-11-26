@@ -31,9 +31,15 @@ import {
   type WorkRole,
 } from "@/services/roleClockService";
 
-function managerClockRole(role: string): WorkRole | null {
+type ManagerWorkRole = Extract<WorkRole, "kitchen_manager" | "cleaning_manager">;
+
+function managerClockRole(role: string): ManagerWorkRole | null {
   if (role === "kitchen_manager" || role === "cleaning_manager") return role;
   return null;
+}
+
+function managerDepartmentClockRole(role: ManagerWorkRole): Extract<WorkRole, "kitchen" | "cleaning"> {
+  return role === "kitchen_manager" ? "kitchen" : "cleaning";
 }
 
 export function ManagerWorkModeCard() {
@@ -109,7 +115,20 @@ export function ManagerWorkModeCard() {
             endedAt,
             notes: note,
           });
+          // A manager may have started a department timer before the manager
+          // work-mode timer was added. Close both role names so one click
+          // cannot leave the shared kitchen/cleaning timer running behind an
+          // off manager flag. The shared timer constraint means at most one
+          // of these calls will find an open session.
           await endCurrentRoleClock({ companyId, userId, role: workRole, endedAt, note, reason: "manual" });
+          await endCurrentRoleClock({
+            companyId,
+            userId,
+            role: managerDepartmentClockRole(workRole),
+            endedAt,
+            note,
+            reason: "manual",
+          });
         } catch (error) {
           clockError = error;
         }
