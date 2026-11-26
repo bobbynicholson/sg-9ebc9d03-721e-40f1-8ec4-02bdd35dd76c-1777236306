@@ -3,11 +3,16 @@
   'use strict';
   window.__cmsTemplates = window.__cmsTemplates || {};
 
+  var SPIT_BRAAI_COMPANY = 'spit braai delivery';
+  var SPIT_BRAAI_SITE_BLUE = '#0E52F2';
+
   var CSS = [
     '.cms-form{padding:32px 32px 26px;max-width:var(--cms-form-max,760px);margin:0 auto;background:var(--brand-bg,#fff)}',
     '.cms-progress{display:flex;gap:8px;margin-bottom:10px}',
     '.cms-progress-step{flex:1;height:6px;background:#E2E8F0;border-radius:999px;position:relative;overflow:hidden;transition:background .25s}',
     '.cms-progress-step.is-done,.cms-progress-step.is-active{background:var(--brand-primary,#0F172A)}',
+    '.cms-form--spit-braai-blue::before{background:' + SPIT_BRAAI_SITE_BLUE + '}',
+    '.cms-form--spit-braai-blue .cms-input:focus-visible,.cms-form--spit-braai-blue .cms-select:focus-visible,.cms-form--spit-braai-blue .cms-textarea:focus-visible,.cms-form--spit-braai-blue .cms-btn:focus-visible{outline:2px solid ' + SPIT_BRAAI_SITE_BLUE + ';outline-offset:2px;box-shadow:0 0 0 2px #fff}',
     '.cms-step-labels{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:#94A3B8;margin:0 0 22px}',
     '.cms-step-labels span{display:inline-flex;align-items:center;gap:6px}',
     '.cms-step-labels span b{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#E2E8F0;color:#64748B;font-size:11px}',
@@ -59,6 +64,14 @@
     if (grouped.length === 0) { grouped.push([]); stepNames.push(DEFAULT_GROUPS[0].label); }
 
     var form = h.el('form', { class: 'cms-form', novalidate: 'novalidate' });
+    // Spit Braai Delivery's public site uses this blue for primary actions.
+    // Scope the brand override to its multi-step quote form so the tenant's
+    // company-wide theme and other customers' forms continue to inherit normally.
+    var companyName = String(brand && brand.companyName || '').trim().toLowerCase();
+    if (companyName === SPIT_BRAAI_COMPANY) {
+      form.classList.add('cms-form--spit-braai-blue');
+      form.style.setProperty('--brand-primary', SPIT_BRAAI_SITE_BLUE);
+    }
     var alert = h.el('div', { class: 'cms-alert', hidden: 'hidden', role: 'alert' });
     form.appendChild(alert);
     form.appendChild(h.buildHeader(brand, 'Event quote request'));
