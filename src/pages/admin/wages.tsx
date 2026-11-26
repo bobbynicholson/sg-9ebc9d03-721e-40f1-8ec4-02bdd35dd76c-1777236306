@@ -811,11 +811,11 @@ function WageDashboardContent({
     return () => { cancelled = true; };
   }, [companyId, department]);
 
-  // WAGE-A: realtime channel. Two surfaces this matters for: a
-  // staff clock-out mid-period (kitchen tablet) should refresh the
-  // owner's view; and a wage payment recorded elsewhere should
-  // refresh wage and payment records. Debounced because multiple
-  // clock events often arrive in rapid succession at shift boundary.
+  // WAGE-A: refresh the dashboard when either payroll clock changes.
+  // Kitchen tablet shifts live in kitchen_staff_shifts (the roster clock
+  // remains in kitchen_shifts), and driver clock-outs live in driver_shifts.
+  // Listen to both sources so this page does not keep showing stale hours
+  // until the owner manually refreshes. Debounce clustered clock events.
   useEffect(() => {
     if (!companyId) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -831,6 +831,8 @@ function WageDashboardContent({
     const channel = supabase
       .channel(`wages:${companyId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_shifts", filter: `company_id=eq.${companyId}` }, refetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_shifts", filter: `company_id=eq.${companyId}` }, refetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "driver_shifts", filter: `company_id=eq.${companyId}` }, refetch)
       .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_members", filter: `company_id=eq.${companyId}` }, refetch)
       .subscribe();
     return () => {
