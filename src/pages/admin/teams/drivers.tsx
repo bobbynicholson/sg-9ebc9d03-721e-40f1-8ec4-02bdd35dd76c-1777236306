@@ -62,6 +62,7 @@ import {
   CheckCircle2, ArrowRight, Flame, Wrench, Snowflake, RefreshCw, ChevronDown,
 } from "lucide-react";
 import { PageWorkbench, PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
+import { TeamManagerWorkspace } from "@/components/admin/TeamManagerWorkspace";
 
 function startOfWeek(): Date {
   const d = new Date();
@@ -504,6 +505,8 @@ function DriversTeamPage() {
             }
           />
           <PageWorkbench />
+
+          <TeamManagerWorkspace department="drivers" defaultRosterOpen showSummaryStats={false} defaultWorkspaceOpen />
 
           {/* Command-centre audit (2026-07-02): visible load-failure
               state with Retry. captureException alone left the cards

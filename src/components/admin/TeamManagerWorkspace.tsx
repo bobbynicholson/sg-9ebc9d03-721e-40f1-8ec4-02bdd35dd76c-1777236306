@@ -10,9 +10,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { StatTile } from "@/components/portal/ui";
-import { Activity, BookOpen, ChevronDown, Clock, Loader2, MessageSquare, Play, RefreshCw, Square, Users } from "lucide-react";
+import { Activity, BookOpen, ChevronDown, Clock, Loader2, MessageSquare, Play, RefreshCw, Square, Truck, Users } from "lucide-react";
 
-type Department = "kitchen" | "cleaning";
+type Department = "kitchen" | "cleaning" | "drivers";
 type TeamMember = {
   id: string;
   full_name: string | null;
@@ -57,7 +57,8 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
   const [clockOutNote, setClockOutNote] = useState("");
   const [workspaceOpen, setWorkspaceOpen] = useState(defaultWorkspaceOpen);
 
-  const teamName = department === "kitchen" ? "kitchen" : "cleaning";
+  const teamName = department === "kitchen" ? "kitchen" : department === "cleaning" ? "cleaning" : "driver";
+  const teamLabel = department === "kitchen" ? "Kitchen" : department === "cleaning" ? "Cleaning" : "Drivers";
   const sessionHeaders = useCallback(async (): Promise<Record<string, string>> => {
     const { data: sessionData } = await supabase.auth.getSession();
     return sessionData.session?.access_token
@@ -100,11 +101,20 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
       .channel(`team-manager:${department}:${companyId}:${Math.random().toString(36).slice(2, 8)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `company_id=eq.${companyId}` }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, refresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_members", filter: `company_id=eq.${companyId}` }, refresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_shifts", filter: `company_id=eq.${companyId}` }, refresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: department === "kitchen" ? "kitchen_duty_shifts" : "cleaning_duty_logs", filter: `company_id=eq.${companyId}` }, refresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "team_manager_notes", filter: `company_id=eq.${companyId}` }, refresh)
-      .subscribe();
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, refresh);
+    if (department === "drivers") {
+      // driver_shifts is a compatibility view; realtime events come from the
+      // kitchen_shifts base table used by the driver payroll clock.
+      channel.on("postgres_changes", { event: "*", schema: "public", table: "kitchen_shifts", filter: `company_id=eq.${companyId}` }, refresh);
+    } else {
+      const dutyTable = department === "kitchen" ? "kitchen_duty_shifts" : "cleaning_duty_logs";
+      channel
+        .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_members", filter: `company_id=eq.${companyId}` }, refresh)
+        .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_shifts", filter: `company_id=eq.${companyId}` }, refresh)
+        .on("postgres_changes", { event: "*", schema: "public", table: dutyTable, filter: `company_id=eq.${companyId}` }, refresh)
+        .on("postgres_changes", { event: "*", schema: "public", table: "team_manager_notes", filter: `company_id=eq.${companyId}` }, refresh);
+    }
+    channel.subscribe();
     return () => {
       if (refreshTimer) clearTimeout(refreshTimer);
       void supabase.removeChannel(channel);
@@ -129,7 +139,7 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || `Could not clock ${action === "clock_in" ? "in" : "out"}`);
-      toast({ title: action === "clock_in" ? "Team member clocked in" : "Team member clocked out", description: `${member.full_name || member.email || "The team member"} was updated and notified.` });
+      toast({ title: action === "clock_in" ? "Team member clocked in" : "Team member clocked out", description: `${member.full_name || member.email || "The team member"} is now ${action === "clock_in" ? "on duty" : "off duty"}.` });
       if (action === "clock_out") {
         setClockOutTarget(null);
         setClockOutNote("");
@@ -168,7 +178,7 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
       <div className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:mt-8 sm:px-4 sm:py-4 dark:border-slate-800 dark:bg-slate-900">
         <div className="min-w-0 flex-1">
           <p id={`${department}-manager-workspace`} className="text-sm font-semibold text-slate-900 dark:text-white">Live team controls</p>
-          <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{onDuty} on duty · Manage the roster and keep today&apos;s handover notes in one place.</p>
+          <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{onDuty} on duty · {department === "drivers" ? "Drivers can also clock themselves in or out from their portal." : "Manage the roster and keep today&apos;s handover notes in one place."}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button type="button" variant="outline" size="sm" aria-label="Refresh roster" title="Refresh roster" onClick={() => setTick((value) => value + 1)} disabled={loading || !!saving} className="h-10 w-10 gap-1.5 bg-white p-0 dark:bg-slate-900 sm:w-auto sm:px-3">
@@ -191,16 +201,16 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
       {showSummaryStats && <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1">
         <StatTile compact label="Team members" value={members.length} hint="On this team" icon={Users} />
         <StatTile compact label="On duty now" value={<span className="text-emerald-700 dark:text-emerald-400">{onDuty}</span>} hint="Clocked in right now" icon={Clock} />
-        <StatTile compact label="Diary notes" value={notes.length} hint="Handovers and issues" icon={BookOpen} />
+        {department !== "drivers" && <StatTile compact label="Diary notes" value={notes.length} hint="Handovers and issues" icon={BookOpen} />}
       </div>}
 
       <div className="grid grid-cols-1 gap-4">
         <Card collapsible defaultOpen={defaultRosterOpen} collapseLabel="Team roster">
-          <CardHeader className="pb-3"><CardTitle className="flex items-center justify-between gap-3 text-base"><span className="flex items-center gap-2"><Users className="h-4 w-4 text-brand-primary" /> {department === "kitchen" ? "Kitchen" : "Cleaning"} roster</span></CardTitle><CardDescription>{members.length} team members · {onDuty} on duty</CardDescription></CardHeader>
+          <CardHeader className="pb-3"><CardTitle className="flex items-center justify-between gap-3 text-base"><span className="flex items-center gap-2">{department === "drivers" ? <Truck className="h-4 w-4 text-brand-primary" /> : <Users className="h-4 w-4 text-brand-primary" />} {teamLabel} roster</span></CardTitle><CardDescription>{members.length} team members · {onDuty} on duty</CardDescription></CardHeader>
           <CardContent className="space-y-3">
-            {loading && members.length === 0 ? <div className="flex items-center justify-center py-10 text-sm text-slate-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading team members...</div> : members.length === 0 ? <div className="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">No active users are assigned to this team yet. Assign a {department}_staff or {department}_manager role from Users & roles.</div> : members.map((member) => {
+            {loading && members.length === 0 ? <div className="flex items-center justify-center py-10 text-sm text-slate-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading team members...</div> : members.length === 0 ? <div className="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">No active users are assigned to this team yet. Assign a {department === "drivers" ? "driver" : `${department}_staff or ${department}_manager`} role from Users & roles.</div> : members.map((member) => {
               const busy = saving === `clock_in:${member.id}` || saving === `clock_out:${member.id}`;
-              const managerMember = member.active_role === `${department}_manager` || member.role === `${department}_manager`;
+              const managerMember = department !== "drivers" && (member.active_role === `${department}_manager` || member.role === `${department}_manager`);
               return <div key={member.id} className="flex flex-col gap-3 rounded-xl border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-3"><div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${member.status.on_duty ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{initials(member)}</div><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{member.full_name || "Unnamed user"}</p><p className="truncate text-xs text-slate-500">{member.email || "No email"} · {roleLabel(member.active_role || member.role)}</p>{(() => {
                   // A clock-in older than 16 hours was almost certainly never
@@ -218,12 +228,8 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
                     <p className={`mt-1 flex items-center gap-1 text-xs ${member.status.on_duty ? "text-emerald-700" : "text-slate-500"}`}>{member.status.on_duty ? <><Activity className="h-3 w-3" /> On duty{member.status.started_at ? ` · ${elapsed(member.status.started_at)}` : ""}</> : <><Clock className="h-3 w-3" /> Off duty</>}</p>
                   );
                 })()}</div></div>
-                {member.directory_only ? (
-                  <Badge variant="outline" className="shrink-0 border-slate-200 bg-slate-50 text-slate-600">Clock-in only · use staff tablet</Badge>
-                ) : member.status.source === "kitchen_staff_shifts" ? (
-                  <Badge variant="outline" className="shrink-0 border-blue-200 bg-blue-50 text-blue-700">Clock out on staff tablet</Badge>
-                ) : managerMember ? (
-                  <span className="max-w-[220px] text-right text-xs text-slate-500">Manager work is tracked from the manager portal, not as a crew shift.</span>
+                {managerMember && !member.status.on_duty ? (
+                  <span className="max-w-[220px] text-right text-xs text-slate-500">Manager work is tracked from the manager portal.</span>
                 ) : (
                   <Button size="sm" variant={member.status.on_duty ? "destructive" : "default"} disabled={busy} onClick={() => void submitClock(member)} className="shrink-0 gap-2">{member.status.on_duty ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}{busy ? "Updating..." : member.status.on_duty ? "Clock out" : "Clock in"}</Button>
                 )}
@@ -232,7 +238,7 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
           </CardContent>
         </Card>
 
-        <Card collapsible defaultOpen={false} collapseLabel="Daily work diary">
+        {department !== "drivers" && <Card collapsible defaultOpen={false} collapseLabel="Daily work diary">
           <CardHeader className="pb-3"><CardTitle className="flex items-center justify-between gap-3 text-base"><span className="flex items-center gap-2"><BookOpen className="h-4 w-4 text-brand-primary" /> Daily work diary</span></CardTitle><CardDescription>Record completed work, issues and handovers. Unsaved notes stay here when collapsed.</CardDescription></CardHeader>
           <CardContent className="space-y-3">
             <p className="text-xs text-slate-500">Record completed work, handovers, issues, or follow-ups. Notes are stored for the {teamName} team.</p>
@@ -240,15 +246,15 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
             <Textarea value={noteBody} onChange={(event) => setNoteBody(event.target.value)} placeholder="Example: Deep-cleaned the prep area, checked chemical stock, and handed over the late return..." rows={5} maxLength={4000} />
             <div className="flex justify-end"><Button onClick={() => void saveNote()} disabled={saving === "note" || !noteBody.trim()} className="gap-2">{saving === "note" ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />} Save note</Button></div>
           </CardContent>
-        </Card>
+        </Card>}
       </div>
 
-      <Card collapsible defaultOpen={false} collapseLabel="Recent notes">
+      {department !== "drivers" && <Card collapsible defaultOpen={false} collapseLabel="Recent notes">
         <CardHeader className="pb-3"><CardTitle className="flex items-center justify-between gap-3 text-base"><span className="flex items-center gap-2"><MessageSquare className="h-4 w-4 text-brand-primary" /> Recent notes</span></CardTitle><CardDescription>{notes.length} recorded notes; the latest 12 are shown when expanded.</CardDescription></CardHeader>
         <CardContent>{notes.length === 0 ? <p className="py-5 text-center text-sm text-slate-500">No diary notes yet.</p> : <div className="space-y-3">{notes.slice(0, 12).map((note) => <div key={note.id} className="rounded-lg border border-slate-100 bg-slate-50/70 p-3"><div className="flex flex-wrap items-center gap-2 text-xs text-slate-500"><Badge variant="outline" className="capitalize">{note.member_name || "Whole team"}</Badge><span>{new Date(`${note.note_date}T12:00:00`).toLocaleDateString()}</span><span>by {note.author_name}</span></div><p className="mt-2 whitespace-pre-wrap text-sm text-slate-800">{note.body}</p></div>)}</div>}</CardContent>
-      </Card>
-      <p className="text-xs text-slate-500">Clock changes are saved to the live {department === "kitchen" ? "kitchen duty" : "cleaning duty"} record and the affected user receives an in-app notification.</p>
-      <a className="sr-only" href={withSlug(department === "kitchen" ? "/team-portal/kitchen/duty" : "/team-portal/cleaning/dashboard")}>Open {teamName} staff portal</a>
+      </Card>}
+      <p className="text-xs text-slate-500">{department === "drivers" ? "Clock changes update driver shifts and their pay totals. Drivers can also clock themselves in or out; managers can act for them from here." : "Clock changes update the department duty record and the affected user receives an in-app notification."}</p>
+      <a className="sr-only" href={withSlug(department === "kitchen" ? "/team-portal/kitchen/duty" : department === "cleaning" ? "/team-portal/cleaning/dashboard" : "/team-portal/driver/dashboard")}>Open {teamName} staff portal</a>
 
       </div>
       <Dialog open={!!clockOutTarget} onOpenChange={(open) => { if (!open && !saving) { setClockOutTarget(null); setClockOutNote(""); } }}>

@@ -492,10 +492,13 @@ export const kitchenStaffService = {
      *  Drives wages + analytics so a person who works both kitchen and
      *  cleaning can have their hours split per department. */
     department?: string;
+    /** Allows trusted server routes to use their company-scoped service client. */
+    client?: any;
   }): Promise<KitchenShift> {
+    const db = args.client || supabase;
     // Defensive check - RLS won't catch a duplicate open shift since both
     // are valid rows. The kitchen UI relies on this.
-    const { data: existing, error: existingErr } = await supabase
+    const { data: existing, error: existingErr } = await db
       .from("kitchen_staff_shifts")
       .select("id")
       .eq("company_id", args.companyId)
@@ -517,7 +520,7 @@ export const kitchenStaffService = {
       override_reason: args.manualOverride ? args.overrideReason || null : null,
       department: args.department || "kitchen",
     };
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("kitchen_staff_shifts")
       .insert([payload])
       .select()
@@ -538,8 +541,10 @@ export const kitchenStaffService = {
     manualOverride?: boolean;
     overrideReason?: string;
     notes?: string;
+    client?: any;
   }): Promise<KitchenShift> {
-    const { data: shift, error: gErr } = await supabase
+    const db = args.client || supabase;
+    const { data: shift, error: gErr } = await db
       .from("kitchen_staff_shifts")
       .select("*, staff:staff_member_id ( standard_hours_per_day, weekly_ordinary_hours )")
       .eq("id", args.shiftId)
@@ -566,7 +571,7 @@ export const kitchenStaffService = {
     // the same ISO week.
     const shiftStart = new Date(shift.shift_start);
     const dateStr = shiftStart.toISOString().slice(0, 10);
-    const { data: holidayRow, error: holidayRowErr } = await supabase
+    const { data: holidayRow, error: holidayRowErr } = await db
       .from("public_holidays")
       .select("id")
       .eq("date", dateStr)
@@ -577,7 +582,7 @@ export const kitchenStaffService = {
     const isPublicHoliday = !!holidayRow;
 
     const weekStart = isoWeekStart(shiftStart);
-    const { data: weekShifts, error: weekShiftsErr } = await supabase
+    const { data: weekShifts, error: weekShiftsErr } = await db
       .from("kitchen_staff_shifts")
       .select("standard_min, shift_start")
       .eq("staff_member_id", shift.staff_member_id)
@@ -616,14 +621,79 @@ export const kitchenStaffService = {
     }
     if (args.notes) patch.notes = args.notes;
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("kitchen_staff_shifts")
       .update(patch)
       .eq("id", args.shiftId)
+      .is("shift_end", null)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
+    if (!data) throw new Error("This kitchen shift has already been clocked out. Refresh the roster to see the latest status.");
     return data as KitchenShift;
+  },
+
+  /**
+   * Close a manager's own payroll shift when they turn off their manager
+   * work clock. Directory links are sometimes missing on older staff rows,
+   * so a unique same-company email match is used as a safe fallback.
+   */
+  async clockOutOpenShiftForProfile(args: {
+    companyId: string;
+    userId: string;
+    department: string;
+    clockedOutBy: string | null;
+    endedAt?: string;
+    notes?: string;
+    client?: any;
+  }): Promise<KitchenShift | null> {
+    const db = args.client || supabase;
+    const [{ data: profile, error: profileError }, { data: members, error: memberError }] = await Promise.all([
+      db.from("profiles").select("email").eq("id", args.userId).maybeSingle(),
+      db.from("kitchen_staff_members")
+        .select("id, linked_profile_id, email")
+        .eq("company_id", args.companyId)
+        .contains("departments", [args.department])
+        .is("deleted_at", null),
+    ]);
+    if (profileError) throw profileError;
+    if (memberError) throw memberError;
+
+    const rows = (members || []) as Array<{ id: string; linked_profile_id: string | null; email: string | null }>;
+    const linked = rows.filter((row) => row.linked_profile_id === args.userId);
+    const profileEmail = String(profile?.email || "").trim().toLowerCase();
+    const emailMatches = profileEmail
+      ? rows.filter((row) => String(row.email || "").trim().toLowerCase() === profileEmail)
+      : [];
+    const candidates = linked.length ? linked : emailMatches;
+    if (candidates.length > 1) {
+      throw new Error("This login matches multiple staff records. Link the correct staff profile before clocking out.");
+    }
+    const staffMemberId = candidates[0]?.id;
+    if (!staffMemberId) return null;
+
+    const { data: openShifts, error: shiftError } = await db.from("kitchen_staff_shifts")
+      .select("id")
+      .eq("company_id", args.companyId)
+      .eq("staff_member_id", staffMemberId)
+      .eq("department", args.department)
+      .is("shift_end", null)
+      .is("deleted_at", null)
+      .order("shift_start", { ascending: false })
+      .limit(2);
+    if (shiftError) throw shiftError;
+    if (!openShifts?.length) return null;
+    if (openShifts.length > 1) {
+      throw new Error("Multiple open staff shifts need review before this manager clock can close.");
+    }
+
+    return kitchenStaffService.clockOut({
+      shiftId: openShifts[0].id,
+      clockedOutBy: args.clockedOutBy,
+      overrideEndAt: args.endedAt,
+      notes: args.notes,
+      client: db,
+    });
   },
 
   /** Toggle break on an open shift. */
@@ -667,8 +737,10 @@ export const kitchenStaffService = {
     notes?: string;
     override_reason: string;
     edited_by: string | null;
+    client?: any;
   }): Promise<KitchenShift> {
-    const { data: shift, error: gErr } = await supabase
+    const db = args.client || supabase;
+    const { data: shift, error: gErr } = await db
       .from("kitchen_staff_shifts")
       .select("*, staff:staff_member_id ( standard_hours_per_day, weekly_ordinary_hours )")
       .eq("id", args.shiftId)
@@ -706,7 +778,7 @@ export const kitchenStaffService = {
       const weeklyHours = Number((shift as any).staff?.weekly_ordinary_hours ?? 45);
       const shiftStart = new Date(newStart);
       const dateStr = shiftStart.toISOString().slice(0, 10);
-      const { data: holidayRow, error: holidayRowErr } = await supabase
+      const { data: holidayRow, error: holidayRowErr } = await db
         .from("public_holidays")
         .select("id")
         .eq("date", dateStr)
@@ -717,7 +789,7 @@ export const kitchenStaffService = {
       const isPublicHoliday = !!holidayRow;
 
       const weekStart = isoWeekStart(shiftStart);
-      const { data: weekShifts, error: weekShiftsErr } = await supabase
+      const { data: weekShifts, error: weekShiftsErr } = await db
         .from("kitchen_staff_shifts")
         .select("standard_min, shift_start")
         .eq("staff_member_id", (shift as any).staff_member_id)
@@ -749,7 +821,7 @@ export const kitchenStaffService = {
       patch.sunday_holiday_min = null;
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("kitchen_staff_shifts")
       .update(patch)
       .eq("id", args.shiftId)

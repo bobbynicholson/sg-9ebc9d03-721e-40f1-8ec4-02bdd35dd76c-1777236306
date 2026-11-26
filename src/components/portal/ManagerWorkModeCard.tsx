@@ -21,6 +21,7 @@ import {
   isManagerWorkingNow,
 } from "@/services/managerWorkModeService";
 import { notificationService } from "@/services/notificationService";
+import { kitchenStaffService } from "@/services/kitchenStaffService";
 import {
   beginRoleClock,
   endCurrentRoleClock,
@@ -92,11 +93,23 @@ export function ManagerWorkModeCard() {
       } else if (!next && workRole) {
         try {
           const roleLabel = workRole.replace("_", " ");
+          const endedAt = new Date().toISOString();
           const note = await promptForWorkNote(
             `What did you complete as ${roleLabel} before clocking out?`,
             `Manual ${roleLabel} clock-out; no additional note supplied.`,
           );
-          await endCurrentRoleClock({ companyId, userId, role: workRole, note, reason: "manual" });
+          // Managers who also have a staff-directory pay record need both
+          // clocks closed. Their manager role session alone does not end the
+          // kitchen_staff_shifts row used by wages.
+          await kitchenStaffService.clockOutOpenShiftForProfile({
+            companyId,
+            userId,
+            department: workRole === "kitchen_manager" ? "kitchen" : "cleaning",
+            clockedOutBy: userId,
+            endedAt,
+            notes: note,
+          });
+          await endCurrentRoleClock({ companyId, userId, role: workRole, endedAt, note, reason: "manual" });
         } catch (error) {
           clockError = error;
         }

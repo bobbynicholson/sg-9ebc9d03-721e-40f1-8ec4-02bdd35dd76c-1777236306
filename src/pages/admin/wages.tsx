@@ -812,10 +812,9 @@ function WageDashboardContent({
   }, [companyId, department]);
 
   // WAGE-A: refresh the dashboard when either payroll clock changes.
-  // Kitchen tablet shifts live in kitchen_staff_shifts (the roster clock
-  // remains in kitchen_shifts), and driver clock-outs live in driver_shifts.
-  // Listen to both sources so this page does not keep showing stale hours
-  // until the owner manually refreshes. Debounce clustered clock events.
+  // Kitchen tablet shifts live in kitchen_staff_shifts. Driver shifts are a
+  // compatibility view over kitchen_shifts, which is already subscribed to
+  // here. Debounce clustered clock events.
   useEffect(() => {
     if (!companyId) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -832,7 +831,6 @@ function WageDashboardContent({
       .channel(`wages:${companyId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_shifts", filter: `company_id=eq.${companyId}` }, refetch)
       .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_shifts", filter: `company_id=eq.${companyId}` }, refetch)
-      .on("postgres_changes", { event: "*", schema: "public", table: "driver_shifts", filter: `company_id=eq.${companyId}` }, refetch)
       .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_members", filter: `company_id=eq.${companyId}` }, refetch)
       .subscribe();
     return () => {
